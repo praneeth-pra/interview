@@ -6,7 +6,10 @@ const NTFY_SERVER = (Bun.env.NTFY_SERVER ?? "https://ntfy.sh").replace(/\/+$/, "
 const POLL_MS = Math.max(15, Number(Bun.env.POLL_SECONDS ?? 30) || 30) * 1000;
 const PORT = Number(Bun.env.PORT ?? 3000);
 const API = "https://api.calendly.com";
-const DAYS_BACK = 42;
+// Wide enough that a candidate who's gone quiet stays searchable in the
+// analytics picker for a good while, not just until they age out of a
+// short window (Calendar still only ever shows the current week).
+const DAYS_BACK = 120;
 const DAYS_AHEAD = 60;
 const MAX_CLIENTS = 50;
 
@@ -1153,9 +1156,9 @@ function similar(a,b){
   var ja=sa.replace(/ /g,""),jb=sb.replace(/ /g,"");
   if(ja===jb)return true;
   var mn=Math.min(ja.length,jb.length),mx=Math.max(ja.length,jb.length);
-  if(mn>=4&&osa(ja,jb)<=(mx<=7?1:2))return true;
+  if(mn>=3&&osa(ja,jb)<=(mx<=7?1:2))return true;
   var ta=sa.split(" "),tb=sb.split(" "),sh=ta.length<=tb.length?ta:tb,lg=sh===ta?tb:ta;
-  if(sh.join("").length>=4&&sh.length<lg.length){for(var i=0;i<sh.length;i++){if(lg[i]!==sh[i])return false;}return true;}
+  if(sh.join("").length>=3&&sh.length<lg.length){for(var i=0;i<sh.length;i++){if(lg[i]!==sh[i])return false;}return true;}
   return false;
 }
 function dupes(rows){
@@ -1185,7 +1188,7 @@ function progress(evs){
   var rows=keys.map(function(k){
     var g=groups[k],act=[],drop=[],moved=[];
     g.evs.forEach(function(e){if(e.status!=="canceled")act.push(e);else if(e.rescheduled)moved.push(e);else drop.push(e);});
-    var pool=act.length?act:(drop.length?drop:moved);
+    var pool=act.length?act:drop.concat(moved);
     var ranked=pool.every(function(e){return roundRank(e.round)!==null;});
     var sorted=pool.slice().sort(function(a,b){
       if(ranked){var d=roundRank(a.round)-roundRank(b.round);if(d)return d;}
