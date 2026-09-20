@@ -15,5 +15,5 @@ A Bun/TypeScript HTTP server that polls the Calendly API for upcoming/past event
 ## Run locally
 
 ```bash
-bun run index.ts
+bun run index.tsx
 ```
