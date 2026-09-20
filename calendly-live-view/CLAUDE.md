@@ -85,6 +85,11 @@ Production is a Railway Function. Until now the whole `index.tsx` was pasted in 
 
 Always run `npm test` first. After a deploy, read the logs for `calendly-live-view listening on ...`.
 
+**Standing instruction from the user (2026-09-20): whenever `index.tsx` is pushed to this GitHub repo, also push the same code live to Railway via `update-function-source-code` in parallel — don't leave GitHub and Railway out of sync.** Project IDs for that call:
+- projectId: `e80f5c2b-dc18-4aa2-a939-64168613dbd2`
+- serviceId: `96b024d3-3052-4ac9-8bf5-be8da7c3e2c9`
+- environmentId (production): `e2e26981-df14-4ec6-9977-928de9b2fb7c`
+
 ## Roadmap (agreed direction, nothing below is built)
 
 1. **Lock the dashboard** (password or secret link). Prerequisite for everything that writes.
