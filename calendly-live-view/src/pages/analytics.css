@@ -2564,3 +2564,267 @@ button:active:not(:disabled) {
     display: inline;
   }
 }
+/* ---- Phones: grouped lists, like the Calendly and Apple Calendar apps ----
+   A contact-card header, one stats card, and "inset grouped" lists: a small grey section title, then a rounded
+   group of rows with hairline dividers, a coloured initial on the left and the status plus a chevron on the right. */
+@media (max-width: 700px) {
+  /* contact-card header */
+  #an > .row:first-child {
+    flex-direction: column;
+    flex-wrap: nowrap !important;
+    align-items: stretch !important;
+    gap: 14px;
+    padding: 8px 0 0 !important;
+    background: none !important;
+  }
+  .who {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 10px;
+  }
+  .who .av {
+    width: 76px;
+    height: 76px;
+    font-size: 30px;
+  }
+  .aname {
+    font-size: 24px;
+  }
+  #asub {
+    margin-top: 2px;
+  }
+  .hbtns {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    width: 100% !important;
+    gap: 10px;
+  }
+  .hbtns button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    width: auto;
+    height: 62px;
+    border-radius: 14px !important;
+    background: var(--c) !important;
+    color: var(--m) !important;
+    font-size: 12.5px;
+    font-weight: 600;
+    box-shadow: none;
+  }
+  .hbtns button span {
+    display: block;
+  }
+  .hbtns svg {
+    width: 22px;
+    height: 22px;
+  }
+  /* one stats card: the headline number, then the other counts in columns */
+  .sumline {
+    margin-top: 16px !important;
+    padding: 0 !important;
+    gap: 0 !important;
+    border-radius: 16px !important;
+    background: var(--c) !important;
+    overflow: hidden;
+  }
+  .sumline .st {
+    background: none !important;
+    border-radius: 0;
+    padding: 12px 14px;
+  }
+  .sumline .st:first-child {
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--d);
+  }
+  .sumline .st:not(:first-child) + .st:not(.zero) {
+    border-left: 1px solid var(--d);
+  }
+  .sumline .st:not(:first-child) b {
+    font-size: 19px;
+  }
+  /* sections: grey title outside, rounded group inside */
+  #cProg,
+  #cIns {
+    background: none !important;
+    padding: 0 !important;
+    margin-top: 26px !important;
+  }
+  #cProg .chead,
+  #cIns .chead {
+    margin: 0 0 8px;
+    padding: 0 16px;
+  }
+  #cProg .chead b,
+  #cIns .chead b {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--a);
+  }
+  #cProg #cs {
+    margin-top: 8px;
+  }
+  .mhead {
+    margin: 22px 16px 8px;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--a);
+  }
+  .mhead[hidden],
+  .mgroup[hidden] {
+    display: none;
+  }
+  .mco {
+    display: block;
+  }
+  .mgroup {
+    border-radius: 16px;
+    background: var(--c);
+    overflow: hidden;
+  }
+  .mrow {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    min-height: 64px;
+    padding: 10px 34px 10px 14px;
+    position: relative;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    box-shadow: none;
+    color: var(--k);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .mrow + .mrow:before,
+  .mgroup .mmore:before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 64px;
+    right: 0;
+    border-top: 1px solid var(--d);
+  }
+  .mrow:after {
+    content: "";
+    position: absolute;
+    right: 16px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin-top: -4px;
+    border-right: 2px solid var(--q);
+    border-top: 2px solid var(--q);
+    transform: rotate(45deg);
+  }
+  .mrow:active {
+    background: var(--d);
+  }
+  .mic {
+    display: grid;
+    place-items: center;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    background: color-mix(in srgb, var(--tone) 18%, transparent);
+    color: var(--k);
+    font-size: 16px;
+    font-weight: 700;
+  }
+  .mrow.tone-wait .mic {
+    background: var(--d);
+  }
+  .mtx {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    gap: 2px;
+  }
+  .mtx b {
+    font-size: 16px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .msub {
+    font-size: 13px;
+    color: var(--a);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .mst {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--a);
+    white-space: nowrap;
+  }
+  .mrow.tone-ok .mst {
+    color: var(--j);
+  }
+  .mrow.tone-up .mst {
+    color: var(--m);
+  }
+  .mrow.tone-warn .mst {
+    color: var(--h);
+  }
+  .mrow.tone-ns .mst {
+    color: var(--g);
+  }
+  .mmore {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 50px;
+    margin: 0;
+    padding: 0 16px 0 64px;
+    border: 0;
+    border-radius: 0;
+    background: none;
+    color: var(--m);
+    font: inherit;
+    font-size: 15px;
+    font-weight: 500;
+    text-align: left;
+    cursor: pointer;
+  }
+  /* insights: one group with a disclosure row per block */
+  .icols {
+    display: block !important;
+    border-radius: 16px;
+    background: var(--c);
+    overflow: hidden;
+  }
+  .icols > div {
+    border-radius: 0 !important;
+    background: none !important;
+    padding: 0 16px !important;
+  }
+  .icols > div + div {
+    border-top: 1px solid var(--d);
+  }
+  .iblock > .ksec {
+    min-height: 52px;
+    font-size: 16px !important;
+    font-weight: 500 !important;
+  }
+  .iblock.open {
+    padding-bottom: 12px !important;
+  }
+  .iblock > .ksec:after {
+    border-color: var(--q);
+  }
+}
