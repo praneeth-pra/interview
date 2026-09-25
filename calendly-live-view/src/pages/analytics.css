@@ -2003,3 +2003,25 @@ body {
     text-align: left;
   }
 }
+/* Native-app feel: no grey tap flash, press feedback, and the person view fades in when picked */
+button,
+a,
+[role="button"],
+.rrow {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+button {
+  transition:
+    background-color 0.12s,
+    transform 0.12s;
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.rrow:active {
+  background: var(--d);
+}
+#an:not([hidden]) {
+  animation: fadein 0.25s ease backwards;
+}

@@ -587,7 +587,16 @@ function renderAgenda() {
     });
     box.appendChild(list);
   }
+  // On a phone, the first time the agenda shows today (and after "Today"), bring today's bookings into view.
+  var todayHead = box.querySelector(".ag-h.today");
+  if (!agendaScrolled && todayHead && box.offsetParent && matchMedia("(max-width:760px)").matches) {
+    agendaScrolled = true;
+    if (todayHead.getBoundingClientRect().top > innerHeight * 0.55) {
+      todayHead.scrollIntoView({ block: "start", behavior: "smooth" });
+    }
+  }
 }
+var agendaScrolled = false;
 function render() {
   weekOf ||= weekStart(selectedDay || dayKeyOf(new Date()));
   renderStatus();
@@ -1706,7 +1715,33 @@ byId("next").onclick = function () {
   selectedDay = null;
   render();
 };
+// Swipe the agenda sideways to move a week, like paging in a calendar app.
+(function () {
+  var box = byId("agenda");
+  var startX = 0;
+  var startY = 0;
+  box.addEventListener(
+    "touchstart",
+    function (event) {
+      startX = event.touches[0].clientX;
+      startY = event.touches[0].clientY;
+    },
+    { passive: true },
+  );
+  box.addEventListener("touchend", function (event) {
+    var dx = event.changedTouches[0].clientX - startX;
+    var dy = event.changedTouches[0].clientY - startY;
+    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) {
+      return;
+    }
+    byId(dx < 0 ? "next" : "prev").click();
+    box.classList.remove("swipe-next", "swipe-prev");
+    void box.offsetWidth;
+    box.classList.add(dx < 0 ? "swipe-next" : "swipe-prev");
+  });
+})();
 byId("today").onclick = function () {
+  agendaScrolled = false;
   selectedDay = dayKeyOf(new Date());
   weekOf = weekStart(selectedDay);
   byId("week").textContent = "";
