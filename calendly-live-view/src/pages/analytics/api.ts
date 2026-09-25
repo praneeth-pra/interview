@@ -7,6 +7,7 @@ type Data = {
   bookings: any[]; // all bookings, as /admin/api/bookings sends them
   iv: { names: string[]; assign: Record<string, string> };
   results: Record<string, { results: Record<string, string>; updated?: string }>; // saved results, by person key
+  joins: Record<string, string>; // company names combined by "Same company as…": lower-cased name → the name it joins
   persistent: boolean;
   resFailed: boolean;
 };
@@ -49,6 +50,7 @@ function loadData(force?: boolean): Promise<Data> {
             assign: {},
           },
           results: (json[2] && json[2].people) || {},
+          joins: (json[2] && json[2].joins) || {},
           persistent: !json[2] || json[2].persistent !== false,
           resFailed: !json[2] || !json[2].people,
         };
@@ -473,6 +475,7 @@ function resultsFor(data: Data, id, merge, put) {
       200,
       {
         results: mergedResults(data.results, keys, ownKey),
+        joins: data.joins,
         persistent: data.persistent,
         locked: false,
         failed: data.resFailed,
@@ -552,6 +555,58 @@ function resultsFor(data: Data, id, merge, put) {
       },
     );
 }
+// PUT /api/joins {from, to}: says company "from" is the same as "to" for every candidate (to "" separates it again).
+function saveJoin(data: Data, put) {
+  return window
+    .fetch("/admin/api/company-joins", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ from: String(put.from || ""), to: String(put.to || "") }),
+    })
+    .then(function (response) {
+      if (response.status === 401) {
+        (parent || window).location.reload();
+        throw new Error("auth");
+      }
+      return response.json().then(function (json) {
+        if (!response.ok) {
+          return [500, { error: (json && json.error) || "Couldn't save. Try again." }];
+        }
+        data.joins = json.joins || {};
+        return [200, { joins: data.joins }];
+      });
+    })
+    .catch(function () {
+      return [500, { error: "Couldn't save. Check your connection and try again." }];
+    });
+}
+// Known company names and their other names ("TCS" and "Tata Consultancy Services"), as the booking form suggests them.
+var knownLoading: Promise<string[][]> | null = null;
+function knownCompanies(): Promise<string[][]> {
+  if (!knownLoading) {
+    knownLoading = window
+      .fetch("/api/companies")
+      .then(function (response) {
+        return response.ok ? response.json() : { companies: [] };
+      })
+      .then(function (json) {
+        return (json.companies || [])
+          .filter(function (company) {
+            return company && company.a && company.a.length;
+          })
+          .map(function (company) {
+            return [company.n].concat(company.a);
+          });
+      })
+      .catch(function () {
+        knownLoading = null;
+        return [];
+      });
+  }
+  return knownLoading;
+}
 function api(url: string, opt?: RequestInit): Promise<Response> {
   var parsed = new URL(String(url), "http://local.invalid");
   var path = parsed.pathname;
@@ -579,6 +634,8 @@ function api(url: string, opt?: RequestInit): Promise<Response> {
       answer = analyticsFor(data, eventId, combine);
     } else if (path === "/api/person") {
       answer = interviewsFor(data, eventId, combine);
+    } else if (path === "/api/joins" && put) {
+      answer = saveJoin(data, JSON.parse((opt.body as string) || "{}"));
     } else if (path === "/api/results") {
       answer = resultsFor(data, eventId, combine, put ? JSON.parse((opt.body as string) || "{}") : null);
     } else {
@@ -600,4 +657,4 @@ function api(url: string, opt?: RequestInit): Promise<Response> {
   });
 }
 
-export { api };
+export { api, knownCompanies };

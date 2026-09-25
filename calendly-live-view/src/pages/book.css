@@ -1015,3 +1015,44 @@ textarea:focus {
 #fround-other {
   margin-top: 8px;
 }
+/* "Same company as before?" buttons for a returning candidate */
+.prevco {
+  margin-bottom: 18px;
+}
+.prevco-h {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.prevco-l {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pcb {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--blue-t2);
+  border-radius: 999px;
+  background: var(--blue-t);
+  color: var(--link);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.pcb:hover {
+  border-color: var(--blue);
+}
+.pcb[aria-pressed="true"] {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}

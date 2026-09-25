@@ -2,7 +2,7 @@
 // they interviewed with, how far each got, a timeline per company, and insights. Results (cleared, offer...) are saved
 // through api(). Sections, in order: DOM and date helpers, the side panel (interviews of a person, who took an
 // interview), the people picker, company progress (progress()), then rendering of the analysis.
-import { api } from "./api";
+import { api, knownCompanies } from "./api";
 import { dupes, sameCompany, simKey } from "./companies";
 import { bucketOf, roundKey, roundRank, roundShort } from "./rounds";
 
@@ -806,8 +806,38 @@ var OV_CHOICES = [
   ["withdrew", "Candidate withdrew"],
 ];
 var results = {};
-var joined = {};
+var savedJoins = {}; // company names combined with "Same company as…", for every candidate: lower-cased name → name it joins
+var knownIndex = {}; // compact known company name or alias → its entry, so "TCS" and "Tata Consultancy Services" match
 var auto = {};
+knownCompanies().then((known) => {
+  knownIndex = {};
+  known.forEach((names, index) => {
+    names.forEach((name) => {
+      var key = compactName(name);
+      if (key && knownIndex[key] === undefined) {
+        knownIndex[key] = index;
+      }
+    });
+  });
+  if (data && known.length) {
+    renderAnalysis();
+  }
+});
+function compactName(name) {
+  return String(name).toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+function sameKnown(first, second) {
+  var entry = knownIndex[compactName(first)];
+  return entry !== undefined && entry === knownIndex[compactName(second)];
+}
+// Every name a saved join leads to from this one ("tcs" → "tata consultancy" → "tata consultancy services").
+function joinTargets(name) {
+  var found = [];
+  for (var next = savedJoins[name]; next && found.indexOf(next) < 0 && found.length < 20; next = savedJoins[next]) {
+    found.push(next);
+  }
+  return found;
+}
 function dayNum(day) {
   return Date.parse(day + "T00:00:00Z") / DAY;
 }
@@ -872,11 +902,7 @@ function relDay(time, now) {
   }
 }
 function canon(key) {
-  key = auto[key] || key;
-  for (var hops = 0; joined[key] && hops++ < 10;) {
-    key = joined[key];
-  }
-  return key;
+  return auto[key] || key;
 }
 function buildAuto(events) {
   var i;
@@ -911,7 +937,12 @@ function buildAuto(events) {
   i = 0;
   for (; i < names.length; i++) {
     for (j = i + 1; j < names.length; j++) {
-      if (sameCompany(names[i], names[j])) {
+      if (
+        sameCompany(names[i], names[j]) ||
+        sameKnown(names[i], names[j]) ||
+        joinTargets(names[i]).indexOf(names[j]) >= 0 ||
+        joinTargets(names[j]).indexOf(names[i]) >= 0
+      ) {
         var rootA = rootOf(names[i]);
         var rootB = rootOf(names[j]);
         if (rootA !== rootB) {
@@ -1274,7 +1305,6 @@ function showSkeleton() {
 function loadAnalytics(eventId) {
   var requestId = ++loadSeq;
   data = null;
-  joined = {};
   results = {};
   insightArgs = null;
   byId("empty").hidden = true;
@@ -1305,6 +1335,7 @@ function loadAnalytics(eventId) {
         }
         data = reply.j;
         results = replies[1].results || {};
+        savedJoins = replies[1].joins || {};
         resultsInfo = replies[1];
         if (chosen) {
           chosen.name ||= data.name;
@@ -1639,15 +1670,75 @@ function renderAttention(rows, events, now, progressInfo) {
     .slice(0, 3)
     .forEach((pair) => {
       var dupCard = notice("Possible duplicate company", [pair.an + " and " + pair.bn + " look like the same company."], "warn");
-      var button = el("button", null, "Combine in this view");
-      button.title = "Only for this page view. It is not saved.";
+      var button = el("button", null, "Combine");
+      button.title = "Saved: " + pair.bn + " will count as " + pair.an + " for every candidate.";
       button.addEventListener("click", () => {
-        joined[pair.b] = pair.a;
-        renderAnalysis();
+        button.disabled = true;
+        saveJoin(pair.b, pair.a, dupCard, () => {
+          button.disabled = false;
+        });
       });
       dupCard.appendChild(button);
     });
   box.style.display = shown ? "" : "none";
+}
+// Saves "company from is the same as company to" (to "" separates it again) for every candidate, then redraws.
+function saveJoin(from: string, to: string, msgBox: HTMLElement, onFailed?: () => void) {
+  var msg = msgBox.querySelector<HTMLElement>(".jmsg") || div("sub jmsg", "");
+  msg.setAttribute("role", "status");
+  msgBox.appendChild(msg);
+  sendPut(
+    "/api/joins",
+    { from: from, to: to },
+    msg,
+    false,
+    (info) => {
+      savedJoins = info.joins || {};
+      renderAnalysis();
+    },
+    onFailed,
+  );
+}
+// "Same company as…" under a company's name: combine it with another row, or separate a name combined into it earlier.
+function sameCompanyMenu(row, rows) {
+  var others = rows.filter((other) => other.key !== row.key);
+  var joinedHere = row.rawKeys.filter((name, index, all) => savedJoins[name] && all.indexOf(name) === index);
+  if (!others.length && !joinedHere.length) {
+    return null;
+  }
+  var select = el("select", "samesel");
+  select.setAttribute("aria-label", "Same company as another row");
+  function option(value, text) {
+    var item = el("option", null, text);
+    item.value = value;
+    select.appendChild(item);
+  }
+  option("", "Same company as…");
+  others.forEach((other) => {
+    option("j:" + other.key, other.name);
+  });
+  joinedHere.forEach((name) => {
+    var typed = row.aliases.concat([row.name]).find((alias) => alias.toLowerCase() === name) || niceName(name);
+    option("s:" + name, "Separate “" + typed + "” again");
+  });
+  var box = div("samebox");
+  select.addEventListener("change", () => {
+    var value = select.value;
+    select.disabled = true;
+    var reset = () => {
+      select.disabled = false;
+      select.value = "";
+    };
+    if (value.slice(0, 2) === "j:") {
+      saveJoin(row.key, value.slice(2), box, reset);
+    } else if (value.slice(0, 2) === "s:") {
+      saveJoin(value.slice(2), "", box, reset);
+    } else {
+      reset();
+    }
+  });
+  box.appendChild(select);
+  return box;
 }
 function renderCompanies(rows, now) {
   var gridBox = byId("cgrid");
@@ -1700,6 +1791,10 @@ function renderCompanies(rows, now) {
       companyCell.appendChild(div("sub", row.count + (row.count === 1 ? " interview" : " interviews")));
       if (row.aliases.length) {
         companyCell.appendChild(div("sub", "Also entered as: " + row.aliases.join(", ")));
+      }
+      var menu = sameCompanyMenu(row, rows);
+      if (menu) {
+        companyCell.appendChild(menu);
       }
       var stageCell = el("div");
       stageCell.setAttribute("data-l", "Current stage");

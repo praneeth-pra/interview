@@ -4,6 +4,7 @@ import { mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { asset, assetList, compressed, encode, readData, respond, template } from "./assets";
 import { deflateSync } from "node:zlib";
+import { sameCompany } from "./pages/analytics/companies";
 const KNOWN_COMPANIES: string[] = JSON.parse(readData("companies.json"));
 const ICON = encode(readFileSync(join(import.meta.dir, "../public/icon.png")), "image/png");
 for (const a of assetList()) console.log("asset " + a.url + " (" + a.raw + " bytes, " + a.br + " compressed)");
@@ -82,9 +83,19 @@ const out: Record<string, string> = {};
 for (const [c, r] of Object.entries(v ?? {})) if (c && c.length <= 120 && typeof r === "string" && RESULT_VALUES.has(r)) out[c] = r;
 return out;
 }
-const resultsStore = fileStore<{ people: Record<string, PersonResults> }>(
+// Company names an admin said are the same company (analytics "Same company as…"): lower-cased name → name it joins.
+function normJoins(v: any): Record<string, string> {
+const out: Record<string, string> = {};
+for (const [from, to] of Object.entries(v ?? {})) {
+const f = from.trim().toLowerCase();
+const t = typeof to === "string" ? to.trim().toLowerCase() : "";
+if (f && t && f !== t && f.length <= 120 && t.length <= 120) out[f] = t;
+}
+return out;
+}
+const resultsStore = fileStore<{ people: Record<string, PersonResults>; joins: Record<string, string> }>(
 "results.json",
-() => ({ people: {} }),
+() => ({ people: {}, joins: {} }),
 (x) => {
 const people: Record<string, PersonResults> = {};
 for (const [k, v] of Object.entries(x?.people ?? {})) {
@@ -92,7 +103,7 @@ if (!k || k.length > 200) continue;
 const results = normResults((v as any)?.results);
 if (Object.keys(results).length) people[k] = { results, updated: String((v as any)?.updated ?? "") };
 }
-return { people };
+return { people, joins: normJoins(x?.joins) };
 },
 );
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -759,6 +770,30 @@ return false;
 }
 }
 const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
+// Known company names and aliases ("TCS" and "Tata Consultancy Services"), keyed by compact(), to the name's line in companies.json.
+const KNOWN_BY_KEY = new Map<string, number>();
+KNOWN_COMPANIES.forEach((line, index) => {
+for (const name of line.split("|")) if (!KNOWN_BY_KEY.has(compact(name))) KNOWN_BY_KEY.set(compact(name), index);
+});
+// A candidate's later rounds keep the company name they gave before, so analytics sees one company: when the new name is
+// a near-spelling of an earlier one ("Infosis" after "Infosys") or another name of the same known company ("TCS" after
+// "Tata Consultancy Services"), the earlier spelling is saved. A known name is never replaced by an unknown spelling.
+function earlierSpelling(email: string, company: string): string {
+if (!company) return company;
+const key = compact(company);
+const known = KNOWN_BY_KEY.get(key);
+const earlier = bookingsStore.data.bookings
+.filter((b) => b.email.toLowerCase() === email.toLowerCase() && String(b.company ?? "").trim())
+.sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+.map((b) => String(b.company).trim());
+if (earlier.includes(company)) return company;
+for (const prev of earlier) {
+const prevKnown = KNOWN_BY_KEY.get(compact(prev));
+if (known !== undefined && prevKnown === undefined) continue;
+if (compact(prev) === key || (known !== undefined && prevKnown === known) || sameCompany(prev, company)) return prev;
+}
+return company;
+}
 async function createBooking(body: any, req: Request, source?: "admin"): Promise<Response> {
 const name = String(body?.name ?? "").trim().slice(0, 120);
 const email = String(body?.email ?? "").trim().slice(0, 200);
@@ -777,7 +812,7 @@ const endMs = startMs + duration * 60000;
 if (!slotOk(startMs, duration) || overlapsExisting(startMs, endMs) || (!source && startMs >= bookingLimitMs()))
 return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
 const booking: Booking = {
-id: crypto.randomUUID(), name, email, company, round,
+id: crypto.randomUUID(), name, email, company: earlierSpelling(email, company), round,
 start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString(), duration,
 createdAt: new Date().toISOString(), cancelled: false, cancelledAt: "",
 ...(source ? { source } : {}),
@@ -793,7 +828,7 @@ broadcastState();
 const base = baseUrl(req);
 notifyBooked(booking, base);
 if (!source) alertAdmins("booked", booking);
-return json({ booking: { id: booking.id, name, email, start: booking.start, end: booking.end, duration, manage: manageUrl(base, booking) }, emailed: !!RESEND_API_KEY });
+return json({ booking: { id: booking.id, name, email, company: booking.company, round, start: booking.start, end: booking.end, duration, manage: manageUrl(base, booking) }, emailed: !!RESEND_API_KEY });
 }
 async function moveBooking(b: Booking, startMs: number, duration: number, by: "candidate" | "host", req: Request): Promise<Response> {
 if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
@@ -1060,7 +1095,7 @@ return json(pushView());
 if (path === "/admin/api/bookings" && method === "GET")
 return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
 if (path === "/admin/api/results") {
-if (method === "GET") return json({ people: resultsStore.data.people, persistent: resultsStore.ok });
+if (method === "GET") return json({ people: resultsStore.data.people, joins: resultsStore.data.joins, persistent: resultsStore.ok });
 if (method !== "POST") return json({ error: "Method not allowed." }, 405);
 const body = await readJson(req, 60000);
 if (body instanceof Response) return body;
@@ -1088,7 +1123,33 @@ await saveStore(resultsStore);
 resultsStore.data = JSON.parse(prev);
 return json({ error: "Couldn't save the change. Try again." }, 500);
 }
-return json({ people: resultsStore.data.people, persistent: resultsStore.ok });
+return json({ people: resultsStore.data.people, joins: resultsStore.data.joins, persistent: resultsStore.ok });
+}
+// Join one company name to another (to: "" separates it again). Names are compared lower-cased.
+if (path === "/admin/api/company-joins" && method === "POST") {
+const body = await readJson(req, 4000);
+if (body instanceof Response) return body;
+const from = String(body?.from ?? "").trim().toLowerCase();
+const to = String(body?.to ?? "").trim().toLowerCase();
+if (!from || from === to || from.length > 120 || to.length > 120) return json({ error: "Bad request." }, 400);
+const joins = resultsStore.data.joins;
+const prev = JSON.stringify(joins);
+if (to) {
+// joining A to B when B already leads back to A would make a loop: they're combined already
+for (let k = to, hops = 0; joins[k] && hops < 50; hops++) if ((k = joins[k]) === from) return json({ joins, persistent: resultsStore.ok });
+joins[from] = to;
+} else delete joins[from];
+if (Object.keys(joins).length > 5000) {
+resultsStore.data.joins = JSON.parse(prev);
+return json({ error: "Too many combined companies." }, 400);
+}
+try {
+await saveStore(resultsStore);
+} catch {
+resultsStore.data.joins = JSON.parse(prev);
+return json({ error: "Couldn't save the change. Try again." }, 500);
+}
+return json({ joins: resultsStore.data.joins, persistent: resultsStore.ok });
 }
 if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
 if (path === "/admin/backup.json" && method === "GET")

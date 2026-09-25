@@ -82,6 +82,13 @@ var state: State = {
   busy: false,
 };
 var card = document.getElementById("card");
+var ME_KEY = "bk.me";
+// A returning candidate on the same device: start with the email and name they booked with last time.
+var savedMe = manage ? null : readMe();
+if (savedMe) {
+  state.form.email = savedMe.email;
+  state.form.name = savedMe.name;
+}
 var ignoreQuery = manage && manage.id ? "&ignore=" + manage.id + "&t=" + manage.t : "";
 function loadDays(keepView?: boolean) {
   return fetch("/api/days?duration=" + state.dur + ignoreQuery)
@@ -904,6 +911,7 @@ function companyField() {
   function choose(index) {
     input.value = matches[index].name;
     state.form.company = matches[index].name;
+    markPreviousCompany();
     close();
   }
   function update() {
@@ -975,6 +983,7 @@ function companyField() {
   }
   input.addEventListener("input", function () {
     state.form.company = input.value;
+    markPreviousCompany();
     if (state.fieldErr.company) {
       delete state.fieldErr.company;
       input.removeAttribute("aria-invalid");
@@ -1055,6 +1064,98 @@ function companyField() {
 var nameCache = {};
 var lookupTimer = null;
 var WELCOME_BACK = "Welcome back. We filled in the name from your earlier booking.";
+// The companies this browser booked before, so a candidate's next round uses the same company name as the last
+// one. Kept only on the candidate's own device (never looked up by email), so nobody can see where someone else
+// is interviewing.
+type Me = { email: string; name: string; companies: string[] };
+function readMe(): Me | null {
+  try {
+    var me = JSON.parse(localStorage.getItem(ME_KEY) || "null");
+    return me && typeof me.email === "string" && typeof me.name === "string" && Array.isArray(me.companies) ? me : null;
+  } catch (error) {
+    return null;
+  }
+}
+function rememberBooking(name: string, email: string, company: string) {
+  var old = readMe();
+  var earlier = old && sameEmail(old.email, email) ? old.companies : [];
+  var companies = [company].concat(earlier).filter(function (item, index, all) {
+    return (
+      typeof item === "string" &&
+      item.trim() &&
+      all.findIndex(function (other) {
+        return String(other).toLowerCase() === item.toLowerCase();
+      }) === index
+    );
+  });
+  try {
+    localStorage.setItem(ME_KEY, JSON.stringify({ email: email, name: name, companies: companies.slice(0, 4) }));
+  } catch (error) {
+    // private mode or storage full: the form just won't be pre-filled next time
+  }
+}
+function sameEmail(first: string, second: string) {
+  return first.trim().toLowerCase() === second.trim().toLowerCase();
+}
+// "Same company as before?" buttons above the Company field, shown while the email is the one this device booked with.
+function previousCompanies() {
+  var me = readMe();
+  if (!me || !me.companies.length) {
+    return null;
+  }
+  var buttons = me.companies.map(function (company) {
+    return el(
+      "button",
+      {
+        type: "button",
+        class: "pcb",
+        "aria-pressed": sameEmail(company, state.form.company) ? "true" : "false",
+        onclick: function () {
+          state.form.company = company;
+          delete state.fieldErr.company;
+          var input = document.getElementById("fcompany") as HTMLInputElement;
+          if (input) {
+            input.value = company;
+            input.removeAttribute("aria-invalid");
+            input.removeAttribute("aria-describedby");
+          }
+          var errorEl = document.getElementById("fcompanye");
+          if (errorEl) {
+            errorEl.remove();
+          }
+          markPreviousCompany();
+        },
+      },
+      [company],
+    );
+  });
+  return el(
+    "div",
+    {
+      class: "prevco",
+      id: "prevco",
+      role: "group",
+      "aria-labelledby": "prevcoh",
+      hidden: !sameEmail(me.email, state.form.email),
+    },
+    [el("div", { class: "prevco-h", id: "prevcoh" }, ["Interviewing with the same company as before?"]), el("div", { class: "prevco-l" }, buttons)],
+  );
+}
+function markPreviousCompany() {
+  var box = document.getElementById("prevco");
+  if (box) {
+    box.querySelectorAll(".pcb").forEach(function (button) {
+      button.setAttribute("aria-pressed", sameEmail(button.textContent || "", state.form.company) ? "true" : "false");
+    });
+  }
+}
+function showPreviousCompanies() {
+  var box = document.getElementById("prevco");
+  var me = readMe();
+  if (box && me) {
+    box.hidden = !sameEmail(me.email, state.form.email);
+  }
+}
 function setNameHint(text) {
   var hint = document.getElementById("fnameh");
   if (hint) {
@@ -1174,6 +1275,7 @@ function renderDetails() {
   var emailInput = emailField.querySelector("input");
   var nameInput = nameField.querySelector("input");
   emailInput.addEventListener("input", function () {
+    showPreviousCompanies();
     clearTimeout(lookupTimer);
     lookupTimer = setTimeout(function () {
       prefillName(emailInput.value);
@@ -1195,6 +1297,10 @@ function renderDetails() {
     setTimeout(function () {
       prefillName(state.form.email);
     }, 0);
+  }
+  var previous = previousCompanies();
+  if (previous) {
+    form.appendChild(previous);
   }
   form.appendChild(
     el(
@@ -1268,6 +1374,7 @@ function submitBooking() {
     .then(function (result) {
       state.busy = false;
       if (result.ok) {
+        rememberBooking(form.name.trim(), form.email.trim(), String(result.j.booking.company || form.company).trim());
         state.booking = result.j.booking;
         state.booking.emailed = !!result.j.emailed;
         state.step = "done";
