@@ -1879,15 +1879,127 @@ body {
     padding: 8px 2px calc(24px + env(safe-area-inset-bottom));
   }
 }
-/* Recent candidates, shown until someone is picked */
-.recent-h {
-  margin: 26px 0 4px;
-  font-size: 13px;
-  font-weight: 600;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
-  color: var(--a);
+/* Before anyone is picked: a short welcome card under the search */
+.welcome {
+  max-width: 520px;
+  margin-top: 4px;
+  padding: 28px 22px 22px;
+  background: var(--c);
+  border-radius: 20px;
+  box-shadow: 0 0 0 1px var(--d);
+  text-align: center;
 }
-#recent .rrow + .rrow {
+.welcome[hidden] {
+  display: none;
+}
+.wicon {
+  width: 56px;
+  height: 56px;
+  margin: 0 auto 14px;
+  display: grid;
+  place-items: center;
+  border-radius: 18px;
+  background: var(--n);
+  color: var(--o);
+}
+.wicon svg {
+  width: 28px;
+  height: 28px;
+}
+.wtitle {
+  margin: 0 0 6px;
+  font-size: 19px;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+.wtext {
+  margin: 0 auto;
+  max-width: 340px;
+  color: var(--a);
+  font-size: 14px;
+}
+.wfeat {
+  list-style: none;
+  margin: 22px 0 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+  text-align: left;
+}
+.wfeat li {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 14px;
+  border-radius: 14px;
+  background: var(--p);
+  font-size: 14px;
+}
+.wfeat li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.wfeat b {
+  font-weight: 600;
+}
+.wfi {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--c);
+  color: var(--o);
+  box-shadow: 0 0 0 1px var(--d);
+}
+.wfi svg {
+  width: 17px;
+  height: 17px;
+}
+/* search: soft focus ring, and an initial next to each match */
+#pq:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 1px var(--m),
+    0 0 0 4px var(--n);
+}
+#plistbox {
+  max-width: 520px;
+}
+#plistbox .rrow {
+  flex-wrap: nowrap;
+}
+#plistbox .rrow + .rrow {
   border-top: 1px solid var(--d);
+}
+.rav {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--n);
+  color: var(--o);
+  font-size: 14px;
+  font-weight: 600;
+}
+.rmeta {
+  flex: none;
+  text-align: right;
+}
+@media (max-width: 520px) {
+  .welcome {
+    padding: 24px 16px 16px;
+  }
+  #plistbox .rrow {
+    flex-wrap: wrap;
+  }
+  .rmeta {
+    flex-basis: 100%;
+    padding-left: 46px;
+    text-align: left;
+  }
 }

@@ -642,7 +642,6 @@ function loadPeople() {
       people = Array.isArray(list) ? list : [];
       peopleLoaded = true;
       renderPeople();
-      renderRecent();
     })
     .catch(() => {
       peopleLoaded = true;
@@ -695,6 +694,7 @@ function renderPeople() {
         var row = div("rrow");
         row.tabIndex = 0;
         row.setAttribute("role", "button");
+        row.appendChild(span("rav", avOf(niceName(person.name))));
         var main = div("rmain");
         main.appendChild(el("b", null, niceName(person.name)));
         if (person.company) {
@@ -716,7 +716,7 @@ function renderPeople() {
         }
         row.appendChild(
           span(
-            "sub",
+            "sub rmeta",
             person.count +
               (person.count === 1 ? " booking" : " bookings") +
               (last ? " · last " + last : "") +
@@ -741,46 +741,6 @@ function renderPeople() {
   } else {
     box.hidden = true;
   }
-}
-// Before anyone is picked, the eight people with the most recent bookings are one click away.
-function renderRecent() {
-  var box = byId("recent");
-  box.textContent = "";
-  var list = people
-    .slice()
-    .sort((first, second) => (Date.parse(second.last) || 0) - (Date.parse(first.last) || 0))
-    .slice(0, 8);
-  byId("recentH").hidden = box.hidden = !list.length;
-  list.forEach((person) => {
-    var row = div("rrow");
-    row.tabIndex = 0;
-    row.setAttribute("role", "button");
-    var main = div("rmain");
-    main.appendChild(el("b", null, niceName(person.name)));
-    if (person.company) {
-      main.appendChild(div("sub", person.company));
-    }
-    row.appendChild(main);
-    var last = person.last
-      ? fmt(
-          {
-            day: "numeric",
-            month: "short",
-            year: "numeric",
-          },
-          new Date(person.last),
-        )
-      : "";
-    row.appendChild(span("sub", person.count + (person.count === 1 ? " booking" : " bookings") + (last ? " · last " + last : "")));
-    row.addEventListener("click", () => choose(person));
-    row.addEventListener("keydown", (event) => {
-      if (event.key === "Enter" || event.key === " ") {
-        event.preventDefault();
-        choose(person);
-      }
-    });
-    box.appendChild(row);
-  });
 }
 function choose(person) {
   chosen = person;
