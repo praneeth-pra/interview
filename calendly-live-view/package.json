@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "start": "bun run src/server.ts",
-    "test": "bun test tests/"
+    "test": "bun test tests/",
+    "typecheck": "npx -y -p typescript@5 tsc -p src/pages/tsconfig.json"
   }
 }

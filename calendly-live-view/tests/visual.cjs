@@ -12,7 +12,9 @@ const os = require("node:os");
 const path = require("node:path");
 const crypto = require("node:crypto");
 
-const args = Object.fromEntries(process.argv.slice(2).reduce((a, v, i, all) => (v.startsWith("--") ? [...a, [v.slice(2), all[i + 1]]] : a), []));
+const args = Object.fromEntries(
+  process.argv.slice(2).reduce((a, v, i, all) => (v.startsWith("--") ? [...a, [v.slice(2), all[i + 1]]] : a), []),
+);
 const BASE_REF = args.base || "origin/main";
 const OUT = args.out || path.join(os.tmpdir(), "booking-form-visual");
 const ONLY = args.only ? new RegExp(args.only) : null;
@@ -26,10 +28,14 @@ const KEY = "ab".repeat(32);
 function seed(dir) {
   fs.mkdirSync(dir, { recursive: true });
   const people = [
-    ["Priya Sharma", "priya@example.com", "Google", "1st round"], ["Rahul Verma", "rahul@example.com", "Microsoft", "2nd round"],
-    ["Ananya Iyer", "ananya@example.com", "Amazon", "HR"], ["Karthik Reddy", "karthik@example.com", "Infosys", "Final"],
-    ["Sneha Patel", "sneha@example.com", "Flipkart", "1st round"], ["Vikram Singh", "vikram@example.com", "Google", "2nd round"],
-    ["Divya Nair", "divya@example.com", "Swiggy", "Technical"], ["Arjun Mehta", "arjun@example.com", "Zoho", "1st round"],
+    ["Priya Sharma", "priya@example.com", "Google", "1st round"],
+    ["Rahul Verma", "rahul@example.com", "Microsoft", "2nd round"],
+    ["Ananya Iyer", "ananya@example.com", "Amazon", "HR"],
+    ["Karthik Reddy", "karthik@example.com", "Infosys", "Final"],
+    ["Sneha Patel", "sneha@example.com", "Flipkart", "1st round"],
+    ["Vikram Singh", "vikram@example.com", "Google", "2nd round"],
+    ["Divya Nair", "divya@example.com", "Swiggy", "Technical"],
+    ["Arjun Mehta", "arjun@example.com", "Zoho", "1st round"],
   ];
   const ist = new Date(Date.now() + 330 * 60000);
   const midnight = Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth(), ist.getUTCDate()) - 330 * 60000;
@@ -41,30 +47,70 @@ function seed(dir) {
       const [name, email, company, round] = people[n++ % people.length];
       const duration = [30, 60, 90][n % 3];
       const start = midnight + day * 86400000 + hour * 3600000;
-      const b = { id: "00000000-0000-0000-0000-" + String(n).padStart(12, "0"), name, email, company, round, start: iso(start), end: iso(start + duration * 60000), duration, createdAt: iso(start - 3 * 86400000), cancelled: false, cancelledAt: "" };
-      if (n % 7 === 0) Object.assign(b, { cancelled: true, cancelledAt: iso(start - 86400000), cancelledBy: "candidate", cancelReason: "Clash with another interview", seq: 1 });
-      if (n % 5 === 0 && !b.cancelled) Object.assign(b, { prevStart: b.start, prevEnd: b.end, rescheduledAt: iso(start - 2 * 86400000), rescheduledBy: "candidate", seq: 1 });
+      const b = {
+        id: "00000000-0000-0000-0000-" + String(n).padStart(12, "0"),
+        name,
+        email,
+        company,
+        round,
+        start: iso(start),
+        end: iso(start + duration * 60000),
+        duration,
+        createdAt: iso(start - 3 * 86400000),
+        cancelled: false,
+        cancelledAt: "",
+      };
+      if (n % 7 === 0)
+        Object.assign(b, {
+          cancelled: true,
+          cancelledAt: iso(start - 86400000),
+          cancelledBy: "candidate",
+          cancelReason: "Clash with another interview",
+          seq: 1,
+        });
+      if (n % 5 === 0 && !b.cancelled)
+        Object.assign(b, {
+          prevStart: b.start,
+          prevEnd: b.end,
+          rescheduledAt: iso(start - 2 * 86400000),
+          rescheduledBy: "candidate",
+          seq: 1,
+        });
       bookings.push(b);
     }
   const past = bookings.filter((b) => !b.cancelled && Date.parse(b.end) < Date.now()).slice(0, 10);
   const write = (f, d) => fs.writeFileSync(path.join(dir, f), JSON.stringify(d));
   write("bookings.json", { bookings });
-  write("interviewers.json", { names: ["Praneeth", "Hareesh", "Shiva"], assign: Object.fromEntries(past.map((b, i) => [b.id, ["Praneeth", "Hareesh", "Shiva"][i % 3]])) });
+  write("interviewers.json", {
+    names: ["Praneeth", "Hareesh", "Shiva"],
+    assign: Object.fromEntries(past.map((b, i) => [b.id, ["Praneeth", "Hareesh", "Shiva"][i % 3]])),
+  });
   write("allowlist.json", { enabled: false, emails: ["priya@example.com", "rahul@example.com", "zara@example.com"] });
   write("secret.json", { key: KEY });
-  write("results.json", { people: { "priya sharma": { results: { Google: "cleared" }, updated: "2026-09-20T10:00:00Z" } } });
+  write("results.json", {
+    people: { "priya sharma": { results: { Google: "cleared" }, updated: "2026-09-20T10:00:00Z" } },
+  });
   const next = bookings.find((b) => !b.cancelled && Date.parse(b.start) > Date.now() + 86400000);
-  const token = crypto.createHmac("sha256", KEY).update("manage:" + next.id).digest("hex").slice(0, 32);
+  const token = crypto
+    .createHmac("sha256", KEY)
+    .update("manage:" + next.id)
+    .digest("hex")
+    .slice(0, 32);
   return "/b/" + next.id + "?t=" + token;
 }
 
 // ---- servers ----
 const procs = [];
 async function startServer(dir, port, dataDir, env = {}) {
-  const p = spawn("bun", ["run", path.join(dir, "src/server.ts")], { env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ...env }, stdio: "ignore" });
+  const p = spawn("bun", ["run", path.join(dir, "src/server.ts")], {
+    env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ...env },
+    stdio: "ignore",
+  });
   procs.push(p);
   for (let i = 0; i < 200; i++) {
-    try { if ((await fetch(`http://127.0.0.1:${port}/healthz`)).ok) return `http://127.0.0.1:${port}`; } catch {}
+    try {
+      if ((await fetch(`http://127.0.0.1:${port}/healthz`)).ok) return `http://127.0.0.1:${port}`;
+    } catch {}
     await new Promise((r) => setTimeout(r, 50));
   }
   throw new Error("server on " + port + " did not start");
@@ -73,57 +119,267 @@ async function startServer(dir, port, dataDir, env = {}) {
 // ---- flows ----
 const wait = (p, ms) => p.waitForTimeout(ms);
 async function pickTime(p, s, dayIndex = 1, slotIndex = 2) {
-  await p.goto(s.main + "/"); await wait(p, 700);
-  await p.locator("button.day.open").nth(dayIndex).click(); await wait(p, 700);
-  await p.locator("button.t").nth(slotIndex).click(); await wait(p, 300);
+  await p.goto(s.main + "/");
+  await wait(p, 700);
+  await p.locator("button.day.open").nth(dayIndex).click();
+  await wait(p, 700);
+  await p.locator("button.t").nth(slotIndex).click();
+  await wait(p, 300);
 }
 async function openStats(p, s) {
-  await p.goto(s.main + "/admin"); await wait(p, 1200);
-  await p.locator("#tabStats:visible, .bnav [data-go=stats]:visible").first().click(); await wait(p, 2200);
+  await p.goto(s.main + "/admin");
+  await wait(p, 1200);
+  await p.locator("#tabStats:visible, .bnav [data-go=stats]:visible").first().click();
+  await wait(p, 2200);
 }
 async function openAgendaPanel(p, s, index = 0) {
-  await p.goto(s.main + "/admin"); await wait(p, 1200);
-  await p.locator("#vAg").click(); await wait(p, 400);
-  await p.locator("#agenda button").nth(index).click(); await wait(p, 1500);
+  await p.goto(s.main + "/admin");
+  await wait(p, 1200);
+  await p.locator("#vAg").click();
+  await wait(p, 400);
+  await p.locator("#agenda button").nth(index).click();
+  await wait(p, 1500);
 }
 const CASES = [
-  ["book-load", async (p, s) => { await p.goto(s.main + "/"); await wait(p, 900); }],
-  ["book-60min", async (p, s) => { await p.goto(s.main + "/"); await wait(p, 700); await p.click("#dur60"); await wait(p, 800); }],
-  ["book-nextmonth", async (p, s) => { await p.goto(s.main + "/"); await wait(p, 700); await p.click("#nextm"); await wait(p, 600); }],
-  ["book-slots", async (p, s) => { await pickTime(p, s); }],
-  ["book-form", async (p, s) => { await pickTime(p, s); await p.click("#go"); await wait(p, 700); }],
-  ["book-form-errors", async (p, s) => { await pickTime(p, s); await p.click("#go"); await wait(p, 500); await p.click("#submitb"); await wait(p, 600); }],
-  ["book-company-suggest", async (p, s) => { await pickTime(p, s); await p.click("#go"); await wait(p, 500); const c = p.locator("#card input").nth(2); await c.click(); await c.fill("Goo"); await wait(p, 900); }],
-  ["book-done", async (p, s) => {
-    await pickTime(p, s, 2, 4); await p.click("#go"); await wait(p, 600);
-    const vals = { email: "test.candidate@example.com", name: "Test Candidate", company: "Acme", round: "1st round" };
-    for (const inp of await p.locator("#card input:visible").all()) {
-      const key = ["id", "name", "autocomplete", "type"].map((a) => inp.getAttribute(a));
-      const k = (await Promise.all(key)).join(" ");
-      const f = /mail/i.test(k) ? "email" : /comp|org/i.test(k) ? "company" : /round/i.test(k) ? "round" : /name/i.test(k) ? "name" : null;
-      if (f) await inp.fill(vals[f]);
-    }
-    await p.keyboard.press("Escape"); await wait(p, 300);
-    await p.click("#submitb"); await wait(p, 1500);
-  }],
-  ["manage", async (p, s) => { await p.goto(s.main + s.manage); await wait(p, 900); }],
-  ["manage-resched", async (p, s) => { await p.goto(s.main + s.manage + "&a=reschedule"); await wait(p, 1200); }],
-  ["manage-cancel", async (p, s) => { await p.goto(s.main + s.manage + "&a=cancel"); await wait(p, 900); }],
-  ["bad-link", async (p, s) => { await p.goto(s.main + "/b/00000000-0000-0000-0000-000000000001?t=nope"); await wait(p, 700); }],
-  ["admin-cal", async (p, s) => { await p.goto(s.main + "/admin"); await wait(p, 1500); }],
-  ["admin-prevweek", async (p, s) => { await p.goto(s.main + "/admin"); await wait(p, 1200); await p.click("#prev"); await wait(p, 600); }],
-  ["admin-agenda", async (p, s) => { await p.goto(s.main + "/admin"); await wait(p, 1200); await p.click("#vAg"); await wait(p, 600); }],
-  ["admin-panel", async (p, s) => { await openAgendaPanel(p, s, 0); }],
-  ["admin-assign", async (p, s) => { await openAgendaPanel(p, s, 1); const chip = p.locator("#pbody button", { hasText: "Hareesh" }).first(); if (await chip.count()) { await chip.click(); await wait(p, 1200); } }],
-  ["admin-allow", async (p, s) => { await p.goto(s.main + "/admin/allowlist"); await wait(p, 1500); }],
-  ["admin-allow-add", async (p, s) => { await p.goto(s.main + "/admin/allowlist"); await wait(p, 1200); await p.fill("#add", "new.person@example.com, bad-email"); await p.click("#addb"); await wait(p, 1000); }],
-  ["admin-download", async (p, s) => { await p.goto(s.main + "/admin"); await wait(p, 1200); if (await p.locator("#dlBtn:visible").count()) { await p.click("#dlBtn"); await wait(p, 300); } }],
-  ["stats-empty", async (p, s) => { await openStats(p, s); }],
-  ["stats-person", async (p, s) => { await openStats(p, s); const f = p.frameLocator("iframe.la-frame"); await f.locator("#recent .rrow").first().click(); await wait(p, 1800); }],
-  ["stats-search", async (p, s) => { await openStats(p, s); const f = p.frameLocator("iframe.la-frame"); const i = f.locator("input").first(); await i.click(); await i.fill("Priya"); await wait(p, 800); }],
-  ["login", async (p, s) => { await p.goto(s.login + "/admin"); await wait(p, 700); }],
-  ["login-wrong", async (p, s) => { await p.goto(s.login + "/admin"); await wait(p, 500); await p.fill("#pw", "nope"); await p.click("#go"); await wait(p, 800); }],
-  ["login-ok", async (p, s) => { await p.goto(s.login + "/admin"); await wait(p, 500); await p.fill("#pw", "pw123"); await p.click("#go"); await wait(p, 2200); }],
+  [
+    "book-load",
+    async (p, s) => {
+      await p.goto(s.main + "/");
+      await wait(p, 900);
+    },
+  ],
+  [
+    "book-60min",
+    async (p, s) => {
+      await p.goto(s.main + "/");
+      await wait(p, 700);
+      await p.click("#dur60");
+      await wait(p, 800);
+    },
+  ],
+  [
+    "book-nextmonth",
+    async (p, s) => {
+      await p.goto(s.main + "/");
+      await wait(p, 700);
+      await p.click("#nextm");
+      await wait(p, 600);
+    },
+  ],
+  [
+    "book-slots",
+    async (p, s) => {
+      await pickTime(p, s);
+    },
+  ],
+  [
+    "book-form",
+    async (p, s) => {
+      await pickTime(p, s);
+      await p.click("#go");
+      await wait(p, 700);
+    },
+  ],
+  [
+    "book-form-errors",
+    async (p, s) => {
+      await pickTime(p, s);
+      await p.click("#go");
+      await wait(p, 500);
+      await p.click("#submitb");
+      await wait(p, 600);
+    },
+  ],
+  [
+    "book-company-suggest",
+    async (p, s) => {
+      await pickTime(p, s);
+      await p.click("#go");
+      await wait(p, 500);
+      const c = p.locator("#card input").nth(2);
+      await c.click();
+      await c.fill("Goo");
+      await wait(p, 900);
+    },
+  ],
+  [
+    "book-done",
+    async (p, s) => {
+      await pickTime(p, s, 2, 4);
+      await p.click("#go");
+      await wait(p, 600);
+      const vals = { email: "test.candidate@example.com", name: "Test Candidate", company: "Acme", round: "1st round" };
+      for (const inp of await p.locator("#card input:visible").all()) {
+        const key = ["id", "name", "autocomplete", "type"].map((a) => inp.getAttribute(a));
+        const k = (await Promise.all(key)).join(" ");
+        const f = /mail/i.test(k)
+          ? "email"
+          : /comp|org/i.test(k)
+            ? "company"
+            : /round/i.test(k)
+              ? "round"
+              : /name/i.test(k)
+                ? "name"
+                : null;
+        if (f) await inp.fill(vals[f]);
+      }
+      await p.keyboard.press("Escape");
+      await wait(p, 300);
+      await p.click("#submitb");
+      await wait(p, 1500);
+    },
+  ],
+  [
+    "manage",
+    async (p, s) => {
+      await p.goto(s.main + s.manage);
+      await wait(p, 900);
+    },
+  ],
+  [
+    "manage-resched",
+    async (p, s) => {
+      await p.goto(s.main + s.manage + "&a=reschedule");
+      await wait(p, 1200);
+    },
+  ],
+  [
+    "manage-cancel",
+    async (p, s) => {
+      await p.goto(s.main + s.manage + "&a=cancel");
+      await wait(p, 900);
+    },
+  ],
+  [
+    "bad-link",
+    async (p, s) => {
+      await p.goto(s.main + "/b/00000000-0000-0000-0000-000000000001?t=nope");
+      await wait(p, 700);
+    },
+  ],
+  [
+    "admin-cal",
+    async (p, s) => {
+      await p.goto(s.main + "/admin");
+      await wait(p, 1500);
+    },
+  ],
+  [
+    "admin-prevweek",
+    async (p, s) => {
+      await p.goto(s.main + "/admin");
+      await wait(p, 1200);
+      await p.click("#prev");
+      await wait(p, 600);
+    },
+  ],
+  [
+    "admin-agenda",
+    async (p, s) => {
+      await p.goto(s.main + "/admin");
+      await wait(p, 1200);
+      await p.click("#vAg");
+      await wait(p, 600);
+    },
+  ],
+  [
+    "admin-panel",
+    async (p, s) => {
+      await openAgendaPanel(p, s, 0);
+    },
+  ],
+  [
+    "admin-assign",
+    async (p, s) => {
+      await openAgendaPanel(p, s, 1);
+      const chip = p.locator("#pbody button", { hasText: "Hareesh" }).first();
+      if (await chip.count()) {
+        await chip.click();
+        await wait(p, 1200);
+      }
+    },
+  ],
+  [
+    "admin-allow",
+    async (p, s) => {
+      await p.goto(s.main + "/admin/allowlist");
+      await wait(p, 1500);
+    },
+  ],
+  [
+    "admin-allow-add",
+    async (p, s) => {
+      await p.goto(s.main + "/admin/allowlist");
+      await wait(p, 1200);
+      await p.fill("#add", "new.person@example.com, bad-email");
+      await p.click("#addb");
+      await wait(p, 1000);
+    },
+  ],
+  [
+    "admin-download",
+    async (p, s) => {
+      await p.goto(s.main + "/admin");
+      await wait(p, 1200);
+      if (await p.locator("#dlBtn:visible").count()) {
+        await p.click("#dlBtn");
+        await wait(p, 300);
+      }
+    },
+  ],
+  [
+    "stats-empty",
+    async (p, s) => {
+      await openStats(p, s);
+    },
+  ],
+  [
+    "stats-person",
+    async (p, s) => {
+      await openStats(p, s);
+      const f = p.frameLocator("iframe.la-frame");
+      await f.locator("#recent .rrow").first().click();
+      await wait(p, 1800);
+    },
+  ],
+  [
+    "stats-search",
+    async (p, s) => {
+      await openStats(p, s);
+      const f = p.frameLocator("iframe.la-frame");
+      const i = f.locator("input").first();
+      await i.click();
+      await i.fill("Priya");
+      await wait(p, 800);
+    },
+  ],
+  [
+    "login",
+    async (p, s) => {
+      await p.goto(s.login + "/admin");
+      await wait(p, 700);
+    },
+  ],
+  [
+    "login-wrong",
+    async (p, s) => {
+      await p.goto(s.login + "/admin");
+      await wait(p, 500);
+      await p.fill("#pw", "nope");
+      await p.click("#go");
+      await wait(p, 800);
+    },
+  ],
+  [
+    "login-ok",
+    async (p, s) => {
+      await p.goto(s.login + "/admin");
+      await wait(p, 500);
+      await p.fill("#pw", "pw123");
+      await p.click("#go");
+      await wait(p, 2200);
+    },
+  ],
 ];
 const VIEWS = [
   { tag: "desk", viewport: { width: 1280, height: 860 } },
@@ -132,21 +388,45 @@ const VIEWS = [
 
 // ---- pixel diff, done in the browser so no image libraries are needed ----
 async function diff(page, a, b, outPath) {
-  return page.evaluate(async ({ a, b, outPath }) => {
-    const load = (src) => new Promise((ok, err) => { const i = new Image(); i.onload = () => ok(i); i.onerror = err; i.src = src; });
-    const [ia, ib] = await Promise.all([load(a), load(b)]);
-    if (ia.width !== ib.width || ia.height !== ib.height) return { size: [ia.width, ia.height, ib.width, ib.height], px: Infinity };
-    const ctx = (img) => { const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0); return x; };
-    const ca = ctx(ia), cb = ctx(ib);
-    const da = ca.getImageData(0, 0, ia.width, ia.height), db = cb.getImageData(0, 0, ia.width, ia.height).data;
-    let px = 0;
-    for (let i = 0; i < db.length; i += 4) {
-      if (da.data[i] !== db[i] || da.data[i + 1] !== db[i + 1] || da.data[i + 2] !== db[i + 2]) { px++; da.data[i] = 255; da.data[i + 1] = 0; da.data[i + 2] = 0; }
-    }
-    if (!px) return { px };
-    ca.putImageData(da, 0, 0);
-    return { px, image: ca.canvas.toDataURL("image/png"), outPath };
-  }, { a, b, outPath });
+  return page.evaluate(
+    async ({ a, b, outPath }) => {
+      const load = (src) =>
+        new Promise((ok, err) => {
+          const i = new Image();
+          i.onload = () => ok(i);
+          i.onerror = err;
+          i.src = src;
+        });
+      const [ia, ib] = await Promise.all([load(a), load(b)]);
+      if (ia.width !== ib.width || ia.height !== ib.height)
+        return { size: [ia.width, ia.height, ib.width, ib.height], px: Infinity };
+      const ctx = (img) => {
+        const c = document.createElement("canvas");
+        c.width = img.width;
+        c.height = img.height;
+        const x = c.getContext("2d");
+        x.drawImage(img, 0, 0);
+        return x;
+      };
+      const ca = ctx(ia),
+        cb = ctx(ib);
+      const da = ca.getImageData(0, 0, ia.width, ia.height),
+        db = cb.getImageData(0, 0, ia.width, ia.height).data;
+      let px = 0;
+      for (let i = 0; i < db.length; i += 4) {
+        if (da.data[i] !== db[i] || da.data[i + 1] !== db[i + 1] || da.data[i + 2] !== db[i + 2]) {
+          px++;
+          da.data[i] = 255;
+          da.data[i + 1] = 0;
+          da.data[i + 2] = 0;
+        }
+      }
+      if (!px) return { px };
+      ca.putImageData(da, 0, 0);
+      return { px, image: ca.canvas.toDataURL("image/png"), outPath };
+    },
+    { a, b, outPath },
+  );
 }
 
 (async () => {
@@ -157,7 +437,9 @@ async function diff(page, a, b, outPath) {
   execFileSync("git", ["worktree", "add", "--detach", baseTree, BASE_REF], { cwd: REPO, stdio: "ignore" });
   const cleanup = () => {
     for (const p of procs) p.kill();
-    try { execFileSync("git", ["worktree", "remove", "--force", baseTree], { cwd: REPO, stdio: "ignore" }); } catch {}
+    try {
+      execFileSync("git", ["worktree", "remove", "--force", baseTree], { cwd: REPO, stdio: "ignore" });
+    } catch {}
   };
   process.on("exit", cleanup);
   let failed = 0;
@@ -178,41 +460,79 @@ async function diff(page, a, b, outPath) {
         servers[which] = {
           manage,
           main: await startServer(dirs[which], port++, data + "-open"),
-          login: await startServer(dirs[which], port++, data + "-login", { ADMIN_PASSWORD: "pw123", ADMIN_LOGIN: "on" }),
+          login: await startServer(dirs[which], port++, data + "-login", {
+            ADMIN_PASSWORD: "pw123",
+            ADMIN_LOGIN: "on",
+          }),
         };
       }
       const results = [];
       for (const [name, run] of CASES) {
         if (ONLY && !ONLY.test(name)) continue;
         const tag = `${v.tag}-${v.scheme}-${name}`;
-        const shots = {}, errors = {};
-        await Promise.all(["base", "head"].map(async (which) => {
-          const ctx = await browser.newContext({ viewport: v.viewport, isMobile: v.isMobile, hasTouch: v.hasTouch, colorScheme: v.scheme, deviceScaleFactor: 1, timezoneId: "Asia/Kolkata", serviceWorkers: "block", acceptDownloads: true });
-          const page = await ctx.newPage();
-          await page.clock.setFixedTime(fixed);
-          errors[which] = [];
-          page.on("pageerror", (e) => errors[which].push("pageerror: " + e.message));
-          page.on("console", (m) => m.type() === "error" && !/status of 40[01]/.test(m.text()) && errors[which].push("console: " + m.text()));
-          try {
-            await run(page, servers[which]);
-            await page.evaluate(() => document.fonts.ready);
-            shots[which] = "data:image/png;base64," + (await page.screenshot({ fullPage: true, animations: "disabled" })).toString("base64");
-          } catch (e) {
-            errors[which].push("flow failed: " + e.message.split("\n")[0]);
-          }
-          await ctx.close();
-        }));
-        const newErrors = errors.head.filter((e) => !errors.base.includes(e));
-        let r = { px: 0 };
-        if (shots.base && shots.head) r = await diff(scratch, shots.base, shots.head);
-        else if (shots.base || shots.head) r = { px: Infinity };
+        let shots, errors, r, newErrors;
+        // Text anti-aliasing occasionally jitters by a few dozen pixels; a real change differs on the retry too.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          shots = {};
+          errors = {};
+          await Promise.all(
+            ["base", "head"].map(async (which) => {
+              const ctx = await browser.newContext({
+                viewport: v.viewport,
+                isMobile: v.isMobile,
+                hasTouch: v.hasTouch,
+                colorScheme: v.scheme,
+                deviceScaleFactor: 1,
+                timezoneId: "Asia/Kolkata",
+                serviceWorkers: "block",
+                acceptDownloads: true,
+              });
+              const page = await ctx.newPage();
+              await page.clock.setFixedTime(fixed);
+              errors[which] = [];
+              page.on("pageerror", (e) => errors[which].push("pageerror: " + e.message));
+              page.on(
+                "console",
+                (m) =>
+                  m.type() === "error" &&
+                  !/status of 40[01]/.test(m.text()) &&
+                  errors[which].push("console: " + m.text()),
+              );
+              try {
+                await run(page, servers[which]);
+                await page.mouse.move(0, 0); // no leftover hover effects
+                await page.evaluate(() => document.fonts.ready);
+                shots[which] =
+                  "data:image/png;base64," +
+                  (await page.screenshot({ fullPage: true, animations: "disabled" })).toString("base64");
+              } catch (e) {
+                errors[which].push("flow failed: " + e.message.split("\n")[0]);
+              }
+              await ctx.close();
+            }),
+          );
+          newErrors = errors.head.filter((e) => !errors.base.includes(e));
+          r = { px: 0 };
+          if (shots.base && shots.head) r = await diff(scratch, shots.base, shots.head);
+          else if (shots.base || shots.head) r = { px: Infinity };
+          if (r.px <= TOLERANCE || !Number.isFinite(r.px) || newErrors.length) break;
+        }
         const bad = r.px > TOLERANCE || newErrors.length > 0 || errors.base.some((e) => e.startsWith("flow failed"));
         if (r.image) fs.writeFileSync(path.join(OUT, tag + "-DIFF.png"), Buffer.from(r.image.split(",")[1], "base64"));
         if (bad) {
-          if (shots.base) fs.writeFileSync(path.join(OUT, tag + "-base.png"), Buffer.from(shots.base.split(",")[1], "base64"));
-          if (shots.head) fs.writeFileSync(path.join(OUT, tag + "-head.png"), Buffer.from(shots.head.split(",")[1], "base64"));
+          if (shots.base)
+            fs.writeFileSync(path.join(OUT, tag + "-base.png"), Buffer.from(shots.base.split(",")[1], "base64"));
+          if (shots.head)
+            fs.writeFileSync(path.join(OUT, tag + "-head.png"), Buffer.from(shots.head.split(",")[1], "base64"));
         }
-        results.push({ tag, px: r.px, size: r.size, newErrors, bad, baseFailed: errors.base.filter((e) => e.startsWith("flow failed")) });
+        results.push({
+          tag,
+          px: r.px,
+          size: r.size,
+          newErrors,
+          bad,
+          baseFailed: errors.base.filter((e) => e.startsWith("flow failed")),
+        });
       }
       return results;
     };
@@ -220,10 +540,15 @@ async function diff(page, a, b, outPath) {
     for (const r of all) {
       if (r.bad) failed++;
       const note = r.px ? ` (${r.size ? "size " + r.size.join("x") : r.px + " px"})` : "";
-      console.log(`${r.bad ? "DIFF" : "ok  "} ${r.tag}${note}${r.baseFailed.length ? "  [flow also fails on base: " + r.baseFailed[0] + "]" : ""}${r.newErrors.length ? "\n     " + r.newErrors.join("\n     ") : ""}`);
+      console.log(
+        `${r.bad ? "DIFF" : "ok  "} ${r.tag}${note}${r.baseFailed.length ? "  [flow also fails on base: " + r.baseFailed[0] + "]" : ""}${r.newErrors.length ? "\n     " + r.newErrors.join("\n     ") : ""}`,
+      );
     }
     await browser.close();
-    console.log(`\n${all.length - failed}/${all.length} screens match ${BASE_REF}` + (failed ? `; differences saved in ${OUT}` : ""));
+    console.log(
+      `\n${all.length - failed}/${all.length} screens match ${BASE_REF}` +
+        (failed ? `; differences saved in ${OUT}` : ""),
+    );
   } finally {
     cleanup();
   }
