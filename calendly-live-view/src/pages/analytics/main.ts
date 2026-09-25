@@ -1610,7 +1610,7 @@ function saveResults(change: unknown, msg: HTMLElement | null, retried: boolean,
 function renderSummary(events, rows, counts, now) {
   var box = byId("sumline");
   function stat(value: number, label: string, cls?: string) {
-    var item = div("st" + (cls ? " " + cls : ""));
+    var item = div("st" + (cls ? " " + cls : "") + (value ? "" : " zero"));
     item.appendChild(el("b", null, String(value)));
     item.appendChild(span(null, label));
     box.appendChild(item);
@@ -1694,6 +1694,9 @@ function saveJoin(from: string, to: string, msgBox: HTMLElement, onFailed?: () =
     false,
     (info) => {
       savedJoins = info.joins || {};
+      if (!byId("panel").hidden) {
+        closePanel();
+      }
       renderAnalysis();
     },
     onFailed,
@@ -1741,6 +1744,146 @@ function sameCompanyMenu(row, rows) {
   box.appendChild(select);
   return box;
 }
+// ---- Phones: one short row per company (name, round steps, status, next/last date); tap for the details sheet.
+// Active companies first; ones that ended (canceled, no-show, not cleared, withdrew) fold under "Show N closed".
+var showClosed = false;
+function isClosed(row) {
+  return row.override ? row.override === "notcleared" || row.override === "withdrew" : row.status === "canceled" || row.status === "noshow";
+}
+function roundSteps(row, now) {
+  var steps = div("msteps");
+  row.events
+    .filter((event) => evState(event, now) !== "rescheduled")
+    .sort((first, second) => Date.parse(first.start) - Date.parse(second.start))
+    .slice(-4)
+    .forEach((event) => {
+      steps.appendChild(span("mstep " + evState(event, now), roundShort(event.round)));
+    });
+  return steps;
+}
+function whenShort(row) {
+  var when = new Date(row.whenIso);
+  return (
+    row.whenLabel +
+    " · " +
+    fmt(
+      {
+        weekday: "short",
+        day: "numeric",
+        month: "short",
+      },
+      when,
+    ) +
+    ", " +
+    t12(when)
+  );
+}
+function phoneList(shown, rows, now) {
+  var box = div("mco");
+  var open = shown.filter((row) => !isClosed(row));
+  var closed = shown.filter((row) => isClosed(row));
+  function item(row) {
+    var button = el("button", "mrow tone-" + (row.badgeCls || "wait"));
+    button.type = "button";
+    var top = div("mtop");
+    top.appendChild(el("b", null, row.name));
+    top.appendChild(roundSteps(row, now));
+    top.appendChild(span("badge " + row.badgeCls, row.badge));
+    button.appendChild(top);
+    button.appendChild(div("mwhen", whenShort(row)));
+    button.addEventListener("click", () => {
+      openCompany(row, rows, now);
+    });
+    return button;
+  }
+  open.forEach((row) => {
+    box.appendChild(item(row));
+  });
+  if (closed.length) {
+    var closedBox = div("mclosed");
+    closedBox.hidden = !showClosed && open.length > 0;
+    closed.forEach((row) => {
+      closedBox.appendChild(item(row));
+    });
+    if (open.length) {
+      var toggle = el("button", "mmore", (showClosed ? "Hide " : "Show ") + closed.length + " closed");
+      toggle.type = "button";
+      toggle.setAttribute("aria-expanded", String(showClosed));
+      toggle.addEventListener("click", () => {
+        showClosed = !showClosed;
+        closedBox.hidden = !showClosed;
+        toggle.textContent = (showClosed ? "Hide " : "Show ") + closed.length + " closed";
+        toggle.setAttribute("aria-expanded", String(showClosed));
+      });
+      box.appendChild(toggle);
+    }
+    box.appendChild(closedBox);
+  }
+  return box;
+}
+// The details for one company in the side/bottom sheet: status, dates, every round, and "Same company as…".
+function openCompany(row, rows, now) {
+  reqId++;
+  takeEv = null;
+  byId("ptitle").textContent = row.name;
+  byId("psub").textContent =
+    row.count + (row.count === 1 ? " interview" : " interviews") + (row.aliases.length ? " · also entered as " + row.aliases.join(", ") : "");
+  var list = byId("plist");
+  list.textContent = "";
+  var head = div("mc-head");
+  var stageLine = div("mc-stage");
+  stageLine.appendChild(el("b", null, row.stage));
+  stageLine.appendChild(span("badge " + row.badgeCls, row.badge));
+  head.appendChild(stageLine);
+  head.appendChild(div("sub", row.statusText));
+  if (row.cleared.length) {
+    head.appendChild(div("sub cleared", "Cleared: " + row.cleared.join(", ")));
+  }
+  if (row.note) {
+    head.appendChild(div("sub", row.note));
+  }
+  head.appendChild(div("mc-when", whenShort(row)));
+  list.appendChild(head);
+  var rounds = div("mc-rounds");
+  rounds.appendChild(div("ksec", "Rounds"));
+  row.events
+    .slice()
+    .sort((first, second) => Date.parse(first.start) - Date.parse(second.start))
+    .forEach((event) => {
+      var kind = evState(event, now);
+      var line = div("mc-r " + kind);
+      line.appendChild(span("mstep " + kind, roundShort(event.round)));
+      var text = div("mc-rt");
+      text.appendChild(el("b", null, event.round || "Interview"));
+      text.appendChild(
+        span(
+          "sub",
+          fmt(
+            {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            },
+            new Date(event.start),
+          ) +
+            ", " +
+            t12(new Date(event.start)),
+        ),
+      );
+      line.appendChild(text);
+      line.appendChild(span("mc-rs", STATE_LABEL[kind]));
+      rounds.appendChild(line);
+    });
+  list.appendChild(rounds);
+  var menu = sameCompanyMenu(row, rows);
+  if (menu) {
+    var same = div("mc-same");
+    same.appendChild(span("sub", "Same company as another row?"));
+    same.appendChild(menu);
+    list.appendChild(same);
+  }
+  showPanel(true);
+}
 function renderCompanies(rows, now) {
   var gridBox = byId("cgrid");
   var legend = byId("cleg");
@@ -1755,6 +1898,8 @@ function renderCompanies(rows, now) {
     return;
   }
   var query = byId<HTMLInputElement>("cs").value.trim().toLowerCase();
+  // phones only show the company search when there are enough companies to need it
+  byId("cProg").classList.toggle("few", rows.length <= 8 && !query);
   var shown = query ? rows.filter((row) => (row.name + " " + row.aliases.join(" ")).toLowerCase().indexOf(query) >= 0) : rows;
   sub.textContent = query ? shown.length + " of " + rows.length + " match" : rows.length + (rows.length === 1 ? " company" : " companies");
   if (shown.length) {
@@ -1910,6 +2055,7 @@ function renderCompanies(rows, now) {
       table.appendChild(line);
     });
     gridBox.appendChild(table);
+    gridBox.appendChild(phoneList(shown, rows, now));
     legend.textContent = "";
     [
       ["done", "Completed"],
@@ -1988,6 +2134,24 @@ function roundFunnel(rows) {
     table.appendChild(line);
   });
   box.appendChild(table);
+  // phones: a plain funnel instead of the six-column table
+  var funnel = div("mfun");
+  var most = Math.max.apply(
+    null,
+    rounds.map((round) => round.n),
+  );
+  rounds.forEach((round) => {
+    var line = div("mfr");
+    line.appendChild(span("mfl", round.label));
+    var track = div("mft");
+    var fill = div("mff");
+    fill.style.width = Math.max(6, Math.round((round.n / most) * 100)) + "%";
+    track.appendChild(fill);
+    line.appendChild(track);
+    line.appendChild(el("b", null, String(round.n)));
+    funnel.appendChild(line);
+  });
+  box.appendChild(funnel);
   var offers = rows.filter((row) => row.override === "offer").length;
   if (offers) {
     kvRow(box, "Offers", String(offers));
@@ -2174,6 +2338,28 @@ function renderInsights(events, rows, counts, progressInfo, now) {
   if (cancels) {
     cols.appendChild(cancels);
   }
+  // phones: each block is a row that opens on tap
+  Array.prototype.forEach.call(cols.children, (block: HTMLElement) => {
+    var title = block.querySelector<HTMLElement>(".ksec");
+    if (title) {
+      block.classList.add("iblock");
+      title.setAttribute("role", "button");
+      title.setAttribute("tabindex", "0");
+      title.setAttribute("aria-expanded", "false");
+      var toggle = () => {
+        var open = !block.classList.contains("open");
+        block.classList.toggle("open", open);
+        title.setAttribute("aria-expanded", String(open));
+      };
+      title.addEventListener("click", toggle);
+      title.addEventListener("keydown", (event) => {
+        if (event.key === "Enter" || event.key === " ") {
+          event.preventDefault();
+          toggle();
+        }
+      });
+    }
+  });
   section.appendChild(cols);
 }
 function renderAnalysis() {
@@ -2190,7 +2376,9 @@ function renderAnalysis() {
     var sub = byId("asub");
     sub.textContent = "";
     if (data.emails > 1) {
-      sub.appendChild(document.createTextNode("Combined from " + data.emails + " email addresses · "));
+      sub.appendChild(span("long", "Combined from " + data.emails + " email addresses"));
+      sub.appendChild(span("short", data.emails + " emails"));
+      sub.appendChild(document.createTextNode(" · "));
       addLink("Show separately", () => {
         setMerge(false);
       });
