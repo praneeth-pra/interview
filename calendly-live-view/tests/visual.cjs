@@ -354,6 +354,34 @@ const CASES = [
     },
   ],
   [
+    "stats-history",
+    async (p, s) => {
+      await openStats(p, s);
+      const f = p.frameLocator("iframe.la-frame");
+      await f.locator("#recent .rrow").first().click();
+      await wait(p, 1800);
+      await f.locator("#hist").click();
+      await wait(p, 1200);
+    },
+  ],
+  [
+    "stats-results",
+    async (p, s) => {
+      await openStats(p, s);
+      const f = p.frameLocator("iframe.la-frame");
+      await f.locator("#recent .rrow").first().click();
+      await wait(p, 1800);
+      await f.locator("#reslink").click();
+      await wait(p, 400);
+      await f.locator("#rq").fill("o");
+      await wait(p, 400);
+      await f.locator("#rsug .rrow").first().click();
+      await wait(p, 300);
+      await f.locator(".rsel2").selectOption("offer");
+      await wait(p, 1500);
+    },
+  ],
+  [
     "login",
     async (p, s) => {
       await p.goto(s.login + "/admin");
