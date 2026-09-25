@@ -14,6 +14,8 @@ src/pages/*.css|js   page styles and scripts (readable; scripts are bundled and 
 src/pages/book/      the booking page as TypeScript modules: main.ts (steps and rendering), time.ts, companies.ts, dom.ts, icons.ts
 src/pages/admin/     the admin page: main.ts (calendar, panel, forms, search, allowlist, live updates), alerts.ts, nav.ts,
                      stats-frame.ts, download-menu.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
+src/pages/analytics/ the Analytics tab (framed in admin): main.ts (people picker, company progress, timeline, insights),
+                     api.ts (answers the page's old dashboard API in the browser from /admin/api/*), companies.ts, rounds.ts
 src/fonts/           Inter (same files Google Fonts serves), self-hosted
 data/companies.json  company suggestions for the booking form ("Name|Alias|Alias")
 public/icon.png      app icon (admin home-screen app and browser alerts)

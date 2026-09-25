@@ -8,8 +8,8 @@ Read README.md first for layout, commands and deploy.
 - **No inline scripts or styles.** The CSP is `script-src 'self'; style-src 'self'`. Put code in `src/pages/*.js|css`, set styles through classes or `el.style.x = ...`, and pass per-request data through the `<script type="application/json" id="boot">` block. `bun test` fails if a page shell breaks this.
 - Page shells use `__HOST__`, `__EVENT__`, `__BOOT__`, `__PRELOAD__` placeholders, filled once at startup (per request only for `/b/<id>`).
 - Reference assets as `/assets/<file>` in HTML and CSS; `src/assets.ts` rewrites them to fingerprinted URLs. New files in `src/pages` or `src/fonts` are picked up automatically.
-- The booking and admin pages (`src/pages/book/`, `src/pages/admin/`) are typed TypeScript modules; `bun run typecheck` must pass. Analytics is still a single file.
-- Page scripts are readable sources; `src/assets.ts` bundles and minifies them at startup (`src/pages/<page>.js`, or `src/pages/<page>/main.ts` plus modules). Some names are still single letters from the old minified code: rename with a scope-aware tool, never find-and-replace.
+- The booking, admin and analytics pages (`src/pages/book/`, `admin/`, `analytics/`) are typed TypeScript modules; `bun run typecheck` must pass. Sign-in is `src/pages/login.js`.
+- Page scripts are readable sources; `src/assets.ts` bundles and minifies them at startup (`src/pages/<page>.js`, or `src/pages/<page>/main.ts` plus modules). Rename with a scope-aware tool (the editor's rename), never find-and-replace: the pages reuse short names like `row`, `box`, `event` in many scopes.
 - Names, companies and reasons are typed by candidates: build DOM with `textContent`, not `innerHTML` with user text.
 - **CSS class names are global per page and short** (`.dl`, `.ev`, `.t`, `.go`...). Before adding a class, grep the page's CSS for it; `.dl` already meant the booking panel's details list.
 - Backups (`runBackup` in `src/server.ts`) email candidate data. Keep `push.json` out of anything that leaves the volume.
