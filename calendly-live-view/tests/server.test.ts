@@ -227,6 +227,20 @@ describe("admin", () => {
   });
 });
 
+test("iPhone launch screens: the admin page links light and dark ones, and they are real PNGs of the linked size", async () => {
+  const html = await (await get(open, "/admin")).text();
+  expect(html).toContain('<meta name="color-scheme" content="light dark">');
+  const links = [...html.matchAll(/<link rel="apple-touch-startup-image" href="([^"]+)" media="([^"]+)">/g)];
+  expect(links.length).toBe(26);
+  expect(links.some(([, , media]) => media.includes("(device-width: 430px)") && media.includes("prefers-color-scheme: dark"))).toBe(true);
+  const r = await get(open, "/splash/1290x2796-dark.png");
+  expect(r.headers.get("content-type")).toBe("image/png");
+  const png = Buffer.from(await r.arrayBuffer());
+  expect(png.subarray(1, 4).toString()).toBe("PNG");
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1290, 2796]);
+  expect((await get(open, "/splash/999x999-dark.png")).status).toBe(404);
+});
+
 test("the icon is served from public/icon.png and revalidates", async () => {
   const png = readFileSync(join(ROOT, "public/icon.png"));
   expect(png.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))).toBe(true);

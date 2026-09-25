@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { asset, assetList, compressed, encode, readData, respond, template } from "./assets";
+import { deflateSync } from "node:zlib";
 const KNOWN_COMPANIES: string[] = JSON.parse(readData("companies.json"));
 const ICON = encode(readFileSync(join(import.meta.dir, "../public/icon.png")), "image/png");
 for (const a of assetList()) console.log("asset " + a.url + " (" + a.raw + " bytes, " + a.br + " compressed)");
@@ -681,6 +682,45 @@ const fill = (html: string, vals: Record<string, string>) => html.replace(/__([A
 const HOST_HTML = Bun.escapeHTML(HOST_NAME);
 const BOOK_TPL = template("book");
 const ADMIN_TPL = template("admin");
+// iPhone home-screen apps show a launch image while the page loads, white when there is none. These are plain images in
+// the app's background colour, one per iPhone screen size, light and dark, drawn on first request.
+const SPLASH_SIZES: [number, number, number][] = [
+  [440, 956, 3], [430, 932, 3], [428, 926, 3], [420, 912, 3], [414, 896, 3], [414, 896, 2], [402, 874, 3], [393, 852, 3],
+  [390, 844, 3], [375, 812, 3], [414, 736, 3], [375, 667, 2], [320, 568, 2],
+];
+const SPLASH_BG = { light: [0xf5, 0xf6, 0xf8], dark: [0x14, 0x14, 0x14] } as const;
+const SPLASH_LINKS = SPLASH_SIZES.flatMap(([w, h, r]) =>
+  (["light", "dark"] as const).map(
+    (s) =>
+      `<link rel="apple-touch-startup-image" href="/splash/${w * r}x${h * r}-${s}.png" media="(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait) and (prefers-color-scheme: ${s})">`,
+  ),
+).join("");
+const splashCache = new Map<string, ReturnType<typeof encode>>();
+function splashPng(width: number, height: number, [r, g, b]: readonly number[]) {
+  const row = Buffer.alloc(1 + width * 3);
+  for (let x = 0; x < width; x++) row.set([r, g, b], 1 + x * 3);
+  const raw = Buffer.concat(Array.from({ length: height }, () => row));
+  const chunk = (type: string, data: Buffer) => {
+    const out = Buffer.alloc(12 + data.length);
+    out.writeUInt32BE(data.length, 0);
+    out.write(type, 4, "latin1");
+    data.copy(out, 8);
+    out.writeUInt32BE(Bun.hash.crc32(out.subarray(4, 8 + data.length)) >>> 0, 8 + data.length);
+    return out;
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([8, 2, 0, 0, 0], 8); // 8-bit RGB
+  return Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw, { level: 9 })), chunk("IEND", Buffer.alloc(0))]);
+}
+function splash(name: string) {
+  const m = name.match(/^(\d+)x(\d+)-(light|dark)\.png$/);
+  if (!m || !SPLASH_SIZES.some(([w, h, r]) => w * r === +m[1] && h * r === +m[2])) return null;
+  let body = splashCache.get(name);
+  if (!body) splashCache.set(name, (body = encode(splashPng(+m[1], +m[2], SPLASH_BG[m[3] as "light" | "dark"]), "image/png")));
+  return body;
+}
 // Changes with every deploy that changes a page. The admin app compares it with the live state and reloads itself when a
 // phone kept the previous version open.
 const BUILD = Bun.hash(assetList().map((a) => a.url).join(",") + ADMIN_TPL + template("analytics")).toString(36);
@@ -693,10 +733,10 @@ BOOT: safeJson({ host: HOST_NAME, event: EVENT_NAME, manage, info: { loc: EVENT_
 });
 // The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
 const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>'), CSP.page);
-const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, BOOT: safeJson({ tab, login: LOGIN_ON, build: BUILD }) }), CSP.admin, false, true);
+const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, SPLASH: SPLASH_LINKS, BOOT: safeJson({ tab, login: LOGIN_ON, build: BUILD }) }), CSP.admin, false, true);
 const ADMIN_CAL = adminShell("cal");
 const ADMIN_ALLOW = adminShell("allow");
-const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML }), CSP.page);
+const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
 const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // A manage link carries the candidate's booking, so that page is built per request and never cached.
 const bookPage = (req: Request, manage: unknown) => sendShell(req, { body: encode(bookHtml(manage, ""), "text/html; charset=utf-8", true), csp: CSP.page }, "no-store");
@@ -906,6 +946,10 @@ icons: [{ src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" 
 }),
 { headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },
 );
+if (path.startsWith("/splash/") && (method === "GET" || method === "HEAD")) {
+const body = splash(path.slice(8));
+return body ? respond(req, body, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" }) : new Response("Not found", { status: 404, headers: BASE_HEADERS });
+}
 if (path === "/icon.png" || path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png")
 return respond(req, ICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
 if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
