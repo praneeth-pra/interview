@@ -1,0 +1,1097 @@
+import { createCipheriv, createECDH, createHash, createHmac, createPrivateKey, hkdfSync, randomBytes, sign as cryptoSign, timingSafeEqual } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+import { brotliDecompressSync } from "node:zlib";
+import { asset, assetList, compressed, encode, readData, respond, template } from "./assets";
+const KNOWN_COMPANIES: string[] = JSON.parse(readData("companies.json"));
+// The app icon comes from public/icon.png. Until that file is committed, the old DATA_ICON variable
+// ("<12-char sha256 check>.<brotli+base64 of the PNG as base64>") still works.
+function loadIcon(): Buffer | null {
+const file = join(import.meta.dir, "../public/icon.png");
+if (existsSync(file)) return readFileSync(file);
+const raw = (Bun.env.DATA_ICON ?? "").trim();
+if (raw.indexOf(".") !== 12) return null;
+try {
+const text = brotliDecompressSync(Buffer.from(raw.slice(13), "base64")).toString("utf8");
+if (createHash("sha256").update(text).digest("hex").slice(0, 12) !== raw.slice(0, 12)) throw new Error("check failed");
+return Buffer.from(text, "base64");
+} catch (e) {
+console.log("icon: DATA_ICON is damaged (" + String((e as Error).message) + ")");
+return null;
+}
+}
+const ICON_PNG = loadIcon();
+for (const a of assetList()) console.log("asset " + a.url + " (" + a.raw + " bytes, " + a.br + " compressed)");
+const PORT = Number(Bun.env.PORT ?? 3000);
+const DATA_DIR = (Bun.env.DATA_DIR ?? "").trim().replace(/\/+$/, "");
+const ADMIN_PASSWORD = (Bun.env.ADMIN_PASSWORD ?? "").trim();
+const LOGIN_ON = !!ADMIN_PASSWORD && /^(on|true|yes|1)$/i.test((Bun.env.ADMIN_LOGIN ?? "").trim());
+const HOST_NAME = (Bun.env.HOST_NAME ?? "Hi-Techie").trim();
+const EVENT_NAME = (Bun.env.EVENT_NAME ?? "Interview").trim();
+const RESEND_API_KEY = (Bun.env.RESEND_API_KEY ?? "").trim();
+const RESEND_URL = (Bun.env.RESEND_API_URL ?? "https://api.resend.com/emails").trim();
+const EMAIL_FROM = (Bun.env.EMAIL_FROM ?? "").trim() || HOST_NAME.replace(/[<>"]/g, "") + " <interviews@hi-techie.dev>";
+const HOST_EMAILS = (Bun.env.HOST_EMAIL ?? "").split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+const MEETING_LINK = (Bun.env.MEETING_LINK ?? "").trim();
+const EVENT_LOCATION = (Bun.env.EVENT_LOCATION ?? "#775, 2nd floor, 2nd cross, Tulsi theatre road, Marathahalli, Bengaluru, 560037.").trim();
+const EVENT_DESCRIPTION = (Bun.env.EVENT_DESCRIPTION ?? "Please block the time only if the interview mail is received.").trim();
+const PUBLIC_URL = (Bun.env.PUBLIC_URL ?? "").trim().replace(/\/+$/, "");
+// One-time cleanup: "Name@YYYY-MM-DD" entries (IST date), comma separated. Matching bookings are deleted on start.
+const REMOVE_BOOKINGS = (Bun.env.REMOVE_BOOKINGS ?? "").split(",").map((s) => s.trim()).filter(Boolean);
+const TZ = "Asia/Kolkata";
+const IST_OFFSET_MIN = 330; // India has no DST, a fixed offset is exact
+const DAY_START_MIN = Math.round((Number(Bun.env.DAY_START_HOUR) || 9) * 60);
+const DAY_END_MIN = Math.round((Number(Bun.env.DAY_END_HOUR) || 21) * 60);
+const SLOT_STEP_MIN = 30;
+const DURATIONS = [30, 60, 90];
+// Candidates can book today plus the next BOOKING_DAYS - 1 days (default 7: today and the next 6 days).
+const DAYS_AHEAD = Math.min(60, Math.max(1, Math.round(Number(Bun.env.BOOKING_DAYS) || 7)));
+const DEFAULT_INTERVIEWERS = ["Praneeth", "Hareesh", "Shiva"];
+type Booking = {
+id: string;
+name: string;
+email: string;
+company: string;
+round: string;
+start: string;
+end: string;
+duration: number;
+createdAt: string;
+cancelled: boolean;
+cancelledAt: string;
+source?: "calendly" | "admin";
+seq?: number;
+rescheduledAt?: string;
+cancelReason?: string;
+cancelledBy?: "candidate" | "host";
+prevStart?: string;
+prevEnd?: string;
+rescheduledBy?: "candidate" | "host";
+};
+type FileStore<T> = { file: string; data: T; ok: boolean; chain: Promise<void>; norm: (x: any) => T };
+function fileStore<T>(file: string, empty: () => T, norm: (x: any) => T): FileStore<T> {
+return { file, data: empty(), ok: false, chain: Promise.resolve(), norm };
+}
+const bookingsStore = fileStore<{ bookings: Booking[] }>(
+"bookings.json",
+() => ({ bookings: [] }),
+(x) => ({ bookings: Array.isArray(x?.bookings) ? x.bookings : [] }),
+);
+const ivStore = fileStore<{ names: string[]; assign: Record<string, string> }>(
+"interviewers.json",
+() => ({ names: [...DEFAULT_INTERVIEWERS], assign: {} }),
+(x) => {
+const names = Array.isArray(x?.names)
+? x.names.filter((n: unknown) => typeof n === "string" && n.trim()).map((n: string) => n.trim().slice(0, 30)).slice(0, 12)
+: [...DEFAULT_INTERVIEWERS];
+const assign: Record<string, string> = {};
+for (const [k, v] of Object.entries(x?.assign ?? {})) if (typeof v === "string" && v.trim()) assign[k] = v.trim().slice(0, 30);
+return { names, assign };
+},
+);
+// Results the admin marks per candidate and company in Analytics ("Update results"), keyed by a normalised candidate name.
+type PersonResults = { results: Record<string, string>; updated: string };
+const RESULT_VALUES = new Set(["cleared", "notcleared", "hold", "offer", "withdrew"]);
+function normResults(v: any): Record<string, string> {
+const out: Record<string, string> = {};
+for (const [c, r] of Object.entries(v ?? {})) if (c && c.length <= 120 && typeof r === "string" && RESULT_VALUES.has(r)) out[c] = r;
+return out;
+}
+const resultsStore = fileStore<{ people: Record<string, PersonResults> }>(
+"results.json",
+() => ({ people: {} }),
+(x) => {
+const people: Record<string, PersonResults> = {};
+for (const [k, v] of Object.entries(x?.people ?? {})) {
+if (!k || k.length > 200) continue;
+const results = normResults((v as any)?.results);
+if (Object.keys(results).length) people[k] = { results, updated: String((v as any)?.updated ?? "") };
+}
+return { people };
+},
+);
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const normEmail = (s: unknown) => String(s ?? "").trim().toLowerCase();
+const allowStore = fileStore<{ enabled: boolean; emails: string[] }>(
+"allowlist.json",
+() => ({ enabled: false, emails: [] }),
+(x) => ({
+enabled: x?.enabled === true,
+emails: [...new Set<string>((Array.isArray(x?.emails) ? x.emails : []).map(normEmail).filter((e: string) => EMAIL_RE.test(e)))],
+}),
+);
+const emailAllowed = (email: string) => !allowStore.data.enabled || allowStore.data.emails.includes(normEmail(email));
+function knownName(email: string) {
+const e = normEmail(email);
+const groups = new Map<string, { n: number; last: number; spell: Map<string, { n: number; last: number }> }>();
+for (const b of bookingsStore.data.bookings) {
+if (normEmail(b.email) !== e) continue;
+const name = String(b.name ?? "").replace(/\s+/g, " ").trim().slice(0, 120);
+if (!name) continue;
+const t = Date.parse(b.createdAt) || Date.parse(b.start) || 0;
+let g = groups.get(name.toLowerCase());
+if (!g) groups.set(name.toLowerCase(), (g = { n: 0, last: 0, spell: new Map() }));
+g.n++;
+g.last = Math.max(g.last, t);
+const sp = g.spell.get(name) ?? { n: 0, last: 0 };
+sp.n++;
+sp.last = Math.max(sp.last, t);
+g.spell.set(name, sp);
+}
+let best: { n: number; last: number; spell: Map<string, { n: number; last: number }> } | null = null;
+for (const g of groups.values()) if (!best || g.n > best.n || (g.n === best.n && g.last > best.last)) best = g;
+if (!best) return "";
+const cased = (s: string) => (s !== s.toLowerCase() && s !== s.toUpperCase() ? 1 : 0);
+return [...best.spell.entries()].sort((x, y) => y[1].n - x[1].n || cased(y[0]) - cased(x[0]) || y[1].last - x[1].last)[0][0];
+}
+const lookupHits = new Map<string, { n: number; reset: number }>();
+function lookupAllowed(ip: string) {
+const now = Date.now();
+if (lookupHits.size > 5000) for (const [k, v] of lookupHits) if (v.reset < now) lookupHits.delete(k);
+const h = lookupHits.get(ip);
+if (!h || h.reset < now) {
+lookupHits.set(ip, { n: 1, reset: now + 60000 });
+return true;
+}
+return ++h.n <= 30;
+}
+const secretStore = fileStore<{ key: string }>("secret.json", () => ({ key: "" }), (x) => ({ key: typeof x?.key === "string" ? x.key : "" }));
+async function loadStore<T>(s: FileStore<T>) {
+if (!DATA_DIR) return console.log("store: memory only (" + s.file + ")");
+const path = DATA_DIR + "/" + s.file;
+try {
+await Bun.write(DATA_DIR + "/.probe", String(Date.now()));
+const f = Bun.file(path);
+if (await f.exists()) {
+try {
+s.data = s.norm(JSON.parse(await f.text()));
+} catch {
+try {
+s.data = s.norm(JSON.parse(await Bun.file(path + ".bak").text()));
+} catch {}
+}
+}
+s.ok = true;
+console.log("store loaded: " + path);
+} catch (e) {
+console.log("store unavailable (" + s.file + "): " + String(e));
+}
+}
+function saveStore<T>(s: FileStore<T>): Promise<void> {
+if (!DATA_DIR || !s.ok) return Promise.resolve();
+const path = DATA_DIR + "/" + s.file;
+const run = s.chain.then(async () => {
+const f = Bun.file(path);
+if (await f.exists()) await Bun.write(path + ".bak", f);
+await Bun.write(path + ".tmp", JSON.stringify(s.data));
+await Bun.write(path, Bun.file(path + ".tmp"));
+});
+s.chain = run.catch((e) => console.log("save failed (" + s.file + "): " + String(e)));
+return run;
+}
+const pad = (n: number) => String(n).padStart(2, "0");
+function istParts(ms: number) {
+const t = new Date(ms + IST_OFFSET_MIN * 60000);
+return { y: t.getUTCFullYear(), mo: t.getUTCMonth() + 1, d: t.getUTCDate(), hh: t.getUTCHours(), mm: t.getUTCMinutes() };
+}
+const istToUtcMs = (y: number, mo: number, d: number, min: number) => Date.UTC(y, mo - 1, d, 0, min) - IST_OFFSET_MIN * 60000;
+const UUID = /^[0-9a-f-]{36}$/i;
+const activeBookings = () => bookingsStore.data.bookings.filter((b) => !b.cancelled);
+function overlapsExisting(startMs: number, endMs: number, ignoreId = "") {
+return activeBookings().some((b) => b.id !== ignoreId && Date.parse(b.start) < endMs && Date.parse(b.end) > startMs);
+}
+function slotOk(startMs: number, duration: number) {
+if (!(startMs > Date.now()) || startMs % 60000 !== 0) return false;
+const p = istParts(startMs);
+const min = p.hh * 60 + p.mm;
+return min >= DAY_START_MIN && min + duration <= DAY_END_MIN && (min - DAY_START_MIN) % SLOT_STEP_MIN === 0;
+}
+// Midnight (IST) after the last day candidates may book.
+function bookingLimitMs() {
+const t = istParts(Date.now());
+return istToUtcMs(t.y, t.mo, t.d + DAYS_AHEAD, 0);
+}
+function slotsFor(y: number, mo: number, d: number, duration: number, ignoreId = "") {
+const out: number[] = [];
+const now = Date.now();
+for (let m = DAY_START_MIN; m + duration <= DAY_END_MIN; m += SLOT_STEP_MIN) {
+const s = istToUtcMs(y, mo, d, m);
+if (s > now && !overlapsExisting(s, s + duration * 60000, ignoreId)) out.push(s);
+}
+return out;
+}
+function bookableDays(duration: number, ignoreId = "") {
+const today = istParts(Date.now());
+const out: { key: string; open: boolean }[] = [];
+for (let i = 0; i < DAYS_AHEAD; i++) {
+const t = new Date(Date.UTC(today.y, today.mo - 1, today.d + i));
+const [y, mo, d] = [t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()];
+out.push({ key: y + "-" + pad(mo) + "-" + pad(d), open: slotsFor(y, mo, d, duration, ignoreId).length > 0 });
+}
+return out;
+}
+const compact = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, "");
+const JUNK_COMPANY = new Set(["na", "none", "nil", "null", "test", "nothing", "notapplicable", "self", "xyz", "abc", "no", "yes", "other", "fresher", "student", "unemployed", "confidential"]);
+function companySuggestions() {
+const list = KNOWN_COMPANIES.map((s) => {
+const [n, ...a] = s.split("|");
+return { n, a, f: 0 };
+});
+const byKey = new Map<string, (typeof list)[number]>();
+for (const c of list) for (const t of [c.n, ...c.a]) if (!byKey.has(compact(t))) byKey.set(compact(t), c);
+const typed = new Map<string, { people: Set<string>; spell: Map<string, number> }>();
+for (const b of bookingsStore.data.bookings) {
+const raw = String(b.company ?? "").replace(/\s+/g, " ").trim();
+const k = compact(raw);
+if (raw.length < 2 || raw.length > 50 || !k || JUNK_COMPANY.has(k) || /[@<>{}]|https?:|\d{5,}/.test(raw) || raw.split(" ").length > 5) continue;
+const known = byKey.get(k);
+if (known) {
+known.f++;
+continue;
+}
+let g = typed.get(k);
+if (!g) typed.set(k, (g = { people: new Set(), spell: new Map() }));
+g.people.add(String(b.email || b.name || b.id).toLowerCase());
+g.spell.set(raw, (g.spell.get(raw) ?? 0) + 1);
+}
+for (const g of typed.values()) {
+const n = [...g.spell.entries()].sort((x, y) => y[1] - x[1])[0][0];
+list.push({ n, a: [], f: g.people.size });
+}
+return list;
+}
+function manageToken(id: string) {
+return createHmac("sha256", secretStore.data.key).update("manage:" + id).digest("hex").slice(0, 32);
+}
+function tokenOk(id: string, t: unknown) {
+return !!secretStore.data.key && typeof t === "string" && t.length === 32 && safeEq(t, manageToken(id));
+}
+function baseUrl(req: Request) {
+if (PUBLIC_URL) return PUBLIC_URL;
+const host = (req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "").split(",")[0].trim();
+return (/^(localhost|127\.)/.test(host) ? "http://" : "https://") + host;
+}
+const manageUrl = (base: string, b: Booking) => base + "/b/" + b.id + "?t=" + manageToken(b.id);
+const fmtIst = (iso: string, o: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en-US", { timeZone: TZ, ...o }).format(new Date(iso));
+const t12 = (iso: string) => fmtIst(iso, { hour: "numeric", minute: "2-digit", hour12: true }).replace(" AM", "am").replace(" PM", "pm");
+const whenText = (start: string, end: string) =>
+fmtIst(start, { weekday: "long", month: "long", day: "numeric", year: "numeric" }) + ", " + t12(start) + " \u2013 " + t12(end) + " IST";
+const dayShort = (iso: string) => fmtIst(iso, { weekday: "short", month: "short", day: "numeric" }) + ", " + t12(iso);
+const firstName = (n: string) => (n.split(/[\s,]+/)[0] || "there").slice(0, 40);
+const icsEsc = (s: string) => String(s).replace(/[\\;,]/g, (c) => "\\" + c).replace(/\r?\n/g, "\\n");
+const icsParam = (s: string) => '"' + String(s).replace(/["\r\n]/g, "") + '"';
+const icsTime = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+function icsFold(line: string) {
+let out = "";
+while (line.length > 74) {
+out += line.slice(0, 74) + "\r\n ";
+line = line.slice(74);
+}
+return out + line;
+}
+function buildIcs(b: Booking, method: "REQUEST" | "CANCEL") {
+const from = (EMAIL_FROM.match(/<([^>]+)>/)?.[1] ?? EMAIL_FROM).trim();
+const desc = [EVENT_NAME + " with " + HOST_NAME, MEETING_LINK && "Join: " + MEETING_LINK, b.company && "Company: " + b.company, b.round && "Round: " + b.round]
+.filter(Boolean)
+.join("\n");
+return (
+[
+"BEGIN:VCALENDAR", "PRODID:-//booking-form//EN", "VERSION:2.0", "CALSCALE:GREGORIAN", "METHOD:" + method, "BEGIN:VEVENT",
+"UID:" + b.id + "@booking-form", "SEQUENCE:" + (b.seq ?? 0), "DTSTAMP:" + icsTime(new Date().toISOString()),
+"DTSTART:" + icsTime(b.start), "DTEND:" + icsTime(b.end),
+"SUMMARY:" + icsEsc(EVENT_NAME + " with " + HOST_NAME), "DESCRIPTION:" + icsEsc(desc),
+...(MEETING_LINK || EVENT_LOCATION ? ["LOCATION:" + icsEsc(MEETING_LINK || EVENT_LOCATION)] : []),
+"ORGANIZER;CN=" + icsParam(HOST_NAME) + ":mailto:" + from,
+"ATTENDEE;CN=" + icsParam(b.name) + ";ROLE=REQ-PARTICIPANT;PARTSTAT=ACCEPTED;RSVP=FALSE:mailto:" + b.email,
+"STATUS:" + (method === "CANCEL" ? "CANCELLED" : "CONFIRMED"), "END:VEVENT", "END:VCALENDAR",
+].map(icsFold).join("\r\n") + "\r\n"
+);
+}
+type Mail = { to: string[]; subject: string; html: string; text: string; ics?: { method: "REQUEST" | "CANCEL"; body: string }; replyTo?: string[] };
+async function sendEmail(m: Mail) {
+const to = m.to.filter((e) => EMAIL_RE.test(e));
+if (!RESEND_API_KEY || !to.length) return;
+try {
+const r = await fetch(RESEND_URL, {
+method: "POST",
+headers: { Authorization: "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
+body: JSON.stringify({
+from: EMAIL_FROM,
+to,
+subject: m.subject,
+html: m.html,
+text: m.text,
+...(m.replyTo?.length ? { reply_to: m.replyTo } : {}),
+...(m.ics
+? { attachments: [{ filename: m.ics.method === "CANCEL" ? "cancel.ics" : "invite.ics", content: Buffer.from(m.ics.body).toString("base64"), content_type: "text/calendar; charset=utf-8; method=" + m.ics.method }] }
+: {}),
+}),
+signal: AbortSignal.timeout(15000),
+});
+if (r.ok) console.log("email sent: " + m.subject.split(":")[0] + " (" + to.length + " recipient" + (to.length === 1 ? "" : "s") + ")");
+else console.log("email failed (" + r.status + "): " + (await r.text()).slice(0, 300));
+} catch (e) {
+console.log("email failed: " + String(e));
+}
+}
+function emailBody(o: { heading: string; intro: string; rows: [string, string][]; buttons?: { label: string; href: string; primary?: boolean }[]; note?: string }) {
+const e = (s: string) => Bun.escapeHTML(s);
+const rows = o.rows.filter((r) => r[1]);
+const rowHtml = rows
+.map(([k, v]) => `<tr><td style="padding:6px 18px 6px 0;color:#6b6b6b;vertical-align:top;white-space:nowrap">${e(k)}</td><td style="padding:6px 0;color:#1a1a1a;font-weight:600">${e(v)}</td></tr>`)
+.join("");
+const btns = (o.buttons ?? [])
+.map((b) => `<a href="${e(b.href)}" style="display:inline-block;margin:0 8px 8px 0;padding:11px 22px;border-radius:40px;text-decoration:none;font-weight:600;font-size:15px;${b.primary ? "background:#006bff;color:#ffffff" : "border:1px solid #b2b2b2;color:#1a1a1a"}">${e(b.label)}</a>`)
+.join("");
+const html =
+`<!doctype html><html><body style="margin:0;padding:24px 12px;background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a">` +
+`<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e6e6e6;border-radius:10px;padding:28px">` +
+`<h1 style="margin:0 0 8px;font-size:20px">${e(o.heading)}</h1><p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.5">${e(o.intro)}</p>` +
+`<table role="presentation" style="border-collapse:collapse;font-size:15px;margin:0 0 22px">${rowHtml}</table>` +
+(btns ? `<div>${btns}</div>` : "") +
+(o.note ? `<p style="margin:16px 0 0;color:#888888;font-size:13px;line-height:1.5">${e(o.note)}</p>` : "") +
+`</div></body></html>`;
+const text = [o.heading, "", o.intro, "", ...rows.map(([k, v]) => k + ": " + v), "", ...(o.buttons ?? []).map((b) => b.label + ": " + b.href), ...(o.note ? ["", o.note] : [])].join("\n");
+return { html, text };
+}
+const candidateRows = (b: Booking): [string, string][] => [
+["What", EVENT_NAME + " with " + HOST_NAME],
+["When", whenText(b.start, b.end)],
+["Length", b.duration + " minutes"],
+["Where", MEETING_LINK || EVENT_LOCATION],
+];
+const hostRows = (b: Booking): [string, string][] => [
+["Candidate", b.name + " <" + b.email + ">"],
+["When", whenText(b.start, b.end)],
+["Company", b.company],
+["Round", b.round],
+];
+const MANAGE_NOTE = "Please don't forward this email. Its links can change your booking.";
+function notifyBooked(b: Booking, base: string) {
+const link = manageUrl(base, b);
+const c = emailBody({
+heading: "Your interview is confirmed",
+intro: "Hi " + firstName(b.name) + ", you're booked with " + HOST_NAME + ". The calendar invite is attached.",
+rows: candidateRows(b),
+buttons: [{ label: "Reschedule", href: link + "&a=reschedule" }, { label: "Cancel", href: link + "&a=cancel" }],
+note: MANAGE_NOTE,
+});
+void sendEmail({ to: [b.email], subject: "Confirmed: " + EVENT_NAME + " with " + HOST_NAME + " \u2013 " + dayShort(b.start), ...c, ics: { method: "REQUEST", body: buildIcs(b, "REQUEST") }, replyTo: HOST_EMAILS });
+if (!HOST_EMAILS.length) return;
+const h = emailBody({ heading: "New booking", intro: b.name + " booked a " + b.duration + " minute " + EVENT_NAME.toLowerCase() + ".", rows: hostRows(b), buttons: [{ label: "Open calendar", href: base + "/admin", primary: true }] });
+void sendEmail({ to: HOST_EMAILS, subject: "New booking: " + b.name + " \u2013 " + dayShort(b.start), ...h, ics: { method: "REQUEST", body: buildIcs(b, "REQUEST") }, replyTo: [b.email] });
+}
+function notifyRescheduled(b: Booking, prevStart: string, prevEnd: string, base: string) {
+const link = manageUrl(base, b);
+const was: [string, string] = ["Was", whenText(prevStart, prevEnd)];
+const c = emailBody({
+heading: "Your interview has moved",
+intro:
+b.rescheduledBy === "host"
+? "Hi " + firstName(b.name) + ", " + HOST_NAME + " moved your " + EVENT_NAME.toLowerCase() + " to the time below. The updated invite is attached."
+: "Hi " + firstName(b.name) + ", your " + EVENT_NAME.toLowerCase() + " with " + HOST_NAME + " is now at the time below. The updated invite is attached.",
+rows: [...candidateRows(b), was],
+buttons: [{ label: "Reschedule", href: link + "&a=reschedule" }, { label: "Cancel", href: link + "&a=cancel" }],
+note: MANAGE_NOTE,
+});
+void sendEmail({ to: [b.email], subject: "Updated: " + EVENT_NAME + " with " + HOST_NAME + " \u2013 " + dayShort(b.start), ...c, ics: { method: "REQUEST", body: buildIcs(b, "REQUEST") }, replyTo: HOST_EMAILS });
+if (!HOST_EMAILS.length) return;
+const h = emailBody({ heading: "Booking rescheduled", intro: b.rescheduledBy === "host" ? "You moved " + b.name + "'s " + EVENT_NAME.toLowerCase() + "." : b.name + " moved their " + EVENT_NAME.toLowerCase() + ".", rows: [...hostRows(b), was], buttons: [{ label: "Open calendar", href: base + "/admin", primary: true }] });
+void sendEmail({ to: HOST_EMAILS, subject: "Rescheduled: " + b.name + " \u2013 " + dayShort(b.start), ...h, ics: { method: "REQUEST", body: buildIcs(b, "REQUEST") }, replyTo: [b.email] });
+}
+function notifyCancelled(b: Booking, base: string) {
+const byHost = b.cancelledBy === "host";
+const c = emailBody({
+heading: "Your interview is cancelled",
+intro: byHost
+? "Hi " + firstName(b.name) + ", " + HOST_NAME + " cancelled your " + EVENT_NAME.toLowerCase() + ". Reply to this email if you have questions."
+: "Hi " + firstName(b.name) + ", your " + EVENT_NAME.toLowerCase() + " with " + HOST_NAME + " is cancelled, as you asked.",
+rows: [["What", EVENT_NAME + " with " + HOST_NAME], ["When", whenText(b.start, b.end)], ["Reason", byHost ? b.cancelReason ?? "" : ""]],
+buttons: [{ label: "Book a new time", href: base + "/", primary: true }],
+});
+void sendEmail({ to: [b.email], subject: "Cancelled: " + EVENT_NAME + " with " + HOST_NAME + " \u2013 " + dayShort(b.start), ...c, ics: { method: "CANCEL", body: buildIcs(b, "CANCEL") }, replyTo: HOST_EMAILS });
+if (!HOST_EMAILS.length) return;
+const h = emailBody({
+heading: "Booking cancelled",
+intro: byHost ? "You cancelled " + b.name + "'s " + EVENT_NAME.toLowerCase() + " from the admin calendar." : b.name + " cancelled their " + EVENT_NAME.toLowerCase() + ".",
+rows: [...hostRows(b), ["Reason", b.cancelReason ?? ""]],
+});
+void sendEmail({ to: HOST_EMAILS, subject: "Cancelled: " + b.name + " \u2013 " + dayShort(b.start), ...h, ics: { method: "CANCEL", body: buildIcs(b, "CANCEL") }, replyTo: [b.email] });
+}
+// ---- Browser notifications (Web Push) for admins -----------------------------------------
+// Keys and device subscriptions live in push.json on the volume. Notifications go straight from
+// this server to the browser push services (Apple, Google, Mozilla, Microsoft); nothing else is involved.
+type PushSub = { endpoint: string; p256dh: string; auth: string; label: string; addedAt: string };
+const pushStore = fileStore<{ pub: string; priv: string; subs: PushSub[] }>(
+"push.json",
+() => ({ pub: "", priv: "", subs: [] }),
+(x) => ({
+pub: typeof x?.pub === "string" ? x.pub : "",
+priv: typeof x?.priv === "string" ? x.priv : "",
+subs: Array.isArray(x?.subs) ? x.subs.filter((v: any) => v && typeof v.endpoint === "string" && typeof v.p256dh === "string" && typeof v.auth === "string") : [],
+}),
+);
+const PUSH_HOSTS = /(^|\.)(fcm\.googleapis\.com|push\.apple\.com|push\.services\.mozilla\.com|notify\.windows\.com|push\.api\.chrome\.google\.com)$/i;
+const b64u = (b: Uint8Array) => Buffer.from(b).toString("base64url");
+function pushEndpointOk(u: string) {
+try {
+const x = new URL(u);
+return x.protocol === "https:" && PUSH_HOSTS.test(x.hostname) && u.length < 1000;
+} catch {
+return false;
+}
+}
+function vapidJwt(aud: string) {
+const pub = Buffer.from(pushStore.data.pub, "base64url");
+const key = createPrivateKey({ key: { kty: "EC", crv: "P-256", d: pushStore.data.priv, x: b64u(pub.subarray(1, 33)), y: b64u(pub.subarray(33, 65)) }, format: "jwk" });
+const head = b64u(Buffer.from(JSON.stringify({ typ: "JWT", alg: "ES256" })));
+const body = b64u(Buffer.from(JSON.stringify({ aud, exp: Math.floor(Date.now() / 1000) + 12 * 3600, sub: "mailto:alerts@hi-techie.dev" })));
+return head + "." + body + "." + b64u(cryptoSign("sha256", Buffer.from(head + "." + body), { key, dsaEncoding: "ieee-p1363" }));
+}
+// RFC 8291 message encryption (aes128gcm), one record.
+function encryptPush(sub: PushSub, text: string) {
+const uaPub = Buffer.from(sub.p256dh, "base64url");
+const ecdh = createECDH("prime256v1");
+ecdh.generateKeys();
+const asPub = ecdh.getPublicKey();
+const ikm = Buffer.from(hkdfSync("sha256", ecdh.computeSecret(uaPub), Buffer.from(sub.auth, "base64url"), Buffer.concat([Buffer.from("WebPush: info\0"), uaPub, asPub]), 32));
+const salt = randomBytes(16);
+const cek = Buffer.from(hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: aes128gcm\0"), 16));
+const nonce = Buffer.from(hkdfSync("sha256", ikm, salt, Buffer.from("Content-Encoding: nonce\0"), 12));
+const c = createCipheriv("aes-128-gcm", cek, nonce);
+const data = Buffer.concat([c.update(Buffer.concat([Buffer.from(text), Buffer.from([2])])), c.final(), c.getAuthTag()]);
+const head = Buffer.alloc(21);
+salt.copy(head, 0);
+head.writeUInt32BE(4096, 16);
+head[20] = asPub.length;
+return Buffer.concat([head, asPub, data]);
+}
+async function pushTo(sub: PushSub, msg: object) {
+try {
+const r = await fetch(sub.endpoint, {
+method: "POST",
+headers: {
+TTL: "86400",
+Urgency: "high",
+"Content-Encoding": "aes128gcm",
+"Content-Type": "application/octet-stream",
+Authorization: "vapid t=" + vapidJwt(new URL(sub.endpoint).origin) + ", k=" + pushStore.data.pub,
+},
+body: encryptPush(sub, JSON.stringify(msg)),
+signal: AbortSignal.timeout(10000),
+});
+if (!r.ok) console.log("push failed (" + r.status + ") for " + sub.label + ": " + (await r.text()).slice(0, 200));
+return r.status;
+} catch (e) {
+console.log("push failed for " + sub.label + ": " + String(e));
+return 0;
+}
+}
+async function pushAll(msg: object) {
+const subs = [...pushStore.data.subs];
+if (!subs.length) return;
+const codes = await Promise.all(subs.map((x) => pushTo(x, msg)));
+const gone = new Set(subs.filter((_, i) => codes[i] === 404 || codes[i] === 410).map((x) => x.endpoint));
+if (gone.size) {
+pushStore.data.subs = pushStore.data.subs.filter((x) => !gone.has(x.endpoint));
+await saveStore(pushStore).catch(() => {});
+}
+console.log("push: sent to " + codes.filter((c) => c >= 200 && c < 300).length + " of " + subs.length + " device(s)" + (gone.size ? ", removed " + gone.size + " expired" : ""));
+}
+function alertAdmins(kind: "booked" | "moved" | "cancelled", b: Booking) {
+if (!pushStore.data.subs.length) return;
+const who = [b.name, b.company, b.round].map((x) => String(x ?? "").trim()).filter(Boolean).join(" \u00B7 ");
+void pushAll({
+title: kind === "booked" ? "New booking" : kind === "moved" ? "Booking rescheduled" : "Booking cancelled",
+body: who + "\n" + (kind === "moved" ? "Now " : "") + dayShort(b.start) + " (" + b.duration + " min)",
+tag: b.id + ":" + kind,
+url: "/admin?date=" + new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(b.start)),
+});
+}
+const pushView = () => ({ key: pushStore.data.pub, endpoints: pushStore.data.subs.map((x) => x.endpoint) });
+const SW_JS = `self.addEventListener("install",function(){self.skipWaiting()});
+self.addEventListener("activate",function(e){e.waitUntil(self.clients.claim())});
+self.addEventListener("push",function(e){var d={};try{d=e.data.json()}catch(x){d={body:e.data?e.data.text():""}}
+e.waitUntil(self.registration.showNotification(d.title||"Hi-Techie",{body:d.body||"",tag:d.tag||undefined,renotify:!!d.tag,icon:"/icon.png",badge:"/icon.png",data:{url:d.url||"/admin"}}))});
+self.addEventListener("notificationclick",function(e){e.notification.close();var url=(e.notification.data&&e.notification.data.url)||"/admin";
+e.waitUntil(self.clients.matchAll({type:"window",includeUncontrolled:true}).then(function(ws){for(var i=0;i<ws.length;i++){var w=ws[i];if(new URL(w.url).pathname.indexOf("/admin")===0){if(w.navigate)w.navigate(url).catch(function(){});return w.focus()}}return self.clients.openWindow(url)}))});`;
+const enc = new TextEncoder();
+const streams = new Set<ReadableStreamDefaultController>();
+const pub = (b: Booking) => ({
+id: b.id, name: b.name, email: b.email, company: b.company, round: b.round, start: b.start, end: b.end, duration: b.duration,
+createdAt: b.createdAt, source: b.source ?? "", cancelled: b.cancelled, cancelledAt: b.cancelledAt, cancelledBy: b.cancelledBy ?? "",
+cancelReason: b.cancelReason ?? "", rescheduledAt: b.rescheduledAt ?? "", rescheduledBy: b.rescheduledBy ?? "", prevStart: b.prevStart ?? "",
+});
+function adminState() {
+const since = Date.now() - 30 * 86400000;
+const changes = bookingsStore.data.bookings
+.filter((b) => (b.cancelled ? Date.parse(b.cancelledAt) > since : Date.parse(b.rescheduledAt ?? "") > since))
+.map((b) => ({ ...pub(b), kind: b.cancelled ? "cancelled" : "rescheduled", at: b.cancelled ? b.cancelledAt : b.rescheduledAt }))
+.sort((a, b) => Date.parse(b.at!) - Date.parse(a.at!))
+.slice(0, 40);
+return {
+ready: true,
+email: !!RESEND_API_KEY,
+hours: { start: DAY_START_MIN, end: DAY_END_MIN },
+iv: { names: ivStore.data.names, assign: ivStore.data.assign },
+allow: { enabled: allowStore.data.enabled, count: allowStore.data.emails.length },
+events: activeBookings().map(pub).sort((a, b) => Date.parse(a.start) - Date.parse(b.start)),
+changes,
+};
+}
+function send(event: string, data: unknown) {
+const chunk = enc.encode("event: " + event + "\ndata: " + JSON.stringify(data) + "\n\n");
+for (const c of streams) {
+try {
+c.enqueue(chunk);
+} catch {
+streams.delete(c);
+}
+}
+}
+const broadcastState = () => {
+if (streams.size) send("state", adminState());
+};
+setInterval(() => send("tick", {}), 15000);
+const SESSION_COOKIE = "bf_admin";
+const sessionToken = () => createHmac("sha256", ADMIN_PASSWORD).update("booking-form admin session v1").digest("hex");
+function safeEq(a: string, b: string) {
+const x = Buffer.from(a);
+const y = Buffer.from(b);
+return x.length === y.length && timingSafeEqual(x, y);
+}
+function hasSession(req: Request) {
+if (!LOGIN_ON) return true;
+const m = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)bf_admin=([a-f0-9]{64})/);
+return !!m && safeEq(m[1], sessionToken());
+}
+let wrong = 0;
+let wrongReset = 0;
+function passwordOk(pw: string): "ok" | "wrong" | "throttled" {
+if (Date.now() > wrongReset) {
+wrong = 0;
+wrongReset = Date.now() + 60000;
+}
+if (wrong >= 10) return "throttled";
+if (ADMIN_PASSWORD && pw && safeEq(pw, ADMIN_PASSWORD)) return "ok";
+wrong++;
+return "wrong";
+}
+const BASE_HEADERS = {
+"X-Content-Type-Options": "nosniff",
+"Referrer-Policy": "no-referrer",
+"X-Frame-Options": "DENY",
+"X-Robots-Tag": "noindex, nofollow",
+"Strict-Transport-Security": "max-age=31536000",
+"Cache-Control": "no-store",
+};
+const json = (data: unknown, status = 200, extra: Record<string, string> = {}) =>
+new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...BASE_HEADERS, ...extra } });
+// Scripts and styles are files under /assets, so the policy needs no per-request nonce.
+const CSP_BASE = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'";
+const CSP = {
+page: CSP_BASE + "; frame-ancestors 'none'",
+admin: CSP_BASE + "; manifest-src 'self'; worker-src 'self'; frame-src 'self'; frame-ancestors 'none'",
+frame: CSP_BASE + "; frame-ancestors 'self'",
+};
+type Shell = { body: ReturnType<typeof encode>; csp: string; framed?: boolean };
+const shell = (html: string, csp: string, framed = false): Shell => ({ body: encode(html, "text/html; charset=utf-8"), csp, framed });
+function sendShell(req: Request, s: Shell, cache = "private, no-cache") {
+return respond(req, s.body, { ...BASE_HEADERS, "Cache-Control": cache, "Content-Security-Policy": s.csp, ...(s.framed ? { "X-Frame-Options": "SAMEORIGIN" } : {}) });
+}
+async function readJson(req: Request, max = 5000): Promise<any | Response> {
+if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return json({ error: "Bad request." }, 415);
+const raw = await req.text();
+if (raw.length > max) return json({ error: "Too large." }, 413);
+try {
+return JSON.parse(raw);
+} catch {
+return json({ error: "Bad request." }, 400);
+}
+}
+const allowView = () => ({ enabled: allowStore.data.enabled, emails: [...allowStore.data.emails].sort() });
+await loadStore(bookingsStore);
+await loadStore(ivStore);
+await loadStore(allowStore);
+await loadStore(secretStore);
+await loadStore(pushStore);
+await loadStore(resultsStore);
+if (!pushStore.data.pub || !pushStore.data.priv) {
+const kp = createECDH("prime256v1");
+kp.generateKeys();
+pushStore.data.pub = b64u(kp.getPublicKey());
+pushStore.data.priv = b64u(kp.getPrivateKey());
+await saveStore(pushStore).catch(() => {});
+}
+if (!secretStore.data.key) {
+secretStore.data.key = randomBytes(32).toString("hex");
+await saveStore(secretStore).catch(() => {});
+}
+if (REMOVE_BOOKINGS.length && bookingsStore.ok) {
+const istDay = (iso: string) => new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(iso));
+const rules = REMOVE_BOOKINGS.map((r) => {
+const at = r.lastIndexOf("@");
+return at > 0 ? { name: r.slice(0, at).trim().toLowerCase(), day: r.slice(at + 1).trim() } : { name: r.trim().toLowerCase(), day: "" };
+});
+const gone = bookingsStore.data.bookings.filter((b) =>
+rules.some((r) => String(b.name ?? "").trim().toLowerCase() === r.name && (!r.day || istDay(b.start) === r.day)),
+);
+if (gone.length) {
+bookingsStore.data.bookings = bookingsStore.data.bookings.filter((b) => !gone.includes(b));
+for (const b of gone) delete ivStore.data.assign[b.id];
+await saveStore(bookingsStore);
+await saveStore(ivStore);
+}
+console.log("cleanup: removed " + gone.length + " booking(s)" + (gone.length ? ": " + gone.map((b) => b.name + " " + b.start).join(", ") : ""));
+}
+console.log(RESEND_API_KEY ? "email: on, sending as " + EMAIL_FROM : "email: off (set RESEND_API_KEY to send invites)");
+console.log("allowlist: " + (allowStore.data.enabled ? "on" : "off") + ", " + allowStore.data.emails.length + " emails");
+console.log("browser alerts: " + pushStore.data.subs.length + " device(s)");
+console.log("analytics results: " + Object.keys(resultsStore.data.people).length + " candidate(s)");
+const safeJson = (x: unknown) => JSON.stringify(x).replace(/</g, "\\u003c");
+const fill = (html: string, vals: Record<string, string>) => html.replace(/__([A-Z]+)__/g, (m, k) => (k in vals ? vals[k] : m));
+const HOST_HTML = Bun.escapeHTML(HOST_NAME);
+const BOOK_TPL = template("book");
+const ADMIN_TPL = template("admin");
+const bookHtml = (manage: unknown, preload: string) =>
+fill(BOOK_TPL, {
+EVENT: Bun.escapeHTML(EVENT_NAME),
+HOST: HOST_HTML,
+PRELOAD: preload,
+BOOT: safeJson({ host: HOST_NAME, event: EVENT_NAME, manage, info: { loc: EVENT_LOCATION, desc: EVENT_DESCRIPTION } }),
+});
+// The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
+const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>'), CSP.page);
+const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, BOOT: safeJson({ tab, login: LOGIN_ON }) }), CSP.admin);
+const ADMIN_CAL = adminShell("cal");
+const ADMIN_ALLOW = adminShell("allow");
+const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML }), CSP.page);
+const ANALYTICS = shell(template("analytics"), CSP.frame, true);
+// A manage link carries the candidate's booking, so that page is built per request and never cached.
+const bookPage = (req: Request, manage: unknown) => sendShell(req, { body: encode(bookHtml(manage, ""), "text/html; charset=utf-8", true), csp: CSP.page }, "no-store");
+function managedBooking(body: any): Booking | Response {
+const id = String(body?.id ?? "");
+const b = bookingsStore.data.bookings.find((x) => x.id === id);
+if (!b || !tokenOk(b.id, body?.t)) return json({ error: "This link isn't valid. Use the link from your confirmation email." }, 403);
+if (b.cancelled) return json({ error: "This interview was already cancelled." }, 409);
+if (Date.parse(b.start) <= Date.now()) return json({ error: "This interview has already started, so it can't be changed here." }, 409);
+return b;
+}
+async function commit(b: Booking, prev: Booking) {
+try {
+await saveStore(bookingsStore);
+return true;
+} catch {
+for (const k of Object.keys(b)) if (!(k in prev)) delete (b as any)[k];
+Object.assign(b, prev);
+return false;
+}
+}
+const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
+async function createBooking(body: any, req: Request, source?: "admin"): Promise<Response> {
+const name = String(body?.name ?? "").trim().slice(0, 120);
+const email = String(body?.email ?? "").trim().slice(0, 200);
+const company = String(body?.company ?? "").trim().slice(0, 120);
+const round = String(body?.round ?? "").trim().slice(0, 60);
+const duration = Number(body?.duration);
+const startMs = Number(body?.startMs);
+if (!name) return json({ error: "Enter a name." }, 400);
+if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
+if (!source && !emailAllowed(email))
+return json({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" }, 403);
+if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
+const endMs = startMs + duration * 60000;
+if (!slotOk(startMs, duration) || overlapsExisting(startMs, endMs) || (!source && startMs >= bookingLimitMs()))
+return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
+const booking: Booking = {
+id: crypto.randomUUID(), name, email, company, round,
+start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString(), duration,
+createdAt: new Date().toISOString(), cancelled: false, cancelledAt: "",
+...(source ? { source } : {}),
+};
+bookingsStore.data.bookings.push(booking);
+try {
+await saveStore(bookingsStore);
+} catch {
+bookingsStore.data.bookings.pop();
+return json({ error: "Couldn't save the booking. Try again." }, 500);
+}
+broadcastState();
+const base = baseUrl(req);
+notifyBooked(booking, base);
+if (!source) alertAdmins("booked", booking);
+return json({ booking: { id: booking.id, name, email, start: booking.start, end: booking.end, duration, manage: manageUrl(base, booking) }, emailed: !!RESEND_API_KEY });
+}
+async function moveBooking(b: Booking, startMs: number, duration: number, by: "candidate" | "host", req: Request): Promise<Response> {
+if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
+if (startMs === Date.parse(b.start) && duration === b.duration) return json({ error: "That's already the interview time. Pick a different time." }, 400);
+const endMs = startMs + duration * 60000;
+if (!slotOk(startMs, duration) || overlapsExisting(startMs, endMs, b.id) || (by === "candidate" && startMs >= bookingLimitMs()))
+return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
+const prev = { ...b };
+Object.assign(b, {
+prevStart: b.start, prevEnd: b.end, start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString(), duration,
+seq: (b.seq ?? 0) + 1, rescheduledAt: new Date().toISOString(), rescheduledBy: by,
+});
+if (!(await commit(b, prev))) return saveFailed();
+broadcastState();
+notifyRescheduled(b, prev.start, prev.end, baseUrl(req));
+if (by === "candidate") alertAdmins("moved", b);
+return json({ booking: { start: b.start, end: b.end, duration: b.duration }, emailed: !!RESEND_API_KEY });
+}
+async function cancelBooking(b: Booking, reason: string, by: "candidate" | "host", req: Request): Promise<Response> {
+const prev = { ...b };
+Object.assign(b, { cancelled: true, cancelledAt: new Date().toISOString(), cancelReason: reason.trim().slice(0, 500), cancelledBy: by, seq: (b.seq ?? 0) + 1 });
+if (!(await commit(b, prev))) return saveFailed();
+broadcastState();
+if (Date.parse(b.start) > Date.now()) {
+notifyCancelled(b, baseUrl(req));
+if (by === "candidate") alertAdmins("cancelled", b);
+}
+return json({ ok: true, emailed: !!RESEND_API_KEY });
+}
+const csvCell = (v: unknown) => {
+let s = String(v ?? "");
+if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // stop spreadsheets treating text as formulas
+return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+};
+function bookingsCsv() {
+const now = Date.now();
+const iv = ivStore.data.assign;
+const d = (iso: string) => (iso ? new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(iso)) : "");
+const who = (x?: string) => (x === "host" ? "You" : x === "candidate" ? "Candidate" : "");
+const rows = [["Name", "Email", "Company", "Round", "Date", "Start (IST)", "End (IST)", "Length (min)", "Status", "Interviewer", "Booked on", "Booked via", "Cancelled by", "Cancel reason"]];
+for (const b of [...bookingsStore.data.bookings].sort((x, y) => Date.parse(x.start) - Date.parse(y.start)))
+rows.push([
+b.name, b.email, b.company, b.round, d(b.start), t12(b.start), t12(b.end), String(b.duration),
+b.cancelled ? "Cancelled" : Date.parse(b.end) <= now ? "Completed" : Date.parse(b.start) <= now ? "In progress" : "Upcoming",
+iv[b.id] ?? "", d(b.createdAt), b.source === "admin" ? "Admin" : b.source === "calendly" ? "Calendly" : "Booking page",
+b.cancelled ? who(b.cancelledBy) : "", b.cancelReason ?? "",
+]);
+return new Response("\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n", {
+headers: { ...BASE_HEADERS, "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="bookings-' + d(new Date().toISOString()) + '.csv"' },
+});
+}
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+type Srv = { requestIP(r: Request): { address: string } | null; timeout(r: Request, seconds: number): void };
+async function route(req: Request, srv: Srv): Promise<Response> {
+const url = new URL(req.url);
+const path = url.pathname;
+const method = req.method;
+if (path === "/favicon.ico") return new Response(null, { status: 204 });
+if (path === "/healthz") return new Response("ok", { headers: BASE_HEADERS });
+if (path === "/sw.js") return new Response(SW_JS, { headers: { ...BASE_HEADERS, "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" } });
+if (path === "/manifest.webmanifest")
+return new Response(
+JSON.stringify({
+name: HOST_NAME + " Admin", short_name: HOST_NAME, start_url: "/admin", scope: "/", display: "standalone",
+background_color: "#121212", theme_color: "#0052cc",
+icons: [{ src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" }, { src: "/icon.png", sizes: "192x192", type: "image/png", purpose: "any" }],
+}),
+{ headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },
+);
+if (path === "/icon.png")
+return ICON_PNG ? new Response(ICON_PNG, { headers: { ...BASE_HEADERS, "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } }) : new Response("Not found", { status: 404, headers: BASE_HEADERS });
+if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
+const a = asset(path);
+if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS });
+return respond(req, a.body, { ...BASE_HEADERS, "Cache-Control": a.current ? "public, max-age=31536000, immutable" : "no-cache" });
+}
+if (path === "/" && method === "GET") return sendShell(req, BOOK_HOME);
+const mm = path.match(/^\/b\/([0-9a-f-]{36})$/i);
+if (mm && method === "GET") {
+const b = bookingsStore.data.bookings.find((x) => x.id === mm[1]);
+const t = url.searchParams.get("t") ?? "";
+if (!b || !tokenOk(b.id, t)) return bookPage(req, { error: "This link isn't valid. Use the link from your confirmation email, or contact " + HOST_NAME + "." });
+return bookPage(req, { id: b.id, t, name: b.name, email: b.email, start: b.start, end: b.end, duration: b.duration, cancelled: b.cancelled, past: Date.parse(b.start) <= Date.now() });
+}
+const ignoreId = (() => {
+const id = url.searchParams.get("ignore") ?? "";
+return UUID.test(id) && tokenOk(id, url.searchParams.get("t")) ? id : "";
+})();
+if (path === "/api/companies" && method === "GET") return json({ companies: companySuggestions() });
+if (path === "/api/lookup" && method === "GET") {
+const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || srv.requestIP(req)?.address || "unknown";
+if (!lookupAllowed(ip)) return json({ name: "" }, 429);
+const email = String(url.searchParams.get("email") ?? "").slice(0, 200);
+if (!EMAIL_RE.test(normEmail(email)) || !emailAllowed(email)) return json({ name: "" });
+return json({ name: knownName(email) });
+}
+if (path === "/api/days" && method === "GET") {
+const duration = Number(url.searchParams.get("duration"));
+if (!DURATIONS.includes(duration)) return json({ error: "Bad request." }, 400);
+return json({ days: bookableDays(duration, ignoreId) });
+}
+if (path === "/api/slots" && method === "GET") {
+const key = url.searchParams.get("date") ?? "";
+const duration = Number(url.searchParams.get("duration"));
+if (!DATE_KEY.test(key) || !DURATIONS.includes(duration)) return json({ error: "Bad request." }, 400);
+const [y, mo, d] = key.split("-").map(Number);
+return json({ slots: slotsFor(y, mo, d, duration, ignoreId).filter((s) => s < bookingLimitMs()) });
+}
+if (path === "/api/book" && method === "POST") {
+const body = await readJson(req);
+if (body instanceof Response) return body;
+return createBooking(body, req);
+}
+if ((path === "/api/manage/reschedule" || path === "/api/manage/cancel") && method === "POST") {
+const body = await readJson(req);
+if (body instanceof Response) return body;
+const b = managedBooking(body);
+if (b instanceof Response) return b;
+return path.endsWith("cancel")
+? cancelBooking(b, String(body?.reason ?? ""), "candidate", req)
+: moveBooking(b, Number(body?.startMs), Number(body?.duration), "candidate", req);
+}
+if (path === "/admin/login" && method === "POST") {
+if (!LOGIN_ON) return json({ ok: true });
+const body = await readJson(req, 1000);
+if (body instanceof Response) return body;
+const r = passwordOk(String(body?.password ?? ""));
+if (r === "throttled") return json({ error: "Too many wrong passwords. Wait a minute and try again." }, 429);
+if (r === "wrong") return json({ error: "That password isn't right." }, 401);
+return json({ ok: true }, 200, {
+"Set-Cookie": SESSION_COOKIE + "=" + sessionToken() + "; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000",
+});
+}
+if (path === "/admin/logout" && method === "POST")
+return json({ ok: true }, 200, { "Set-Cookie": SESSION_COOKIE + "=; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=0" });
+if (path === "/admin" || path.startsWith("/admin/")) {
+const authed = hasSession(req);
+if ((path === "/admin" || path === "/admin/allowlist") && method === "GET") {
+if (!authed) return sendShell(req, LOGIN);
+return sendShell(req, path === "/admin" ? ADMIN_CAL : ADMIN_ALLOW);
+}
+if (path === "/admin/analytics" && method === "GET") return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
+if (!authed) return json({ error: "Sign in again." }, 401);
+if (path === "/admin/api/state" && method === "GET") return json(adminState());
+if (path === "/admin/api/push" && method === "GET") return json(pushView());
+if (path.startsWith("/admin/api/push/") && method === "POST") {
+const body = await readJson(req, 3000);
+if (body instanceof Response) return body;
+const endpoint = String(body?.endpoint ?? "");
+const act = path.slice("/admin/api/push/".length);
+if (act === "subscribe") {
+const p256dh = String(body?.keys?.p256dh ?? "");
+const auth = String(body?.keys?.auth ?? "");
+if (!pushEndpointOk(endpoint) || !/^[\w-]{80,100}$/.test(p256dh) || !/^[\w-]{16,32}$/.test(auth)) return json({ error: "This browser sent an unexpected subscription. Try again." }, 400);
+const subs = pushStore.data.subs.filter((x) => x.endpoint !== endpoint);
+if (subs.length >= 50) return json({ error: "Too many devices. Turn alerts off on an old one first." }, 400);
+subs.push({ endpoint, p256dh, auth, label: String(body?.label ?? "Browser").slice(0, 40), addedAt: new Date().toISOString() });
+pushStore.data.subs = subs;
+} else if (act === "unsubscribe") {
+pushStore.data.subs = pushStore.data.subs.filter((x) => x.endpoint !== endpoint);
+} else if (act === "test") {
+const sub = pushStore.data.subs.find((x) => x.endpoint === endpoint);
+if (!sub) return json({ error: "Alerts aren't on for this device. Turn them on first." }, 404);
+const code = await pushTo(sub, { title: "Test notification", body: "Alerts are working on this " + sub.label + ".", tag: "test", url: "/admin" });
+return code >= 200 && code < 300 ? json(pushView()) : json({ error: "The notification service didn't accept it (" + code + "). Turn alerts off and on again." }, 502);
+} else return json({ error: "Not found." }, 404);
+try {
+await saveStore(pushStore);
+} catch {
+return json({ error: "Couldn't save the change. Try again." }, 500);
+}
+console.log("browser alerts: " + pushStore.data.subs.length + " device(s)");
+return json(pushView());
+}
+if (path === "/admin/api/bookings" && method === "GET")
+return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
+if (path === "/admin/api/results") {
+if (method === "GET") return json({ people: resultsStore.data.people, persistent: resultsStore.ok });
+if (method !== "POST") return json({ error: "Method not allowed." }, 405);
+const body = await readJson(req, 60000);
+if (body instanceof Response) return body;
+const entries = body?.entries;
+if (!entries || typeof entries !== "object" || Array.isArray(entries) || Object.keys(entries).length > 20) return json({ error: "Bad request." }, 400);
+const prev = JSON.stringify(resultsStore.data);
+const now = new Date().toISOString();
+for (const [k, v] of Object.entries(entries)) {
+if (!k || k.length > 200) return json({ error: "Bad request." }, 400);
+const raw = (v as any)?.results;
+if (v !== null && (!raw || typeof raw !== "object")) return json({ error: "Bad request." }, 400);
+const results = v === null ? {} : normResults(raw);
+if (v !== null && Object.keys(results).length !== Object.keys(raw).length) return json({ error: "Bad request." }, 400);
+if (Object.keys(results).length > 150) return json({ error: "Too many companies saved for one person." }, 400);
+if (Object.keys(results).length) resultsStore.data.people[k] = { results, updated: now };
+else delete resultsStore.data.people[k];
+}
+if (Object.keys(resultsStore.data.people).length > 10000) {
+resultsStore.data = JSON.parse(prev);
+return json({ error: "Too many candidates saved." }, 400);
+}
+try {
+await saveStore(resultsStore);
+} catch {
+resultsStore.data = JSON.parse(prev);
+return json({ error: "Couldn't save the change. Try again." }, 500);
+}
+return json({ people: resultsStore.data.people, persistent: resultsStore.ok });
+}
+if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
+if (path === "/admin/api/slots" && method === "GET") {
+const key = url.searchParams.get("date") ?? "";
+const duration = Number(url.searchParams.get("duration"));
+if (!DATE_KEY.test(key) || !DURATIONS.includes(duration)) return json({ error: "Bad request." }, 400);
+const [y, mo, d] = key.split("-").map(Number);
+return json({ slots: slotsFor(y, mo, d, duration, url.searchParams.get("ignore") ?? "") });
+}
+if (path === "/admin/api/book" && method === "POST") {
+const body = await readJson(req);
+if (body instanceof Response) return body;
+return createBooking(body, req, "admin");
+}
+if ((path === "/admin/api/reschedule" || path === "/admin/api/cancel") && method === "POST") {
+const body = await readJson(req, 2000);
+if (body instanceof Response) return body;
+const b = bookingsStore.data.bookings.find((x) => x.id === String(body?.id ?? ""));
+if (!b || b.cancelled) return json({ error: "That booking isn't active anymore." }, 404);
+if (path.endsWith("cancel")) return cancelBooking(b, String(body?.reason ?? ""), "host", req);
+if (Date.parse(b.start) <= Date.now()) return json({ error: "This interview has already started, so it can't be moved." }, 409);
+return moveBooking(b, Number(body?.startMs), Number(body?.duration), "host", req);
+}
+if (path === "/admin/api/allowlist") {
+if (method === "GET") return json({ state: allowView() });
+if (method !== "POST") return json({ error: "Method not allowed." }, 405);
+const body = await readJson(req, 200000);
+if (body instanceof Response) return body;
+const a = allowStore.data;
+const before = { enabled: a.enabled, emails: [...a.emails] };
+let extra: Record<string, unknown> = {};
+const action = String(body?.action ?? "");
+if (action === "add") {
+const have = new Set(a.emails);
+let added = 0;
+let existing = 0;
+const invalid: string[] = [];
+for (const raw of String(body?.text ?? "").split(/[\s,;]+/)) {
+const p = raw.replace(/^[<("']+|[>)"'.]+$/g, "");
+if (!p) continue;
+const e = normEmail(p);
+if (!EMAIL_RE.test(e) || e.length > 200) {
+if (invalid.length < 50) invalid.push(p.slice(0, 80));
+continue;
+}
+if (have.has(e)) {
+existing++;
+continue;
+}
+if (a.emails.length >= 5000) return json({ error: "The list is full (5,000 emails). Remove some first." }, 400);
+have.add(e);
+a.emails.push(e);
+added++;
+}
+extra = { added, existing, invalid };
+} else if (action === "remove") {
+const e = normEmail(body?.email);
+a.emails = a.emails.filter((x) => x !== e);
+} else if (action === "enable") {
+const on = body?.on === true;
+if (on && !a.emails.length) return json({ error: "Add at least one email first. With an empty list, nobody could book." }, 400);
+a.enabled = on;
+} else if (action === "importBooked") {
+const have = new Set(a.emails);
+let added = 0;
+for (const b of bookingsStore.data.bookings) {
+const e = normEmail(b.email);
+if (EMAIL_RE.test(e) && !have.has(e) && a.emails.length < 5000) {
+have.add(e);
+a.emails.push(e);
+added++;
+}
+}
+extra = { added };
+} else return json({ error: "Bad request." }, 400);
+try {
+await saveStore(allowStore);
+} catch {
+allowStore.data = before;
+return json({ error: "Couldn't save the change. Try again." }, 500);
+}
+broadcastState();
+return json({ state: allowView(), ...extra });
+}
+if (path === "/admin/stream" && method === "GET") {
+if (streams.size >= 50) return new Response("Too many viewers", { status: 503, headers: BASE_HEADERS });
+srv.timeout(req, 0);
+let ctrl: ReadableStreamDefaultController;
+const stream = new ReadableStream({
+start(c) {
+ctrl = c;
+streams.add(c);
+c.enqueue(enc.encode("retry: 3000\n\nevent: state\ndata: " + JSON.stringify(adminState()) + "\n\n"));
+},
+cancel() {
+streams.delete(ctrl);
+},
+});
+req.signal.addEventListener("abort", () => streams.delete(ctrl));
+return new Response(stream, {
+headers: { ...BASE_HEADERS, "Content-Type": "text/event-stream", "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no" },
+});
+}
+if (path === "/admin/api/interviewers" && method === "PUT") {
+const body = await readJson(req, 20000);
+if (body instanceof Response) return body;
+const iv = ivStore.data;
+const set: Record<string, string> = {};
+for (const [id, name] of Object.entries(body?.set ?? {})) {
+if (!UUID.test(id) || typeof name !== "string" || (name !== "" && !iv.names.includes(name))) return json({ error: "Bad request." }, 400);
+if (iv.assign[id] && iv.assign[id] !== name) return json({ error: "The interviewer is locked once recorded, so it can't be changed." }, 409);
+const b = bookingsStore.data.bookings.find((x) => x.id === id);
+if (name && b && Date.parse(b.start) > Date.now() + 60000) return json({ error: "You can record the interviewer once the interview starts." }, 409);
+set[id] = name;
+}
+const prev = { ...iv.assign };
+for (const [id, name] of Object.entries(set)) name ? (iv.assign[id] = name) : delete iv.assign[id];
+try {
+await saveStore(ivStore);
+} catch {
+iv.assign = prev;
+return json({ error: "Couldn't save the change. Try again." }, 500);
+}
+broadcastState();
+return json({ ok: true });
+}
+if (path === "/admin/api/interviewer-names" && method === "POST") {
+const body = await readJson(req, 5000);
+if (body instanceof Response) return body;
+const iv = ivStore.data;
+if (!Array.isArray(body?.list) || body.list.length > 12) return json({ error: "You can have up to 12 interviewers." }, 400);
+const names: string[] = [];
+const renames = new Map<string, string>();
+for (const r of body.list) {
+const to = String(r?.to ?? "").trim().slice(0, 30);
+if (!to) continue;
+if (names.some((n) => n.toLowerCase() === to.toLowerCase())) return json({ error: "Each interviewer needs a different name." }, 400);
+names.push(to);
+const from = typeof r?.from === "string" ? r.from : "";
+if (from && from !== to && iv.names.includes(from)) renames.set(from, to);
+}
+if (!names.length) return json({ error: "Keep at least one interviewer." }, 400);
+const prev = { names: iv.names, assign: { ...iv.assign } };
+iv.names = names;
+for (const [id, n] of Object.entries(iv.assign)) if (renames.has(n)) iv.assign[id] = renames.get(n)!;
+try {
+await saveStore(ivStore);
+} catch {
+Object.assign(iv, prev);
+return json({ error: "Couldn't save the change. Try again." }, 500);
+}
+broadcastState();
+return json({ ok: true });
+}
+return json({ error: "Not found." }, 404);
+}
+return new Response("Not found", { status: 404, headers: BASE_HEADERS });
+}
+const server = Bun.serve({
+port: PORT,
+hostname: "0.0.0.0",
+idleTimeout: 30,
+async fetch(req, srv) {
+return compressed(req, await route(req, srv));
+},
+});
+console.log("booking-form listening on " + server.port + (bookingsStore.ok ? "" : " (no persistent storage attached)"));
+
