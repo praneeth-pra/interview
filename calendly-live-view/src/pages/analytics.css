@@ -2244,3 +2244,323 @@ button:active:not(:disabled) {
   border-radius: 3px;
   background: var(--b);
 }
+/* ---- Phones: the minimal person page ----
+   Icon buttons in the header, only non-zero counts, one short row per company (tap for a sheet with the details),
+   closed companies folded away, no colour legend, and insights as rows that open on tap. Computers are unchanged. */
+.tone-ok {
+  --tone: var(--j);
+}
+.tone-up {
+  --tone: var(--m);
+}
+.tone-warn {
+  --tone: var(--h);
+}
+.tone-ns {
+  --tone: var(--g);
+}
+.tone-wait {
+  --tone: var(--q);
+}
+.mco,
+.mfun,
+.hbtns svg {
+  display: none;
+}
+.mstep {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 22px;
+  padding: 0 6px;
+  border-radius: 11px;
+  background: var(--d);
+  color: var(--a);
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+.mstep.done {
+  background: var(--r);
+  color: var(--j);
+}
+.mstep.upcoming {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px var(--m);
+  color: var(--m);
+}
+.mstep.canceled,
+.mstep.noshow {
+  background: var(--t);
+  color: var(--g);
+  text-decoration: line-through;
+}
+.mstep.rescheduled {
+  background: var(--l);
+  color: var(--h);
+}
+/* the company sheet */
+.mc-head {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--p);
+}
+.mc-stage {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.mc-stage b {
+  font-size: 17px;
+}
+.mc-when {
+  margin-top: 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.mc-rounds {
+  margin-top: 18px;
+}
+.mc-r {
+  display: grid;
+  grid-template-columns: 40px 1fr auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--d);
+}
+.mc-r:nth-child(2) {
+  border-top: 0;
+}
+.mc-rt {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mc-rt b {
+  font-size: 14.5px;
+}
+.mc-rs {
+  font-size: 12.5px;
+  color: var(--a);
+}
+.mc-same {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--d);
+}
+.mc-same .samebox {
+  margin: 0;
+}
+@media (max-width: 700px) {
+  /* header: name and two round icon buttons on one line */
+  #an > .row:first-child {
+    flex-wrap: nowrap !important;
+    align-items: center;
+  }
+  .who {
+    flex: 1;
+    min-width: 0;
+  }
+  .aname {
+    font-size: 19px;
+  }
+  #asub {
+    font-size: 12.5px;
+  }
+  .hbtns {
+    display: flex !important;
+    width: auto !important;
+    flex: none;
+    gap: 8px;
+  }
+  .hbtns button {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    min-height: 40px !important;
+    padding: 0 !important;
+    border-radius: 50% !important;
+  }
+  .hbtns button[hidden] {
+    display: none !important;
+  }
+  .hbtns button span {
+    display: none;
+  }
+  .hbtns svg {
+    display: block;
+    width: 19px;
+    height: 19px;
+  }
+  .sumline .st.zero {
+    display: none;
+  }
+  /* companies */
+  .pgrid,
+  #cleg {
+    display: none !important;
+  }
+  #cProg.few #cs {
+    display: none;
+  }
+  .mco {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mclosed {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .mclosed[hidden] {
+    display: none;
+  }
+  .mrow {
+    display: block;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    padding: 12px 14px 12px 16px;
+    border: 1px solid var(--d);
+    border-radius: 16px;
+    background: var(--c);
+    box-shadow: inset 3px 0 0 var(--tone);
+    color: var(--k);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+  .mrow:active {
+    background: var(--p);
+  }
+  .mtop {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .mtop b {
+    flex: 0 1 auto;
+    min-width: 0;
+    font-size: 15.5px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .msteps {
+    display: flex;
+    gap: 3px;
+    flex: none;
+  }
+  .mtop .badge {
+    margin-left: auto;
+    flex: none;
+  }
+  .mwhen {
+    margin-top: 5px;
+    font-size: 12.5px;
+    color: var(--a);
+  }
+  .mmore {
+    align-self: center;
+    height: auto;
+    min-height: 0;
+    margin: 4px 0;
+    padding: 8px 14px;
+    border: 0;
+    border-radius: 999px;
+    background: var(--d);
+    color: var(--k);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  /* insights: rows that open on tap */
+  .icols {
+    gap: 8px !important;
+  }
+  .icols > div {
+    padding: 14px 16px;
+  }
+  .iblock > .ksec {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin: 0;
+    font-size: 15px;
+    cursor: pointer;
+  }
+  .iblock > .ksec:after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-right: 4px;
+    border-right: 2px solid var(--a);
+    border-bottom: 2px solid var(--a);
+    transform: rotate(45deg) translateY(-2px);
+    transition: transform 0.2s;
+  }
+  .iblock.open > .ksec {
+    margin-bottom: 10px;
+  }
+  .iblock.open > .ksec:after {
+    transform: rotate(-135deg) translateY(-2px);
+  }
+  .iblock:not(.open) > *:not(.ksec) {
+    display: none !important;
+  }
+  .ptab {
+    display: none !important;
+  }
+  .mfun {
+    display: flex;
+    flex-direction: column;
+    gap: 9px;
+    margin: 2px 0 12px;
+  }
+  .mfr {
+    display: grid;
+    grid-template-columns: 84px 1fr 26px;
+    align-items: center;
+    gap: 10px;
+    font-size: 13.5px;
+  }
+  .mft {
+    height: 8px;
+    border-radius: 4px;
+    background: var(--d);
+    overflow: hidden;
+  }
+  .mff {
+    height: 100%;
+    border-radius: 4px;
+    background: var(--m);
+  }
+  .mfr b {
+    text-align: right;
+  }
+}
+#asub .short {
+  display: none;
+}
+@media (max-width: 700px) {
+  #asub .long,
+  #cProg #csub {
+    display: none;
+  }
+  #asub .short {
+    display: inline;
+  }
+}
