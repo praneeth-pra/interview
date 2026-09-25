@@ -50,4 +50,4 @@ NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs    # needs the playwright 
 
 ## Deploying
 
-Railway builds `Dockerfile` in this folder (config in `railway.json`, health check `/healthz`) whenever the connected branch changes under `calendly-live-view/`. After a deploy, the log should end with `booking-form listening on 8080`.
+Railway builds `Dockerfile` in this folder. The service settings live in Railway (root directory `/calendly-live-view`, start command `bun run src/server.ts`, health check `/healthz`, watch pattern `/calendly-live-view/**`). After a deploy, the log should end with `booking-form listening on 8080`.
