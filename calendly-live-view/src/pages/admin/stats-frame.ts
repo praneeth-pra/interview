@@ -33,6 +33,11 @@ export function setupStatsFrame() {
       frame.className = "la-frame";
       frame.title = "Person analytics";
       frame.src = "/admin/analytics";
+      // a frame is white until its page has drawn; show it once it has
+      frame.style.visibility = "hidden";
+      frame.addEventListener("load", function () {
+        frame.style.visibility = "";
+      });
       box.appendChild(frame);
     }
     sync();
