@@ -102,14 +102,24 @@ function findBooking(id: string) {
   }
   return find(state.events) || find(state.changes) || find(allBookings);
 }
+// The connection state shows only when something is wrong: "Offline" at once, "Reconnecting…" after a few seconds.
+var statusTimer = 0;
 function renderStatus() {
   var status = byId("status");
-  status.className = "status" + (live ? " live" : "");
-  status.lastChild.textContent = live ? "Live" : navigator.onLine === false ? "Offline" : "Reconnecting…";
-  var badge = byId("allowBadge");
-  var info = state.allow;
-  badge.textContent = info.enabled ? "Allowlist on · " + info.count + (info.count === 1 ? " email" : " emails") : "Allowlist off";
-  badge.className = "chip" + (info.enabled ? " warn" : "");
+  var offline = navigator.onLine === false;
+  status.lastChild.textContent = live ? "Live" : offline ? "Offline" : "Reconnecting…";
+  clearTimeout(statusTimer);
+  if (live) {
+    status.className = "status live";
+  } else if (offline) {
+    status.className = "status bad";
+  } else if (status.className.indexOf("bad") < 0) {
+    statusTimer = window.setTimeout(function () {
+      if (!live) {
+        status.className = "status bad";
+      }
+    }, 4000);
+  }
 }
 function renderCards() {
   var now = Date.now();
@@ -200,6 +210,20 @@ function renderCards() {
     true,
   );
 }
+// One line above the calendar when started interviews have no interviewer recorded; each such booking has an amber dot.
+function renderAttention() {
+  var now = Date.now();
+  var unassigned = state.events.filter(function (booking) {
+    return Date.parse(booking.start) <= now && !state.iv.assign[booking.id];
+  });
+  var line = byId("attn");
+  line.hidden = !unassigned.length;
+  line.textContent =
+    unassigned.length + (unassigned.length === 1 ? " interview needs an interviewer" : " interviews need an interviewer");
+  line.onclick = function () {
+    showList("Needs interviewer", "Started interviews with no interviewer recorded", unassigned);
+  };
+}
 function renderLegend() {
   var legend = byId("legend");
   legend.textContent = "";
@@ -214,15 +238,7 @@ function renderLegend() {
   legend.appendChild(
     el("span", {
       class: "lg cn",
-      text: "No interviewer yet",
-    }),
-  );
-  legend.appendChild(
-    el("button", {
-      class: "linkbtn",
-      type: "button",
-      onclick: showInterviewers,
-      text: "Edit interviewers",
+      text: "None yet",
     }),
   );
 }
@@ -266,6 +282,18 @@ function layoutColumns(items: Item[]) {
     group.end = Math.max(group.end, item.to);
   });
 }
+// "Sep 21 – 27", "Sep 28 – Oct 4", with the year only when it isn't this year.
+function weekTitle(first: string) {
+  var last = addDays(first, 6);
+  var year = first.slice(0, 4) !== dayKeyOf(new Date()).slice(0, 4) ? ", " + last.slice(0, 4) : "";
+  var sameMonth = first.slice(0, 7) === last.slice(0, 7);
+  return (
+    formatDay(first, { month: "short", day: "numeric" }) +
+    " – " +
+    (sameMonth ? String(+last.slice(8)) : formatDay(last, { month: "short", day: "numeric" })) +
+    year
+  );
+}
 function renderWeek() {
   var today = dayKeyOf(new Date());
   var days = [];
@@ -288,17 +316,7 @@ function renderWeek() {
   var firstHour = Math.floor(fromMin / 60);
   var lastHour = Math.min(24, Math.ceil(toMin / 60));
   var height = (lastHour - firstHour) * HOUR_PX;
-  byId("title").textContent =
-    formatDay(weekOf, {
-      month: "short",
-      day: "numeric",
-    }) +
-    " – " +
-    formatDay(addDays(weekOf, 6), {
-      month: "short",
-      day: "numeric",
-      year: "numeric",
-    });
+  byId("title").textContent = weekTitle(weekOf);
   byId<HTMLInputElement>("pick").value = selectedDay || today;
   var week = byId("week");
   var firstPaint = !week.firstChild;
@@ -329,9 +347,6 @@ function renderWeek() {
               }) +
               " " +
               +day.slice(8),
-          }),
-          el("span", {
-            text: itemsByDay[index].length ? itemsByDay[index].length + " booked" : "Free",
           }),
         ],
       ),
@@ -540,9 +555,6 @@ function renderAgenda() {
               day: "numeric",
             }),
           }),
-          el("em", {
-            text: items.length ? items.length + " booked" : "Free",
-          }),
         ],
       ),
     );
@@ -578,7 +590,7 @@ function renderAgenda() {
                   text: formatTime(new Date(booking.start)),
                 }),
                 el("span", {
-                  text: booking.duration + " min",
+                  text: formatTime(new Date(booking.end)),
                 }),
               ],
             ),
@@ -592,21 +604,18 @@ function renderAgenda() {
                   text: titleCase(booking.name),
                 }),
                 el("span", {
-                  text: [booking.company, booking.round].filter(Boolean).join(" · ") || "\xA0",
+                  text: [booking.company, booking.round, interviewer].filter(Boolean).join(" · ") || "\xA0",
                 }),
               ],
             ),
-            interviewer
-              ? el("span", {
-                  class: "ag-iv",
-                  text: interviewer,
+            !interviewer && started
+              ? el("i", {
+                  class: "need-dot",
+                  title: "Needs interviewer",
+                  "aria-label": "Needs interviewer",
+                  role: "img",
                 })
-              : started
-                ? el("span", {
-                    class: "ag-need",
-                    text: "Needs interviewer",
-                  })
-                : null,
+              : null,
           ],
         ),
       );
@@ -629,6 +638,7 @@ function render() {
   if (state.ready) {
     byId("banner").hidden = true;
     renderCards();
+    renderAttention();
     renderLegend();
     renderWeek();
     renderChanges();
@@ -1680,9 +1690,6 @@ byId("tabCal").onclick = function () {
 byId("tabAllow").onclick = function () {
   showTab("allow");
 };
-byId("allowBadge").onclick = function () {
-  showTab("allow");
-};
 function connect() {
   if (stream) {
     stream.close();
@@ -1782,7 +1789,8 @@ byId("pick").onchange = function () {
     render();
   }
 };
-byId("newb").onclick = showNewBooking;
+byId("mNew").onclick = showNewBooking;
+byId("mIv").onclick = showInterviewers;
 byId("pclose").onclick = closePanel;
 byId("pback").onclick = closePanel;
 document.addEventListener("keydown", function (event) {
@@ -1806,8 +1814,8 @@ document.addEventListener("visibilitychange", function () {
   }
 });
 if (boot.login) {
-  byId("logout").hidden = false;
-  byId("logout").onclick = function () {
+  byId("mOut").hidden = false;
+  byId("mOut").onclick = function () {
     forget();
     fetch("/admin/logout", {
       method: "POST",

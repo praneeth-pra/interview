@@ -1,4 +1,4 @@
-// The Download button menu (CSV and JSON exports).
+// The ⋯ menu in the header: New booking, interviewers, downloads and sign-out.
 export function setupDownloadMenu() {
   var btn = document.getElementById("dlBtn");
   var menu = document.getElementById("dlMenu");
@@ -14,7 +14,7 @@ export function setupDownloadMenu() {
     setOpen(menu.hidden);
   });
   menu.addEventListener("click", function (e) {
-    if ((e.target as Element).closest("a")) {
+    if ((e.target as Element).closest("a, button")) {
       setTimeout(function () {
         setOpen(false);
       }, 0);
