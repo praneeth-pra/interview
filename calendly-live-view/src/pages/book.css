@@ -105,7 +105,6 @@ button:disabled {
   box-shadow: var(--shadow);
   display: flex;
   overflow: hidden;
-  transition: max-width 0.25s ease;
 }
 .card.narrow {
   max-width: 820px;
@@ -922,8 +921,7 @@ textarea:focus {
 }
 /* Choosing a time and moving on to the details form.
    Computer: Next grows out from behind the chosen time while the time narrows. Phone: the time grid stays put, the chosen
-   time fills blue and Next floats at the bottom of the screen with the time on it. The next step slides in from the
-   right; going back slides the times in from the left. */
+   time fills blue and Next floats at the bottom of the screen with the time on it. The details page then opens at once. */
 .slot.sel .t {
   flex: 1 1 0;
 }
@@ -941,34 +939,6 @@ textarea:focus {
 }
 .go-at {
   display: none;
-}
-.main.push-in > * {
-  animation: pushIn 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-}
-.main.pop-in > * {
-  animation: popIn 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
-}
-/* the times column only fades: on phones it holds the floating Next button, which a moving parent would drag along */
-.main.push-in > .times,
-.main.pop-in > .times {
-  animation-name: stepFade;
-}
-@keyframes pushIn {
-  from {
-    opacity: 0;
-    transform: translateX(40px);
-  }
-}
-@keyframes popIn {
-  from {
-    opacity: 0;
-    transform: translateX(-40px);
-  }
-}
-@keyframes stepFade {
-  from {
-    opacity: 0;
-  }
 }
 @media (max-width: 900px) {
   .tlist .slot.sel {
@@ -1008,9 +978,40 @@ textarea:focus {
 }
 @media (prefers-reduced-motion: reduce) {
   .go,
-  .tlist .slot .go,
-  .main.push-in > *,
-  .main.pop-in > * {
+  .tlist .slot .go {
     animation: none;
   }
+}
+/* Changing date: the previous day's times stay put and only fade (after a moment) while the new day's load */
+.tlist.stale .slot {
+  opacity: 0.45;
+  transition: opacity 0.15s ease 0.2s;
+}
+/* Interview round dropdown, drawn like the text fields */
+.rsel {
+  width: 100%;
+  height: 46px;
+  padding: 0 40px 0 14px;
+  border: 1px solid var(--field-b);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--card) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23888' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E") no-repeat right 14px center;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.rsel.empty {
+  color: var(--ink2);
+}
+.rsel:hover {
+  border-color: var(--ink2);
+}
+.rsel:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+#fround-other {
+  margin-top: 8px;
 }
