@@ -214,4 +214,5 @@ test("the icon is served from public/icon.png and revalidates", async () => {
   expect(r.headers.get("cache-control")).toBe("public, max-age=86400");
   expect(Buffer.from(await r.arrayBuffer()).equals(png)).toBe(true);
   expect((await get(open, "/icon.png", { "if-none-match": r.headers.get("etag")! })).status).toBe(304);
+  for (const alias of ["/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"]) expect(Buffer.from(await (await get(open, alias)).arrayBuffer()).equals(png)).toBe(true);
 });

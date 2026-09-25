@@ -773,7 +773,7 @@ icons: [{ src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" 
 }),
 { headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },
 );
-if (path === "/icon.png")
+if (path === "/icon.png" || path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png")
 return respond(req, ICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
 if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
 const a = asset(path);
