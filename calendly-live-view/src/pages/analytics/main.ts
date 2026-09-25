@@ -1708,6 +1708,7 @@ function sameCompanyMenu(row, rows) {
   }
   var select = el("select", "samesel");
   select.setAttribute("aria-label", "Same company as another row");
+  select.title = "Same company as…";
   function option(value, text) {
     var item = el("option", null, text);
     item.value = value;
@@ -1784,17 +1785,20 @@ function renderCompanies(rows, now) {
     header.appendChild(axisCell);
     table.appendChild(header);
     shown.forEach((row) => {
-      var line = div("grow");
+      // the row's accent follows its status: green cleared/offer, blue upcoming, amber waiting on something, red ended
+      var line = div("grow tone-" + (row.badgeCls || "wait"));
       var companyCell = el("div");
       companyCell.setAttribute("data-l", "Company");
-      companyCell.appendChild(el("b", null, row.name));
+      var nameLine = div("cname");
+      nameLine.appendChild(el("b", null, row.name));
+      companyCell.appendChild(nameLine);
       companyCell.appendChild(div("sub", row.count + (row.count === 1 ? " interview" : " interviews")));
       if (row.aliases.length) {
         companyCell.appendChild(div("sub", "Also entered as: " + row.aliases.join(", ")));
       }
       var menu = sameCompanyMenu(row, rows);
       if (menu) {
-        companyCell.appendChild(menu);
+        nameLine.appendChild(menu);
       }
       var stageCell = el("div");
       stageCell.setAttribute("data-l", "Current stage");
@@ -1917,9 +1921,6 @@ function renderCompanies(rows, now) {
       legend.appendChild(span("lg2 " + entry[0], entry[1]));
     });
     table.scrollTop = scrollTop;
-    if (table.scrollHeight > table.clientHeight) {
-      sub.textContent += " · scroll to see all";
-    }
   } else {
     gridBox.appendChild(div("cempty", "No company matches your search."));
   }
@@ -2137,10 +2138,19 @@ function whoInterviewed(events, now) {
   }
   var box = el("div");
   box.appendChild(div("ksec", "Who interviewed"));
+  var most = Math.max.apply(
+    null,
+    Object.keys(byName).map((name) => byName[name]),
+  );
   Object.keys(byName)
     .sort((first, second) => byName[second] - byName[first] || (first < second ? -1 : 1))
     .forEach((name) => {
-      kvRow(box, name, byName[name] + (byName[name] === 1 ? " interview" : " interviews"), ivCls(name));
+      kvRow(box, name, byName[name] + (byName[name] === 1 ? " interview" : " interviews"), ivCls(name) + " hasbar");
+      var track = div("ivtrack " + ivCls(name));
+      var fill = div("ivfill");
+      fill.style.width = Math.max(4, Math.round((byName[name] / most) * 100)) + "%";
+      track.appendChild(fill);
+      box.appendChild(track);
     });
   if (missing) {
     kvRow(box, "Not recorded", String(missing));
