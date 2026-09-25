@@ -1,2 +1,1155 @@
-(function(){var _boot=JSON.parse(document.getElementById("boot").textContent),S=_boot.host,M=_boot.event,d=_boot.manage,A=_boot.info,H="Asia/Kolkata",z=[30,60,90],f={clock:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 5.8V10l2.8 1.8"/></svg>',cal:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4.2" width="14" height="12.8" rx="2"/><path d="M3 8.2h14M7 2.6v3.2M13 2.6v3.2"/></svg>',globe:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M2.6 10h14.8M10 2.5c2 2.1 3 4.6 3 7.5s-1 5.4-3 7.5c-2-2.1-3-4.6-3-7.5s1-5.4 3-7.5z"/></svg>',user:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="6.8" r="3.3"/><path d="M3.5 17c1-3.3 3.5-5 6.5-5s5.5 1.7 6.5 5"/></svg>',left:'<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4.5L6.5 10l5.5 5.5"/></svg>',right:'<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 4.5l5.5 5.5L8 15.5"/></svg>',check:'<svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="11" fill="currentColor"/><path d="M6.5 11.2l3 3 6-6.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',pin:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0111 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/></svg>',add:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4.2" width="14" height="12.8" rx="2"/><path d="M3 8.2h14M7 2.6v3.2M13 2.6v3.2M10 10.4v4.4M7.8 12.6h4.4"/></svg>'},e={dur:30,days:[],openSet:{},viewY:0,viewM:0,date:null,slots:null,slot:null,step:"pick",booking:null,err:"",fieldErr:{},form:{name:"",email:"",company:"",round:""},busy:!1},b=document.getElementById("card");function i(n,a,r){var t=document.createElement(n);if(a)for(var l in a){var o=a[l];o==null||o===!1||(l==="class"?t.className=o:l==="html"?t.innerHTML=o:l.slice(0,2)==="on"?t.addEventListener(l.slice(2),o):t.setAttribute(l,o===!0?"":o))}return(r||[]).forEach(function(s){s!=null&&s!==!1&&t.appendChild(typeof s=="string"?document.createTextNode(s):s)}),t}function _(n,a){return new Intl.DateTimeFormat("en-US",Object.assign({timeZone:H},a)).format(new Date(n))}function N(n){return _(n,{hour:"numeric",minute:"2-digit",hour12:!0}).replace(" AM","am").replace(" PM","pm")}function ae(n){return Date.parse(n+"T12:00:00+05:30")}function ie(){return new Intl.DateTimeFormat("en-CA",{timeZone:H,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date)}function J(n){return(n||"?").trim().charAt(0).toUpperCase()}function w(n,a){return N(n)+" – "+N(n+a*6e4)+", "+_(n,{weekday:"long",month:"long",day:"numeric",year:"numeric"})}var W=d&&d.id?"&ignore="+d.id+"&t="+d.t:"";function E(n){return fetch("/api/days?duration="+e.dur+W).then(function(a){return a.json()}).then(function(a){if(e.days=a.days,e.openSet={},a.days.forEach(function(t){t.open&&(e.openSet[t.key]=1)}),!n||!e.viewY){var r=a.days.filter(function(t){return t.open})[0]||a.days[0];r&&(e.viewY=+r.key.slice(0,4),e.viewM=+r.key.slice(5,7))}e.date&&!e.openSet[e.date]&&(e.date=null,e.slots=null,e.slot=null),c()}).catch(function(){e.err="Couldn't load available dates. Refresh the page to try again.",c()})}var x={},D={};function Z(n,a,r){var t=n+":"+a;return(r||!D[t])&&(D[t]=fetch("/api/slots?date="+n+"&duration="+a+W).then(function(l){return l.json()}).then(function(l){return x[t]=l.slots||[],x[t]}).catch(function(){return delete D[t],null})),D[t]}function G(){if(window.innerWidth<=900){var n=document.getElementById("timesh");n&&n.scrollIntoView({behavior:"smooth",block:"start"})}}function B(n){var a=e.date+":"+e.dur,r=!!x[a];e.slot=null,e.slots=x[a]||null,c(),r&&n&&G(),Z(e.date,e.dur,r).then(function(t){if(a===e.date+":"+e.dur){if(!t){e.slots||(e.slots=[],c());return}if(!e.slots){e.slots=t,c(),n&&G();return}t.join()!==e.slots.join()&&(e.slots=t,e.slot&&t.indexOf(e.slot)<0&&(e.slot=null),c())}})}var L=null,O=!1,j=[];function K(n){return String(n).toLowerCase().replace(/[^a-z0-9]+/g,"")}function R(n){if(L){n&&n();return}n&&j.push(n),!O&&(O=!0,fetch("/api/companies").then(function(a){return a.json()}).then(function(a){L=(a.companies||[]).map(function(t){var l=[t.n].concat(t.a||[]);return{n:t.n,f:t.f||0,t:l.map(function(o,s){return{raw:o,alias:s>0,c:K(o),w:o.toLowerCase().split(/[^a-z0-9]+/).filter(Boolean)}})}}),O=!1;var r=j;j=[],r.forEach(function(t){t()})}).catch(function(){O=!1,j=[]}))}function re(n){var a=K(n);if(!a||!L)return[];var r=[];return L.forEach(function(t){var l=9,o=null;t.t.forEach(function(s){var p=9;s.c===a?p=0:s.c.indexOf(a)===0?p=1:s.w.some(function(m){return m.indexOf(a)===0})?p=2:a.length>=3&&s.c.indexOf(a)>0&&(p=3),p<9&&s.alias&&(p+=.5),p<l&&(l=p,o=s.alias?s.raw:null)}),l<9&&r.push({n:t.n,f:t.f,s:l,via:o})}),r.sort(function(t,l){return t.s-l.s||l.f-t.f||t.n.length-l.n.length||t.n.localeCompare(l.n)}),r.slice(0,8)}function c(){var n=document.activeElement&&document.activeElement.id,a=b.querySelector(".tlist"),r=a&&!e.anim?a.scrollTop:0;if(b.innerHTML="",b.className="card"+(e.step!=="pick"||!e.date?" narrow":"")+(e.step==="details"?" details":""),e.step==="done")return me();if(e.step==="msg")return ye();b.appendChild(le());var t=i("div",{class:"main"});e.step==="pick"?(t.appendChild(oe()),e.date&&t.appendChild(se())):e.step==="manage"?t.appendChild(ve()):e.step==="cancel"?t.appendChild(ge()):e.step==="confirm"?t.appendChild(Ce()):t.appendChild(pe()),b.appendChild(t),e.anim=!1,r&&(a=b.querySelector(".tlist"))&&(a.scrollTop=r),n&&document.getElementById(n)&&document.getElementById(n).focus({preventScroll:!0})}function le(){var n=e.step==="details"||e.step==="confirm"?"pick":d&&(e.step==="pick"||e.step==="cancel")?"manage":null,a=i("section",{class:"info"+(n?" has-back":"")});n&&b.appendChild(i("button",{class:"back",id:"back","aria-label":n==="pick"?"Back to times":"Back to your interview",html:f.left,onclick:function(){e.step=n,e.err="",c(),n==="pick"&&!e.days.length&&E()}})),a.appendChild(i("p",{class:"host"},[i("span",{class:"mark","aria-hidden":"true"},[(S||"?").trim().charAt(0).toUpperCase()]),S])),a.appendChild(i("h1",{class:"ev"},[M]));var r=e.step==="details";if(e.step==="pick"){var t=i("div",{class:"dur-opts",role:"group","aria-label":"Meeting length"});z.forEach(function(s){t.appendChild(i("button",{type:"button",id:"dur"+s,"aria-pressed":String(e.dur===s),onclick:function(){e.dur!==s&&(e.dur=s,e.slot=null,E(!0).then(function(){e.date&&B()}))}},[s+" min"]))}),a.appendChild(i("div",{class:"dur"},[i("div",{class:"dur-l",html:f.clock+"<span>Meeting length</span>"}),t]))}var l=i("ul",{class:"meta"});if(r?(l.appendChild(i("li",{html:f.clock+"<span>"+e.dur+" min</span>"})),l.appendChild(i("li",{class:"hl",html:f.cal+"<span></span>"})),l.lastChild.lastChild.textContent=w(e.slot,e.dur),l.appendChild(i("li",{html:f.globe+"<span>India Standard Time</span>"}))):d&&(e.step==="manage"||e.step==="cancel")&&(l.appendChild(i("li",{html:f.clock+"<span>"+d.duration+" min</span>"})),l.appendChild(i("li",{class:"hl",html:f.cal+"<span></span>"})),l.lastChild.lastChild.textContent=w(Date.parse(d.start),d.duration),l.appendChild(i("li",{html:f.globe+"<span>India Standard Time</span>"}))),A.loc&&(l.appendChild(i("li",{html:f.pin+"<span></span>"})),l.lastChild.lastChild.textContent=A.loc),a.appendChild(l),A.desc){var o=i("p",{class:"desc",html:'<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v4.6M10 6.4v.1" stroke-linecap="round"/></svg><span></span>'});o.lastChild.textContent=A.desc,a.appendChild(o)}return a}function oe(){var n=i("section",{class:"pick","aria-labelledby":"pickh"});n.appendChild(i("h2",{id:"pickh"},[d?"Pick a New Date & Time":"Select a Date & Time"])),d&&n.appendChild(i("p",{class:"was"},["Currently "+w(Date.parse(d.start),d.duration)])),e.err&&n.appendChild(i("div",{class:"banner",role:"alert"},[e.err]));var a=e.viewY,r=e.viewM;if(!a)return n.appendChild(i("div",{class:"spin","aria-label":"Loading"})),n;var t=e.days.length?e.days[0].key:"",l=e.days.length?e.days[e.days.length-1].key:"",o=function(v,C){return v+"-"+String(C).padStart(2,"0")},s=t&&t.slice(0,7)<o(a,r),p=l&&l.slice(0,7)>o(a,r),m=new Intl.DateTimeFormat("en-US",{timeZone:"UTC",month:"long",year:"numeric"}).format(new Date(Date.UTC(a,r-1,1)));n.appendChild(i("div",{class:"mhead"},[i("button",{class:"nav",id:"prevm",type:"button","aria-label":"Previous month",disabled:!s,html:f.left,onclick:function(){e.viewM--,e.viewM<1&&(e.viewM=12,e.viewY--),c()}}),i("div",{class:"m","aria-live":"polite"},[m]),i("button",{class:"nav",id:"nextm",type:"button","aria-label":"Next month",disabled:!p,html:f.right,onclick:function(){e.viewM++,e.viewM>12&&(e.viewM=1,e.viewY++),c()}})]));var y=i("div",{class:"grid",role:"grid","aria-label":m});["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].forEach(function(v){y.appendChild(i("div",{class:"wd","aria-hidden":"true"},[v]))});for(var u=(new Date(Date.UTC(a,r-1,1)).getUTCDay()+6)%7,g=new Date(Date.UTC(a,r,0)).getUTCDate(),h=ie(),I=0;I<u;I++)y.appendChild(i("div"));for(var k=1;k<=g;k++)(function(v){var C=o(a,r)+"-"+String(v).padStart(2,"0"),ee=!!e.openSet[C],ne="day"+(ee?" open":"")+(C===h?" today":""),te=new Intl.DateTimeFormat("en-US",{timeZone:"UTC",weekday:"long",month:"long",day:"numeric"}).format(new Date(Date.UTC(a,r-1,v)));ee?y.appendChild(i("button",{type:"button",class:ne,id:"d"+C,"aria-pressed":String(e.date===C),"aria-label":te+(C===h?", today":"")+", times available",onpointerenter:function(){Z(C,e.dur)},onclick:function(){e.date!==C&&(e.date=C,e.anim=!0,B(!0))}},[String(v)])):y.appendChild(i("div",{class:ne,"aria-label":te+", no times available"},[String(v)]))})(k);n.appendChild(y);var T=i("span",{html:f.globe+"<span></span>"});return T.lastChild.textContent="India Standard Time ("+N(Date.now())+")",n.appendChild(i("div",{class:"tz"},[i("b",null,["Time zone"]),T])),n}function se(){var n=i("section",{class:"times"+(e.anim?" anim":""),"aria-labelledby":"timesh"});n.appendChild(i("h3",{id:"timesh"},[_(ae(e.date),{weekday:"long",month:"long",day:"numeric"})]));var a=i("div",{class:"tlist"});return e.slots===null?a.appendChild(i("div",{class:"spin","aria-label":"Loading times"})):e.slots.length?e.slots.forEach(function(r){var t=e.slot===r,l=i("div",{class:"slot"+(t?" sel":"")});l.appendChild(i("button",{type:"button",class:"t",id:"s"+r,"aria-pressed":String(t),onclick:function(){de(r)}},[N(r)])),t&&l.appendChild($(r)),a.appendChild(l)}):a.appendChild(i("p",{class:"empty"},["No times left on this day. Pick another date."])),n.appendChild(a),n}function $(n){return i("button",{type:"button",class:"go",id:"go","aria-label":(d?"Next: confirm ":"Next: enter your details for ")+N(n),onclick:function(){if(e.err="",d){e.step="confirm",c();var a=document.getElementById("rsgo");a&&a.focus();return}e.step="details",e.fieldErr={},c();var r=document.getElementById(e.form.email?"fname":"femail");r&&r.focus()}},["Next"])}function de(n){var a=b.querySelector(".slot.sel");if(a&&(a.classList.remove("sel"),a.firstChild.setAttribute("aria-pressed","false"),a.lastChild.className==="go"&&a.removeChild(a.lastChild)),e.slot===n){e.slot=null;return}e.slot=n;var r=document.getElementById("s"+n);if(!r)return c();r.parentNode.classList.add("sel"),r.setAttribute("aria-pressed","true");var t=$(n);r.parentNode.appendChild(t),t.focus({preventScroll:!0})}function P(n,a,r,t,l){l=l||{};var o=e.fieldErr[a],s=i("input",{id:n,type:t,name:a,autocomplete:l.ac||"off",required:!!l.req,"aria-invalid":o?"true":null,"aria-describedby":o?n+"e":null,list:l.list||null,placeholder:l.ph||null,maxlength:l.max||120});s.value=e.form[a],s.addEventListener("input",function(){if(e.form[a]=s.value,e.fieldErr[a]){delete e.fieldErr[a],s.removeAttribute("aria-invalid");var m=document.getElementById(n+"e");m&&m.remove()}});var p=[i("label",{for:n},[r+(l.req?" *":"")]),s];return o&&p.push(i("div",{class:"ferr",id:n+"e"},[o])),i("div",{class:"f"},p)}function RR(){var f=P("fround","round","Interview round","text",{max:60}),inp=f.querySelector("input"),box=i("div",{class:"rchips",role:"group","aria-label":"Common rounds"}),bs=[];function sync(){var v=inp.value.trim().toLowerCase();bs.forEach(function(x){x.setAttribute("aria-pressed",String(x.getAttribute("data-v").toLowerCase()===v))})}[["1st","1st round"],["2nd","2nd round"],["3rd","3rd round"],["Manager","Manager round"],["HR","HR round"],["Final","Final round"],["Demo","Demo"]].forEach(function(r){var x=i("button",{type:"button",class:"rchip","data-v":r[1],"aria-label":r[1]},[r[0]]);x.addEventListener("click",function(){inp.value=x.getAttribute("aria-pressed")==="true"?"":r[1];inp.dispatchEvent(new Event("input",{bubbles:true}))});bs.push(x);box.appendChild(x)});inp.addEventListener("input",sync);sync();f.insertBefore(box,inp.nextSibling);return f}function ce(){var n="fcompany",a="fcompany-list",r=[],t=-1,l=i("input",{id:n,type:"text",name:"company",autocomplete:"off",spellcheck:"false",role:"combobox","aria-autocomplete":"list","aria-expanded":"false","aria-controls":a,maxlength:120});l.value=e.form.company;var o=i("ul",{class:"cb-list",id:a,role:"listbox","aria-label":"Company suggestions",hidden:!0});function s(){o.hidden=!0,o.innerHTML="",r=[],t=-1,l.setAttribute("aria-expanded","false"),l.removeAttribute("aria-activedescendant")}function p(u,g){t=u;for(var h=0;h<o.children.length;h++)o.children[h].setAttribute("aria-selected",String(h===u));if(u<0){l.removeAttribute("aria-activedescendant");return}l.setAttribute("aria-activedescendant",a+"-"+u),g&&o.children[u].scrollIntoView({block:"nearest"})}function m(u){l.value=r[u].n,e.form.company=r[u].n,s()}function y(){if(document.activeElement===l){if(!L){R(y);return}var u=l.value.trim();if(r=re(u),r.length===1&&r[0].n.toLowerCase()===u.toLowerCase()&&(r=[]),!r.length)return s();o.innerHTML="";var g=u.toLowerCase();r.forEach(function(h,I){var k=i("span",{class:"cb-n"}),T=h.n.toLowerCase().indexOf(g);T>=0?(k.appendChild(document.createTextNode(h.n.slice(0,T))),k.appendChild(i("b",null,[h.n.slice(T,T+u.length)])),k.appendChild(document.createTextNode(h.n.slice(T+u.length)))):k.appendChild(document.createTextNode(h.n));var v=i("li",{id:a+"-"+I,class:"cb-opt",role:"option","aria-selected":"false"},[k,h.via?i("span",{class:"cb-a"},[h.via]):null]);v.addEventListener("mousedown",function(C){C.preventDefault()}),v.addEventListener("mousemove",function(){t!==I&&p(I,!1)}),v.addEventListener("click",function(){m(I)}),o.appendChild(v)}),o.hidden=!1,l.setAttribute("aria-expanded","true"),p(-1)}}return l.addEventListener("input",function(){e.form.company=l.value,y()}),l.addEventListener("focus",function(){R()}),l.addEventListener("blur",s),l.addEventListener("keydown",function(u){var g=!o.hidden;u.key==="ArrowDown"?(u.preventDefault(),g?p(t<r.length-1?t+1:0,!0):y()):u.key==="ArrowUp"?g&&(u.preventDefault(),p(t>0?t-1:r.length-1,!0)):u.key==="Enter"?g&&t>=0?(u.preventDefault(),m(t)):g&&s():u.key==="Escape"?g&&(u.preventDefault(),s()):u.key==="Tab"&&g&&t>=0&&m(t)}),i("div",{class:"f"},[i("label",{for:n},["Company"]),i("div",{class:"cbw"},[l,o])])}var U={},q=null,Q="Welcome back. We filled in the name from your earlier booking.";function Y(n){var a=document.getElementById("fnameh");a&&(a.textContent=n)}function ue(n,a){var r=n.trim().toLowerCase();if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r))return a("");if(Object.prototype.hasOwnProperty.call(U,r))return a(U[r]);fetch("/api/lookup?email="+encodeURIComponent(r)).then(function(t){return t.ok?t.json():{name:""}}).then(function(t){U[r]=String(t.name||""),a(U[r])}).catch(function(){a("")})}function V(n){ue(n,function(a){if(!(e.step!=="details"||e.form.email.trim().toLowerCase()!==n.trim().toLowerCase())){var r=document.getElementById("fname");if(!a){e.nameAuto&&(e.nameAuto=!1,e.form.name="",r&&(r.value=""),Y(""));return}if(!(e.form.name.trim()&&!e.nameAuto)){if(e.form.name=a,e.nameAuto=!0,Y(Q),r){r.value=a,r.removeAttribute("aria-invalid");var t=document.getElementById("fnamee");t&&t.remove()}delete e.fieldErr.name}}})}function pe(){R();var n=i("form",{class:"form",novalidate:!0,"aria-labelledby":"formh",onsubmit:function(s){s.preventDefault(),fe()}});n.appendChild(i("h2",{id:"formh"},["Enter Details"])),e.err&&n.appendChild(i("div",{class:"banner",role:"alert"},[e.err]));var a=P("femail","email","Email","email",{req:!0,ac:"email",max:200}),r=P("fname","name","Name","text",{req:!0,ac:"name"});r.appendChild(i("div",{class:"hint",id:"fnameh",role:"status"},[e.nameAuto?Q:""]));var t=a.querySelector("input"),l=r.querySelector("input");t.addEventListener("input",function(){clearTimeout(q),q=setTimeout(function(){V(t.value)},350)}),t.addEventListener("change",function(){clearTimeout(q),V(t.value)}),l.addEventListener("input",function(){e.nameAuto&&(e.nameAuto=!1,Y(""))}),n.appendChild(a),n.appendChild(r),e.form.email&&!e.form.name.trim()&&setTimeout(function(){V(e.form.email)},0),n.appendChild(i("div",{class:"row2"},[ce(),RR()]));return n.appendChild(i("button",{type:"submit",class:"submit",id:"submitb",disabled:e.busy},[e.busy?"Booking…":"Confirm interview"])),n}function fe(){var n={},a=e.form;if(a.name.trim()||(n.name="Enter your name."),/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.email.trim())||(n.email="Enter an email address like name@example.com."),e.fieldErr=n,e.err="",Object.keys(n).length){c();var r=document.getElementById(n.email?"femail":"fname");r&&r.focus();return}e.busy=!0,c(),fetch("/api/book",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:a.name.trim(),email:a.email.trim(),company:a.company.trim(),round:a.round.trim(),duration:e.dur,startMs:e.slot})}).then(function(t){return t.json().then(function(l){return{ok:t.ok,j:l}})}).then(function(t){if(e.busy=!1,t.ok){e.booking=t.j.booking,e.booking.emailed=!!t.j.emailed,e.step="done",c(),window.scrollTo(0,0);return}if(t.j.field==="email"){e.fieldErr={email:t.j.error},c();var l=document.getElementById("femail");l&&l.focus();return}if(t.j.retry){x={},D={},e.step="pick",e.err=t.j.error||"That time is no longer available. Pick another time.",E(!0).then(function(){e.date?B():c()});return}e.err=t.j.error||"Couldn't schedule the event. Try again.",c()}).catch(function(){e.busy=!1,e.err="Couldn't reach the server. Check your connection and try again.",c()})}function he(n){var a=function(l){return l.replace(/[-:]/g,"").replace(/\.\d{3}/,"")},r=function(l){return String(l).replace(/[\\;,]/g,function(o){return"\\"+o}).replace(/\n/g,"\\n")},t=["BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//booking-form//EN","BEGIN:VEVENT","UID:"+n.id+"@booking-form","DTSTAMP:"+a(new Date().toISOString()),"DTSTART:"+a(n.start),"DTEND:"+a(n.end),"SUMMARY:"+r(M+" with "+S),"DESCRIPTION:"+r([n.company,n.round].filter(Boolean).join(", ")),"END:VEVENT","END:VCALENDAR"].join(`\r
-`);return"data:text/calendar;charset=utf-8,"+encodeURIComponent(t)}function me(){var n=e.booking,a=Date.parse(n.start),r=i("section",{class:"done"}),t=i("div",{class:"done-in"});t.appendChild(i("div",{class:"logo","aria-hidden":"true"},[J(S)])),t.appendChild(i("h1",{html:f.check+"<span>You are scheduled</span>"})),t.appendChild(i("p",null,["Your "+n.duration+" minute "+M.toLowerCase()+" is booked. "+(n.emailed?"A calendar invite is on its way to "+n.email+".":"Add it to your calendar so it doesn't slip.")]));var l=i("ul",{class:"meta"}),o=function(p,m,y){var u=i("li",{class:y?"hl":null,html:p+"<span></span>"});return u.lastChild.textContent=m,u};l.appendChild(o(f.user,S)),l.appendChild(o(f.cal,w(a,n.duration),!0)),l.appendChild(o(f.globe,"India Standard Time")),t.appendChild(i("div",{class:"box"},[i("h2",{class:"ev"},[M]),l]));var s=i("a",{class:"pill",href:he(n),download:"interview.ics",html:f.add+"<span>Add to calendar</span>"});t.appendChild(i("div",{class:"acts"},[s,n.manage?i("a",{class:"pill",href:n.manage},["Reschedule or cancel"]):null,i("button",{type:"button",class:"pill",onclick:function(){e={dur:e.dur,days:[],openSet:{},viewY:0,viewM:0,date:null,slots:null,slot:null,step:"pick",booking:null,err:"",fieldErr:{},form:{name:n.name,email:n.email,company:"",round:""},busy:!1},E()}},["Book another time"])])),r.appendChild(t),b.appendChild(r)}function X(n,a,r){fetch(n,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(a)}).then(function(t){return t.json().then(function(l){return{ok:t.ok,j:l}})}).then(function(t){if(e.busy=!1,t.ok){r(t.j),c(),window.scrollTo(0,0);return}if(t.j.retry){x={},D={},e.step="pick",e.err=t.j.error,E(!0).then(function(){e.date?B():c()});return}e.err=t.j.error||"Something went wrong. Try again.",c()}).catch(function(){e.busy=!1,e.err="Couldn't reach the server. Check your connection and try again.",c()})}function ve(){var n=i("section",{class:"form","aria-labelledby":"mh"});return n.appendChild(i("h2",{id:"mh"},["Your Interview"])),e.err&&n.appendChild(i("div",{class:"banner",role:"alert"},[e.err])),n.appendChild(i("p",{class:"lead"},["Booked for "+d.name+" ("+d.email+")."])),d.past?(n.appendChild(i("p",{class:"lead"},["This interview has already started, so it can't be changed here. Reply to your confirmation email if you need help."])),n):(n.appendChild(i("div",{class:"acts2"},[i("button",{type:"button",class:"submit",id:"rsb",onclick:function(){e.step="pick",e.err="",e.date=null,e.slot=null,e.slots=null,c(),E()}},["Reschedule"]),i("button",{type:"button",class:"ghost",id:"cxb",onclick:function(){e.step="cancel",e.err="",c();var a=document.getElementById("reason");a&&a.focus()}},["Cancel interview"])])),n)}function ge(){var n=i("form",{class:"form",novalidate:!0,"aria-labelledby":"ch",onsubmit:function(r){r.preventDefault(),!e.busy&&(e.busy=!0,e.err="",c(),X("/api/manage/cancel",{id:d.id,t:d.t,reason:(e.reason||"").trim()},function(t){d.cancelled=!0,e.step="msg",e.msg={title:"Interview cancelled",body:"Your "+M.toLowerCase()+" on "+w(Date.parse(d.start),d.duration)+" is cancelled."+(t.emailed?" We've emailed you a confirmation.":""),again:!0}}))}});n.appendChild(i("h2",{id:"ch"},["Cancel Interview"])),e.err&&n.appendChild(i("div",{class:"banner",role:"alert"},[e.err])),n.appendChild(i("p",{class:"lead"},["Your time will be released and "+S+" will be told."]));var a=i("textarea",{id:"reason",maxlength:500,rows:4});return a.value=e.reason||"",a.addEventListener("input",function(){e.reason=a.value}),n.appendChild(i("div",{class:"f"},[i("label",{for:"reason"},["Reason for cancelling (optional)"]),a])),n.appendChild(i("button",{type:"submit",class:"submit danger",id:"cxgo",disabled:e.busy},[e.busy?"Cancelling…":"Cancel interview"])),n}function Ce(){var n=i("section",{class:"form","aria-labelledby":"rh"});n.appendChild(i("h2",{id:"rh"},["Confirm New Time"])),e.err&&n.appendChild(i("div",{class:"banner",role:"alert"},[e.err]));var a=i("ul",{class:"meta chg"}),r=function(t,l,o){var s=i("li",{class:t,html:f.cal+"<span></span>"});return s.lastChild.textContent=o,s.setAttribute("aria-label",l+": "+o),s};return a.appendChild(r("old","Current time",w(Date.parse(d.start),d.duration))),a.appendChild(r("hl","New time",w(e.slot,e.dur))),n.appendChild(a),n.appendChild(i("button",{type:"button",class:"submit",id:"rsgo",disabled:e.busy,onclick:function(){e.busy||(e.busy=!0,e.err="",c(),X("/api/manage/reschedule",{id:d.id,t:d.t,startMs:e.slot,duration:e.dur},function(t){d.start=t.booking.start,d.end=t.booking.end,d.duration=t.booking.duration,e.dur=d.duration,e.days=[],e.date=null,e.slot=null,x={},D={},e.step="msg",e.msg={title:"Interview rescheduled",check:!0,body:"Your "+M.toLowerCase()+" is now "+w(Date.parse(d.start),d.duration)+"."+(t.emailed?" We've emailed you an updated invite.":""),manage:!0}}))}},[e.busy?"Rescheduling…":"Reschedule"])),n}function ye(){var n=e.msg,a=i("section",{class:"done"}),r=i("div",{class:"done-in"});r.appendChild(i("div",{class:"logo","aria-hidden":"true"},[J(S)]));var t=i("h1",n.check?{html:f.check+"<span></span>"}:null,n.check?null:[n.title]);n.check&&(t.lastChild.textContent=n.title),r.appendChild(t),r.appendChild(i("p",null,[n.body]));var l=[];n.manage&&l.push(i("button",{type:"button",class:"pill",onclick:function(){e.step="manage",e.msg=null,c()}},["Back to your interview"])),n.again&&l.push(i("a",{class:"pill",href:"/"},["Book a new time"])),l.length&&r.appendChild(i("div",{class:"acts"},l)),a.appendChild(r),b.appendChild(a)}if(d){if(d.error)e.step="msg",e.msg={title:"This link doesn't work",body:d.error};else if(d.cancelled)e.step="msg",e.msg={title:"This interview was cancelled",body:"It's no longer on the calendar.",again:!0};else{e.step="manage",e.dur=z.indexOf(d.duration)>=0?d.duration:30;var F=new URLSearchParams(location.search).get("a");F&&history.replaceState&&history.replaceState(null,"",location.pathname+"?t="+encodeURIComponent(d.t)),!d.past&&F==="cancel"&&(e.step="cancel"),!d.past&&F==="reschedule"&&(e.step="pick")}c(),e.step==="pick"&&E()}else c(),E();setInterval(function(){e.step==="pick"&&c()},6e4)})();
+(function () {
+  var _boot = JSON.parse(document.getElementById("boot").textContent),
+    S = _boot.host,
+    M = _boot.event,
+    d = _boot.manage,
+    A = _boot.info,
+    H = "Asia/Kolkata",
+    z = [30, 60, 90],
+    f = {
+      clock:
+        '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 5.8V10l2.8 1.8"/></svg>',
+      cal: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4.2" width="14" height="12.8" rx="2"/><path d="M3 8.2h14M7 2.6v3.2M13 2.6v3.2"/></svg>',
+      globe:
+        '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M2.6 10h14.8M10 2.5c2 2.1 3 4.6 3 7.5s-1 5.4-3 7.5c-2-2.1-3-4.6-3-7.5s1-5.4 3-7.5z"/></svg>',
+      user: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="6.8" r="3.3"/><path d="M3.5 17c1-3.3 3.5-5 6.5-5s5.5 1.7 6.5 5"/></svg>',
+      left: '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 4.5L6.5 10l5.5 5.5"/></svg>',
+      right:
+        '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 4.5l5.5 5.5L8 15.5"/></svg>',
+      check:
+        '<svg viewBox="0 0 22 22" aria-hidden="true"><circle cx="11" cy="11" r="11" fill="currentColor"/><path d="M6.5 11.2l3 3 6-6.2" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+      pin: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M10 17.5s-5.5-5-5.5-9a5.5 5.5 0 0111 0c0 4-5.5 9-5.5 9z"/><circle cx="10" cy="8.5" r="2"/></svg>',
+      add: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4.2" width="14" height="12.8" rx="2"/><path d="M3 8.2h14M7 2.6v3.2M13 2.6v3.2M10 10.4v4.4M7.8 12.6h4.4"/></svg>',
+    },
+    e = {
+      dur: 30,
+      days: [],
+      openSet: {},
+      viewY: 0,
+      viewM: 0,
+      date: null,
+      slots: null,
+      slot: null,
+      step: "pick",
+      booking: null,
+      err: "",
+      fieldErr: {},
+      form: { name: "", email: "", company: "", round: "" },
+      busy: !1,
+    },
+    b = document.getElementById("card");
+  function i(n, a, r) {
+    var t = document.createElement(n);
+    if (a)
+      for (var l in a) {
+        var o = a[l];
+        o == null ||
+          o === !1 ||
+          (l === "class"
+            ? (t.className = o)
+            : l === "html"
+              ? (t.innerHTML = o)
+              : l.slice(0, 2) === "on"
+                ? t.addEventListener(l.slice(2), o)
+                : t.setAttribute(l, o === !0 ? "" : o));
+      }
+    return (
+      (r || []).forEach(function (s) {
+        s != null && s !== !1 && t.appendChild(typeof s == "string" ? document.createTextNode(s) : s);
+      }),
+      t
+    );
+  }
+  function _(n, a) {
+    return new Intl.DateTimeFormat("en-US", Object.assign({ timeZone: H }, a)).format(new Date(n));
+  }
+  function N(n) {
+    return _(n, { hour: "numeric", minute: "2-digit", hour12: !0 }).replace(" AM", "am").replace(" PM", "pm");
+  }
+  function ae(n) {
+    return Date.parse(n + "T12:00:00+05:30");
+  }
+  function ie() {
+    return new Intl.DateTimeFormat("en-CA", { timeZone: H, year: "numeric", month: "2-digit", day: "2-digit" }).format(
+      new Date(),
+    );
+  }
+  function J(n) {
+    return (n || "?").trim().charAt(0).toUpperCase();
+  }
+  function w(n, a) {
+    return (
+      N(n) + " – " + N(n + a * 6e4) + ", " + _(n, { weekday: "long", month: "long", day: "numeric", year: "numeric" })
+    );
+  }
+  var W = d && d.id ? "&ignore=" + d.id + "&t=" + d.t : "";
+  function E(n) {
+    return fetch("/api/days?duration=" + e.dur + W)
+      .then(function (a) {
+        return a.json();
+      })
+      .then(function (a) {
+        if (
+          ((e.days = a.days),
+          (e.openSet = {}),
+          a.days.forEach(function (t) {
+            t.open && (e.openSet[t.key] = 1);
+          }),
+          !n || !e.viewY)
+        ) {
+          var r =
+            a.days.filter(function (t) {
+              return t.open;
+            })[0] || a.days[0];
+          r && ((e.viewY = +r.key.slice(0, 4)), (e.viewM = +r.key.slice(5, 7)));
+        }
+        (e.date && !e.openSet[e.date] && ((e.date = null), (e.slots = null), (e.slot = null)), c());
+      })
+      .catch(function () {
+        ((e.err = "Couldn't load available dates. Refresh the page to try again."), c());
+      });
+  }
+  var x = {},
+    D = {};
+  function Z(n, a, r) {
+    var t = n + ":" + a;
+    return (
+      (r || !D[t]) &&
+        (D[t] = fetch("/api/slots?date=" + n + "&duration=" + a + W)
+          .then(function (l) {
+            return l.json();
+          })
+          .then(function (l) {
+            return ((x[t] = l.slots || []), x[t]);
+          })
+          .catch(function () {
+            return (delete D[t], null);
+          })),
+      D[t]
+    );
+  }
+  function G() {
+    if (window.innerWidth <= 900) {
+      var n = document.getElementById("timesh");
+      n && n.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+  function B(n) {
+    var a = e.date + ":" + e.dur,
+      r = !!x[a];
+    ((e.slot = null),
+      (e.slots = x[a] || null),
+      c(),
+      r && n && G(),
+      Z(e.date, e.dur, r).then(function (t) {
+        if (a === e.date + ":" + e.dur) {
+          if (!t) {
+            e.slots || ((e.slots = []), c());
+            return;
+          }
+          if (!e.slots) {
+            ((e.slots = t), c(), n && G());
+            return;
+          }
+          t.join() !== e.slots.join() && ((e.slots = t), e.slot && t.indexOf(e.slot) < 0 && (e.slot = null), c());
+        }
+      }));
+  }
+  var L = null,
+    O = !1,
+    j = [];
+  function K(n) {
+    return String(n)
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "");
+  }
+  function R(n) {
+    if (L) {
+      n && n();
+      return;
+    }
+    (n && j.push(n),
+      !O &&
+        ((O = !0),
+        fetch("/api/companies")
+          .then(function (a) {
+            return a.json();
+          })
+          .then(function (a) {
+            ((L = (a.companies || []).map(function (t) {
+              var l = [t.n].concat(t.a || []);
+              return {
+                n: t.n,
+                f: t.f || 0,
+                t: l.map(function (o, s) {
+                  return {
+                    raw: o,
+                    alias: s > 0,
+                    c: K(o),
+                    w: o
+                      .toLowerCase()
+                      .split(/[^a-z0-9]+/)
+                      .filter(Boolean),
+                  };
+                }),
+              };
+            })),
+              (O = !1));
+            var r = j;
+            ((j = []),
+              r.forEach(function (t) {
+                t();
+              }));
+          })
+          .catch(function () {
+            ((O = !1), (j = []));
+          })));
+  }
+  function re(n) {
+    var a = K(n);
+    if (!a || !L) return [];
+    var r = [];
+    return (
+      L.forEach(function (t) {
+        var l = 9,
+          o = null;
+        (t.t.forEach(function (s) {
+          var p = 9;
+          (s.c === a
+            ? (p = 0)
+            : s.c.indexOf(a) === 0
+              ? (p = 1)
+              : s.w.some(function (m) {
+                    return m.indexOf(a) === 0;
+                  })
+                ? (p = 2)
+                : a.length >= 3 && s.c.indexOf(a) > 0 && (p = 3),
+            p < 9 && s.alias && (p += 0.5),
+            p < l && ((l = p), (o = s.alias ? s.raw : null)));
+        }),
+          l < 9 && r.push({ n: t.n, f: t.f, s: l, via: o }));
+      }),
+      r.sort(function (t, l) {
+        return t.s - l.s || l.f - t.f || t.n.length - l.n.length || t.n.localeCompare(l.n);
+      }),
+      r.slice(0, 8)
+    );
+  }
+  function c() {
+    var n = document.activeElement && document.activeElement.id,
+      a = b.querySelector(".tlist"),
+      r = a && !e.anim ? a.scrollTop : 0;
+    if (
+      ((b.innerHTML = ""),
+      (b.className =
+        "card" + (e.step !== "pick" || !e.date ? " narrow" : "") + (e.step === "details" ? " details" : "")),
+      e.step === "done")
+    )
+      return me();
+    if (e.step === "msg") return ye();
+    b.appendChild(le());
+    var t = i("div", { class: "main" });
+    (e.step === "pick"
+      ? (t.appendChild(oe()), e.date && t.appendChild(se()))
+      : e.step === "manage"
+        ? t.appendChild(ve())
+        : e.step === "cancel"
+          ? t.appendChild(ge())
+          : e.step === "confirm"
+            ? t.appendChild(Ce())
+            : t.appendChild(pe()),
+      b.appendChild(t),
+      (e.anim = !1),
+      r && (a = b.querySelector(".tlist")) && (a.scrollTop = r),
+      n && document.getElementById(n) && document.getElementById(n).focus({ preventScroll: !0 }));
+  }
+  function le() {
+    var n =
+        e.step === "details" || e.step === "confirm"
+          ? "pick"
+          : d && (e.step === "pick" || e.step === "cancel")
+            ? "manage"
+            : null,
+      a = i("section", { class: "info" + (n ? " has-back" : "") });
+    (n &&
+      b.appendChild(
+        i("button", {
+          class: "back",
+          id: "back",
+          "aria-label": n === "pick" ? "Back to times" : "Back to your interview",
+          html: f.left,
+          onclick: function () {
+            ((e.step = n), (e.err = ""), c(), n === "pick" && !e.days.length && E());
+          },
+        }),
+      ),
+      a.appendChild(
+        i("p", { class: "host" }, [
+          i("span", { class: "mark", "aria-hidden": "true" }, [(S || "?").trim().charAt(0).toUpperCase()]),
+          S,
+        ]),
+      ),
+      a.appendChild(i("h1", { class: "ev" }, [M])));
+    var r = e.step === "details";
+    if (e.step === "pick") {
+      var t = i("div", { class: "dur-opts", role: "group", "aria-label": "Meeting length" });
+      (z.forEach(function (s) {
+        t.appendChild(
+          i(
+            "button",
+            {
+              type: "button",
+              id: "dur" + s,
+              "aria-pressed": String(e.dur === s),
+              onclick: function () {
+                e.dur !== s &&
+                  ((e.dur = s),
+                  (e.slot = null),
+                  E(!0).then(function () {
+                    e.date && B();
+                  }));
+              },
+            },
+            [s + " min"],
+          ),
+        );
+      }),
+        a.appendChild(
+          i("div", { class: "dur" }, [i("div", { class: "dur-l", html: f.clock + "<span>Meeting length</span>" }), t]),
+        ));
+    }
+    var l = i("ul", { class: "meta" });
+    if (
+      (r
+        ? (l.appendChild(i("li", { html: f.clock + "<span>" + e.dur + " min</span>" })),
+          l.appendChild(i("li", { class: "hl", html: f.cal + "<span></span>" })),
+          (l.lastChild.lastChild.textContent = w(e.slot, e.dur)),
+          l.appendChild(i("li", { html: f.globe + "<span>India Standard Time</span>" })))
+        : d &&
+          (e.step === "manage" || e.step === "cancel") &&
+          (l.appendChild(i("li", { html: f.clock + "<span>" + d.duration + " min</span>" })),
+          l.appendChild(i("li", { class: "hl", html: f.cal + "<span></span>" })),
+          (l.lastChild.lastChild.textContent = w(Date.parse(d.start), d.duration)),
+          l.appendChild(i("li", { html: f.globe + "<span>India Standard Time</span>" }))),
+      A.loc && (l.appendChild(i("li", { html: f.pin + "<span></span>" })), (l.lastChild.lastChild.textContent = A.loc)),
+      a.appendChild(l),
+      A.desc)
+    ) {
+      var o = i("p", {
+        class: "desc",
+        html: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v4.6M10 6.4v.1" stroke-linecap="round"/></svg><span></span>',
+      });
+      ((o.lastChild.textContent = A.desc), a.appendChild(o));
+    }
+    return a;
+  }
+  function oe() {
+    var n = i("section", { class: "pick", "aria-labelledby": "pickh" });
+    (n.appendChild(i("h2", { id: "pickh" }, [d ? "Pick a New Date & Time" : "Select a Date & Time"])),
+      d && n.appendChild(i("p", { class: "was" }, ["Currently " + w(Date.parse(d.start), d.duration)])),
+      e.err && n.appendChild(i("div", { class: "banner", role: "alert" }, [e.err])));
+    var a = e.viewY,
+      r = e.viewM;
+    if (!a) return (n.appendChild(i("div", { class: "spin", "aria-label": "Loading" })), n);
+    var t = e.days.length ? e.days[0].key : "",
+      l = e.days.length ? e.days[e.days.length - 1].key : "",
+      o = function (v, C) {
+        return v + "-" + String(C).padStart(2, "0");
+      },
+      s = t && t.slice(0, 7) < o(a, r),
+      p = l && l.slice(0, 7) > o(a, r),
+      m = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "long", year: "numeric" }).format(
+        new Date(Date.UTC(a, r - 1, 1)),
+      );
+    n.appendChild(
+      i("div", { class: "mhead" }, [
+        i("button", {
+          class: "nav",
+          id: "prevm",
+          type: "button",
+          "aria-label": "Previous month",
+          disabled: !s,
+          html: f.left,
+          onclick: function () {
+            (e.viewM--, e.viewM < 1 && ((e.viewM = 12), e.viewY--), c());
+          },
+        }),
+        i("div", { class: "m", "aria-live": "polite" }, [m]),
+        i("button", {
+          class: "nav",
+          id: "nextm",
+          type: "button",
+          "aria-label": "Next month",
+          disabled: !p,
+          html: f.right,
+          onclick: function () {
+            (e.viewM++, e.viewM > 12 && ((e.viewM = 1), e.viewY++), c());
+          },
+        }),
+      ]),
+    );
+    var y = i("div", { class: "grid", role: "grid", "aria-label": m });
+    ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach(function (v) {
+      y.appendChild(i("div", { class: "wd", "aria-hidden": "true" }, [v]));
+    });
+    for (
+      var u = (new Date(Date.UTC(a, r - 1, 1)).getUTCDay() + 6) % 7,
+        g = new Date(Date.UTC(a, r, 0)).getUTCDate(),
+        h = ie(),
+        I = 0;
+      I < u;
+      I++
+    )
+      y.appendChild(i("div"));
+    for (var k = 1; k <= g; k++)
+      (function (v) {
+        var C = o(a, r) + "-" + String(v).padStart(2, "0"),
+          ee = !!e.openSet[C],
+          ne = "day" + (ee ? " open" : "") + (C === h ? " today" : ""),
+          te = new Intl.DateTimeFormat("en-US", {
+            timeZone: "UTC",
+            weekday: "long",
+            month: "long",
+            day: "numeric",
+          }).format(new Date(Date.UTC(a, r - 1, v)));
+        ee
+          ? y.appendChild(
+              i(
+                "button",
+                {
+                  type: "button",
+                  class: ne,
+                  id: "d" + C,
+                  "aria-pressed": String(e.date === C),
+                  "aria-label": te + (C === h ? ", today" : "") + ", times available",
+                  onpointerenter: function () {
+                    Z(C, e.dur);
+                  },
+                  onclick: function () {
+                    e.date !== C && ((e.date = C), (e.anim = !0), B(!0));
+                  },
+                },
+                [String(v)],
+              ),
+            )
+          : y.appendChild(i("div", { class: ne, "aria-label": te + ", no times available" }, [String(v)]));
+      })(k);
+    n.appendChild(y);
+    var T = i("span", { html: f.globe + "<span></span>" });
+    return (
+      (T.lastChild.textContent = "India Standard Time (" + N(Date.now()) + ")"),
+      n.appendChild(i("div", { class: "tz" }, [i("b", null, ["Time zone"]), T])),
+      n
+    );
+  }
+  function se() {
+    var n = i("section", { class: "times" + (e.anim ? " anim" : ""), "aria-labelledby": "timesh" });
+    n.appendChild(i("h3", { id: "timesh" }, [_(ae(e.date), { weekday: "long", month: "long", day: "numeric" })]));
+    var a = i("div", { class: "tlist" });
+    return (
+      e.slots === null
+        ? a.appendChild(i("div", { class: "spin", "aria-label": "Loading times" }))
+        : e.slots.length
+          ? e.slots.forEach(function (r) {
+              var t = e.slot === r,
+                l = i("div", { class: "slot" + (t ? " sel" : "") });
+              (l.appendChild(
+                i(
+                  "button",
+                  {
+                    type: "button",
+                    class: "t",
+                    id: "s" + r,
+                    "aria-pressed": String(t),
+                    onclick: function () {
+                      de(r);
+                    },
+                  },
+                  [N(r)],
+                ),
+              ),
+                t && l.appendChild($(r)),
+                a.appendChild(l));
+            })
+          : a.appendChild(i("p", { class: "empty" }, ["No times left on this day. Pick another date."])),
+      n.appendChild(a),
+      n
+    );
+  }
+  function $(n) {
+    return i(
+      "button",
+      {
+        type: "button",
+        class: "go",
+        id: "go",
+        "aria-label": (d ? "Next: confirm " : "Next: enter your details for ") + N(n),
+        onclick: function () {
+          if (((e.err = ""), d)) {
+            ((e.step = "confirm"), c());
+            var a = document.getElementById("rsgo");
+            a && a.focus();
+            return;
+          }
+          ((e.step = "details"), (e.fieldErr = {}), c());
+          var r = document.getElementById(e.form.email ? "fname" : "femail");
+          r && r.focus();
+        },
+      },
+      ["Next"],
+    );
+  }
+  function de(n) {
+    var a = b.querySelector(".slot.sel");
+    if (
+      (a &&
+        (a.classList.remove("sel"),
+        a.firstChild.setAttribute("aria-pressed", "false"),
+        a.lastChild.className === "go" && a.removeChild(a.lastChild)),
+      e.slot === n)
+    ) {
+      e.slot = null;
+      return;
+    }
+    e.slot = n;
+    var r = document.getElementById("s" + n);
+    if (!r) return c();
+    (r.parentNode.classList.add("sel"), r.setAttribute("aria-pressed", "true"));
+    var t = $(n);
+    (r.parentNode.appendChild(t), t.focus({ preventScroll: !0 }));
+  }
+  function P(n, a, r, t, l) {
+    l = l || {};
+    var o = e.fieldErr[a],
+      s = i("input", {
+        id: n,
+        type: t,
+        name: a,
+        autocomplete: l.ac || "off",
+        required: !!l.req,
+        "aria-invalid": o ? "true" : null,
+        "aria-describedby": o ? n + "e" : null,
+        list: l.list || null,
+        placeholder: l.ph || null,
+        maxlength: l.max || 120,
+      });
+    ((s.value = e.form[a]),
+      s.addEventListener("input", function () {
+        if (((e.form[a] = s.value), e.fieldErr[a])) {
+          (delete e.fieldErr[a], s.removeAttribute("aria-invalid"));
+          var m = document.getElementById(n + "e");
+          m && m.remove();
+        }
+      }));
+    var p = [i("label", { for: n }, [r + (l.req ? " *" : "")]), s];
+    return (o && p.push(i("div", { class: "ferr", id: n + "e" }, [o])), i("div", { class: "f" }, p));
+  }
+  function RR() {
+    var f = P("fround", "round", "Interview round", "text", { max: 60 }),
+      inp = f.querySelector("input"),
+      box = i("div", { class: "rchips", role: "group", "aria-label": "Common rounds" }),
+      bs = [];
+    function sync() {
+      var v = inp.value.trim().toLowerCase();
+      bs.forEach(function (x) {
+        x.setAttribute("aria-pressed", String(x.getAttribute("data-v").toLowerCase() === v));
+      });
+    }
+    [
+      ["1st", "1st round"],
+      ["2nd", "2nd round"],
+      ["3rd", "3rd round"],
+      ["Manager", "Manager round"],
+      ["HR", "HR round"],
+      ["Final", "Final round"],
+      ["Demo", "Demo"],
+    ].forEach(function (r) {
+      var x = i("button", { type: "button", class: "rchip", "data-v": r[1], "aria-label": r[1] }, [r[0]]);
+      x.addEventListener("click", function () {
+        inp.value = x.getAttribute("aria-pressed") === "true" ? "" : r[1];
+        inp.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      bs.push(x);
+      box.appendChild(x);
+    });
+    inp.addEventListener("input", sync);
+    sync();
+    f.insertBefore(box, inp.nextSibling);
+    return f;
+  }
+  function ce() {
+    var n = "fcompany",
+      a = "fcompany-list",
+      r = [],
+      t = -1,
+      l = i("input", {
+        id: n,
+        type: "text",
+        name: "company",
+        autocomplete: "off",
+        spellcheck: "false",
+        role: "combobox",
+        "aria-autocomplete": "list",
+        "aria-expanded": "false",
+        "aria-controls": a,
+        maxlength: 120,
+      });
+    l.value = e.form.company;
+    var o = i("ul", { class: "cb-list", id: a, role: "listbox", "aria-label": "Company suggestions", hidden: !0 });
+    function s() {
+      ((o.hidden = !0),
+        (o.innerHTML = ""),
+        (r = []),
+        (t = -1),
+        l.setAttribute("aria-expanded", "false"),
+        l.removeAttribute("aria-activedescendant"));
+    }
+    function p(u, g) {
+      t = u;
+      for (var h = 0; h < o.children.length; h++) o.children[h].setAttribute("aria-selected", String(h === u));
+      if (u < 0) {
+        l.removeAttribute("aria-activedescendant");
+        return;
+      }
+      (l.setAttribute("aria-activedescendant", a + "-" + u), g && o.children[u].scrollIntoView({ block: "nearest" }));
+    }
+    function m(u) {
+      ((l.value = r[u].n), (e.form.company = r[u].n), s());
+    }
+    function y() {
+      if (document.activeElement === l) {
+        if (!L) {
+          R(y);
+          return;
+        }
+        var u = l.value.trim();
+        if (((r = re(u)), r.length === 1 && r[0].n.toLowerCase() === u.toLowerCase() && (r = []), !r.length))
+          return s();
+        o.innerHTML = "";
+        var g = u.toLowerCase();
+        (r.forEach(function (h, I) {
+          var k = i("span", { class: "cb-n" }),
+            T = h.n.toLowerCase().indexOf(g);
+          T >= 0
+            ? (k.appendChild(document.createTextNode(h.n.slice(0, T))),
+              k.appendChild(i("b", null, [h.n.slice(T, T + u.length)])),
+              k.appendChild(document.createTextNode(h.n.slice(T + u.length))))
+            : k.appendChild(document.createTextNode(h.n));
+          var v = i("li", { id: a + "-" + I, class: "cb-opt", role: "option", "aria-selected": "false" }, [
+            k,
+            h.via ? i("span", { class: "cb-a" }, [h.via]) : null,
+          ]);
+          (v.addEventListener("mousedown", function (C) {
+            C.preventDefault();
+          }),
+            v.addEventListener("mousemove", function () {
+              t !== I && p(I, !1);
+            }),
+            v.addEventListener("click", function () {
+              m(I);
+            }),
+            o.appendChild(v));
+        }),
+          (o.hidden = !1),
+          l.setAttribute("aria-expanded", "true"),
+          p(-1));
+      }
+    }
+    return (
+      l.addEventListener("input", function () {
+        ((e.form.company = l.value), y());
+      }),
+      l.addEventListener("focus", function () {
+        R();
+      }),
+      l.addEventListener("blur", s),
+      l.addEventListener("keydown", function (u) {
+        var g = !o.hidden;
+        u.key === "ArrowDown"
+          ? (u.preventDefault(), g ? p(t < r.length - 1 ? t + 1 : 0, !0) : y())
+          : u.key === "ArrowUp"
+            ? g && (u.preventDefault(), p(t > 0 ? t - 1 : r.length - 1, !0))
+            : u.key === "Enter"
+              ? g && t >= 0
+                ? (u.preventDefault(), m(t))
+                : g && s()
+              : u.key === "Escape"
+                ? g && (u.preventDefault(), s())
+                : u.key === "Tab" && g && t >= 0 && m(t);
+      }),
+      i("div", { class: "f" }, [i("label", { for: n }, ["Company"]), i("div", { class: "cbw" }, [l, o])])
+    );
+  }
+  var U = {},
+    q = null,
+    Q = "Welcome back. We filled in the name from your earlier booking.";
+  function Y(n) {
+    var a = document.getElementById("fnameh");
+    a && (a.textContent = n);
+  }
+  function ue(n, a) {
+    var r = n.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(r)) return a("");
+    if (Object.prototype.hasOwnProperty.call(U, r)) return a(U[r]);
+    fetch("/api/lookup?email=" + encodeURIComponent(r))
+      .then(function (t) {
+        return t.ok ? t.json() : { name: "" };
+      })
+      .then(function (t) {
+        ((U[r] = String(t.name || "")), a(U[r]));
+      })
+      .catch(function () {
+        a("");
+      });
+  }
+  function V(n) {
+    ue(n, function (a) {
+      if (!(e.step !== "details" || e.form.email.trim().toLowerCase() !== n.trim().toLowerCase())) {
+        var r = document.getElementById("fname");
+        if (!a) {
+          e.nameAuto && ((e.nameAuto = !1), (e.form.name = ""), r && (r.value = ""), Y(""));
+          return;
+        }
+        if (!(e.form.name.trim() && !e.nameAuto)) {
+          if (((e.form.name = a), (e.nameAuto = !0), Y(Q), r)) {
+            ((r.value = a), r.removeAttribute("aria-invalid"));
+            var t = document.getElementById("fnamee");
+            t && t.remove();
+          }
+          delete e.fieldErr.name;
+        }
+      }
+    });
+  }
+  function pe() {
+    R();
+    var n = i("form", {
+      class: "form",
+      novalidate: !0,
+      "aria-labelledby": "formh",
+      onsubmit: function (s) {
+        (s.preventDefault(), fe());
+      },
+    });
+    (n.appendChild(i("h2", { id: "formh" }, ["Enter Details"])),
+      e.err && n.appendChild(i("div", { class: "banner", role: "alert" }, [e.err])));
+    var a = P("femail", "email", "Email", "email", { req: !0, ac: "email", max: 200 }),
+      r = P("fname", "name", "Name", "text", { req: !0, ac: "name" });
+    r.appendChild(i("div", { class: "hint", id: "fnameh", role: "status" }, [e.nameAuto ? Q : ""]));
+    var t = a.querySelector("input"),
+      l = r.querySelector("input");
+    (t.addEventListener("input", function () {
+      (clearTimeout(q),
+        (q = setTimeout(function () {
+          V(t.value);
+        }, 350)));
+    }),
+      t.addEventListener("change", function () {
+        (clearTimeout(q), V(t.value));
+      }),
+      l.addEventListener("input", function () {
+        e.nameAuto && ((e.nameAuto = !1), Y(""));
+      }),
+      n.appendChild(a),
+      n.appendChild(r),
+      e.form.email &&
+        !e.form.name.trim() &&
+        setTimeout(function () {
+          V(e.form.email);
+        }, 0),
+      n.appendChild(i("div", { class: "row2" }, [ce(), RR()])));
+    return (
+      n.appendChild(
+        i("button", { type: "submit", class: "submit", id: "submitb", disabled: e.busy }, [
+          e.busy ? "Booking…" : "Confirm interview",
+        ]),
+      ),
+      n
+    );
+  }
+  function fe() {
+    var n = {},
+      a = e.form;
+    if (
+      (a.name.trim() || (n.name = "Enter your name."),
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(a.email.trim()) || (n.email = "Enter an email address like name@example.com."),
+      (e.fieldErr = n),
+      (e.err = ""),
+      Object.keys(n).length)
+    ) {
+      c();
+      var r = document.getElementById(n.email ? "femail" : "fname");
+      r && r.focus();
+      return;
+    }
+    ((e.busy = !0),
+      c(),
+      fetch("/api/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: a.name.trim(),
+          email: a.email.trim(),
+          company: a.company.trim(),
+          round: a.round.trim(),
+          duration: e.dur,
+          startMs: e.slot,
+        }),
+      })
+        .then(function (t) {
+          return t.json().then(function (l) {
+            return { ok: t.ok, j: l };
+          });
+        })
+        .then(function (t) {
+          if (((e.busy = !1), t.ok)) {
+            ((e.booking = t.j.booking),
+              (e.booking.emailed = !!t.j.emailed),
+              (e.step = "done"),
+              c(),
+              window.scrollTo(0, 0));
+            return;
+          }
+          if (t.j.field === "email") {
+            ((e.fieldErr = { email: t.j.error }), c());
+            var l = document.getElementById("femail");
+            l && l.focus();
+            return;
+          }
+          if (t.j.retry) {
+            ((x = {}),
+              (D = {}),
+              (e.step = "pick"),
+              (e.err = t.j.error || "That time is no longer available. Pick another time."),
+              E(!0).then(function () {
+                e.date ? B() : c();
+              }));
+            return;
+          }
+          ((e.err = t.j.error || "Couldn't schedule the event. Try again."), c());
+        })
+        .catch(function () {
+          ((e.busy = !1), (e.err = "Couldn't reach the server. Check your connection and try again."), c());
+        }));
+  }
+  function he(n) {
+    var a = function (l) {
+        return l.replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+      },
+      r = function (l) {
+        return String(l)
+          .replace(/[\\;,]/g, function (o) {
+            return "\\" + o;
+          })
+          .replace(/\n/g, "\\n");
+      },
+      t = [
+        "BEGIN:VCALENDAR",
+        "VERSION:2.0",
+        "PRODID:-//booking-form//EN",
+        "BEGIN:VEVENT",
+        "UID:" + n.id + "@booking-form",
+        "DTSTAMP:" + a(new Date().toISOString()),
+        "DTSTART:" + a(n.start),
+        "DTEND:" + a(n.end),
+        "SUMMARY:" + r(M + " with " + S),
+        "DESCRIPTION:" + r([n.company, n.round].filter(Boolean).join(", ")),
+        "END:VEVENT",
+        "END:VCALENDAR",
+      ].join(`\r
+`);
+    return "data:text/calendar;charset=utf-8," + encodeURIComponent(t);
+  }
+  function me() {
+    var n = e.booking,
+      a = Date.parse(n.start),
+      r = i("section", { class: "done" }),
+      t = i("div", { class: "done-in" });
+    (t.appendChild(i("div", { class: "logo", "aria-hidden": "true" }, [J(S)])),
+      t.appendChild(i("h1", { html: f.check + "<span>You are scheduled</span>" })),
+      t.appendChild(
+        i("p", null, [
+          "Your " +
+            n.duration +
+            " minute " +
+            M.toLowerCase() +
+            " is booked. " +
+            (n.emailed
+              ? "A calendar invite is on its way to " + n.email + "."
+              : "Add it to your calendar so it doesn't slip."),
+        ]),
+      ));
+    var l = i("ul", { class: "meta" }),
+      o = function (p, m, y) {
+        var u = i("li", { class: y ? "hl" : null, html: p + "<span></span>" });
+        return ((u.lastChild.textContent = m), u);
+      };
+    (l.appendChild(o(f.user, S)),
+      l.appendChild(o(f.cal, w(a, n.duration), !0)),
+      l.appendChild(o(f.globe, "India Standard Time")),
+      t.appendChild(i("div", { class: "box" }, [i("h2", { class: "ev" }, [M]), l])));
+    var s = i("a", {
+      class: "pill",
+      href: he(n),
+      download: "interview.ics",
+      html: f.add + "<span>Add to calendar</span>",
+    });
+    (t.appendChild(
+      i("div", { class: "acts" }, [
+        s,
+        n.manage ? i("a", { class: "pill", href: n.manage }, ["Reschedule or cancel"]) : null,
+        i(
+          "button",
+          {
+            type: "button",
+            class: "pill",
+            onclick: function () {
+              ((e = {
+                dur: e.dur,
+                days: [],
+                openSet: {},
+                viewY: 0,
+                viewM: 0,
+                date: null,
+                slots: null,
+                slot: null,
+                step: "pick",
+                booking: null,
+                err: "",
+                fieldErr: {},
+                form: { name: n.name, email: n.email, company: "", round: "" },
+                busy: !1,
+              }),
+                E());
+            },
+          },
+          ["Book another time"],
+        ),
+      ]),
+    ),
+      r.appendChild(t),
+      b.appendChild(r));
+  }
+  function X(n, a, r) {
+    fetch(n, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(a) })
+      .then(function (t) {
+        return t.json().then(function (l) {
+          return { ok: t.ok, j: l };
+        });
+      })
+      .then(function (t) {
+        if (((e.busy = !1), t.ok)) {
+          (r(t.j), c(), window.scrollTo(0, 0));
+          return;
+        }
+        if (t.j.retry) {
+          ((x = {}),
+            (D = {}),
+            (e.step = "pick"),
+            (e.err = t.j.error),
+            E(!0).then(function () {
+              e.date ? B() : c();
+            }));
+          return;
+        }
+        ((e.err = t.j.error || "Something went wrong. Try again."), c());
+      })
+      .catch(function () {
+        ((e.busy = !1), (e.err = "Couldn't reach the server. Check your connection and try again."), c());
+      });
+  }
+  function ve() {
+    var n = i("section", { class: "form", "aria-labelledby": "mh" });
+    return (
+      n.appendChild(i("h2", { id: "mh" }, ["Your Interview"])),
+      e.err && n.appendChild(i("div", { class: "banner", role: "alert" }, [e.err])),
+      n.appendChild(i("p", { class: "lead" }, ["Booked for " + d.name + " (" + d.email + ")."])),
+      d.past
+        ? (n.appendChild(
+            i("p", { class: "lead" }, [
+              "This interview has already started, so it can't be changed here. Reply to your confirmation email if you need help.",
+            ]),
+          ),
+          n)
+        : (n.appendChild(
+            i("div", { class: "acts2" }, [
+              i(
+                "button",
+                {
+                  type: "button",
+                  class: "submit",
+                  id: "rsb",
+                  onclick: function () {
+                    ((e.step = "pick"), (e.err = ""), (e.date = null), (e.slot = null), (e.slots = null), c(), E());
+                  },
+                },
+                ["Reschedule"],
+              ),
+              i(
+                "button",
+                {
+                  type: "button",
+                  class: "ghost",
+                  id: "cxb",
+                  onclick: function () {
+                    ((e.step = "cancel"), (e.err = ""), c());
+                    var a = document.getElementById("reason");
+                    a && a.focus();
+                  },
+                },
+                ["Cancel interview"],
+              ),
+            ]),
+          ),
+          n)
+    );
+  }
+  function ge() {
+    var n = i("form", {
+      class: "form",
+      novalidate: !0,
+      "aria-labelledby": "ch",
+      onsubmit: function (r) {
+        (r.preventDefault(),
+          !e.busy &&
+            ((e.busy = !0),
+            (e.err = ""),
+            c(),
+            X("/api/manage/cancel", { id: d.id, t: d.t, reason: (e.reason || "").trim() }, function (t) {
+              ((d.cancelled = !0),
+                (e.step = "msg"),
+                (e.msg = {
+                  title: "Interview cancelled",
+                  body:
+                    "Your " +
+                    M.toLowerCase() +
+                    " on " +
+                    w(Date.parse(d.start), d.duration) +
+                    " is cancelled." +
+                    (t.emailed ? " We've emailed you a confirmation." : ""),
+                  again: !0,
+                }));
+            })));
+      },
+    });
+    (n.appendChild(i("h2", { id: "ch" }, ["Cancel Interview"])),
+      e.err && n.appendChild(i("div", { class: "banner", role: "alert" }, [e.err])),
+      n.appendChild(i("p", { class: "lead" }, ["Your time will be released and " + S + " will be told."])));
+    var a = i("textarea", { id: "reason", maxlength: 500, rows: 4 });
+    return (
+      (a.value = e.reason || ""),
+      a.addEventListener("input", function () {
+        e.reason = a.value;
+      }),
+      n.appendChild(i("div", { class: "f" }, [i("label", { for: "reason" }, ["Reason for cancelling (optional)"]), a])),
+      n.appendChild(
+        i("button", { type: "submit", class: "submit danger", id: "cxgo", disabled: e.busy }, [
+          e.busy ? "Cancelling…" : "Cancel interview",
+        ]),
+      ),
+      n
+    );
+  }
+  function Ce() {
+    var n = i("section", { class: "form", "aria-labelledby": "rh" });
+    (n.appendChild(i("h2", { id: "rh" }, ["Confirm New Time"])),
+      e.err && n.appendChild(i("div", { class: "banner", role: "alert" }, [e.err])));
+    var a = i("ul", { class: "meta chg" }),
+      r = function (t, l, o) {
+        var s = i("li", { class: t, html: f.cal + "<span></span>" });
+        return ((s.lastChild.textContent = o), s.setAttribute("aria-label", l + ": " + o), s);
+      };
+    return (
+      a.appendChild(r("old", "Current time", w(Date.parse(d.start), d.duration))),
+      a.appendChild(r("hl", "New time", w(e.slot, e.dur))),
+      n.appendChild(a),
+      n.appendChild(
+        i(
+          "button",
+          {
+            type: "button",
+            class: "submit",
+            id: "rsgo",
+            disabled: e.busy,
+            onclick: function () {
+              e.busy ||
+                ((e.busy = !0),
+                (e.err = ""),
+                c(),
+                X("/api/manage/reschedule", { id: d.id, t: d.t, startMs: e.slot, duration: e.dur }, function (t) {
+                  ((d.start = t.booking.start),
+                    (d.end = t.booking.end),
+                    (d.duration = t.booking.duration),
+                    (e.dur = d.duration),
+                    (e.days = []),
+                    (e.date = null),
+                    (e.slot = null),
+                    (x = {}),
+                    (D = {}),
+                    (e.step = "msg"),
+                    (e.msg = {
+                      title: "Interview rescheduled",
+                      check: !0,
+                      body:
+                        "Your " +
+                        M.toLowerCase() +
+                        " is now " +
+                        w(Date.parse(d.start), d.duration) +
+                        "." +
+                        (t.emailed ? " We've emailed you an updated invite." : ""),
+                      manage: !0,
+                    }));
+                }));
+            },
+          },
+          [e.busy ? "Rescheduling…" : "Reschedule"],
+        ),
+      ),
+      n
+    );
+  }
+  function ye() {
+    var n = e.msg,
+      a = i("section", { class: "done" }),
+      r = i("div", { class: "done-in" });
+    r.appendChild(i("div", { class: "logo", "aria-hidden": "true" }, [J(S)]));
+    var t = i("h1", n.check ? { html: f.check + "<span></span>" } : null, n.check ? null : [n.title]);
+    (n.check && (t.lastChild.textContent = n.title), r.appendChild(t), r.appendChild(i("p", null, [n.body])));
+    var l = [];
+    (n.manage &&
+      l.push(
+        i(
+          "button",
+          {
+            type: "button",
+            class: "pill",
+            onclick: function () {
+              ((e.step = "manage"), (e.msg = null), c());
+            },
+          },
+          ["Back to your interview"],
+        ),
+      ),
+      n.again && l.push(i("a", { class: "pill", href: "/" }, ["Book a new time"])),
+      l.length && r.appendChild(i("div", { class: "acts" }, l)),
+      a.appendChild(r),
+      b.appendChild(a));
+  }
+  if (d) {
+    if (d.error) ((e.step = "msg"), (e.msg = { title: "This link doesn't work", body: d.error }));
+    else if (d.cancelled)
+      ((e.step = "msg"),
+        (e.msg = { title: "This interview was cancelled", body: "It's no longer on the calendar.", again: !0 }));
+    else {
+      ((e.step = "manage"), (e.dur = z.indexOf(d.duration) >= 0 ? d.duration : 30));
+      var F = new URLSearchParams(location.search).get("a");
+      (F && history.replaceState && history.replaceState(null, "", location.pathname + "?t=" + encodeURIComponent(d.t)),
+        !d.past && F === "cancel" && (e.step = "cancel"),
+        !d.past && F === "reschedule" && (e.step = "pick"));
+    }
+    (c(), e.step === "pick" && E());
+  } else (c(), E());
+  setInterval(function () {
+    e.step === "pick" && c();
+  }, 6e4);
+})();

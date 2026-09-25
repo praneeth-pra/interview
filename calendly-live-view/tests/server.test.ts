@@ -204,7 +204,7 @@ describe("admin", () => {
     const html = await (await get(open, "/admin")).text();
     expect(html).toContain('<a class="brand" href="/" title="Open the booking page">');
     const js = await (await get(open, assetsIn(html).find((u) => u.endsWith(".js"))!)).text();
-    expect(js).toContain('fr.src="/admin/analytics"');
+    expect(js).toMatch(/\.src="\/admin\/analytics"/);
     expect(js).not.toContain("srcdoc");
   });
 });
