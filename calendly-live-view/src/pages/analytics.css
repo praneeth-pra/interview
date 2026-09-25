@@ -2093,3 +2093,154 @@ button:active:not(:disabled) {
   border-radius: 8px;
   background-position: right 10px center;
 }
+/* ---- Person page refresh ----
+   One headline number with the other counts beside it, company rows carrying their status as a coloured edge and
+   shown in full (no box that scrolls inside the page), a small icon for "Same company as…", bars for who
+   interviewed, and each insight in its own panel. */
+.av {
+  width: 52px;
+  height: 52px;
+  font-size: 20px;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--n), var(--v));
+  color: var(--o);
+}
+.aname {
+  font-size: 22px;
+  letter-spacing: -0.015em;
+}
+.sumline {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.sumline .st {
+  flex: 1 1 64px;
+  min-width: 0;
+}
+.sumline .st:first-child {
+  flex: 1 1 100%;
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+  padding: 14px 16px;
+  background: linear-gradient(120deg, var(--n), var(--p) 75%);
+}
+.sumline .st:first-child b {
+  font-size: 40px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.sumline .st:first-child span {
+  font-size: 14px;
+  font-weight: 500;
+}
+.sumline .st:not(:first-child) b {
+  font-size: 20px;
+}
+@media (min-width: 701px) {
+  .sumline .st:first-child {
+    flex: 1.8 1 200px;
+  }
+  .sumline .st:not(:first-child) {
+    flex: 1 1 96px;
+    justify-content: flex-end;
+  }
+}
+/* company rows: shown in full, status as the left edge */
+.pgrid {
+  max-height: none !important;
+  overflow: visible !important;
+}
+.grow.tone-ok {
+  --tone: var(--j);
+}
+.grow.tone-up {
+  --tone: var(--m);
+}
+.grow.tone-warn {
+  --tone: var(--h);
+}
+.grow.tone-ns {
+  --tone: var(--g);
+}
+.grow.tone-wait {
+  --tone: var(--q);
+}
+.grow:not(.ghead) {
+  box-shadow: inset 3px 0 0 var(--tone, transparent) !important;
+  padding-left: 14px;
+}
+.cname {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  min-width: 0;
+}
+.cname b {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cname .samebox {
+  margin: 0 0 0 auto;
+  flex: none;
+}
+.samesel {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0 !important;
+  border: 1px solid var(--d);
+  border-radius: 50%;
+  background-color: transparent;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a93a3' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1'/%3E%3Cpath d='M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1'/%3E%3C/svg%3E");
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: 15px;
+  color: transparent;
+  cursor: pointer;
+}
+.samesel:hover,
+.samesel:focus {
+  background-color: var(--d);
+}
+.samesel option {
+  color: var(--k);
+  background: var(--c);
+}
+@media (max-width: 700px) {
+  .grow,
+  .grow + .grow {
+    border-left: 0;
+    padding-left: 16px;
+  }
+  .grow > div:nth-child(1) > .sub {
+    font-size: 12.5px;
+  }
+}
+/* insights: each block in its own panel */
+.icols > div {
+  background: var(--p);
+  border-radius: 16px;
+  padding: 14px 16px;
+  min-width: 0;
+}
+.kv.hasbar {
+  border-top: 0;
+  padding: 8px 0 5px;
+}
+.ivtrack {
+  height: 6px;
+  border-radius: 3px;
+  background: var(--d);
+  margin: 0 0 6px;
+  overflow: hidden;
+}
+.ivfill {
+  height: 100%;
+  border-radius: 3px;
+  background: var(--b);
+}
