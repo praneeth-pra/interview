@@ -374,7 +374,11 @@ function renderWeek() {
         {
           type: "button",
           class:
-            "ev " + (interviewer ? colorClass(interviewer) : "cn") + (isPast ? " past" : "") + (started && !interviewer ? " need" : ""),
+            "ev " +
+            (interviewer ? colorClass(interviewer) : "cn") +
+            (isPast ? " past" : "") +
+            (started && !interviewer ? " need" : "") +
+            (boxHeight < 50 ? " short" : ""),
           title: [
             titleCase(booking.name),
             booking.company,
@@ -391,16 +395,16 @@ function renderWeek() {
           el("b", {
             text: titleCase(booking.name),
           }),
-          boxHeight > 34
-            ? el("span", {
-                text: formatTime(new Date(booking.start)) + (booking.company ? " · " + booking.company : ""),
-              })
-            : null,
-          boxHeight > 50 && booking.round
-            ? el("span", {
-                text: booking.round,
-              })
-            : null,
+          // No times on the grid (the box's position shows it): company and round, on one line in a
+          // 30-minute box, on their own lines when there is room.
+          ...(boxHeight >= 50
+            ? [booking.company, booking.round]
+            : boxHeight > 26
+              ? [[booking.company, booking.round].filter(Boolean).join(" · ")]
+              : []
+          ).map(function (text) {
+            return text ? el("span", { text: text }) : null;
+          }),
         ],
       );
       button.style.top = ((item.from - firstHour * 60) / 60) * HOUR_PX + 1 + "px";

@@ -2405,3 +2405,12 @@ button,
     border-radius: 16px;
   }
 }
+/* 30-minute boxes: name plus one line of company · round */
+.ev.short {
+  padding-top: 1px;
+  padding-bottom: 1px;
+  line-height: 1.15;
+}
+.ev.short span {
+  font-size: 11.5px;
+}
