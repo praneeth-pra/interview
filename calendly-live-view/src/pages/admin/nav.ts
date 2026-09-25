@@ -109,17 +109,12 @@ export function setupNav() {
   byId("vAg").onclick = function () {
     view(false);
   };
+  // New booking lives in the header; phones don't show it (bookings are added from a computer).
   var newButton = byId("newb");
   var topRight = document.querySelector(".top .tr");
-  var phoneWidth = matchMedia("(max-width:760px)");
-  // On phones New booking is a floating + button over the calendar; on wider screens it lives in the header.
   function place() {
-    var phoneNow = phoneWidth.matches;
-    newButton.classList.toggle("fab", phoneNow);
-    newButton.setAttribute("aria-label", "New booking");
-    var home = phoneNow ? body : topRight;
-    if (newButton.parentNode !== home) {
-      home.appendChild(newButton);
+    if (newButton.parentNode !== topRight) {
+      topRight.appendChild(newButton);
     }
   }
   // The search button in the phone header shows the candidate search under the week title.
@@ -134,11 +129,6 @@ export function setupNav() {
     }
   };
   place();
-  if (phoneWidth.addEventListener) {
-    phoneWidth.addEventListener("change", place);
-  } else {
-    phoneWidth.addListener(place);
-  }
   byId("vWk").onclick = function () {
     view(true);
   };
