@@ -2286,3 +2286,114 @@ button,
     padding-top: 1px;
   }
 }
+/* Loading placeholders, shown until the first bookings arrive */
+.skel-list {
+  display: grid;
+  gap: 10px;
+}
+.skel-list i {
+  display: block;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--card) 30%, var(--sub) 50%, var(--card) 70%) 0 0 / 300% 100%;
+  border: 1px solid var(--line);
+  animation: skel 1.3s ease-in-out infinite;
+}
+.skel-list i:first-child {
+  height: 22px;
+  width: 40%;
+  border: 0;
+  background-color: transparent;
+}
+@keyframes skel {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+/* Phone header search button and the floating New booking button */
+.tbtn {
+  display: none;
+}
+@media (max-width: 760px) {
+  .tbtn {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+  }
+  .tbtn svg {
+    width: 18px;
+    height: 18px;
+  }
+  body:not(.on-cal) .tbtn {
+    display: none;
+  }
+  body.q-open .tbtn {
+    background: var(--tint);
+    color: var(--link);
+    border-color: transparent;
+  }
+  body.q-open .acts {
+    display: block !important;
+    margin: 0 0 4px;
+    animation: viewIn 0.2s var(--ease);
+  }
+  body.q-open .acts > a,
+  body.q-open .acts > button {
+    display: none !important;
+  }
+  html body #newb.fab {
+    display: grid !important;
+    place-items: center;
+    position: fixed;
+    z-index: 34;
+    right: 18px;
+    bottom: calc(92px + env(safe-area-inset-bottom));
+    width: 56px;
+    height: 56px;
+    padding: 0;
+    border: 0;
+    border-radius: 18px;
+    background: var(--blue);
+    color: #fff;
+    font-size: 0;
+    box-shadow: 0 8px 24px color-mix(in srgb, var(--blue) 40%, transparent);
+    transition:
+      transform 0.2s var(--ease),
+      opacity 0.2s;
+  }
+  html body #newb.fab svg {
+    width: 24px;
+    height: 24px;
+  }
+  body:not(.on-cal) #newb.fab,
+  body.sheet #newb.fab,
+  body.pp-open #newb.fab {
+    transform: scale(0.6);
+    opacity: 0;
+    pointer-events: none;
+  }
+}
+@media (max-width: 760px) {
+  body.q-open .srch {
+    position: relative;
+  }
+  body.q-open .drop {
+    left: 0;
+    right: 0;
+    width: auto;
+    max-width: none;
+    max-height: 60vh;
+    overflow-y: auto;
+    border-radius: 16px;
+  }
+}

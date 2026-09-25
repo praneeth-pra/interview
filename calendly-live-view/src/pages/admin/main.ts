@@ -49,6 +49,28 @@ var state: State = {
   },
   email: false,
 };
+// The last state seen is kept on this device so the app opens with the bookings already on screen, and still shows
+// them offline. It is dropped on sign-out and whenever the sign-in page shows.
+var STATE_KEY = "adm.state";
+function remember(text: string) {
+  try {
+    localStorage.setItem(STATE_KEY, text);
+  } catch (e) {}
+}
+function forget() {
+  try {
+    localStorage.removeItem(STATE_KEY);
+  } catch (e) {}
+  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+    navigator.serviceWorker.controller.postMessage("signed-out");
+  }
+}
+try {
+  var savedState = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
+  if (savedState && savedState.ready && Array.isArray(savedState.events)) {
+    state = savedState;
+  }
+} catch (e) {}
 var selectedDay: string | null = null; // the day picked in the date box, or null
 
 var weekOf: string | null = null; // Monday of the week on screen
@@ -83,7 +105,7 @@ function findBooking(id: string) {
 function renderStatus() {
   var status = byId("status");
   status.className = "status" + (live ? " live" : "");
-  status.lastChild.textContent = live ? "Live" : "Reconnecting…";
+  status.lastChild.textContent = live ? "Live" : navigator.onLine === false ? "Offline" : "Reconnecting…";
   var badge = byId("allowBadge");
   var info = state.allow;
   badge.textContent = info.enabled ? "Allowlist on · " + info.count + (info.count === 1 ? " email" : " emails") : "Allowlist off";
@@ -1672,6 +1694,7 @@ function connect() {
     } catch {
       return;
     }
+    remember(event.data);
     live = true;
     allBookingsAt = 0;
     render();
@@ -1767,6 +1790,7 @@ document.addEventListener("visibilitychange", function () {
     request("/admin/api/state")
       .then(function (fresh) {
         state = fresh;
+        remember(JSON.stringify(fresh));
         render();
       })
       .catch(function () {});
@@ -1778,6 +1802,7 @@ document.addEventListener("visibilitychange", function () {
 if (boot.login) {
   byId("logout").hidden = false;
   byId("logout").onclick = function () {
+    forget();
     fetch("/admin/logout", {
       method: "POST",
     }).then(function () {
@@ -1786,6 +1811,8 @@ if (boot.login) {
   };
 }
 setInterval(render, 60000);
+addEventListener("online", renderStatus);
+addEventListener("offline", renderStatus);
 window.__openB = function (id) {
   loadAllBookings().then(function () {
     showBooking(id);
@@ -1794,6 +1821,10 @@ window.__openB = function (id) {
 showTab(boot.tab);
 render();
 connect();
+// The service worker keeps the app openable offline; alerts.ts reuses the same registration for push.
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(function () {});
+}
 
 setupAlerts();
 setupNav();

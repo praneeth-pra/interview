@@ -19,6 +19,7 @@ export function setupNav() {
   function sync() {
     var current = currentView();
     byId("sect").textContent = TITLES[current];
+    body.classList.toggle("on-cal", current === "cal");
     nav.querySelectorAll("[data-go]").forEach(function (button) {
       button.classList.toggle("on", button.getAttribute("data-go") === current);
     });
@@ -111,11 +112,27 @@ export function setupNav() {
   var newButton = byId("newb");
   var topRight = document.querySelector(".top .tr");
   var phoneWidth = matchMedia("(max-width:760px)");
+  // On phones New booking is a floating + button over the calendar; on wider screens it lives in the header.
   function place() {
-    if (newButton.parentNode !== topRight) {
-      topRight.appendChild(newButton);
+    var phoneNow = phoneWidth.matches;
+    newButton.classList.toggle("fab", phoneNow);
+    newButton.setAttribute("aria-label", "New booking");
+    var home = phoneNow ? body : topRight;
+    if (newButton.parentNode !== home) {
+      home.appendChild(newButton);
     }
   }
+  // The search button in the phone header shows the candidate search under the week title.
+  var searchButton = byId("qbtn");
+  searchButton.onclick = function () {
+    var open = !body.classList.contains("q-open");
+    body.classList.toggle("q-open", open);
+    searchButton.setAttribute("aria-expanded", String(open));
+    if (open) {
+      window.scrollTo(0, 0);
+      byId("q").focus();
+    }
+  };
   place();
   if (phoneWidth.addEventListener) {
     phoneWidth.addEventListener("change", place);

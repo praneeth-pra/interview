@@ -198,6 +198,22 @@ describe("admin", () => {
     const out = await get(locked, "/admin/analytics");
     expect(await out.text()).toContain('id="pw"');
     expect(out.headers.get("x-frame-options")).toBe("SAMEORIGIN");
+    // only real admin pages may be kept for offline use; the sign-in page never is
+    expect(admin.headers.get("x-app-shell")).toBe("1");
+    expect(la.headers.get("x-app-shell")).toBe("1");
+    expect(out.headers.get("x-app-shell")).toBeNull();
+    expect((await get(locked, "/admin")).headers.get("x-app-shell")).toBeNull();
+  });
+
+  test("the service worker caches admin pages and assets only, and forgets them on sign-out", async () => {
+    const sw = await get(open, "/sw.js");
+    expect(sw.headers.get("cache-control")).toBe("no-cache");
+    const js = await sw.text();
+    expect(js).toContain('"/admin": 1, "/admin/allowlist": 1, "/admin/analytics": 1');
+    expect(js).toContain('res.headers.get("X-App-Shell")');
+    expect(js).toContain('e.data === "signed-out"');
+    expect(js).toContain('self.addEventListener("push"');
+    new Function(js); // parses
   });
 
   test("the admin page has the logo link and the frame points at /admin/analytics", async () => {
@@ -232,7 +248,10 @@ describe("backups", () => {
   beforeAll(async () => {
     resend = Bun.serve({ port: 4314, fetch: async (req) => (sent.push(await req.json()), Response.json({ id: "x" })) });
     srv = await start(4313, env);
-    await waitFor(() => sent.length > 0);
+    // the server records the day in backup-state.json just after the email goes out; wait for both, or a quick
+    // restart in the next tests could land in between and send the backup a second time
+    const stateFile = join(srv.dir, "backup-state.json");
+    await waitFor(() => sent.length > 0 && existsSync(stateFile) && readFileSync(stateFile, "utf8").includes('"emailed"'));
   });
   afterAll(() => {
     srv?.proc.kill();

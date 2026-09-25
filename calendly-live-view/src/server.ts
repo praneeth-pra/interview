@@ -498,8 +498,45 @@ url: "/admin?date=" + new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(
 });
 }
 const pushView = () => ({ key: pushStore.data.pub, endpoints: pushStore.data.subs.map((x) => x.endpoint) });
-const SW_JS = `self.addEventListener("install",function(){self.skipWaiting()});
-self.addEventListener("activate",function(e){e.waitUntil(self.clients.claim())});
+// The service worker shows booking alerts, and makes the home-screen app open instantly and offline: admin pages are
+// fetched from the network first (cached copy if offline or slower than 3s; only real admin shells are cached, never the
+// sign-in page), fingerprinted /assets/ files come from the cache. Everything else, including the booking page and all
+// API calls, goes straight to the network. Signing out empties the cache.
+const SW_JS = `var SHELL = "admin-shell-v1", ASSETS = "admin-assets-v1";
+self.addEventListener("install", function () { self.skipWaiting() });
+self.addEventListener("activate", function (e) {
+  e.waitUntil(caches.keys().then(function (ks) { return Promise.all(ks.filter(function (k) { return k !== SHELL && k !== ASSETS }).map(function (k) { return caches.delete(k) })) }).then(function () { return self.clients.claim() }));
+});
+self.addEventListener("message", function (e) {
+  if (e.data === "signed-out") e.waitUntil(Promise.all([caches.delete(SHELL), caches.delete(ASSETS)]));
+});
+var APP_PAGES = { "/admin": 1, "/admin/allowlist": 1, "/admin/analytics": 1 };
+self.addEventListener("fetch", function (e) {
+  var r = e.request, u = new URL(r.url);
+  if (r.method !== "GET" || u.origin !== self.location.origin) return;
+  if (u.pathname.indexOf("/assets/") === 0) {
+    e.respondWith(caches.open(ASSETS).then(function (c) {
+      return c.match(r).then(function (hit) {
+        return hit || fetch(r).then(function (res) {
+          if (res.ok && /immutable/.test(res.headers.get("Cache-Control") || "")) {
+            c.put(r, res.clone()).then(function () { return c.keys() }).then(function (ks) { ks.slice(0, Math.max(0, ks.length - 40)).forEach(function (k) { c.delete(k) }) });
+          }
+          return res;
+        });
+      });
+    }));
+    return;
+  }
+  if (r.mode === "navigate" && APP_PAGES[u.pathname]) {
+    var fromCache = function () { return caches.open(SHELL).then(function (c) { return c.match(u.pathname) }) };
+    var net = fetch(r).then(function (res) {
+      if (res.ok && res.headers.get("X-App-Shell")) { var copy = res.clone(); caches.open(SHELL).then(function (c) { c.put(u.pathname, copy) }) }
+      return res;
+    });
+    var slow = new Promise(function (ok) { setTimeout(ok, 3000) }).then(fromCache).then(function (hit) { return hit || net });
+    e.respondWith(Promise.race([net, slow]).catch(function () { return fromCache().then(function (hit) { return hit || net }) }));
+  }
+});
 self.addEventListener("push",function(e){var d={};try{d=e.data.json()}catch(x){d={body:e.data?e.data.text():""}}
 e.waitUntil(self.registration.showNotification(d.title||"Hi-Techie",{body:d.body||"",tag:d.tag||undefined,renotify:!!d.tag,icon:"/icon.png",badge:"/icon.png",data:{url:d.url||"/admin"}}))});
 self.addEventListener("notificationclick",function(e){e.notification.close();var url=(e.notification.data&&e.notification.data.url)||"/admin";
@@ -583,10 +620,11 @@ page: CSP_BASE + "; frame-ancestors 'none'",
 admin: CSP_BASE + "; manifest-src 'self'; worker-src 'self'; frame-src 'self'; frame-ancestors 'none'",
 frame: CSP_BASE + "; frame-ancestors 'self'",
 };
-type Shell = { body: ReturnType<typeof encode>; csp: string; framed?: boolean };
-const shell = (html: string, csp: string, framed = false): Shell => ({ body: encode(html, "text/html; charset=utf-8"), csp, framed });
+// app: an admin page the home-screen app may keep for offline use (the service worker only caches responses marked so).
+type Shell = { body: ReturnType<typeof encode>; csp: string; framed?: boolean; app?: boolean };
+const shell = (html: string, csp: string, framed = false, app = false): Shell => ({ body: encode(html, "text/html; charset=utf-8"), csp, framed, app });
 function sendShell(req: Request, s: Shell, cache = "private, no-cache") {
-return respond(req, s.body, { ...BASE_HEADERS, "Cache-Control": cache, "Content-Security-Policy": s.csp, ...(s.framed ? { "X-Frame-Options": "SAMEORIGIN" } : {}) });
+return respond(req, s.body, { ...BASE_HEADERS, "Cache-Control": cache, "Content-Security-Policy": s.csp, ...(s.framed ? { "X-Frame-Options": "SAMEORIGIN" } : {}), ...(s.app ? { "X-App-Shell": "1" } : {}) });
 }
 async function readJson(req: Request, max = 5000): Promise<any | Response> {
 if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return json({ error: "Bad request." }, 415);
@@ -651,11 +689,11 @@ BOOT: safeJson({ host: HOST_NAME, event: EVENT_NAME, manage, info: { loc: EVENT_
 });
 // The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
 const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>'), CSP.page);
-const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, BOOT: safeJson({ tab, login: LOGIN_ON }) }), CSP.admin);
+const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, BOOT: safeJson({ tab, login: LOGIN_ON }) }), CSP.admin, false, true);
 const ADMIN_CAL = adminShell("cal");
 const ADMIN_ALLOW = adminShell("allow");
 const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML }), CSP.page);
-const ANALYTICS = shell(template("analytics"), CSP.frame, true);
+const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // A manage link carries the candidate's booking, so that page is built per request and never cached.
 const bookPage = (req: Request, manage: unknown) => sendShell(req, { body: encode(bookHtml(manage, ""), "text/html; charset=utf-8", true), csp: CSP.page }, "no-store");
 function managedBooking(body: any): Booking | Response {
