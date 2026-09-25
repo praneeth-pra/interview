@@ -1,5 +1,6 @@
 import { createCipheriv, createECDH, createHmac, createPrivateKey, hkdfSync, randomBytes, sign as cryptoSign, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { asset, assetList, compressed, encode, readData, respond, template } from "./assets";
 const KNOWN_COMPANIES: string[] = JSON.parse(readData("companies.json"));
@@ -290,10 +291,15 @@ return (
 ].map(icsFold).join("\r\n") + "\r\n"
 );
 }
-type Mail = { to: string[]; subject: string; html: string; text: string; ics?: { method: "REQUEST" | "CANCEL"; body: string }; replyTo?: string[] };
-async function sendEmail(m: Mail) {
+type Attachment = { filename: string; content: string; content_type: string };
+type Mail = { to: string[]; subject: string; html: string; text: string; ics?: { method: "REQUEST" | "CANCEL"; body: string }; replyTo?: string[]; files?: Attachment[] };
+async function sendEmail(m: Mail): Promise<boolean> {
 const to = m.to.filter((e) => EMAIL_RE.test(e));
-if (!RESEND_API_KEY || !to.length) return;
+if (!RESEND_API_KEY || !to.length) return false;
+const attachments: Attachment[] = [
+...(m.ics ? [{ filename: m.ics.method === "CANCEL" ? "cancel.ics" : "invite.ics", content: Buffer.from(m.ics.body).toString("base64"), content_type: "text/calendar; charset=utf-8; method=" + m.ics.method }] : []),
+...(m.files ?? []),
+];
 try {
 const r = await fetch(RESEND_URL, {
 method: "POST",
@@ -305,16 +311,16 @@ subject: m.subject,
 html: m.html,
 text: m.text,
 ...(m.replyTo?.length ? { reply_to: m.replyTo } : {}),
-...(m.ics
-? { attachments: [{ filename: m.ics.method === "CANCEL" ? "cancel.ics" : "invite.ics", content: Buffer.from(m.ics.body).toString("base64"), content_type: "text/calendar; charset=utf-8; method=" + m.ics.method }] }
-: {}),
+...(attachments.length ? { attachments } : {}),
 }),
 signal: AbortSignal.timeout(15000),
 });
 if (r.ok) console.log("email sent: " + m.subject.split(":")[0] + " (" + to.length + " recipient" + (to.length === 1 ? "" : "s") + ")");
 else console.log("email failed (" + r.status + "): " + (await r.text()).slice(0, 300));
+return r.ok;
 } catch (e) {
 console.log("email failed: " + String(e));
+return false;
 }
 }
 function emailBody(o: { heading: string; intro: string; rows: [string, string][]; buttons?: { label: string; href: string; primary?: boolean }[]; note?: string }) {
@@ -738,10 +744,11 @@ let s = String(v ?? "");
 if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // stop spreadsheets treating text as formulas
 return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
 };
-function bookingsCsv() {
+const istDate = (iso: string) => (iso ? new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(iso)) : "");
+function bookingsCsvText() {
 const now = Date.now();
 const iv = ivStore.data.assign;
-const d = (iso: string) => (iso ? new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(iso)) : "");
+const d = istDate;
 const who = (x?: string) => (x === "host" ? "You" : x === "candidate" ? "Candidate" : "");
 const rows = [["Name", "Email", "Company", "Round", "Date", "Start (IST)", "End (IST)", "Length (min)", "Status", "Interviewer", "Booked on", "Booked via", "Cancelled by", "Cancel reason"]];
 for (const b of [...bookingsStore.data.bookings].sort((x, y) => Date.parse(x.start) - Date.parse(y.start)))
@@ -751,9 +758,93 @@ b.cancelled ? "Cancelled" : Date.parse(b.end) <= now ? "Completed" : Date.parse(
 iv[b.id] ?? "", d(b.createdAt), b.source === "admin" ? "Admin" : b.source === "calendly" ? "Calendly" : "Booking page",
 b.cancelled ? who(b.cancelledBy) : "", b.cancelReason ?? "",
 ]);
-return new Response("\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n", {
-headers: { ...BASE_HEADERS, "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="bookings-' + d(new Date().toISOString()) + '.csv"' },
+return "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+const bookingsCsv = () =>
+new Response(bookingsCsvText(), {
+headers: { ...BASE_HEADERS, "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="bookings-' + istDate(new Date().toISOString()) + '.csv"' },
 });
+// ---- Backups ------------------------------------------------------------------------------
+// Every day after BACKUP_HOUR (IST, default 2) a full snapshot is written to DATA_DIR/backups (the last 14 are kept),
+// and the bookings CSV plus the data (without push.json) are emailed to BACKUP_EMAIL (or HOST_EMAIL).
+// backup-state.json records the last day done, so restarts don't send duplicates; a failed email is retried later that day.
+const BACKUP_TO = (Bun.env.BACKUP_EMAIL ?? "").split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean);
+const BACKUP_RECIPIENTS = BACKUP_TO.length ? BACKUP_TO : HOST_EMAILS;
+const BACKUP_HOUR = /^\d{1,2}$/.test((Bun.env.BACKUP_HOUR ?? "").trim()) ? Math.min(23, Number(Bun.env.BACKUP_HOUR)) : 2;
+const BACKUP_KEEP = 14;
+const backupStateStore = fileStore<{ saved: string; emailed: string }>("backup-state.json", () => ({ saved: "", emailed: "" }), (x) => ({
+saved: typeof x?.saved === "string" ? x.saved : "",
+emailed: typeof x?.emailed === "string" ? x.emailed : "",
+}));
+// Everything needed to restore. push.json (browser-alert keys) is only in the on-volume snapshots.
+function backupData(withPush: boolean) {
+return {
+app: "booking-form",
+version: 1,
+createdAt: new Date().toISOString(),
+files: {
+"bookings.json": bookingsStore.data,
+"interviewers.json": ivStore.data,
+"allowlist.json": allowStore.data,
+"results.json": resultsStore.data,
+"secret.json": secretStore.data,
+...(withPush ? { "push.json": pushStore.data } : {}),
+},
+};
+}
+async function saveSnapshot(day: string) {
+const dir = DATA_DIR + "/backups";
+await mkdir(dir, { recursive: true });
+await Bun.write(dir + "/" + day + ".json", JSON.stringify(backupData(true)));
+const old = (await readdir(dir)).filter((f) => /^\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort().slice(0, -BACKUP_KEEP);
+for (const f of old) await rm(dir + "/" + f, { force: true });
+}
+function emailBackup(day: string) {
+const all = bookingsStore.data.bookings;
+const upcoming = all.filter((b) => !b.cancelled && Date.parse(b.start) > Date.now()).length;
+const body = emailBody({
+heading: "Daily backup",
+intro: "The " + HOST_NAME + " booking data as of today. Keep this email: the attachments are enough to restore everything.",
+rows: [
+["Date", day],
+["Bookings", all.length + " in total, " + upcoming + " upcoming"],
+["Allowed emails", String(allowStore.data.emails.length)],
+],
+note: "bookings.csv opens in Excel or Google Sheets. backup.json is the full data for restoring (see the project README). It contains candidate details: don't forward it.",
+});
+return sendEmail({
+to: BACKUP_RECIPIENTS,
+subject: "Backup: " + HOST_NAME + " bookings \u2013 " + day,
+...body,
+files: [
+{ filename: "bookings-" + day + ".csv", content: Buffer.from(bookingsCsvText()).toString("base64"), content_type: "text/csv; charset=utf-8" },
+{ filename: "backup-" + day + ".json", content: Buffer.from(JSON.stringify(backupData(false), null, 1)).toString("base64"), content_type: "application/json" },
+],
+});
+}
+let backupRunning = false;
+async function runBackup() {
+const now = istParts(Date.now());
+const day = now.y + "-" + pad(now.mo) + "-" + pad(now.d);
+if (backupRunning || !bookingsStore.ok || now.hh < BACKUP_HOUR) return;
+const st = backupStateStore.data;
+const wantEmail = !!RESEND_API_KEY && BACKUP_RECIPIENTS.length > 0;
+if (st.saved === day && (st.emailed === day || !wantEmail)) return;
+backupRunning = true;
+try {
+if (st.saved !== day) {
+await saveSnapshot(day);
+st.saved = day;
+console.log("backup: saved " + DATA_DIR + "/backups/" + day + ".json");
+}
+if (wantEmail && st.emailed !== day && (await emailBackup(day))) st.emailed = day;
+await saveStore(backupStateStore);
+if (!wantEmail) console.log("backup: not emailed (set BACKUP_EMAIL and RESEND_API_KEY)");
+} catch (e) {
+console.log("backup failed: " + String(e));
+} finally {
+backupRunning = false;
+}
 }
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 type Srv = { requestIP(r: Request): { address: string } | null; timeout(r: Request, seconds: number): void };
@@ -912,6 +1003,10 @@ return json({ error: "Couldn't save the change. Try again." }, 500);
 return json({ people: resultsStore.data.people, persistent: resultsStore.ok });
 }
 if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
+if (path === "/admin/backup.json" && method === "GET")
+return new Response(JSON.stringify(backupData(false), null, 1), {
+headers: { ...BASE_HEADERS, "Content-Type": "application/json", "Content-Disposition": 'attachment; filename="backup-' + istDate(new Date().toISOString()) + '.json"' },
+});
 if (path === "/admin/api/slots" && method === "GET") {
 const key = url.searchParams.get("date") ?? "";
 const duration = Number(url.searchParams.get("duration"));
@@ -1076,5 +1171,8 @@ async fetch(req, srv) {
 return compressed(req, await route(req, srv));
 },
 });
+await loadStore(backupStateStore);
+void runBackup();
+setInterval(() => void runBackup(), 15 * 60000);
 console.log("booking-form listening on " + server.port + (bookingsStore.ok ? "" : " (no persistent storage attached)"));
 

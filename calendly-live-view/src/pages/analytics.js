@@ -96,7 +96,7 @@ loadIv();
 
 var people=[],chosen=null,pickerOpen=!0,peopleLoaded=!1,peopleKey="";function words(e){return e.toLowerCase().split(/\s+/).filter(Boolean)}function chosenName(){
 return chosen&&chosen.name?niceName(chosen.name):""}function loadPeople(){laFetch("/api/people"+(merge?"?merge=1":"")).then(e=>e.json()).then(e=>{people=Array.isArray(e)?e:[],
-peopleLoaded=!0,renderPeople()}).catch(()=>{peopleLoaded=!0,renderPeople()})}function syncPeople(){var e=state.events.length+":"+state.events.map(e=>e.invitee).join("|")
+peopleLoaded=!0,renderPeople(),renderRecent()}).catch(()=>{peopleLoaded=!0,renderPeople()})}function syncPeople(){var e=state.events.length+":"+state.events.map(e=>e.invitee).join("|")
 ;state.ready&&e!==peopleKey&&(peopleKey=e,loadPeople())}function skelRows(e,n){var o=el("div"),p=_dv("rempty");p.a(_sp("spin")),
 p.a(document.createTextNode(n)),o.a(p);for(var r=0;r<e;r++){var t=_dv("rrow skel-rrow");t.a(_dv("skel sk-line sk-w"+(r%3+1))),
 o.a(t)}return o}function renderPeople(){var e=$("plistbox");e.textContent="";var n=$("pq").value.trim(),o=words(n===chosenName()?"":n);if(pickerOpen&&o.length){
@@ -106,7 +106,12 @@ p.length?p.slice(0,60).forEach(n=>{var o=_dv("rrow");o.tabIndex=0,o.setAttribute
 n.company&&p.a(_dv("sub",n.company)),o.a(p);var r=n.last?fmt({day:"numeric",month:"short",year:"numeric"},new Date(n.last)):"";function t(){choose(n)}
 o.a(_sp("sub",n.count+(1===n.count?" booking":" bookings")+(r?" \u00B7 last "+r:"")+(n.emails>1?" \u00B7 "+n.emails+" emails":""))),o.o("mousedown",e=>{
 e.preventDefault()}),o.o("click",t),o.o("keydown",e=>{"Enter"!==e.key&&" "!==e.key||(e.preventDefault(),t())}),e.a(o)
-}):e.a(_dv("rempty",people.length?"No one matches.":"No people yet. They appear once their bookings have loaded."))}else e.hidden=!0}function choose(e){chosen=e,
+}):e.a(_dv("rempty",people.length?"No one matches.":"No people yet. They appear once their bookings have loaded."))}else e.hidden=!0}// Before anyone is picked, the eight people with the most recent bookings are one click away.
+function renderRecent(){var b=$("recent");b.textContent="";var list=people.slice().sort((x,y)=>(Date.parse(y.last)||0)-(Date.parse(x.last)||0)).slice(0,8);
+$("recentH").hidden=b.hidden=!list.length;list.forEach(n=>{var o=_dv("rrow");o.tabIndex=0,o.setAttribute("role","button");var p=_dv("rmain");p.a(el("b",null,niceName(n.name))),
+n.company&&p.a(_dv("sub",n.company)),o.a(p);var r=n.last?fmt({day:"numeric",month:"short",year:"numeric"},new Date(n.last)):"";
+o.a(_sp("sub",n.count+(1===n.count?" booking":" bookings")+(r?" \u00B7 last "+r:""))),o.o("click",()=>choose(n)),o.o("keydown",e=>{"Enter"!==e.key&&" "!==e.key||(e.preventDefault(),choose(n))}),b.a(o)})}
+function choose(e){chosen=e,
 pickerOpen=!1,$("pq").value=chosenName(),$("pq").blur(),renderPeople(),onPick(e)}$("pq").o("focus",function(){pickerOpen=!0,this.select(),renderPeople()}),
 $("pq").o("input",()=>{pickerOpen=!0,renderPeople()}),$("pq").o("blur",()=>{setTimeout(()=>{pickerOpen=!1,renderPeople()},200)}),
 $("pq").o("keydown",e=>{"Escape"===e.key&&(pickerOpen=!1,renderPeople())});
