@@ -1,0 +1,30 @@
+name: booking-form tests
+
+on:
+  pull_request:
+    paths: ["calendly-live-view/**", ".github/workflows/booking-form.yml"]
+  push:
+    branches: [main]
+    paths: ["calendly-live-view/**", ".github/workflows/booking-form.yml"]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: calendly-live-view
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.3.11
+      - name: Server tests
+        run: bun test tests/
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Chromium
+        run: npm install -g playwright@1.56.1 && playwright install --with-deps chromium
+      - name: Browser smoke test
+        run: NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs

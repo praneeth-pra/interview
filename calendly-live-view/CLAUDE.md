@@ -10,6 +10,8 @@ Read README.md first for layout, commands and deploy.
 - Reference assets as `/assets/<file>` in HTML and CSS; `src/assets.ts` rewrites them to fingerprinted URLs. New files in `src/pages` or `src/fonts` are picked up automatically.
 - The page scripts are minified legacy code (single-letter names). Edit them surgically and re-run both test commands; there is no source map.
 - Names, companies and reasons are typed by candidates: build DOM with `textContent`, not `innerHTML` with user text.
+- **CSS class names are global per page and short** (`.dl`, `.ev`, `.t`, `.go`...). Before adding a class, grep the page's CSS for it; `.dl` already meant the booking panel's details list.
+- Backups (`runBackup` in `src/server.ts`) email candidate data. Keep `push.json` out of anything that leaves the volume.
 
 ## Before pushing
 

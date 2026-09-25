@@ -30,7 +30,17 @@ const checks = [
   ["admin analytics frame", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#tabStats").click();
-    await p.frameLocator("iframe.la-frame").locator("input").first().waitFor();
+    const frame = p.frameLocator("iframe.la-frame");
+    await frame.locator("#recent .rrow").first().waitFor();
+    await frame.locator("#recent .rrow").first().click();
+    await frame.locator("#an:not([hidden])").waitFor();
+  }],
+  ["admin download menu", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    await p.locator("#dlMenu a[href='/admin/backup.json']").waitFor();
+    await p.keyboard.press("Escape");
+    if (await p.locator("#dlMenu").isVisible()) throw new Error("menu did not close");
   }],
 ];
 

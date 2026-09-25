@@ -16,7 +16,7 @@ const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   json: "application/json",
 };
-const FONT_CSS_PAGES = new Set(["book.css", "admin.css"]);
+const FONT_CSS_PAGES = new Set(["book.css", "admin.css", "analytics.css", "login.css"]);
 
 export type Encoded = { raw: Buffer; br?: Buffer; gz?: Buffer; etag: string; type: string };
 

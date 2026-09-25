@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { brotliDecompressSync, gunzipSync } from "node:zlib";
@@ -22,25 +22,28 @@ const booking = {
 };
 const manageToken = (id: string) => createHmac("sha256", KEY).update("manage:" + id).digest("hex").slice(0, 32);
 
-type Srv = { url: string; proc: ReturnType<typeof Bun.spawn> };
-async function start(port: number, env: Record<string, string>): Promise<Srv> {
-  const dir = mkdtempSync(join(tmpdir(), "booking-form-"));
-  writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
-  const many = Array.from({ length: 60 }, (_, i) => ({ ...booking, id: "10000000-0000-0000-0000-" + String(i).padStart(12, "0"), cancelled: true, start: new Date(FUTURE - (i + 1) * 24 * HOUR).toISOString() }));
-  writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, ...many] }));
+type Srv = { url: string; dir: string; proc: ReturnType<typeof Bun.spawn> };
+async function start(port: number, env: Record<string, string>, existing?: string): Promise<Srv> {
+  const dir = existing ?? mkdtempSync(join(tmpdir(), "booking-form-"));
+  if (!existing) seed(dir);
   const proc = Bun.spawn(["bun", "run", join(ROOT, "src/server.ts")], {
-    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", ...env },
+    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ...env },
     stdout: "ignore",
     stderr: "inherit",
   });
   const url = "http://127.0.0.1:" + port;
   for (let i = 0; i < 100; i++) {
     try {
-      if ((await fetch(url + "/healthz")).ok) return { url, proc };
+      if ((await fetch(url + "/healthz")).ok) return { url, dir, proc };
     } catch {}
     await Bun.sleep(50);
   }
   throw new Error("server did not start");
+}
+function seed(dir: string) {
+  writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
+  const many = Array.from({ length: 60 }, (_, i) => ({ ...booking, id: "10000000-0000-0000-0000-" + String(i).padStart(12, "0"), cancelled: true, start: new Date(FUTURE - (i + 1) * 24 * HOUR).toISOString() }));
+  writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, ...many] }));
 }
 
 let open: Srv;
@@ -215,4 +218,89 @@ test("the icon is served from public/icon.png and revalidates", async () => {
   expect(Buffer.from(await r.arrayBuffer()).equals(png)).toBe(true);
   expect((await get(open, "/icon.png", { "if-none-match": r.headers.get("etag")! })).status).toBe(304);
   for (const alias of ["/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"]) expect(Buffer.from(await (await get(open, alias)).arrayBuffer()).equals(png)).toBe(true);
+});
+
+describe("backups", () => {
+  const sent: any[] = [];
+  let resend: ReturnType<typeof Bun.serve>;
+  let srv: Srv;
+  const env = { RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4314/emails", BACKUP_EMAIL: "owner@example.com", BACKUP_HOUR: "0", ADMIN_PASSWORD: "pw123", ADMIN_LOGIN: "on" };
+  const istDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+  const waitFor = async (ok: () => boolean) => {
+    for (let i = 0; i < 100 && !ok(); i++) await Bun.sleep(30);
+  };
+  beforeAll(async () => {
+    resend = Bun.serve({ port: 4314, fetch: async (req) => (sent.push(await req.json()), Response.json({ id: "x" })) });
+    srv = await start(4313, env);
+    await waitFor(() => sent.length > 0);
+  });
+  afterAll(() => {
+    srv?.proc.kill();
+    resend?.stop(true);
+  });
+
+  test("the daily backup is emailed with the bookings CSV and the data, without the push keys", () => {
+    expect(sent.length).toBe(1);
+    const mail = sent[0];
+    expect(mail.to).toEqual(["owner@example.com"]);
+    expect(mail.subject).toBe("Backup: Hi-Techie bookings \u2013 " + istDay());
+    const files = Object.fromEntries(mail.attachments.map((a: any) => [a.filename, Buffer.from(a.content, "base64").toString("utf8")]));
+    expect(Object.keys(files).sort()).toEqual(["backup-" + istDay() + ".json", "bookings-" + istDay() + ".csv"]);
+    expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
+    const data = JSON.parse(files["backup-" + istDay() + ".json"]);
+    expect(data.app).toBe("booking-form");
+    expect(Object.keys(data.files).sort()).toEqual(["allowlist.json", "bookings.json", "interviewers.json", "results.json", "secret.json"]);
+    expect(data.files["bookings.json"].bookings.length).toBe(61);
+    expect(data.files["secret.json"].key).toBe(KEY);
+  });
+
+  test("a full snapshot (with push keys) is kept on the volume and the day is recorded", () => {
+    const snap = JSON.parse(readFileSync(join(srv.dir, "backups", istDay() + ".json"), "utf8"));
+    expect(Object.keys(snap.files)).toContain("push.json");
+    expect(JSON.parse(readFileSync(join(srv.dir, "backup-state.json"), "utf8"))).toEqual({ saved: istDay(), emailed: istDay() });
+  });
+
+  test("a restart on the same day doesn't send it again", async () => {
+    srv.proc.kill();
+    await srv.proc.exited;
+    srv = await start(4313, env, srv.dir);
+    await Bun.sleep(400);
+    expect(sent.length).toBe(1);
+  });
+
+  test("old snapshots are pruned to the last 14", async () => {
+    for (let d = 1; d <= 20; d++) writeFileSync(join(srv.dir, "backups", "2020-01-" + String(d).padStart(2, "0") + ".json"), "{}");
+    writeFileSync(join(srv.dir, "backup-state.json"), JSON.stringify({ saved: "", emailed: istDay() }));
+    srv.proc.kill();
+    await srv.proc.exited;
+    srv = await start(4313, env, srv.dir);
+    await waitFor(() => readdirSync(join(srv.dir, "backups")).length === 14);
+    const left = readdirSync(join(srv.dir, "backups")).sort();
+    expect(left.length).toBe(14);
+    expect(left.at(-1)).toBe(istDay() + ".json");
+    expect(left[0]).toBe("2020-01-08.json");
+    expect(sent.length).toBe(1);
+  });
+
+  test("the admin can download a backup, and only when signed in", async () => {
+    expect((await get(srv, "/admin/backup.json")).status).toBe(401);
+    const ok = await fetch(srv.url + "/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "pw123" }) });
+    const r = await get(srv, "/admin/backup.json", { cookie: ok.headers.get("set-cookie")!.split(";")[0] });
+    expect(r.headers.get("content-disposition")).toBe('attachment; filename="backup-' + istDay() + '.json"');
+    const data = await r.json();
+    expect(data.files["bookings.json"].bookings.length).toBe(61);
+    expect(data.files["push.json"]).toBeUndefined();
+  });
+
+  test("scripts/restore.ts puts a backup back into a data folder", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-restore-"));
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [] }));
+    const file = join(dir, "in.json");
+    writeFileSync(file, readFileSync(join(srv.dir, "backups", istDay() + ".json")));
+    const p = Bun.spawn(["bun", "run", join(ROOT, "scripts/restore.ts"), file, dir], { stdout: "ignore", stderr: "inherit" });
+    expect(await p.exited).toBe(0);
+    expect(JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.length).toBe(61);
+    expect(existsSync(join(dir, "bookings.json.pre-restore"))).toBe(true);
+    expect(existsSync(join(dir, "push.json"))).toBe(true);
+  });
 });
