@@ -614,7 +614,7 @@ function renderAgenda() {
   if (!agendaScrolled && todayHead && box.offsetParent && matchMedia("(max-width:760px)").matches) {
     agendaScrolled = true;
     if (todayHead.getBoundingClientRect().top > innerHeight * 0.55) {
-      todayHead.scrollIntoView({ block: "start", behavior: "smooth" });
+      todayHead.scrollIntoView({ block: "start" });
     }
   }
 }
@@ -1695,6 +1695,7 @@ function connect() {
       return;
     }
     remember(event.data);
+    checkForUpdate();
     live = true;
     allBookingsAt = 0;
     render();
@@ -1792,6 +1793,7 @@ document.addEventListener("visibilitychange", function () {
         state = fresh;
         remember(JSON.stringify(fresh));
         render();
+        checkForUpdate();
       })
       .catch(function () {});
     if (!stream || stream.readyState === 2) {
@@ -1818,6 +1820,38 @@ window.__openB = function (id) {
     showBooking(id);
   });
 };
+// After a deploy the server restarts, and a phone that kept the app open reconnects to it with the old page still
+// showing. When the live state reports a different build, reload: straight away if nothing is open, otherwise the next
+// time the app comes back to the foreground or the sheet closes. Once per build, so a stale offline copy can't loop.
+var updateWaiting = false;
+function checkForUpdate() {
+  if (!state.build || !boot.build || state.build === boot.build) {
+    return;
+  }
+  try {
+    if (sessionStorage.getItem("adm.reloaded") === state.build) {
+      return;
+    }
+  } catch (e) {}
+  updateWaiting = true;
+  var busy = !byId("panel").hidden || document.body.classList.contains("pp-open") || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "");
+  if (document.visibilityState === "hidden" || !busy) {
+    try {
+      sessionStorage.setItem("adm.reloaded", state.build);
+    } catch (e) {}
+    location.reload();
+  }
+}
+document.addEventListener("visibilitychange", function () {
+  if (updateWaiting && document.visibilityState === "visible") {
+    checkForUpdate();
+  }
+});
+new MutationObserver(function () {
+  if (updateWaiting && byId("panel").hidden) {
+    checkForUpdate();
+  }
+}).observe(byId("panel"), { attributes: true, attributeFilter: ["hidden"] });
 showTab(boot.tab);
 render();
 connect();

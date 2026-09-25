@@ -557,6 +557,7 @@ const changes = bookingsStore.data.bookings
 .slice(0, 40);
 return {
 ready: true,
+build: BUILD,
 email: !!RESEND_API_KEY,
 hours: { start: DAY_START_MIN, end: DAY_END_MIN },
 iv: { names: ivStore.data.names, assign: ivStore.data.assign },
@@ -680,6 +681,9 @@ const fill = (html: string, vals: Record<string, string>) => html.replace(/__([A
 const HOST_HTML = Bun.escapeHTML(HOST_NAME);
 const BOOK_TPL = template("book");
 const ADMIN_TPL = template("admin");
+// Changes with every deploy that changes a page. The admin app compares it with the live state and reloads itself when a
+// phone kept the previous version open.
+const BUILD = Bun.hash(assetList().map((a) => a.url).join(",") + ADMIN_TPL + template("analytics")).toString(36);
 const bookHtml = (manage: unknown, preload: string) =>
 fill(BOOK_TPL, {
 EVENT: Bun.escapeHTML(EVENT_NAME),
@@ -689,7 +693,7 @@ BOOT: safeJson({ host: HOST_NAME, event: EVENT_NAME, manage, info: { loc: EVENT_
 });
 // The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
 const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>'), CSP.page);
-const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, BOOT: safeJson({ tab, login: LOGIN_ON }) }), CSP.admin, false, true);
+const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, BOOT: safeJson({ tab, login: LOGIN_ON, build: BUILD }) }), CSP.admin, false, true);
 const ADMIN_CAL = adminShell("cal");
 const ADMIN_ALLOW = adminShell("allow");
 const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML }), CSP.page);

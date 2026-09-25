@@ -22,6 +22,7 @@ export type Booking = {
 export type Change = Booking & { kind: "cancelled" | "rescheduled"; at: string };
 export type State = {
   ready: boolean;
+  build?: string; // the server's deploy; see checkForUpdate() in main.ts
   events: Booking[];
   changes: Change[];
   iv: { names: string[]; assign: Record<string, string> };
