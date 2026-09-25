@@ -126,6 +126,11 @@ async function pickTime(p, s, dayIndex = 1, slotIndex = 2) {
   await p.locator("button.t").nth(slotIndex).click();
   await wait(p, 300);
 }
+// Analytics: type a name in the people search and open the first match.
+async function pickPerson(f, name) {
+  await f.locator("#pq").fill(name);
+  await f.locator("#plistbox .rrow").first().click();
+}
 async function openStats(p, s) {
   await p.goto(s.main + "/admin");
   await wait(p, 1200);
@@ -338,7 +343,7 @@ const CASES = [
     async (p, s) => {
       await openStats(p, s);
       const f = p.frameLocator("iframe.la-frame");
-      await f.locator("#recent .rrow").first().click();
+      await pickPerson(f, "Vikram");
       await wait(p, 1800);
     },
   ],
@@ -358,7 +363,7 @@ const CASES = [
     async (p, s) => {
       await openStats(p, s);
       const f = p.frameLocator("iframe.la-frame");
-      await f.locator("#recent .rrow").first().click();
+      await pickPerson(f, "Vikram");
       await wait(p, 1800);
       await f.locator("#hist").click();
       await wait(p, 1200);
@@ -369,7 +374,7 @@ const CASES = [
     async (p, s) => {
       await openStats(p, s);
       const f = p.frameLocator("iframe.la-frame");
-      await f.locator("#recent .rrow").first().click();
+      await pickPerson(f, "Vikram");
       await wait(p, 1800);
       await f.locator("#reslink").click();
       await wait(p, 400);

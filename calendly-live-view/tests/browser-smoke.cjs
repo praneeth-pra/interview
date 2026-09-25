@@ -31,8 +31,9 @@ const checks = [
     await p.goto(BASE + "/admin");
     await p.locator("#tabStats").click();
     const frame = p.frameLocator("iframe.la-frame");
-    await frame.locator("#recent .rrow").first().waitFor();
-    await frame.locator("#recent .rrow").first().click();
+    await frame.locator("#empty .wtitle").waitFor();
+    await frame.locator("#pq").fill("priya");
+    await frame.locator("#plistbox .rrow").first().click();
     await frame.locator("#an:not([hidden])").waitFor();
   }],
   ["admin download menu", async (p) => {
