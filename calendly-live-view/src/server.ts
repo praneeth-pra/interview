@@ -1,26 +1,9 @@
-import { createCipheriv, createECDH, createHash, createHmac, createPrivateKey, hkdfSync, randomBytes, sign as cryptoSign, timingSafeEqual } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { createCipheriv, createECDH, createHmac, createPrivateKey, hkdfSync, randomBytes, sign as cryptoSign, timingSafeEqual } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { brotliDecompressSync } from "node:zlib";
 import { asset, assetList, compressed, encode, readData, respond, template } from "./assets";
 const KNOWN_COMPANIES: string[] = JSON.parse(readData("companies.json"));
-// The app icon comes from public/icon.png. Until that file is committed, the old DATA_ICON variable
-// ("<12-char sha256 check>.<brotli+base64 of the PNG as base64>") still works.
-function loadIcon(): Buffer | null {
-const file = join(import.meta.dir, "../public/icon.png");
-if (existsSync(file)) return readFileSync(file);
-const raw = (Bun.env.DATA_ICON ?? "").trim();
-if (raw.indexOf(".") !== 12) return null;
-try {
-const text = brotliDecompressSync(Buffer.from(raw.slice(13), "base64")).toString("utf8");
-if (createHash("sha256").update(text).digest("hex").slice(0, 12) !== raw.slice(0, 12)) throw new Error("check failed");
-return Buffer.from(text, "base64");
-} catch (e) {
-console.log("icon: DATA_ICON is damaged (" + String((e as Error).message) + ")");
-return null;
-}
-}
-const ICON_PNG = loadIcon();
+const ICON = encode(readFileSync(join(import.meta.dir, "../public/icon.png")), "image/png");
 for (const a of assetList()) console.log("asset " + a.url + " (" + a.raw + " bytes, " + a.br + " compressed)");
 const PORT = Number(Bun.env.PORT ?? 3000);
 const DATA_DIR = (Bun.env.DATA_DIR ?? "").trim().replace(/\/+$/, "");
@@ -791,7 +774,7 @@ icons: [{ src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" 
 { headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },
 );
 if (path === "/icon.png")
-return ICON_PNG ? new Response(ICON_PNG, { headers: { ...BASE_HEADERS, "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } }) : new Response("Not found", { status: 404, headers: BASE_HEADERS });
+return respond(req, ICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
 if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
 const a = asset(path);
 if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS });

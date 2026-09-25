@@ -23,7 +23,7 @@ export type Encoded = { raw: Buffer; br?: Buffer; gz?: Buffer; etag: string; typ
 export function encode(data: string | Buffer, type: string, fast = false): Encoded {
   const raw = typeof data === "string" ? Buffer.from(data) : data;
   const out: Encoded = { raw, type, etag: '"' + createHash("sha256").update(raw).digest("base64url").slice(0, 22) + '"' };
-  if (raw.length > 1024 && !type.startsWith("font/")) {
+  if (raw.length > 1024 && /^text\/|json|javascript/.test(type)) {
     out.br = brotliCompressSync(raw, { params: { [zlib.BROTLI_PARAM_QUALITY]: fast ? 5 : 11, [zlib.BROTLI_PARAM_SIZE_HINT]: raw.length } });
     out.gz = gzipSync(raw, { level: fast ? 6 : 9 });
   }

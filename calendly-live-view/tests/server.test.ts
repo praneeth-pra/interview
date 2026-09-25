@@ -1,19 +1,14 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createHash, createHmac } from "node:crypto";
+import { createHmac } from "node:crypto";
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { brotliCompressSync, brotliDecompressSync, gunzipSync } from "node:zlib";
+import { brotliDecompressSync, gunzipSync } from "node:zlib";
 
 // Starts the real server twice (admin login off and on) against throwaway data folders.
 const ROOT = join(import.meta.dir, "..");
 const KEY = "cd".repeat(32);
 const HOUR = 3600000;
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
-const iconVar = (png: Buffer) => {
-  const text = png.toString("base64");
-  return createHash("sha256").update(text).digest("hex").slice(0, 12) + "." + brotliCompressSync(Buffer.from(text)).toString("base64");
-};
 // A future booking at 10:00 IST two days from now, well inside the booking window.
 const istMidnight = () => {
   const now = new Date(Date.now() + 330 * 60000);
@@ -52,7 +47,7 @@ let open: Srv;
 let locked: Srv;
 beforeAll(async () => {
   [open, locked] = await Promise.all([
-    start(4311, { HOST_NAME: "Hi<Techie>", DATA_ICON: iconVar(PNG) }),
+    start(4311, { HOST_NAME: "Hi<Techie>" }),
     start(4312, { ADMIN_PASSWORD: "pw123", ADMIN_LOGIN: "on" }),
   ]);
 });
@@ -211,9 +206,12 @@ describe("admin", () => {
   });
 });
 
-test("the icon falls back to the DATA_ICON variable", async () => {
+test("the icon is served from public/icon.png and revalidates", async () => {
+  const png = readFileSync(join(ROOT, "public/icon.png"));
+  expect(png.subarray(0, 8).equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]))).toBe(true);
   const r = await get(open, "/icon.png");
   expect(r.headers.get("content-type")).toBe("image/png");
-  expect(Buffer.from(await r.arrayBuffer()).equals(PNG)).toBe(true);
-  expect((await get(locked, "/icon.png")).status).toBe(404);
+  expect(r.headers.get("cache-control")).toBe("public, max-age=86400");
+  expect(Buffer.from(await r.arrayBuffer()).equals(png)).toBe(true);
+  expect((await get(open, "/icon.png", { "if-none-match": r.headers.get("etag")! })).status).toBe(304);
 });

@@ -13,7 +13,7 @@ src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|js   page styles and scripts, served as /assets/<name>.<hash>.<ext>
 src/fonts/           Inter (same files Google Fonts serves), self-hosted
 data/companies.json  company suggestions for the booking form ("Name|Alias|Alias")
-public/icon.png      app icon (optional; see DATA_ICON below)
+public/icon.png      app icon (admin home-screen app and browser alerts)
 tests/               bun tests for the server, plus a Chromium smoke test
 ```
 
@@ -46,7 +46,6 @@ NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs    # needs the playwright 
 | `DAY_START_HOUR`, `DAY_END_HOUR`, `BOOKING_DAYS` | Booking window (default 9-21 IST, 7 days) |
 | `PUBLIC_URL` | Base URL for links in emails (defaults to the request host) |
 | `REMOVE_BOOKINGS` | One-time cleanup on start: `Name@YYYY-MM-DD`, comma separated |
-| `DATA_ICON` | Only used while `public/icon.png` is missing: the old encoded icon variable |
 
 ## Deploying
 
