@@ -2321,7 +2321,7 @@ button,
     background-position: 0 0;
   }
 }
-/* Phone header search button and the floating New booking button */
+/* Phone header search button; phones have no New booking button */
 .tbtn {
   display: none;
 }
@@ -2359,36 +2359,8 @@ button,
   body.q-open .acts > button {
     display: none !important;
   }
-  html body #newb.fab {
-    display: grid !important;
-    place-items: center;
-    position: fixed;
-    z-index: 34;
-    right: 18px;
-    bottom: calc(92px + env(safe-area-inset-bottom));
-    width: 56px;
-    height: 56px;
-    padding: 0;
-    border: 0;
-    border-radius: 18px;
-    background: var(--blue);
-    color: #fff;
-    font-size: 0;
-    box-shadow: 0 8px 24px color-mix(in srgb, var(--blue) 40%, transparent);
-    transition:
-      transform 0.2s var(--ease),
-      opacity 0.2s;
-  }
-  html body #newb.fab svg {
-    width: 24px;
-    height: 24px;
-  }
-  body:not(.on-cal) #newb.fab,
-  body.sheet #newb.fab,
-  body.pp-open #newb.fab {
-    transform: scale(0.6);
-    opacity: 0;
-    pointer-events: none;
+  html body #newb {
+    display: none !important;
   }
 }
 @media (max-width: 760px) {
