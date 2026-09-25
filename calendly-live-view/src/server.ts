@@ -1,95 +1,27 @@
 import { createCipheriv, createECDH, createHash, createHmac, createPrivateKey, hkdfSync, randomBytes, sign as cryptoSign, timingSafeEqual } from "node:crypto";
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { brotliDecompressSync } from "node:zlib";
-// Each page lives in its own Railway variable: PAGE_BOOK, PAGE_ADMIN, PAGE_LOGIN, DATA_COMPANIES.
-// Format: "<12-char check>.<brotli+base64>". The check (start of the text's sha256) catches damaged copies.
-// A value longer than Railway's 32,768-character limit continues in NAME_2 (and NAME_3); the parts are joined in order.
-// NAME_PREV holds the previous version. PAGE_USE_PREV=admin (comma list) switches a page back to its backup.
-// If both are missing or damaged, the old ASSETS_B64_1 + ASSETS_B64_2 bundle is used.
-// SHOW_PAGES=on prints each page variable into the startup log so it can be read back exactly.
-const USE_PREV = new Set((Bun.env.PAGE_USE_PREV ?? "").split(/[,\s]+/).map((s) => s.trim().toUpperCase()).filter(Boolean));
-const envRaw = (v: string) => [v, v + "_2", v + "_3"].map((k) => (Bun.env[k] ?? "").trim()).join("");
-const LEGACY_RAW = (Bun.env.ASSETS_B64_1 ?? "").trim() + (Bun.env.ASSETS_B64_2 ?? "").trim();
-let legacy: any = undefined;
-const legacyAssets = () => {
-if (legacy === undefined) {
+import { asset, assetList, compressed, encode, readData, respond, template } from "./assets";
+const KNOWN_COMPANIES: string[] = JSON.parse(readData("companies.json"));
+// The app icon comes from public/icon.png. Until that file is committed, the old DATA_ICON variable
+// ("<12-char sha256 check>.<brotli+base64 of the PNG as base64>") still works.
+function loadIcon(): Buffer | null {
+const file = join(import.meta.dir, "../public/icon.png");
+if (existsSync(file)) return readFileSync(file);
+const raw = (Bun.env.DATA_ICON ?? "").trim();
+if (raw.indexOf(".") !== 12) return null;
 try {
-legacy = LEGACY_RAW ? JSON.parse(brotliDecompressSync(Buffer.from(LEGACY_RAW, "base64")).toString("utf8")) : null;
-} catch {
-legacy = null;
-}
-}
-return legacy;
-};
-const pageSource: Record<string, string> = {};
-function decodePage(raw: string) {
-const dot = raw.indexOf(".");
-if (dot !== 12) throw new Error("bad format");
-const text = brotliDecompressSync(Buffer.from(raw.slice(dot + 1), "base64")).toString("utf8");
+const text = brotliDecompressSync(Buffer.from(raw.slice(13), "base64")).toString("utf8");
 if (createHash("sha256").update(text).digest("hex").slice(0, 12) !== raw.slice(0, 12)) throw new Error("check failed");
-return text;
-}
-function loadPage(name: string, legacyKey: string, json = false): any {
-const short = name.replace(/^(PAGE|DATA)_/, "");
-const order = USE_PREV.has(short) ? [name + "_PREV", name] : [name, name + "_PREV"];
-for (const v of order) {
-const raw = envRaw(v);
-if (!raw) continue;
-try {
-const text = decodePage(raw);
-pageSource[name] = v;
-console.log("page " + short.toLowerCase() + ": " + v + " (" + raw.length + " chars)");
-return json ? JSON.parse(text) : text;
+return Buffer.from(text, "base64");
 } catch (e) {
-console.log("page " + short.toLowerCase() + ": " + v + " is damaged (" + String((e as Error).message) + "), trying the backup");
+console.log("icon: DATA_ICON is damaged (" + String((e as Error).message) + ")");
+return null;
 }
 }
-const old = legacyAssets()?.[legacyKey];
-if (old != null) {
-pageSource[name] = "ASSETS";
-console.log("page " + short.toLowerCase() + ": old ASSETS bundle");
-return old;
-}
-console.log("page " + short.toLowerCase() + ": MISSING, serving a placeholder");
-return json ? [] : "<!doctype html><meta charset=utf-8><title>Unavailable</title><p style=\"font-family:sans-serif;padding:24px\">This page is temporarily unavailable. Please try again in a few minutes.</p>";
-}
-const BOOK_HTML: string = loadPage("PAGE_BOOK", "b");
-const ADMIN_HTML: string = loadPage("PAGE_ADMIN", "d");
-const LOGIN_HTML: string = loadPage("PAGE_LOGIN", "g");
-// Small fixes to the admin page, applied here so the page itself stays untouched. Each one is skipped (and logged)
-// if the admin page changes so that its spot is no longer found.
-// 1. Person analytics (embedded as an inline page): "Needs a look" / "Possible duplicate company" boxes hidden, the three
-//    Insights panes in one row on wide screens (compact round table), "Progress by company" scrolls in its own box,
-//    compact cards on phones.
-// 2. The analytics frame follows light/dark mode (it was set to light, so some phones showed it white in dark mode).
-// 3. The Hi-Techie logo links to the booking page.
-const ANALYTICS_FIX = "#attn{display:none!important}.ptab{overflow-x:auto}.pgrid{max-height:min(62vh,560px)!important;overflow-y:auto!important;overscroll-behavior:contain;border-radius:12px!important}@media(min-width:1000px){.icols{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr) minmax(0,1fr)!important;gap:20px 32px!important}.ptab .pr{grid-template-columns:minmax(78px,1.2fr) repeat(5,minmax(0,1fr))!important;gap:4px!important;font-size:12.5px}.ptab .pr.h{font-size:10.5px}}@media(min-width:701px) and (max-width:999px){.icols>div:first-child{grid-column:1/-1}.ptab{max-width:640px}.ptab .pr{min-width:370px}}@media(max-width:700px){.pgrid{max-height:78vh!important}.grow,.grow+.grow{padding:11px 12px;gap:3px;margin-bottom:8px;border-radius:14px}.grow>div:nth-child(1)>b{font-size:15px}.stage{font-size:15px}.grow .sub{font-size:12px}.tl-track{margin:0 10px}.tl-ends{margin:0 10px}.ptab .pr{min-width:300px;grid-template-columns:minmax(74px,1.15fr) repeat(5,minmax(0,1fr))!important}}";
-const ADMIN_FIXES: [string, string, string][] = [
-["analytics layout", "html,body{background:transparent!important}", ANALYTICS_FIX + "html,body{background:transparent!important}"],
-["analytics dark mode", ".la-frame{display:block;width:100%;border:0;background:transparent;color-scheme:normal}", ".la-frame{display:block;width:100%;border:0;background:transparent;color-scheme:light dark}a.brand{color:inherit;text-decoration:none;cursor:pointer}"],
-["logo link", '<div class="brand">', '<a class="brand" href="/" title="Open the booking page">'],
-["logo link end", '<span class="adm">Admin</span></div><nav class="tabs"', '<span class="adm">Admin</span></a><nav class="tabs"'],
-];
-let ADMIN_PAGE = ADMIN_HTML;
-for (const [label, from, to] of ADMIN_FIXES) {
-const ok = ADMIN_PAGE.includes(from);
-if (ok) ADMIN_PAGE = ADMIN_PAGE.replace(from, to);
-console.log("admin fix " + label + ": " + (ok ? "applied" : "skipped (admin page changed)"));
-}
-const KNOWN_COMPANIES: string[] = loadPage("DATA_COMPANIES", "c", true);
-const ICON_TEXT = (Bun.env.DATA_ICON ?? "").trim() ? String(loadPage("DATA_ICON", "")) : "";
-const ICON_PNG = /^[A-Za-z0-9+/=\s]+$/.test(ICON_TEXT) ? Buffer.from(ICON_TEXT, "base64") : null;
-if (/^(on|true|yes|1)$/i.test((Bun.env.SHOW_PAGES ?? "").trim())) {
-for (const name of ["PAGE_BOOK", "PAGE_ADMIN", "PAGE_LOGIN", "DATA_COMPANIES"]) {
-const src = pageSource[name];
-const raw = src === "ASSETS" ? LEGACY_RAW : src ? envRaw(src) : "";
-if (!raw) continue;
-const label = src === "ASSETS" ? "ASSETS" : src;
-const size = 2000;
-const total = Math.ceil(raw.length / size);
-for (let i = 0; i < total; i++) console.log("PAGES " + label + " " + (i + 1) + "/" + total + " " + raw.slice(i * size, (i + 1) * size));
-console.log("PAGES " + label + " END length=" + raw.length + " sha256=" + createHash("sha256").update(raw).digest("hex"));
-}
-}
+const ICON_PNG = loadIcon();
+for (const a of assetList()) console.log("asset " + a.url + " (" + a.raw + " bytes, " + a.br + " compressed)");
 const PORT = Number(Bun.env.PORT ?? 3000);
 const DATA_DIR = (Bun.env.DATA_DIR ?? "").trim().replace(/\/+$/, "");
 const ADMIN_PASSWORD = (Bun.env.ADMIN_PASSWORD ?? "").trim();
@@ -655,15 +587,17 @@ const BASE_HEADERS = {
 };
 const json = (data: unknown, status = 200, extra: Record<string, string> = {}) =>
 new Response(JSON.stringify(data), { status, headers: { "Content-Type": "application/json", ...BASE_HEADERS, ...extra } });
-function page(render: (nonce: string) => string, opts: { fonts?: boolean; app?: boolean } = {}) {
-const n = randomBytes(16).toString("base64");
-const csp =
-"default-src 'none'; script-src 'nonce-" + n + "'; style-src 'nonce-" + n + "'" +
-(opts.fonts ? " https://fonts.googleapis.com; font-src https://fonts.gstatic.com" : "") +
-"; connect-src 'self'; img-src data:" + (opts.app ? " 'self'; manifest-src 'self'; worker-src 'self'" : "") + "; base-uri 'none'; form-action 'self'; frame-ancestors 'none'";
-return new Response(render(n), {
-headers: { "Content-Type": "text/html; charset=utf-8", "Content-Security-Policy": csp, ...BASE_HEADERS },
-});
+// Scripts and styles are files under /assets, so the policy needs no per-request nonce.
+const CSP_BASE = "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'";
+const CSP = {
+page: CSP_BASE + "; frame-ancestors 'none'",
+admin: CSP_BASE + "; manifest-src 'self'; worker-src 'self'; frame-src 'self'; frame-ancestors 'none'",
+frame: CSP_BASE + "; frame-ancestors 'self'",
+};
+type Shell = { body: ReturnType<typeof encode>; csp: string; framed?: boolean };
+const shell = (html: string, csp: string, framed = false): Shell => ({ body: encode(html, "text/html; charset=utf-8"), csp, framed });
+function sendShell(req: Request, s: Shell, cache = "private, no-cache") {
+return respond(req, s.body, { ...BASE_HEADERS, "Cache-Control": cache, "Content-Security-Policy": s.csp, ...(s.framed ? { "X-Frame-Options": "SAMEORIGIN" } : {}) });
 }
 async function readJson(req: Request, max = 5000): Promise<any | Response> {
 if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return json({ error: "Bad request." }, 415);
@@ -715,19 +649,26 @@ console.log("allowlist: " + (allowStore.data.enabled ? "on" : "off") + ", " + al
 console.log("browser alerts: " + pushStore.data.subs.length + " device(s)");
 console.log("analytics results: " + Object.keys(resultsStore.data.people).length + " candidate(s)");
 const safeJson = (x: unknown) => JSON.stringify(x).replace(/</g, "\\u003c");
-function bookPage(manage: unknown) {
-return page(
-(n) =>
-BOOK_HTML.replaceAll("__NONCE__", n)
-.replace("__HOST_JSON__", safeJson(HOST_NAME))
-.replace("__EVENT_JSON__", safeJson(EVENT_NAME))
-.replace("__MANAGE_JSON__", safeJson(manage))
-.replace("__INFO_JSON__", safeJson({ loc: EVENT_LOCATION, desc: EVENT_DESCRIPTION }))
-.replace("__EVENT__", Bun.escapeHTML(EVENT_NAME))
-.replace("__HOST__", Bun.escapeHTML(HOST_NAME)),
-{ fonts: true },
-);
-}
+const fill = (html: string, vals: Record<string, string>) => html.replace(/__([A-Z]+)__/g, (m, k) => (k in vals ? vals[k] : m));
+const HOST_HTML = Bun.escapeHTML(HOST_NAME);
+const BOOK_TPL = template("book");
+const ADMIN_TPL = template("admin");
+const bookHtml = (manage: unknown, preload: string) =>
+fill(BOOK_TPL, {
+EVENT: Bun.escapeHTML(EVENT_NAME),
+HOST: HOST_HTML,
+PRELOAD: preload,
+BOOT: safeJson({ host: HOST_NAME, event: EVENT_NAME, manage, info: { loc: EVENT_LOCATION, desc: EVENT_DESCRIPTION } }),
+});
+// The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
+const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>'), CSP.page);
+const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, BOOT: safeJson({ tab, login: LOGIN_ON }) }), CSP.admin);
+const ADMIN_CAL = adminShell("cal");
+const ADMIN_ALLOW = adminShell("allow");
+const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML }), CSP.page);
+const ANALYTICS = shell(template("analytics"), CSP.frame, true);
+// A manage link carries the candidate's booking, so that page is built per request and never cached.
+const bookPage = (req: Request, manage: unknown) => sendShell(req, { body: encode(bookHtml(manage, ""), "text/html; charset=utf-8", true), csp: CSP.page }, "no-store");
 function managedBooking(body: any): Booking | Response {
 const id = String(body?.id ?? "");
 const b = bookingsStore.data.bookings.find((x) => x.id === id);
@@ -832,11 +773,8 @@ headers: { ...BASE_HEADERS, "Content-Type": "text/csv; charset=utf-8", "Content-
 });
 }
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
-const server = Bun.serve({
-port: PORT,
-hostname: "0.0.0.0",
-idleTimeout: 30,
-async fetch(req, srv) {
+type Srv = { requestIP(r: Request): { address: string } | null; timeout(r: Request, seconds: number): void };
+async function route(req: Request, srv: Srv): Promise<Response> {
 const url = new URL(req.url);
 const path = url.pathname;
 const method = req.method;
@@ -854,13 +792,18 @@ icons: [{ src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" 
 );
 if (path === "/icon.png")
 return ICON_PNG ? new Response(ICON_PNG, { headers: { ...BASE_HEADERS, "Content-Type": "image/png", "Cache-Control": "public, max-age=86400" } }) : new Response("Not found", { status: 404, headers: BASE_HEADERS });
-if (path === "/" && method === "GET") return bookPage(null);
+if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
+const a = asset(path);
+if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS });
+return respond(req, a.body, { ...BASE_HEADERS, "Cache-Control": a.current ? "public, max-age=31536000, immutable" : "no-cache" });
+}
+if (path === "/" && method === "GET") return sendShell(req, BOOK_HOME);
 const mm = path.match(/^\/b\/([0-9a-f-]{36})$/i);
 if (mm && method === "GET") {
 const b = bookingsStore.data.bookings.find((x) => x.id === mm[1]);
 const t = url.searchParams.get("t") ?? "";
-if (!b || !tokenOk(b.id, t)) return bookPage({ error: "This link isn't valid. Use the link from your confirmation email, or contact " + HOST_NAME + "." });
-return bookPage({ id: b.id, t, name: b.name, email: b.email, start: b.start, end: b.end, duration: b.duration, cancelled: b.cancelled, past: Date.parse(b.start) <= Date.now() });
+if (!b || !tokenOk(b.id, t)) return bookPage(req, { error: "This link isn't valid. Use the link from your confirmation email, or contact " + HOST_NAME + "." });
+return bookPage(req, { id: b.id, t, name: b.name, email: b.email, start: b.start, end: b.end, duration: b.duration, cancelled: b.cancelled, past: Date.parse(b.start) <= Date.now() });
 }
 const ignoreId = (() => {
 const id = url.searchParams.get("ignore") ?? "";
@@ -916,11 +859,10 @@ return json({ ok: true }, 200, { "Set-Cookie": SESSION_COOKIE + "=; Path=/admin;
 if (path === "/admin" || path.startsWith("/admin/")) {
 const authed = hasSession(req);
 if ((path === "/admin" || path === "/admin/allowlist") && method === "GET") {
-const host = Bun.escapeHTML(HOST_NAME);
-if (!authed) return page((n) => LOGIN_HTML.replaceAll("__NONCE__", n).replaceAll("__HOST__", host));
-const boot = safeJson({ tab: path === "/admin" ? "cal" : "allow", login: LOGIN_ON });
-return page((n) => ADMIN_PAGE.replaceAll("__NONCE__", n).replaceAll("__HOST__", host).replace("__BOOT_JSON__", boot), { fonts: true, app: true });
+if (!authed) return sendShell(req, LOGIN);
+return sendShell(req, path === "/admin" ? ADMIN_CAL : ADMIN_ALLOW);
 }
+if (path === "/admin/analytics" && method === "GET") return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
 if (!authed) return json({ error: "Sign in again." }, 401);
 if (path === "/admin/api/state" && method === "GET") return json(adminState());
 if (path === "/admin/api/push" && method === "GET") return json(pushView());
@@ -1142,6 +1084,13 @@ return json({ ok: true });
 return json({ error: "Not found." }, 404);
 }
 return new Response("Not found", { status: 404, headers: BASE_HEADERS });
+}
+const server = Bun.serve({
+port: PORT,
+hostname: "0.0.0.0",
+idleTimeout: 30,
+async fetch(req, srv) {
+return compressed(req, await route(req, srv));
 },
 });
 console.log("booking-form listening on " + server.port + (bookingsStore.ok ? "" : " (no persistent storage attached)"));
