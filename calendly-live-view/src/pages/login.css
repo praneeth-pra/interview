@@ -33,12 +33,12 @@ body {
   background: var(--bg);
   color: var(--ink);
   font:
-    15px/1.5 Inter,
-    -apple-system,
+    15px/1.5 -apple-system,
     BlinkMacSystemFont,
-    Segoe UI,
+    system-ui,
+    "Segoe UI",
     Roboto,
-    Helvetica,
+    "Helvetica Neue",
     Arial,
     sans-serif;
   padding: 16px;
