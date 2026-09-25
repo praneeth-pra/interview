@@ -1,0 +1,127 @@
+// Dates and times, always in India Standard Time. Day keys are "YYYY-MM-DD".
+import type { Booking } from "./types";
+
+var TIME_ZONE = "Asia/Kolkata";
+function formatIst(options: Intl.DateTimeFormatOptions, date: Date | number) {
+  return new Intl.DateTimeFormat(
+    "en-US",
+    Object.assign(
+      {
+        timeZone: TIME_ZONE,
+      },
+      options,
+    ),
+  ).format(date);
+}
+function dayKeyOf(date: Date | number): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: TIME_ZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(date);
+}
+function formatTime(date: Date | number) {
+  return formatIst(
+    {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    },
+    date,
+  )
+    .replace(" AM", "am")
+    .replace(" PM", "pm");
+}
+// Minutes since midnight in India.
+function minutesOfDay(date: Date | number) {
+  var minutes = 0;
+  new Intl.DateTimeFormat("en-GB", {
+    timeZone: TIME_ZONE,
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(date)
+    .forEach(function (part) {
+      if (part.type === "hour") {
+        minutes += +part.value * 60;
+      }
+      if (part.type === "minute") {
+        minutes += +part.value;
+      }
+    });
+  return minutes;
+}
+function addDays(day: string, count: number): string {
+  var date = new Date(day + "T12:00:00Z");
+  date.setUTCDate(date.getUTCDate() + count);
+  return date.toISOString().slice(0, 10);
+}
+// The Monday of the week that day is in.
+function weekStart(day: string) {
+  return addDays(day, -((new Date(day + "T12:00:00Z").getUTCDay() + 6) % 7));
+}
+function formatDay(day: string, options?: Intl.DateTimeFormatOptions) {
+  return new Intl.DateTimeFormat(
+    "en-US",
+    Object.assign(
+      {
+        timeZone: "UTC",
+      },
+      options,
+    ),
+  ).format(new Date(day + "T12:00:00Z"));
+}
+function shortDate(iso: string) {
+  return formatIst(
+    {
+      weekday: "short",
+      month: "short",
+      day: "numeric",
+    },
+    new Date(iso),
+  );
+}
+function formatRange(booking: Pick<Booking, "start" | "end">) {
+  return shortDate(booking.start) + ", " + formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end));
+}
+function timeAgo(iso: string) {
+  var seconds = (Date.now() - Date.parse(iso)) / 1000;
+  if (seconds < 60) {
+    return "just now";
+  } else if (seconds < 3600) {
+    return Math.round(seconds / 60) + "m ago";
+  } else if (seconds < 86400) {
+    return Math.round(seconds / 3600) + "h ago";
+  } else {
+    return Math.round(seconds / 86400) + "d ago";
+  }
+}
+function hourLabel(hour: number) {
+  hour %= 24;
+  if (hour === 0) {
+    return "12 AM";
+  } else if (hour < 12) {
+    return hour + " AM";
+  } else if (hour === 12) {
+    return "12 PM";
+  } else {
+    return hour - 12 + " PM";
+  }
+}
+
+export {
+  TIME_ZONE,
+  formatIst,
+  dayKeyOf,
+  formatTime,
+  minutesOfDay,
+  addDays,
+  weekStart,
+  formatDay,
+  shortDate,
+  formatRange,
+  timeAgo,
+  hourLabel,
+};

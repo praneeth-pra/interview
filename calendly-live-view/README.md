@@ -12,6 +12,8 @@ src/assets.ts        fingerprints, compresses and serves everything below at sta
 src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|js   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
 src/pages/book/      the booking page as TypeScript modules: main.ts (steps and rendering), time.ts, companies.ts, dom.ts, icons.ts
+src/pages/admin/     the admin page: main.ts (calendar, panel, forms, search, allowlist, live updates), alerts.ts, nav.ts,
+                     stats-frame.ts, download-menu.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
 src/fonts/           Inter (same files Google Fonts serves), self-hosted
 data/companies.json  company suggestions for the booking form ("Name|Alias|Alias")
 public/icon.png      app icon (admin home-screen app and browser alerts)
