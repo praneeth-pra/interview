@@ -920,3 +920,97 @@ textarea:focus {
     grid-column: 1/-1;
   }
 }
+/* Choosing a time and moving on to the details form.
+   Computer: Next grows out from behind the chosen time while the time narrows. Phone: the time grid stays put, the chosen
+   time fills blue and Next floats at the bottom of the screen with the time on it. The next step slides in from the
+   right; going back slides the times in from the left. */
+.slot.sel .t {
+  flex: 1 1 0;
+}
+.go {
+  flex: 0 0 calc(50% - 4px);
+  overflow: hidden;
+  white-space: nowrap;
+  animation: goGrow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes goGrow {
+  from {
+    flex-basis: 0;
+    opacity: 0;
+  }
+}
+.go-at {
+  display: none;
+}
+.main.push-in > * {
+  animation: pushIn 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.main.pop-in > * {
+  animation: popIn 0.34s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+/* the times column only fades: on phones it holds the floating Next button, which a moving parent would drag along */
+.main.push-in > .times,
+.main.pop-in > .times {
+  animation-name: stepFade;
+}
+@keyframes pushIn {
+  from {
+    opacity: 0;
+    transform: translateX(40px);
+  }
+}
+@keyframes popIn {
+  from {
+    opacity: 0;
+    transform: translateX(-40px);
+  }
+}
+@keyframes stepFade {
+  from {
+    opacity: 0;
+  }
+}
+@media (max-width: 900px) {
+  .tlist .slot.sel {
+    flex-direction: row;
+  }
+  .tlist .slot.sel .t {
+    background: var(--blue);
+    border-color: var(--blue);
+    color: #fff;
+  }
+  .tlist .slot .go {
+    position: fixed;
+    z-index: 30;
+    left: 16px;
+    right: 16px;
+    bottom: calc(16px + env(safe-area-inset-bottom));
+    width: auto !important;
+    height: 56px;
+    border-radius: 16px;
+    font-size: 17px;
+    box-shadow: 0 10px 28px rgba(0, 107, 255, 0.35);
+    animation: barUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .go-at {
+    display: inline;
+    font-weight: 600;
+  }
+  body:has(.slot.sel) .card {
+    padding-bottom: 92px;
+  }
+}
+@keyframes barUp {
+  from {
+    opacity: 0;
+    transform: translateY(28px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .go,
+  .tlist .slot .go,
+  .main.push-in > *,
+  .main.pop-in > * {
+    animation: none;
+  }
+}
