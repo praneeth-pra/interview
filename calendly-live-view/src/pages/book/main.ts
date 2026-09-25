@@ -48,7 +48,7 @@ type State = {
   form: { name: string; email: string; company: string; round: string };
   busy: boolean;
   anim?: boolean; // slide the times list in on the next render
-  slide?: "fwd" | "back"; // the next render moves forward (details) or back (times): slide the new step in
+  stale?: boolean; // the times shown are the previous day's, kept on screen until the new day's arrive
   nameAuto?: boolean; // the name was filled in from an earlier booking
   reason?: string; // cancellation reason being typed
   msg?: Message | null;
@@ -112,6 +112,7 @@ function loadDays(keepView?: boolean) {
         state.slot = null;
       }
       render();
+      prefetchSlots();
     })
     .catch(function () {
       state.err = "Couldn't load available dates. Refresh the page to try again.";
@@ -138,6 +139,25 @@ function fetchSlots(date: string, duration: number, refresh?: boolean): Promise<
   }
   return slotRequests[key];
 }
+// Load every open day's times in the background, two at a time, so tapping a date shows its times at once.
+function prefetchSlots() {
+  var duration = state.dur;
+  var queue = state.days
+    .filter(function (day) {
+      return day.open && !slotCache[day.key + ":" + duration];
+    })
+    .map(function (day) {
+      return day.key;
+    });
+  function next() {
+    var key = queue.shift();
+    if (key && duration === state.dur) {
+      fetchSlots(key, duration).then(next);
+    }
+  }
+  next();
+  next();
+}
 function scrollToTimes() {
   if (window.innerWidth <= 900) {
     var heading = document.getElementById("timesh");
@@ -153,7 +173,9 @@ function showSlots(scroll?: boolean) {
   var key = state.date + ":" + state.dur;
   var cached = !!slotCache[key];
   state.slot = null;
-  state.slots = slotCache[key] || null;
+  // Keep the previous day's times on screen (inactive) until this day's arrive, instead of flashing a spinner.
+  state.stale = !cached && !!state.slots && state.slots.length > 0;
+  state.slots = slotCache[key] || (state.stale ? state.slots : null);
   render();
   if (cached && scroll) {
     scrollToTimes();
@@ -161,13 +183,15 @@ function showSlots(scroll?: boolean) {
   fetchSlots(state.date, state.dur, cached).then(function (slots) {
     if (key === state.date + ":" + state.dur) {
       if (!slots) {
-        if (!state.slots) {
+        if (!state.slots || state.stale) {
+          state.stale = false;
           state.slots = [];
           render();
         }
         return;
       }
-      if (!state.slots) {
+      if (!state.slots || state.stale) {
+        state.stale = false;
         state.slots = slots;
         render();
         if (scroll) {
@@ -217,10 +241,6 @@ function render() {
     main.appendChild(renderDetails());
   }
   card.appendChild(main);
-  if (state.slide) {
-    main.classList.add(state.slide === "fwd" ? "push-in" : "pop-in");
-    state.slide = undefined;
-  }
   state.anim = false;
   if (scrollTop && (list = card.querySelector(".tlist"))) {
     list.scrollTop = scrollTop;
@@ -251,7 +271,6 @@ function renderInfo() {
         onclick: function () {
           state.step = backTo;
           state.err = "";
-          state.slide = "back";
           render();
           if (backTo === "pick" && !state.days.length) {
             loadDays();
@@ -558,7 +577,7 @@ function renderCalendar() {
               onclick: function () {
                 if (state.date !== key) {
                   state.date = key;
-                  state.anim = true;
+                  state.anim = true; // start the new day's list at its top
                   showSlots(true);
                 }
               },
@@ -598,7 +617,7 @@ function renderCalendar() {
 }
 function renderTimes() {
   var section = el("section", {
-    class: "times" + (state.anim ? " anim" : ""),
+    class: "times",
     "aria-labelledby": "timesh",
   });
   section.appendChild(
@@ -617,7 +636,8 @@ function renderTimes() {
     ),
   );
   var list = el("div", {
-    class: "tlist",
+    class: "tlist" + (state.stale ? " stale" : ""),
+    "aria-busy": state.stale ? "true" : null,
   });
   if (state.slots === null) {
     list.appendChild(
@@ -640,6 +660,7 @@ function renderTimes() {
             class: "t",
             id: "s" + ms,
             "aria-pressed": String(selected),
+            disabled: !!state.stale,
             onclick: function () {
               toggleSlot(ms);
             },
@@ -676,7 +697,6 @@ function nextButton(ms) {
       "aria-label": (manage ? "Next: confirm " : "Next: enter your details for ") + formatTime(ms),
       onclick: function () {
         state.err = "";
-        state.slide = "fwd";
         if (manage) {
           state.step = "confirm";
           render();
@@ -689,12 +709,9 @@ function nextButton(ms) {
         state.step = "details";
         state.fieldErr = {};
         render();
-        // On a phone, bring the form into view without popping the keyboard up straight away; on a computer, start typing.
+        // On a phone, open the details page at its top without popping the keyboard up; on a computer, start typing.
         if (matchMedia("(max-width: 900px)").matches) {
-          var formEl = card.querySelector(".form");
-          if (formEl) {
-            formEl.scrollIntoView({ block: "start", behavior: "smooth" });
-          }
+          window.scrollTo(0, 0);
           return;
         }
         var firstField = document.getElementById(state.form.email ? "fname" : "femail");
@@ -789,57 +806,48 @@ function textField(id: string, key: keyof State["form"], label: string, type: st
     children,
   );
 }
+// Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else.
+var ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round", "Demo"];
 function roundField() {
-  var field = textField("fround", "round", "Interview round", "text", {
-    max: 60,
+  var current = state.form.round.trim();
+  var custom = !!current && ROUNDS.indexOf(current) < 0;
+  var select = el("select", {
+    id: "fround",
+    name: "round",
+    class: "rsel" + (current ? "" : " empty"),
   });
-  var input = field.querySelector("input");
-  var chips = el("div", {
-    class: "rchips",
-    role: "group",
-    "aria-label": "Common rounds",
+  select.appendChild(el("option", { value: "" }, ["Select a round"]));
+  ROUNDS.forEach(function (round) {
+    select.appendChild(el("option", { value: round }, [round]));
   });
-  var buttons = [];
-  function syncPressed() {
-    var current = input.value.trim().toLowerCase();
-    buttons.forEach(function (button) {
-      button.setAttribute("aria-pressed", String(button.getAttribute("data-v").toLowerCase() === current));
-    });
-  }
-  [
-    ["1st", "1st round"],
-    ["2nd", "2nd round"],
-    ["3rd", "3rd round"],
-    ["Manager", "Manager round"],
-    ["HR", "HR round"],
-    ["Final", "Final round"],
-    ["Demo", "Demo"],
-  ].forEach(function (preset) {
-    var button = el(
-      "button",
-      {
-        type: "button",
-        class: "rchip",
-        "data-v": preset[1],
-        "aria-label": preset[1],
-      },
-      [preset[0]],
-    );
-    button.addEventListener("click", function () {
-      input.value = button.getAttribute("aria-pressed") === "true" ? "" : preset[1];
-      input.dispatchEvent(
-        new Event("input", {
-          bubbles: true,
-        }),
-      );
-    });
-    buttons.push(button);
-    chips.appendChild(button);
+  select.appendChild(el("option", { value: "__other" }, ["Other…"]));
+  select.value = custom ? "__other" : current;
+  var other = el("input", {
+    id: "fround-other",
+    type: "text",
+    name: "round-other",
+    autocomplete: "off",
+    maxlength: 60,
+    placeholder: "Type the round",
+    "aria-label": "Interview round",
+    hidden: !custom,
   });
-  input.addEventListener("input", syncPressed);
-  syncPressed();
-  field.insertBefore(chips, input.nextSibling);
-  return field;
+  other.value = custom ? current : "";
+  select.addEventListener("change", function () {
+    select.classList.toggle("empty", !select.value);
+    if (select.value === "__other") {
+      other.hidden = false;
+      state.form.round = other.value;
+      other.focus();
+    } else {
+      other.hidden = true;
+      state.form.round = select.value;
+    }
+  });
+  other.addEventListener("input", function () {
+    state.form.round = other.value;
+  });
+  return el("div", { class: "f" }, [el("label", { for: "fround" }, ["Interview round"]), select, other]);
 }
 function companyField() {
   var id = "fcompany";
