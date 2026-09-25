@@ -169,6 +169,33 @@ describe("booking flow", () => {
     expect(companies.find((c: any) => c.n === "Google")).toMatchObject({ a: ["Alphabet"] });
   });
 
+  test("a candidate's later rounds keep the company spelling they used before", async () => {
+    const days = await (await get(open, "/api/days?duration=30")).json();
+    const open2 = days.days.filter((d: any) => d.open).slice(-2);
+    const slots = (await (await get(open, `/api/slots?date=${open2[open2.length - 1].key}&duration=30`)).json()).slots;
+    const post = (body: unknown) => fetch(open.url + "/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const book = async (email: string, company: string, i: number) =>
+      (await (await post({ name: "Round Test", email, company, round: "1st round", duration: 30, startMs: slots[i] })).json()).booking;
+    expect((await book("rounds@example.com", "Infosys", 0)).company).toBe("Infosys");
+    expect((await book("ROUNDS@example.com", "infosis", 1)).company).toBe("Infosys"); // near-spelling, same email
+    expect((await book("rounds@example.com", "Wipro", 2)).company).toBe("Wipro"); // a different company stays
+    expect((await book("someone-else@example.com", "infosis", 3)).company).toBe("infosis"); // only the same email
+    expect((await book("tcs@example.com", "Tata Consultancy Services", 4)).company).toBe("Tata Consultancy Services");
+    expect((await book("tcs@example.com", "TCS", 5)).company).toBe("Tata Consultancy Services"); // known alias
+    expect((await book("typo@example.com", "Infosis", 6)).company).toBe("Infosis");
+    expect((await book("typo@example.com", "Infosys", 7)).company).toBe("Infosys"); // a known name is never replaced by a typo
+  });
+
+  test("company joins are saved with the results, and loops are refused quietly", async () => {
+    const post = (body: unknown) => fetch(open.url + "/admin/api/company-joins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    expect((await (await post({ from: "Apple via Infosys", to: "Infosys" })).json()).joins).toEqual({ "apple via infosys": "infosys" });
+    expect((await (await post({ from: "infosys", to: "apple via infosys" })).json()).joins).toEqual({ "apple via infosys": "infosys" });
+    expect((await post({ from: "", to: "x" })).status).toBe(400);
+    expect((await (await get(open, "/admin/api/results")).json()).joins).toEqual({ "apple via infosys": "infosys" });
+    expect(JSON.parse(readFileSync(join(open.dir, "results.json"), "utf8")).joins).toEqual({ "apple via infosys": "infosys" });
+    expect((await (await post({ from: "apple via infosys", to: "" })).json()).joins).toEqual({});
+  });
+
   test("large API answers are compressed", async () => {
     const r = await get(open, "/admin/api/bookings", { "accept-encoding": "gzip" });
     expect(r.headers.get("content-encoding")).toBe("gzip");
