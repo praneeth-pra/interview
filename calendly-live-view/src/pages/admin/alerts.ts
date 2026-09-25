@@ -154,6 +154,7 @@ export function setupAlerts() {
   }
   function openPop(open: boolean) {
     pop.hidden = !open;
+    document.body.classList.toggle("pp-open", open);
     btn.setAttribute("aria-expanded", String(open));
     if (open) {
       place();

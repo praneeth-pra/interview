@@ -1,4 +1,5 @@
-// Phone bottom navigation, the Analytics tab, the week/agenda switch and the bottom-sheet panel.
+// Phone bottom navigation and section title, the Analytics tab, the week/agenda switch (remembered; agenda by default
+// on phones) and the bottom-sheet panel, which can be swiped down to close.
 export function setupNav() {
   function byId(id: string) {
     return document.getElementById(id);
@@ -14,8 +15,10 @@ export function setupNav() {
       return "cal";
     }
   }
+  var TITLES = { cal: "Calendar", allow: "Emails", stats: "Analytics" };
   function sync() {
     var current = currentView();
+    byId("sect").textContent = TITLES[current];
     nav.querySelectorAll("[data-go]").forEach(function (button) {
       button.classList.toggle("on", button.getAttribute("data-go") === current);
     });
@@ -85,8 +88,18 @@ export function setupNav() {
   if (new URLSearchParams(location.search).get("view") === "analytics") {
     setTimeout(showStats, 0);
   }
-  var weekView = true;
+  var phone = matchMedia("(max-width:760px)").matches;
+  var saved = "";
+  try {
+    saved = localStorage.getItem("adm.view") || "";
+  } catch (e) {}
+  var weekView = saved ? saved === "week" : !phone;
   function view(week: boolean) {
+    if (week !== weekView) {
+      try {
+        localStorage.setItem("adm.view", week ? "week" : "agenda");
+      } catch (e) {}
+    }
     weekView = week;
     body.classList.toggle("wkv", week);
     byId("vAg").setAttribute("aria-selected", String(!week));
@@ -116,8 +129,57 @@ export function setupNav() {
   var panel = byId("panel");
   new MutationObserver(function () {
     body.classList.toggle("sheet", !panel.hidden);
+    panel.style.transform = "";
   }).observe(panel, {
     attributes: true,
     attributeFilter: ["hidden"],
+  });
+  // Drag the sheet down by its handle or title to close it, like a native sheet.
+  var dragFrom = 0;
+  var dragBy = 0;
+  var dragging = false;
+  panel.addEventListener(
+    "touchstart",
+    function (event: TouchEvent) {
+      if (!matchMedia("(max-width:760px)").matches) {
+        dragging = false;
+        return;
+      }
+      var onHead = (event.target as Element).closest(".grab, .phead");
+      var atTop = byId("pbody").scrollTop <= 0;
+      dragging = !!onHead || (atTop && !(event.target as Element).closest("input, textarea, select, button"));
+      dragFrom = event.touches[0].clientY;
+      dragBy = 0;
+    },
+    { passive: true },
+  );
+  panel.addEventListener(
+    "touchmove",
+    function (event: TouchEvent) {
+      if (!dragging) {
+        return;
+      }
+      dragBy = Math.max(0, event.touches[0].clientY - dragFrom);
+      if (dragBy > 4) {
+        panel.style.transition = "none";
+        panel.style.transform = "translateY(" + dragBy + "px)";
+      }
+    },
+    { passive: true },
+  );
+  panel.addEventListener("touchend", function () {
+    if (!dragging) {
+      return;
+    }
+    dragging = false;
+    panel.style.transition = "";
+    if (dragBy > 110) {
+      panel.style.transform = "translateY(100%)";
+      setTimeout(function () {
+        byId("pclose").click();
+      }, 180);
+    } else {
+      panel.style.transform = "";
+    }
   });
 }

@@ -1983,3 +1983,280 @@ body.la-on main {
     display: none;
   }
 }
+/* ---- Native-app feel ----
+   No grey tap flash, no text selection on controls, a short fade when switching sections, the agenda slides when
+   swiped to another week. On phones: the header shows the section title, the interviewer legend is a swipeable chip
+   row, agenda rows get a chevron, Alerts opens as a bottom sheet, and the Emails tab reads like a settings screen. */
+button,
+a,
+[role="button"],
+.ag-i,
+.ev {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+.bnav,
+.vt,
+.seg,
+.top,
+.legend {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+.sect {
+  display: none;
+}
+#viewCal:not([hidden]),
+#viewAllow:not([hidden]) {
+  animation: viewIn 0.24s var(--ease) backwards;
+}
+/* no slide here: the analytics frame sizes itself from its position when shown */
+#viewStats:not([hidden]) {
+  animation: fade 0.24s ease backwards;
+}
+@keyframes viewIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.agenda.swipe-next {
+  animation: swipeNext 0.28s var(--ease);
+}
+.agenda.swipe-prev {
+  animation: swipePrev 0.28s var(--ease);
+}
+@keyframes swipeNext {
+  from {
+    opacity: 0.2;
+    transform: translateX(48px);
+  }
+}
+@keyframes swipePrev {
+  from {
+    opacity: 0.2;
+    transform: translateX(-48px);
+  }
+}
+.ag-h {
+  scroll-margin-top: calc(72px + env(safe-area-inset-top));
+}
+@media (max-width: 760px) {
+  .top {
+    gap: 10px;
+  }
+  .brand {
+    flex: none;
+  }
+  .brand .bn {
+    display: none;
+  }
+  .brand .mk {
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    font-size: 15px;
+  }
+  .sect {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    font-size: 22px;
+    font-weight: 750;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+  }
+  /* bottom bar: press feedback and a little pop on the active icon */
+  .bnav button:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+  .bnav .on svg {
+    animation: navPop 0.32s var(--ease);
+  }
+  @keyframes navPop {
+    0% {
+      transform: scale(0.82);
+    }
+    60% {
+      transform: scale(1.08);
+    }
+  }
+  /* calendar: interviewer chips scroll sideways instead of wrapping */
+  #legend.legend {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -16px 14px;
+    padding: 2px 16px;
+    gap: 8px;
+    font-size: 13px;
+  }
+  #legend.legend::-webkit-scrollbar {
+    display: none;
+  }
+  .legend .lg {
+    flex: none;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .legend .linkbtn {
+    flex: none;
+    margin-left: 0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--tint);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .vt {
+    border-radius: 14px;
+  }
+  .vt button {
+    height: 38px;
+    border-radius: 11px;
+  }
+  .ag-l {
+    border-radius: 18px;
+  }
+  .ag-i {
+    position: relative;
+    padding-right: 30px;
+    min-height: 64px;
+  }
+  .ag-i:after {
+    content: "";
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    margin-top: -4px;
+    border-right: 2px solid var(--ink3);
+    border-top: 2px solid var(--ink3);
+    transform: rotate(45deg);
+  }
+  .grab {
+    width: 42px;
+    margin-top: 10px;
+  }
+  /* Alerts: a bottom sheet with a dimmed backdrop */
+  body.pp-open {
+    overflow: hidden;
+  }
+  body.pp-open:after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.32);
+    animation: fade 0.2s ease;
+  }
+  body.pp-open .bnav {
+    transform: translateY(140%);
+    opacity: 0;
+  }
+  .pushpop {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: auto !important;
+    border-width: 1px 0 0;
+    border-radius: 22px 22px 0 0;
+    padding: 28px 20px calc(22px + env(safe-area-inset-bottom));
+    font-size: 15px;
+    animation: sheet 0.32s var(--ease);
+  }
+  .pushpop:before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    width: 42px;
+    height: 5px;
+    margin-left: -21px;
+    border-radius: 3px;
+    background: var(--field);
+    opacity: 0.7;
+  }
+  .pushpop h3 {
+    font-size: 19px;
+    margin-bottom: 8px;
+  }
+  .pp-row {
+    flex-direction: column;
+  }
+  .pp-btn {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+    font-size: 15px;
+  }
+  /* Emails: grouped settings-style cards */
+  #viewAllow .sec {
+    border-radius: 18px;
+    margin-bottom: 12px;
+  }
+  #viewAllow .spread {
+    flex-wrap: nowrap;
+  }
+  #viewAllow h2 {
+    font-size: 17px;
+  }
+  #viewAllow .sw {
+    width: 52px;
+    height: 32px;
+    border-radius: 16px;
+  }
+  #viewAllow .sw:after {
+    width: 26px;
+    height: 26px;
+  }
+  #viewAllow textarea {
+    border-radius: 14px;
+    min-height: 96px;
+    font-size: 16px;
+  }
+  #viewAllow .row.mt {
+    display: grid;
+    gap: 10px;
+  }
+  #viewAllow .row.mt button {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+  }
+  #aq {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    border-radius: 20px;
+    font-size: 16px;
+  }
+  .al li {
+    padding: 12px 0;
+    font-size: 15px;
+  }
+  .rm {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--red-t);
+  }
+}

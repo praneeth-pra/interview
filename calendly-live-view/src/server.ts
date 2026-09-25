@@ -859,7 +859,7 @@ if (path === "/manifest.webmanifest")
 return new Response(
 JSON.stringify({
 name: HOST_NAME + " Admin", short_name: HOST_NAME, start_url: "/admin", scope: "/", display: "standalone",
-background_color: "#121212", theme_color: "#0052cc",
+background_color: "#141414", theme_color: "#141414",
 icons: [{ src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" }, { src: "/icon.png", sizes: "192x192", type: "image/png", purpose: "any" }],
 }),
 { headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },
