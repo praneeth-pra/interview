@@ -150,7 +150,10 @@ describe("booking flow", () => {
     const post = (path: string, body: unknown) => fetch(open.url + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const made = await (await post("/api/book", { name: "Test Person", email: "test@example.com", company: "Acme", round: "HR", duration: 30, startMs: slots[0] })).json();
     expect(made.booking.manage).toMatch(/\/b\/[0-9a-f-]{36}\?t=[0-9a-f]{32}$/);
-    const clash = await post("/api/book", { name: "Other", email: "o@example.com", duration: 30, startMs: slots[0] });
+    const noCompany = await post("/api/book", { name: "Other", email: "o@example.com", company: "  ", duration: 30, startMs: slots[2] });
+    expect(noCompany.status).toBe(400);
+    expect((await noCompany.json()).field).toBe("company");
+    const clash = await post("/api/book", { name: "Other", email: "o@example.com", company: "Beta", duration: 30, startMs: slots[0] });
     expect(clash.status).toBe(409);
     const t = made.booking.manage.split("t=")[1];
     const moved = await (await post("/api/manage/reschedule", { id: made.booking.id, t, startMs: slots[1], duration: 30 })).json();

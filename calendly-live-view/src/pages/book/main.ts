@@ -48,6 +48,7 @@ type State = {
   form: { name: string; email: string; company: string; round: string };
   busy: boolean;
   anim?: boolean; // slide the times list in on the next render
+  slide?: "fwd" | "back"; // the next render moves forward (details) or back (times): slide the new step in
   nameAuto?: boolean; // the name was filled in from an earlier booking
   reason?: string; // cancellation reason being typed
   msg?: Message | null;
@@ -216,6 +217,10 @@ function render() {
     main.appendChild(renderDetails());
   }
   card.appendChild(main);
+  if (state.slide) {
+    main.classList.add(state.slide === "fwd" ? "push-in" : "pop-in");
+    state.slide = undefined;
+  }
   state.anim = false;
   if (scrollTop && (list = card.querySelector(".tlist"))) {
     list.scrollTop = scrollTop;
@@ -246,6 +251,7 @@ function renderInfo() {
         onclick: function () {
           state.step = backTo;
           state.err = "";
+          state.slide = "back";
           render();
           if (backTo === "pick" && !state.days.length) {
             loadDays();
@@ -670,6 +676,7 @@ function nextButton(ms) {
       "aria-label": (manage ? "Next: confirm " : "Next: enter your details for ") + formatTime(ms),
       onclick: function () {
         state.err = "";
+        state.slide = "fwd";
         if (manage) {
           state.step = "confirm";
           render();
@@ -682,13 +689,21 @@ function nextButton(ms) {
         state.step = "details";
         state.fieldErr = {};
         render();
+        // On a phone, bring the form into view without popping the keyboard up straight away; on a computer, start typing.
+        if (matchMedia("(max-width: 900px)").matches) {
+          var formEl = card.querySelector(".form");
+          if (formEl) {
+            formEl.scrollIntoView({ block: "start", behavior: "smooth" });
+          }
+          return;
+        }
         var firstField = document.getElementById(state.form.email ? "fname" : "femail");
         if (firstField) {
           firstField.focus();
         }
       },
     },
-    ["Next"],
+    ["Next", el("span", { class: "go-at" }, [" \u00B7 " + formatTime(ms)])],
   );
 }
 function toggleSlot(ms) {
@@ -841,6 +856,9 @@ function companyField() {
     "aria-autocomplete": "list",
     "aria-expanded": "false",
     "aria-controls": listId,
+    required: true,
+    "aria-invalid": state.fieldErr.company ? "true" : null,
+    "aria-describedby": state.fieldErr.company ? id + "e" : null,
     maxlength: 120,
   });
   input.value = state.form.company;
@@ -949,6 +967,14 @@ function companyField() {
   }
   input.addEventListener("input", function () {
     state.form.company = input.value;
+    if (state.fieldErr.company) {
+      delete state.fieldErr.company;
+      input.removeAttribute("aria-invalid");
+      var errorEl = document.getElementById(id + "e");
+      if (errorEl) {
+        errorEl.remove();
+      }
+    }
     update();
   });
   input.addEventListener("focus", function () {
@@ -996,7 +1022,7 @@ function companyField() {
         {
           for: id,
         },
-        ["Company"],
+        ["Company *"],
       ),
       el(
         "div",
@@ -1005,6 +1031,16 @@ function companyField() {
         },
         [input, list],
       ),
+      state.fieldErr.company
+        ? el(
+            "div",
+            {
+              class: "ferr",
+              id: id + "e",
+            },
+            [state.fieldErr.company],
+          )
+        : null,
     ],
   );
 }
@@ -1184,11 +1220,14 @@ function submitBooking() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
     errors.email = "Enter an email address like name@example.com.";
   }
+  if (!form.company.trim()) {
+    errors.company = "Enter the company you're interviewing with.";
+  }
   state.fieldErr = errors;
   state.err = "";
   if (Object.keys(errors).length) {
     render();
-    var firstInvalid = document.getElementById(errors.email ? "femail" : "fname");
+    var firstInvalid = document.getElementById(errors.email ? "femail" : errors.name ? "fname" : "fcompany");
     if (firstInvalid) {
       firstInvalid.focus();
     }
@@ -1228,14 +1267,14 @@ function submitBooking() {
         window.scrollTo(0, 0);
         return;
       }
-      if (result.j.field === "email") {
+      if (result.j.field === "email" || result.j.field === "company") {
         state.fieldErr = {
-          email: result.j.error,
+          [result.j.field]: result.j.error,
         };
         render();
-        var emailInput = document.getElementById("femail");
-        if (emailInput) {
-          emailInput.focus();
+        var badInput = document.getElementById(result.j.field === "email" ? "femail" : "fcompany");
+        if (badInput) {
+          badInput.focus();
         }
         return;
       }

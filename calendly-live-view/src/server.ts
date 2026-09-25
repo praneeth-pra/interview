@@ -768,6 +768,8 @@ const duration = Number(body?.duration);
 const startMs = Number(body?.startMs);
 if (!name) return json({ error: "Enter a name." }, 400);
 if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
+// candidates must say which company the interview is for; the admin form may leave it empty
+if (!source && !company) return json({ error: "Enter the company you're interviewing with.", field: "company" }, 400);
 if (!source && !emailAllowed(email))
 return json({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" }, 403);
 if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
