@@ -1750,17 +1750,6 @@ var showClosed = false;
 function isClosed(row) {
   return row.override ? row.override === "notcleared" || row.override === "withdrew" : row.status === "canceled" || row.status === "noshow";
 }
-function roundSteps(row, now) {
-  var steps = div("msteps");
-  row.events
-    .filter((event) => evState(event, now) !== "rescheduled")
-    .sort((first, second) => Date.parse(first.start) - Date.parse(second.start))
-    .slice(-4)
-    .forEach((event) => {
-      steps.appendChild(span("mstep " + evState(event, now), roundShort(event.round)));
-    });
-  return steps;
-}
 function whenShort(row) {
   var when = new Date(row.whenIso);
   return (
@@ -1782,42 +1771,64 @@ function phoneList(shown, rows, now) {
   var box = div("mco");
   var open = shown.filter((row) => !isClosed(row));
   var closed = shown.filter((row) => isClosed(row));
+  // a grouped-list row: coloured initial, name, "3rd round · Next Sun, Sep 27", status, chevron
   function item(row) {
     var button = el("button", "mrow tone-" + (row.badgeCls || "wait"));
     button.type = "button";
-    var top = div("mtop");
-    top.appendChild(el("b", null, row.name));
-    top.appendChild(roundSteps(row, now));
-    top.appendChild(span("badge " + row.badgeCls, row.badge));
-    button.appendChild(top);
-    button.appendChild(div("mwhen", whenShort(row)));
+    button.appendChild(span("mic", (row.name.trim().charAt(0) || "?").toUpperCase()));
+    var text = div("mtx");
+    text.appendChild(el("b", null, row.name));
+    var when = new Date(row.whenIso);
+    text.appendChild(
+      span(
+        "msub",
+        row.stage +
+          " · " +
+          (row.status === "booked" ? "Next " : "") +
+          fmt(
+            {
+              weekday: "short",
+              day: "numeric",
+              month: "short",
+            },
+            when,
+          ),
+      ),
+    );
+    button.appendChild(text);
+    button.appendChild(span("mst", row.badge));
     button.addEventListener("click", () => {
       openCompany(row, rows, now);
     });
     return button;
   }
-  open.forEach((row) => {
-    box.appendChild(item(row));
+  var group = div("mgroup");
+  (open.length ? open : closed).forEach((row) => {
+    group.appendChild(item(row));
   });
-  if (closed.length) {
-    var closedBox = div("mclosed");
-    closedBox.hidden = !showClosed && open.length > 0;
+  box.appendChild(group);
+  if (open.length && closed.length) {
+    var closedHead = div("mhead", "Closed");
+    var closedGroup = div("mgroup");
     closed.forEach((row) => {
-      closedBox.appendChild(item(row));
+      closedGroup.appendChild(item(row));
     });
-    if (open.length) {
-      var toggle = el("button", "mmore", (showClosed ? "Hide " : "Show ") + closed.length + " closed");
-      toggle.type = "button";
+    closedHead.hidden = closedGroup.hidden = !showClosed;
+    var toggle = el("button", "mmore");
+    toggle.type = "button";
+    var label = () => {
+      toggle.textContent = showClosed ? "Hide closed companies" : "Show " + closed.length + " closed " + (closed.length === 1 ? "company" : "companies");
       toggle.setAttribute("aria-expanded", String(showClosed));
-      toggle.addEventListener("click", () => {
-        showClosed = !showClosed;
-        closedBox.hidden = !showClosed;
-        toggle.textContent = (showClosed ? "Hide " : "Show ") + closed.length + " closed";
-        toggle.setAttribute("aria-expanded", String(showClosed));
-      });
-      box.appendChild(toggle);
-    }
-    box.appendChild(closedBox);
+    };
+    label();
+    toggle.addEventListener("click", () => {
+      showClosed = !showClosed;
+      closedHead.hidden = closedGroup.hidden = !showClosed;
+      label();
+    });
+    group.appendChild(toggle);
+    box.appendChild(closedHead);
+    box.appendChild(closedGroup);
   }
   return box;
 }

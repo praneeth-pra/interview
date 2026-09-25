@@ -1714,7 +1714,7 @@ function renderAllow() {
       },
     });
     list.appendChild(
-      el("li", null, [
+      el("li", { "data-i": email.charAt(0).toUpperCase() }, [
         el("span", {
           text: email,
         }),
