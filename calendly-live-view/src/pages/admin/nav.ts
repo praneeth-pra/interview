@@ -109,14 +109,6 @@ export function setupNav() {
   byId("vAg").onclick = function () {
     view(false);
   };
-  // New booking lives in the header; phones don't show it (bookings are added from a computer).
-  var newButton = byId("newb");
-  var topRight = document.querySelector(".top .tr");
-  function place() {
-    if (newButton.parentNode !== topRight) {
-      topRight.appendChild(newButton);
-    }
-  }
   // The search button in the phone header shows the candidate search under the week title.
   var searchButton = byId("qbtn");
   searchButton.onclick = function () {
@@ -128,7 +120,6 @@ export function setupNav() {
       byId("q").focus();
     }
   };
-  place();
   byId("vWk").onclick = function () {
     view(true);
   };

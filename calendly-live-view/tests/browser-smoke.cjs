@@ -25,7 +25,7 @@ const checks = [
   }],
   ["admin calendar", async (p) => {
     await p.goto(BASE + "/admin");
-    await p.locator("#status").filter({ hasNotText: "Connecting" }).waitFor();
+    await p.locator("#status.live").waitFor({ state: "attached" });
   }],
   ["admin analytics frame", async (p) => {
     await p.goto(BASE + "/admin");

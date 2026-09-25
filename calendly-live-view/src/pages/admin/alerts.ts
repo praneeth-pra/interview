@@ -22,9 +22,10 @@ export function setupAlerts() {
   btn.className = "chip";
   btn.setAttribute("aria-haspopup", "dialog");
   btn.setAttribute("aria-expanded", "false");
+  btn.setAttribute("aria-label", "Booking alerts");
   btn.innerHTML =
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 11V7a4 4 0 0 1 8 0v4l1.2 1.3H2.8z" stroke-linejoin="round"/><path d="M6.6 14h2.8" stroke-linecap="round"/></svg><span>Alerts</span>';
-  topRight.insertBefore(btn, document.getElementById("status"));
+  topRight.insertBefore(btn, document.getElementById("qbtn"));
   var pop = document.createElement("div");
   pop.className = "pushpop";
   pop.hidden = true;
