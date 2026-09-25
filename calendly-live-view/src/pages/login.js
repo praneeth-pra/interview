@@ -1,3 +1,10 @@
+// Signed out (or the session ended): drop the bookings the admin app kept on this device, and its offline copy.
+try {
+  localStorage.removeItem("adm.state");
+} catch (e) {}
+if (navigator.serviceWorker && navigator.serviceWorker.controller) {
+  navigator.serviceWorker.controller.postMessage("signed-out");
+}
 document.getElementById("f").addEventListener("submit", function (event) {
   event.preventDefault();
   var button = document.getElementById("go");

@@ -198,6 +198,22 @@ describe("admin", () => {
     const out = await get(locked, "/admin/analytics");
     expect(await out.text()).toContain('id="pw"');
     expect(out.headers.get("x-frame-options")).toBe("SAMEORIGIN");
+    // only real admin pages may be kept for offline use; the sign-in page never is
+    expect(admin.headers.get("x-app-shell")).toBe("1");
+    expect(la.headers.get("x-app-shell")).toBe("1");
+    expect(out.headers.get("x-app-shell")).toBeNull();
+    expect((await get(locked, "/admin")).headers.get("x-app-shell")).toBeNull();
+  });
+
+  test("the service worker caches admin pages and assets only, and forgets them on sign-out", async () => {
+    const sw = await get(open, "/sw.js");
+    expect(sw.headers.get("cache-control")).toBe("no-cache");
+    const js = await sw.text();
+    expect(js).toContain('"/admin": 1, "/admin/allowlist": 1, "/admin/analytics": 1');
+    expect(js).toContain('res.headers.get("X-App-Shell")');
+    expect(js).toContain('e.data === "signed-out"');
+    expect(js).toContain('self.addEventListener("push"');
+    new Function(js); // parses
   });
 
   test("the admin page has the logo link and the frame points at /admin/analytics", async () => {
