@@ -102,7 +102,7 @@ function findBooking(id: string) {
   }
   return find(state.events) || find(state.changes) || find(allBookings);
 }
-// The connection state shows only when something is wrong: "Offline" at once, "Reconnecting…" after a few seconds.
+// The connection state shows only when something is wrong: "Offline" at once, "Reconnecting…" after 8 seconds.
 var statusTimer = 0;
 function renderStatus() {
   var status = byId("status");
@@ -118,7 +118,7 @@ function renderStatus() {
       if (!live) {
         status.className = "status bad";
       }
-    }, 4000);
+    }, 8000);
   }
 }
 function renderCards() {
@@ -654,6 +654,8 @@ function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
   }
   byId("ptitle").textContent = title;
   byId("psub").textContent = subtitle || "";
+  setPanelAvatar(null);
+  sheetBookingId = "";
   var body = byId("pbody");
   body.textContent = "";
   byId("panel").hidden = false;
@@ -762,6 +764,54 @@ function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
       setMessage(msg, error.message, true);
     });
 }
+// Small line icons for the booking sheet (24×24, stroked with the text colour).
+var ICON: Record<string, string> = {
+  mail: "M4 6.5h16v11H4zM4.5 7l7.5 6 7.5-6",
+  copy: "M9 9h10v10H9zM5 15V5h10",
+  chart: "M5 20v-7M12 20V5M19 20v-10M3 20h18",
+  cal: "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4",
+  clock: "M12 7v5l3 2M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17z",
+  moved: "M4 12h13M13 7l5 5-5 5",
+  x: "M6 6l12 12M18 6 6 18",
+  note: "M5 4h14v16H5zM8.5 9h7M8.5 13h7M8.5 17h4",
+};
+function icon(name: string) {
+  var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  path.setAttribute("d", ICON[name]);
+  svg.appendChild(path);
+  return svg;
+}
+function initials(name: string) {
+  var words = titleCase(name).trim().split(/\s+/).filter(Boolean);
+  return ((words[0] || "?").charAt(0) + (words.length > 1 ? words[words.length - 1].charAt(0) : "")).toUpperCase();
+}
+// "in 2 days", "in 3 hours", "in 20 min"
+function untilText(ms: number) {
+  var minutes = Math.round(ms / 60000);
+  if (minutes < 60) {
+    return "in " + Math.max(1, minutes) + " min";
+  } else if (minutes < 24 * 60) {
+    return "in " + plural(Math.round(minutes / 60), "hour");
+  } else {
+    return "in " + plural(Math.round(minutes / 1440), "day");
+  }
+}
+// The avatar in the sheet header: the candidate's initials, in the interviewer's colour once recorded.
+function setPanelAvatar(name: string | null, interviewer?: string) {
+  var avatar = document.getElementById("pav");
+  if (!avatar) {
+    var head = document.querySelector(".phead");
+    avatar = el("span", { id: "pav", class: "pav", "aria-hidden": "true" });
+    head.insertBefore(avatar, head.firstChild);
+  }
+  avatar.hidden = !name;
+  avatar.textContent = name ? initials(name) : "";
+  avatar.className = "pav " + (interviewer ? colorClass(interviewer) : "cn");
+}
+var sheetBookingId = "";
 function showBooking(id: string, refresh?: boolean) {
   var booking = findBooking(id);
   if (!booking) {
@@ -771,156 +821,231 @@ function showBooking(id: string, refresh?: boolean) {
     return;
   }
   var start = new Date(booking.start);
+  var end = new Date(booking.end);
+  var now = Date.now();
   var interviewer = state.iv.assign[booking.id] || "";
-  var upcoming = Date.parse(booking.start) > Date.now();
+  var upcoming = Date.parse(booking.start) > now;
+  var status = statusOf(booking);
   refreshPanel = function () {
     showBooking(id, true);
   };
-  var body = openPanel(titleCase(booking.name), statusOf(booking) + " · " + formatRange(booking), refresh);
-  var details = el("dl", {
-    class: "dl",
-  });
-  function row(label: string, value: Node | string | undefined) {
+  var body = openPanel(titleCase(booking.name), [booking.company, booking.round].filter(Boolean).join(" · ") || "No company given", refresh);
+  setPanelAvatar(booking.name, interviewer);
+  sheetBookingId = id;
+
+  // When: a calendar tile, the day and time, how far away it is, and the status.
+  var relative = booking.cancelled
+    ? "Cancelled " + (booking.cancelledAt ? timeAgo(booking.cancelledAt) : "")
+    : upcoming
+      ? "Starts " + untilText(Date.parse(booking.start) - now)
+      : Date.parse(booking.end) > now
+        ? "Happening now"
+        : "Ended " + timeAgo(booking.end);
+  body.appendChild(
+    el("div", { class: "bk-when" }, [
+      el("div", { class: "bk-cal", "aria-hidden": "true" }, [
+        el("span", { text: formatIst({ month: "short" }, start) }),
+        el("b", { text: formatIst({ day: "numeric" }, start) }),
+      ]),
+      el("div", { class: "bk-wt" }, [
+        el("b", { text: formatIst({ weekday: "long", month: "short", day: "numeric" }, start) }),
+        el("span", { text: formatTime(start) + " – " + formatTime(end) }),
+        el("small", { text: booking.duration + " min · " + relative }),
+      ]),
+      el("span", { class: "bk-st st-" + status.toLowerCase().replace(/\s+/g, ""), text: status }),
+    ]),
+  );
+
+  // Quick actions: email, copy the email, open the candidate in Analytics.
+  var actions = el("div", { class: "bk-acts" });
+  if (booking.email) {
+    actions.appendChild(el("a", { class: "bk-act", href: "mailto:" + booking.email }, [icon("mail"), "Email"]));
+    actions.appendChild(
+      el(
+        "button",
+        {
+          type: "button",
+          class: "bk-act",
+          onclick: function () {
+            var done = function () {
+              toast("Email copied");
+            };
+            if (navigator.clipboard) {
+              navigator.clipboard.writeText(booking.email).then(done, function () {
+                toast(booking.email);
+              });
+            } else {
+              toast(booking.email);
+            }
+          },
+        },
+        [icon("copy"), "Copy email"],
+      ),
+    );
+  }
+  actions.appendChild(
+    el(
+      "button",
+      {
+        type: "button",
+        class: "bk-act",
+        onclick: function () {
+          closePanel();
+          window.__statsEvent = booking.id;
+          byId("tabStats").click();
+        },
+      },
+      [icon("chart"), "Analytics"],
+    ),
+  );
+  body.appendChild(actions);
+
+  // Details
+  var details = el("div", { class: "bk-card bk-rows" });
+  function row(name: string, label: string, value: Node | string | undefined) {
     if (value) {
       details.appendChild(
-        el("dt", {
-          text: label,
-        }),
+        el("div", { class: "bk-row" }, [
+          icon(name),
+          el("div", null, [el("small", { text: label }), el("span", null, [value])]),
+        ]),
       );
-      details.appendChild(el("dd", null, [value]));
     }
   }
+  row("mail", "Email", booking.email ? el("a", { href: "mailto:" + booking.email, text: booking.email }) : "");
   row(
-    "Email",
-    booking.email
-      ? el("a", {
-          href: "mailto:" + booking.email,
-          text: booking.email,
-        })
-      : "",
-  );
-  row("Company", booking.company);
-  row("Round", booking.round);
-  row("Length", booking.duration + " min");
-  row(
+    "clock",
     "Booked",
-    formatIst(
-      {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      },
-      new Date(booking.createdAt),
-    ) + (booking.source === "admin" ? " by you" : booking.source === "calendly" ? " in Calendly" : " by the candidate"),
+    formatIst({ month: "short", day: "numeric", year: "numeric" }, new Date(booking.createdAt)) +
+      (booking.source === "admin" ? " by you" : booking.source === "calendly" ? " in Calendly" : " by the candidate"),
   );
   if (booking.rescheduledAt) {
     row(
+      "moved",
       "Moved",
       (booking.prevStart ? "From " + shortDate(booking.prevStart) + ", " + formatTime(new Date(booking.prevStart)) + " " : "") +
         byWhom(booking.rescheduledBy),
     );
   }
   if (booking.cancelled) {
-    row("Cancelled", (booking.cancelledAt ? shortDate(booking.cancelledAt) + " " : "") + byWhom(booking.cancelledBy));
-    row("Reason", booking.cancelReason);
+    row("x", "Cancelled", (booking.cancelledAt ? shortDate(booking.cancelledAt) + " " : "") + byWhom(booking.cancelledBy));
+    row("note", "Reason", booking.cancelReason);
   }
   body.appendChild(details);
+
+  // Interviewer
   if (!booking.cancelled) {
-    var box = el(
-      "div",
-      {
-        class: "box",
-      },
-      [
-        el("h3", {
-          text: "Interviewer",
-        }),
-      ],
-    );
+    var box = el("div", { class: "bk-card" }, [el("h3", { text: "Interviewer" })]);
     if (upcoming) {
-      box.appendChild(
-        el("p", {
-          class: "sub",
-          text: "You can record who took it once it starts at " + formatTime(start) + ".",
-        }),
-      );
+      box.appendChild(el("p", { class: "sub", text: "You can record who took it once it starts at " + formatTime(start) + "." }));
     } else {
-      var pills = el("div", {
-        class: "pills",
-      });
-      var msg = el("p", {
-        class: "msg",
-        role: "status",
-      });
+      var choices = el("div", { class: "ivc" });
+      var msg = el("p", { class: "msg", role: "status" });
       var names = interviewer ? [interviewer] : state.iv.names.slice();
       names.forEach(function (name) {
-        pills.appendChild(
-          el("button", {
-            type: "button",
-            class: colorClass(name),
-            "aria-pressed": String(interviewer === name),
-            disabled: !!interviewer,
-            text: name,
-            onclick: function () {
-              if (
-                !interviewer &&
-                confirm("Record " + name + " as the interviewer for " + titleCase(booking.name) + "? This can't be changed later.")
-              ) {
-                saveInterviewer(booking, name, msg);
-              }
+        choices.appendChild(
+          el(
+            "button",
+            {
+              type: "button",
+              class: colorClass(name),
+              "aria-pressed": String(interviewer === name),
+              disabled: !!interviewer,
+              onclick: function () {
+                if (
+                  !interviewer &&
+                  confirm("Record " + name + " as the interviewer for " + titleCase(booking.name) + "? This can't be changed later.")
+                ) {
+                  saveInterviewer(booking, name, msg);
+                }
+              },
             },
-          }),
+            [el("i", { class: "ivd", text: initials(name) }), el("span", { text: name })],
+          ),
         );
       });
-      box.appendChild(pills);
+      box.appendChild(choices);
       if (interviewer) {
-        box.appendChild(
-          el("p", {
-            class: "lockd",
-            text: "Locked. The interviewer can't be changed once recorded.",
-          }),
-        );
+        box.appendChild(el("p", { class: "lockd", text: "Locked. The interviewer can't be changed once recorded." }));
+      } else {
+        box.appendChild(el("p", { class: "sub ivh", text: "Tap who took this interview." }));
       }
       var clash = clashFor(booking, interviewer);
       if (clash) {
-        box.appendChild(
-          el("div", {
-            class: "warn",
-            text: interviewer + " also has " + clash + " at the same time.",
-          }),
-        );
+        box.appendChild(el("div", { class: "warn", text: interviewer + " also has " + clash + " at the same time." }));
       }
       box.appendChild(msg);
     }
     body.appendChild(box);
-    if (upcoming) {
-      body.appendChild(
+  }
+
+  // The candidate's other interviews (same email), newest first.
+  var seen: Record<string, boolean> = {};
+  var others = (state.events || [])
+    .concat(allBookings || [])
+    .filter(function (other) {
+      var keep = other.id !== booking.id && !seen[other.id] && !!booking.email && other.email.toLowerCase() === booking.email.toLowerCase();
+      seen[other.id] = true;
+      return keep;
+    })
+    .sort(function (first, second) {
+      return Date.parse(second.start) - Date.parse(first.start);
+    });
+  if (others.length) {
+    var history = el("div", { class: "bk-card bk-hist" }, [el("h3", { text: "Other interviews" })]);
+    others.slice(0, 6).forEach(function (other) {
+      var otherStatus = statusOf(other);
+      history.appendChild(
         el(
-          "div",
+          "button",
           {
-            class: "row",
+            type: "button",
+            class: "bk-h",
+            onclick: function () {
+              showBooking(other.id);
+            },
           },
           [
-            el("button", {
-              type: "button",
-              class: "ghost",
-              text: "Reschedule",
-              onclick: function () {
-                showReschedule(booking);
-              },
-            }),
-            el("button", {
-              type: "button",
-              class: "ghost",
-              text: "Cancel booking",
-              onclick: function () {
-                showCancel(booking);
-              },
-            }),
+            el("span", { class: "bk-hd", text: formatIst({ month: "short", day: "numeric" }, new Date(other.start)) }),
+            el("span", { class: "bk-hm", text: [other.company, other.round].filter(Boolean).join(" · ") || "Interview" }),
+            el("span", { class: "bk-st sm st-" + otherStatus.toLowerCase().replace(/\s+/g, ""), text: otherStatus }),
           ],
         ),
       );
-    }
+    });
+    body.appendChild(history);
+  }
+  if (!allBookings && booking.email) {
+    loadAllBookings()
+      .then(function () {
+        if (sheetBookingId === id && !byId("panel").hidden) {
+          showBooking(id, true);
+        }
+      })
+      .catch(function () {});
+  }
+
+  if (!booking.cancelled && upcoming) {
+    body.appendChild(
+      el("div", { class: "bk-foot" }, [
+        el("button", {
+          type: "button",
+          class: "ghost",
+          text: "Reschedule",
+          onclick: function () {
+            showReschedule(booking);
+          },
+        }),
+        el("button", {
+          type: "button",
+          class: "ghost danger-t",
+          text: "Cancel booking",
+          onclick: function () {
+            showCancel(booking);
+          },
+        }),
+      ]),
+    );
   }
 }
 function showCancel(booking: Booking) {
@@ -1808,7 +1933,7 @@ document.addEventListener("visibilitychange", function () {
         checkForUpdate();
       })
       .catch(function () {});
-    if (!stream || stream.readyState === 2) {
+    if (!stream || stream.readyState === 2 || !live) {
       connect();
     }
   }
