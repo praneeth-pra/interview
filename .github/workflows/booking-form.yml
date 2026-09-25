@@ -20,8 +20,10 @@ jobs:
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
-      - name: Server tests
+      - name: Server and unit tests
         run: bun test tests/
+      - name: Type check page modules
+        run: npx -y -p typescript@5 tsc -p src/pages/tsconfig.json
       - uses: actions/setup-node@v4
         with:
           node-version: 22
