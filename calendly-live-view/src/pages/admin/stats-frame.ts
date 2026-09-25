@@ -32,14 +32,17 @@ export function setupStatsFrame() {
       frame = document.createElement("iframe");
       frame.className = "la-frame";
       frame.title = "Person analytics";
-      frame.src = "/admin/analytics";
+      frame.src = "/admin/analytics" + (window.__statsEvent ? "?event=" + encodeURIComponent(window.__statsEvent) : "");
       // a frame is white until its page has drawn; show it once it has
       frame.style.visibility = "hidden";
       frame.addEventListener("load", function () {
         frame.style.visibility = "";
       });
       box.appendChild(frame);
+    } else if (window.__statsEvent) {
+      frame.src = "/admin/analytics?event=" + encodeURIComponent(window.__statsEvent);
     }
+    window.__statsEvent = "";
     sync();
   };
   sync();
