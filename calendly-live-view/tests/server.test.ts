@@ -188,7 +188,9 @@ describe("admin", () => {
     const cookie = ok.headers.get("set-cookie")!.split(";")[0];
     const admin = await get(locked, "/admin", { cookie });
     const html = await admin.text();
-    expect(boot(html)).toEqual({ tab: "cal", login: true });
+    expect(boot(html)).toEqual({ tab: "cal", login: true, build: expect.stringMatching(/^[0-9a-z]+$/) });
+    const state = await (await get(locked, "/admin/api/state", { cookie })).json();
+    expect(state.build).toBe(boot(html).build);
     expect(admin.headers.get("content-security-policy")).toContain("frame-src 'self'");
     expect(boot(await (await get(locked, "/admin/allowlist", { cookie })).text()).tab).toBe("allow");
     const la = await get(locked, "/admin/analytics", { cookie });

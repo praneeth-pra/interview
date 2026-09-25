@@ -2280,7 +2280,15 @@ button,
   .ag-need {
     grid-column: 2;
     justify-self: start;
-    margin-top: -1px;
+    margin-top: -2px;
+    padding: 2px 9px;
+    font-size: 12px;
+    line-height: 18px;
+  }
+  .ag-i {
+    padding-top: 11px;
+    padding-bottom: 11px;
+    min-height: 60px;
   }
   .ag-t {
     padding-top: 1px;
