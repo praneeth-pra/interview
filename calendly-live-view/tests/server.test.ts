@@ -248,7 +248,10 @@ describe("backups", () => {
   beforeAll(async () => {
     resend = Bun.serve({ port: 4314, fetch: async (req) => (sent.push(await req.json()), Response.json({ id: "x" })) });
     srv = await start(4313, env);
-    await waitFor(() => sent.length > 0);
+    // the server records the day in backup-state.json just after the email goes out; wait for both, or a quick
+    // restart in the next tests could land in between and send the backup a second time
+    const stateFile = join(srv.dir, "backup-state.json");
+    await waitFor(() => sent.length > 0 && existsSync(stateFile) && readFileSync(stateFile, "utf8").includes('"emailed"'));
   });
   afterAll(() => {
     srv?.proc.kill();
