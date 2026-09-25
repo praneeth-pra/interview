@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { brotliCompressSync, constants as zlib, gzipSync } from "node:zlib";
 
@@ -62,11 +62,20 @@ const linkAssets = (text: string) => text.replace(/\/assets\/([\w-]+\.(?:css|js|
 
 for (const f of readdirSync(FONTS)) if (f.endsWith(".woff2")) add(f, readFileSync(join(FONTS, f)));
 const fontCss = readFileSync(join(FONTS, "inter.css"), "utf8").replace(/url\(fonts\//g, "url(/assets/");
-for (const f of readdirSync(PAGES).sort()) {
-  if (!/\.(css|js)$/.test(f)) continue;
-  let text = readFileSync(join(PAGES, f), "utf8");
-  if (FONT_CSS_PAGES.has(f)) text = fontCss + text;
-  add(f, Buffer.from(linkAssets(text)));
+// Page scripts are readable sources (src/pages/<page>.js, or src/pages/<page>/main.ts split into modules);
+// they are bundled and minified here, so what the browser gets is one small file per page.
+async function bundle(entry: string) {
+  const out = await Bun.build({ entrypoints: [entry], format: "iife", target: "browser", minify: true });
+  if (!out.success) throw new AggregateError(out.logs, "could not build " + entry);
+  return out.outputs[0].text();
+}
+for (const f of readdirSync(PAGES, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
+  if (f.isDirectory() && existsSync(join(PAGES, f.name, "main.ts"))) add(f.name + ".js", Buffer.from(await bundle(join(PAGES, f.name, "main.ts"))));
+  else if (f.name.endsWith(".js")) add(f.name, Buffer.from(await bundle(join(PAGES, f.name))));
+  else if (f.name.endsWith(".css")) {
+    const css = readFileSync(join(PAGES, f.name), "utf8");
+    add(f.name, Buffer.from(linkAssets(FONT_CSS_PAGES.has(f.name) ? fontCss + css : css)));
+  }
 }
 
 // A request for an older fingerprint (a tab opened before a deploy) gets the current file, without the long cache.

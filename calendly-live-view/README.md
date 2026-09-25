@@ -10,11 +10,11 @@ Runs on Railway: project `calendly-live-view`, service `booking-form`, productio
 src/server.ts        HTTP server: booking rules, emails (Resend), web push, admin APIs, JSON stores
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
 src/pages/*.html     page shells (book, admin, analytics, login)
-src/pages/*.css|js   page styles and scripts, served as /assets/<name>.<hash>.<ext>
+src/pages/*.css|js   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
 src/fonts/           Inter (same files Google Fonts serves), self-hosted
 data/companies.json  company suggestions for the booking form ("Name|Alias|Alias")
 public/icon.png      app icon (admin home-screen app and browser alerts)
-tests/               bun tests for the server, plus a Chromium smoke test
+tests/               bun tests for the server, a Chromium smoke test, and visual.cjs (screen-by-screen comparison with main)
 scripts/restore.ts   puts a backup back into a data folder
 ```
 
@@ -26,6 +26,7 @@ Bookings and settings live as JSON files on the Railway volume mounted at `/data
 PORT=3000 DATA_DIR=/tmp/bf bun run src/server.ts       # admin is open when ADMIN_LOGIN isn't on
 bun test tests/                                          # server tests, ~0.5 s
 NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs    # needs the playwright package
+NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origin/main; must match for refactors
 ```
 
 ## How pages are served
@@ -70,6 +71,6 @@ The script keeps each replaced file as `<name>.pre-restore`.
 
 ## Deploying
 
-GitHub Actions (`.github/workflows/booking-form.yml`) runs both test commands on every pull request and on `main`.
+GitHub Actions (`.github/workflows/booking-form.yml`) runs the tests on every pull request and on `main`, and on pull requests also compares every screen with the base branch. Label a PR `ui-change` when it changes the design on purpose; the failed run's screenshots are attached as an artifact.
 
 Railway builds `Dockerfile` in this folder. The service settings live in Railway (root directory `/calendly-live-view`, start command `bun run src/server.ts`, health check `/healthz`, watch pattern `/calendly-live-view/**`). After a deploy, the log should end with `booking-form listening on 8080`.
