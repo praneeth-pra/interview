@@ -152,7 +152,9 @@ function t12(date) {
       hour12: true,
     },
     date,
-  );
+  )
+    .replace(" AM", "am")
+    .replace(" PM", "pm");
 }
 function addDays(day, count) {
   var date = new Date(day + "T12:00:00Z");

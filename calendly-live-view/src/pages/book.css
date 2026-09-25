@@ -77,7 +77,6 @@ body {
     Arial,
     sans-serif;
   -webkit-font-smoothing: antialiased;
-  font-feature-settings: "cv11", "ss01";
   padding: 66px 16px 40px;
 }
 button {

@@ -113,12 +113,12 @@ body {
   background: var(--p);
   color: var(--k);
   font:
-    15px/1.5 Inter,
-    -apple-system,
+    15px/1.5 -apple-system,
     BlinkMacSystemFont,
-    Segoe UI,
+    system-ui,
+    "Segoe UI",
     Roboto,
-    Helvetica,
+    "Helvetica Neue",
     Arial,
     sans-serif;
   font-variant-numeric: tabular-nums;
@@ -2024,4 +2024,60 @@ button:active:not(:disabled) {
 }
 #an:not([hidden]) {
   animation: fadein 0.25s ease backwards;
+}
+/* One look with the admin app around it: the same background, card and blue as admin.css, the blue primary button,
+   and no text smaller than 11.5px on a phone. */
+:root {
+  --p: #f5f6f8;
+  --m: #006bff;
+  --n: #e6f0ff;
+  --v: #b3cfff;
+  --o: #0052cc;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --p: #141414;
+    --c: #1d1d1d;
+    --d: #262626;
+    --q: #2d2d2d;
+    --s: #141414;
+    --a: #a3a3a3;
+    --m: #5b8cff;
+    --n: #1b2a4a;
+    --v: #2f4b80;
+    --o: #8db2ff;
+  }
+}
+.pri,
+.pri:hover {
+  background-color: #006bff;
+  color: #fff;
+}
+@media (prefers-color-scheme: dark) {
+  .pri,
+  .pri:hover {
+    background-color: #1a6bff;
+  }
+}
+.tdot,
+.vlab,
+.wklab,
+.tl-tick,
+.tl-ends,
+.vval,
+.badge,
+.ptab .pr.h {
+  font-size: 11.5px;
+}
+@media (max-width: 700px) {
+  .tdot,
+  .vlab,
+  .wklab,
+  .tl-tick,
+  .tl-ends,
+  .ptab .pr.h,
+  .card .k,
+  .st span {
+    font-size: 11.5px;
+  }
 }
