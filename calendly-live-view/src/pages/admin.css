@@ -3041,7 +3041,8 @@ main.tab-fade > section {
    A week strip picks the day (circled in orange, dots for days with interviews). Below it, an hour grid holds the
    day's interviews as blocks sized to their length, tinted in the interview supporter's colour with a top edge in that
    colour (grey when none), and today a line with a time pill marks the time now. */
-/* The picked day sits in a soft orange pill; today's date gets an orange ring (filled when it's also the picked day).
+/* The picked day's date is orange with a short bar under it; today's date gets an orange ring (filled when it's also
+   the picked day).
    Weekends are a shade quieter. */
 .ws {
   display: grid;
@@ -3106,14 +3107,25 @@ main.tab-fade > section {
   font-weight: 700;
   box-shadow: inset 0 0 0 1.5px var(--blue);
 }
-.ws-b.on {
-  background: var(--tint);
-}
 .ws-b.on .ws-w {
   color: var(--link);
 }
 .ws-b.on b {
+  position: relative;
+  color: var(--link);
   font-weight: 700;
+}
+/* the picked day: orange date with a short bar under it */
+.ws-b.on:not(.today) b:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 14px;
+  height: 2.5px;
+  margin-left: -7px;
+  border-radius: 2px;
+  background: var(--blue);
 }
 .ws-b.on.today b {
   background: var(--blue);
