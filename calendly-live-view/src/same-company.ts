@@ -1,4 +1,5 @@
-// Company names typed by candidates vary ("TCS", "Tata Consultancy Services Pvt Ltd"...). These decide which ones are the same company.
+// Company names typed by candidates vary ("TCS", "Tata Consultancy Services Pvt Ltd"...). sameCompany() decides whether two
+// spellings are the same company; the server uses it to keep a candidate's spelling the same across rounds.
 var SUFFIX = {
   pvt: 1,
   ltd: 1,
@@ -74,57 +75,5 @@ function simKey(name) {
     .filter((word) => word && !SUFFIX[word])
     .join(" ");
 }
-function similar(first, second) {
-  var firstKey = simKey(first);
-  var secondKey = simKey(second);
-  if (!firstKey || !secondKey) {
-    return false;
-  }
-  if (digits(firstKey) !== digits(secondKey)) {
-    return false;
-  }
-  if (firstKey === secondKey) {
-    return true;
-  }
-  var firstCompact = firstKey.replace(/ /g, "");
-  var secondCompact = secondKey.replace(/ /g, "");
-  if (firstCompact === secondCompact) {
-    return true;
-  }
-  var shorter = Math.min(firstCompact.length, secondCompact.length);
-  var longer = Math.max(firstCompact.length, secondCompact.length);
-  if (shorter >= 4 && osaDistance(firstCompact, secondCompact) <= (longer <= 7 ? 1 : 2)) {
-    return true;
-  }
-  var firstWords = firstKey.split(" ");
-  var secondWords = secondKey.split(" ");
-  var fewer = firstWords.length <= secondWords.length ? firstWords : secondWords;
-  var more = fewer === firstWords ? secondWords : firstWords;
-  if (fewer.join("").length >= 4 && fewer.length < more.length) {
-    for (var i = 0; i < fewer.length; i++) {
-      if (more[i] !== fewer[i]) {
-        return false;
-      }
-    }
-    return true;
-  }
-  return false;
-}
-function dupes(rows) {
-  var pairs = [];
-  for (var i = 0; i < rows.length; i++) {
-    for (var j = i + 1; j < rows.length; j++) {
-      if (rows[i].key && rows[j].key && similar(rows[i].key, rows[j].key)) {
-        pairs.push({
-          a: rows[i].key,
-          b: rows[j].key,
-          an: rows[i].name,
-          bn: rows[j].name,
-        });
-      }
-    }
-  }
-  return pairs;
-}
 
-export { simKey, similar, sameCompany, dupes };
+export { sameCompany };

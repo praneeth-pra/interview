@@ -1,15 +1,11 @@
-// The analytics page was written against an older dashboard's API (/api/state, /api/people, /api/analytics, /api/person,
-// /api/results, /api/interviewers). api() answers those URLs in the browser from /admin/api/bookings, /state and /results.
+// The Contacts page asks for /api/state, /api/people, /api/analytics (one person's bookings) and /api/interviewers.
+// api() answers those URLs in the browser from /admin/api/bookings and /admin/api/state.
 // With merge=1, bookings under different emails whose names look alike count as one person.
 var TIME_ZONE = "Asia/Kolkata";
 // Everything the answers are built from, fetched together and kept for 15 seconds.
 type Data = {
   bookings: any[]; // all bookings, as /admin/api/bookings sends them
   iv: { names: string[]; assign: Record<string, string> };
-  results: Record<string, { results: Record<string, string>; updated?: string }>; // saved results, by person key
-  joins: Record<string, string>; // company names combined by "Same company as…": lower-cased name → the name it joins
-  persistent: boolean;
-  resFailed: boolean;
 };
 var dataCache: Data | null = null;
 var dataCachedAt = 0;
@@ -21,7 +17,7 @@ function loadData(force?: boolean): Promise<Data> {
   if (dataLoading) {
     return dataLoading;
   }
-  dataLoading = Promise.all([window.fetch("/admin/api/bookings"), window.fetch("/admin/api/state"), window.fetch("/admin/api/results")])
+  dataLoading = Promise.all([window.fetch("/admin/api/bookings"), window.fetch("/admin/api/state")])
     .then(function (responses) {
       if (
         responses.some(function (response) {
@@ -49,10 +45,6 @@ function loadData(force?: boolean): Promise<Data> {
             names: [],
             assign: {},
           },
-          results: (json[2] && json[2].people) || {},
-          joins: (json[2] && json[2].joins) || {},
-          persistent: !json[2] || json[2].persistent !== false,
-          resFailed: !json[2] || !json[2].people,
         };
         dataCachedAt = Date.now();
         dataLoading = null;
@@ -118,9 +110,6 @@ function sameName(first, second) {
     Math.abs(firstKey.length - secondKey.length) <= 1 &&
     nameDistance(firstKey, secondKey) <= 1
   );
-}
-function nameKey(name) {
-  return normalizeName(name).split(" ").filter(Boolean).sort().join(" ");
 }
 function lower(text) {
   return String(text || "")
@@ -391,249 +380,12 @@ function analyticsFor(data: Data, id, merge) {
     },
   ];
 }
-function interviewsFor(data: Data, id, merge) {
-  var booking = findBooking(data, id);
-  if (!booking) {
-    return [
-      404,
-      {
-        error: "This booking wasn't found.",
-      },
-    ];
-  }
-  if (!booking.email) {
-    return [
-      404,
-      {
-        error: "This booking has no email, so other interviews can't be looked up.",
-      },
-    ];
-  }
-  var group = personGroup(data, booking, merge);
-  var set = {};
-  var now = Date.now();
-  group.emails.forEach(function (email) {
-    set[email] = 1;
-  });
-  var events = data.bookings
-    .filter(function (other) {
-      return !other.cancelled && set[lower(other.email)];
-    })
-    .map(function (other) {
-      return {
-        id: other.id,
-        name: "Interview",
-        start: other.start,
-        end: other.end,
-        status: Date.parse(other.end) < now ? "completed" : "upcoming",
-        company: other.company || "",
-        round: other.round || "",
-        location: "",
-      };
-    })
-    .sort(function (a, c) {
-      return Date.parse(c.start) - Date.parse(a.start);
-    });
-  return [
-    200,
-    {
-      name: booking.name,
-      emails: group.emails.length,
-      events: events,
-    },
-  ];
-}
-var RESULT_VALUES = {
-  cleared: 1,
-  notcleared: 1,
-  hold: 1,
-  offer: 1,
-  withdrew: 1,
-};
-function mergedResults(people, keys, ownKey) {
-  var merged = {};
-  keys
-    .filter(function (key) {
-      return key !== ownKey;
-    })
-    .map(function (key) {
-      return people[key];
-    })
-    .filter(Boolean)
-    .sort(function (a, b) {
-      return Date.parse(a.updated) - Date.parse(b.updated);
-    })
-    .forEach(function (entry) {
-      Object.assign(merged, entry.results);
-    });
-  if (people[ownKey]) {
-    Object.assign(merged, people[ownKey].results);
-  }
-  return merged;
-}
-function resultsFor(data: Data, id, merge, put) {
-  var booking = findBooking(data, id);
-  if (!booking) {
-    return [
-      404,
-      {
-        error: "This booking wasn't found.",
-      },
-    ];
-  }
-  var ownKey = nameKey(booking.name);
-  var group = personGroup(data, booking, merge);
-  var keys = [ownKey];
-  group.names.forEach(function (name) {
-    var key = nameKey(name);
-    if (key && keys.indexOf(key) < 0) {
-      keys.push(key);
-    }
-  });
-  function view() {
-    return [
-      200,
-      {
-        results: mergedResults(data.results, keys, ownKey),
-        joins: data.joins,
-        persistent: data.persistent,
-        locked: false,
-        failed: data.resFailed,
-      },
-    ];
-  }
-  if (!put) {
-    return view();
-  }
-  var set = {};
-  Object.keys(put.set || {}).forEach(function (company) {
-    if (RESULT_VALUES[put.set[company]] && company.length <= 120) {
-      set[company] = put.set[company];
-    }
-  });
-  var rem = (Array.isArray(put.remove) ? put.remove : []).filter(function (item) {
-    return typeof item === "string" && item;
-  });
-  var entries = {};
-  keys.slice(0, 20).forEach(function (key) {
-    var merged = {};
-    Object.assign(merged, (data.results[key] && data.results[key].results) || {});
-    rem.forEach(function (company) {
-      delete merged[company];
-    });
-    Object.assign(merged, set);
-    entries[key] = Object.keys(merged).length
-      ? {
-          results: merged,
-        }
-      : null;
-  });
-  return window
-    .fetch("/admin/api/results", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        entries: entries,
-      }),
-    })
-    .then(function (response) {
-      if (response.status === 401) {
-        (parent || window).location.reload();
-        throw new Error("auth");
-      }
-      return response.json().then(function (json) {
-        return {
-          ok: response.ok,
-          j: json,
-        };
-      });
-    })
-    .then(
-      function (reply) {
-        if (!reply.ok) {
-          return [
-            reply.j && reply.j.error ? 500 : 500,
-            {
-              error: (reply.j && reply.j.error) || "Couldn't save. Try again.",
-            },
-          ];
-        }
-        data.results = reply.j.people || {};
-        data.persistent = reply.j.persistent !== false;
-        data.resFailed = false;
-        return view();
-      },
-      function () {
-        return [
-          500,
-          {
-            error: "Couldn't save. Check your connection and try again.",
-          },
-        ];
-      },
-    );
-}
-// PUT /api/joins {from, to}: says company "from" is the same as "to" for every candidate (to "" separates it again).
-function saveJoin(data: Data, put) {
-  return window
-    .fetch("/admin/api/company-joins", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ from: String(put.from || ""), to: String(put.to || "") }),
-    })
-    .then(function (response) {
-      if (response.status === 401) {
-        (parent || window).location.reload();
-        throw new Error("auth");
-      }
-      return response.json().then(function (json) {
-        if (!response.ok) {
-          return [500, { error: (json && json.error) || "Couldn't save. Try again." }];
-        }
-        data.joins = json.joins || {};
-        return [200, { joins: data.joins }];
-      });
-    })
-    .catch(function () {
-      return [500, { error: "Couldn't save. Check your connection and try again." }];
-    });
-}
-// Known company names and their other names ("TCS" and "Tata Consultancy Services"), as the booking form suggests them.
-var knownLoading: Promise<string[][]> | null = null;
-function knownCompanies(): Promise<string[][]> {
-  if (!knownLoading) {
-    knownLoading = window
-      .fetch("/api/companies")
-      .then(function (response) {
-        return response.ok ? response.json() : { companies: [] };
-      })
-      .then(function (json) {
-        return (json.companies || [])
-          .filter(function (company) {
-            return company && company.a && company.a.length;
-          })
-          .map(function (company) {
-            return [company.n].concat(company.a);
-          });
-      })
-      .catch(function () {
-        knownLoading = null;
-        return [];
-      });
-  }
-  return knownLoading;
-}
-function api(url: string, opt?: RequestInit): Promise<Response> {
+function api(url: string): Promise<Response> {
   var parsed = new URL(String(url), "http://local.invalid");
   var path = parsed.pathname;
   var combine = parsed.searchParams.get("merge") === "1";
   var eventId = parsed.searchParams.get("event") || "";
-  var put = !!opt && opt.method === "PUT";
-  return loadData(put || path === "/api/state").then(function (data) {
+  return loadData(path === "/api/state").then(function (data) {
     var answer;
     if (path === "/api/state") {
       answer = [200, dashboardState(data)];
@@ -652,12 +404,6 @@ function api(url: string, opt?: RequestInit): Promise<Response> {
       answer = [200, peopleList(data, combine)];
     } else if (path === "/api/analytics") {
       answer = analyticsFor(data, eventId, combine);
-    } else if (path === "/api/person") {
-      answer = interviewsFor(data, eventId, combine);
-    } else if (path === "/api/joins" && put) {
-      answer = saveJoin(data, JSON.parse((opt.body as string) || "{}"));
-    } else if (path === "/api/results") {
-      answer = resultsFor(data, eventId, combine, put ? JSON.parse((opt.body as string) || "{}") : null);
     } else {
       answer = [
         404,
@@ -677,4 +423,4 @@ function api(url: string, opt?: RequestInit): Promise<Response> {
   });
 }
 
-export { api, knownCompanies };
+export { api };

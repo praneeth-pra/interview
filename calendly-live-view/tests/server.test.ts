@@ -224,7 +224,7 @@ describe("admin", () => {
     expect(admin.headers.get("content-security-policy")).toContain("frame-src 'self'");
     expect(boot(await (await get(locked, "/admin/allowlist", { cookie })).text()).tab).toBe("allow");
     const la = await get(locked, "/admin/analytics", { cookie });
-    expect(await la.text()).toContain("<title>Person analytics</title>");
+    expect(await la.text()).toContain("<title>Contacts</title>");
     expect(la.headers.get("x-frame-options")).toBe("SAMEORIGIN");
     expect(la.headers.get("content-security-policy")).toContain("frame-ancestors 'self'");
     const out = await get(locked, "/admin/analytics");
