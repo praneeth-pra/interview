@@ -85,7 +85,11 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     // Payments from /payment, newest first; each receipt opens or downloads from its own link; a payment can be deleted.
     if (path === "/admin/api/payments" && method === "GET")
       return json({
-        payments: [...paymentsStore.data.payments].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(paymentView),
+        // reversed first, so two sent in the same millisecond still list the later one first
+        payments: [...paymentsStore.data.payments]
+          .reverse()
+          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+          .map(paymentView),
       });
     const receiptPath = path.match(/^\/admin\/api\/payments\/([0-9a-f-]{36})\/receipt$/);
     if (receiptPath && method === "GET") {
