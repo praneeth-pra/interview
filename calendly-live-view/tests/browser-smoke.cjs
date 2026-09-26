@@ -102,6 +102,10 @@ const checks = [
     if (!(await p.locator(".paytot b").textContent()).includes("12,500")) throw new Error("total is wrong");
     const [saved] = await Promise.all([p.waitForEvent("download"), p.locator("#viewPay .bk-act.dl").first().click()]);
     if (saved.suggestedFilename() !== "Kiran Kumar receipt.png") throw new Error("receipt saved as " + saved.suggestedFilename());
+    // the Table view: candidate, date and amount, with the total in the last row
+    await p.locator(".paysw button", { hasText: "Table" }).click();
+    if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("table total is wrong");
+    await p.locator(".paytbl tbody tr", { hasText: "Kiran Kumar" }).waitFor();
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");

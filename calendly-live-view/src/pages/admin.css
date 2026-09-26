@@ -918,15 +918,21 @@ h2 {
   width: 18px;
   height: 18px;
 }
-/* Payments: the total received, above the list */
+/* Payments: the total received and the List/Table switch, above the payments */
 .paytot {
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
   margin: 0 0 12px;
   padding: 14px 16px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: var(--card);
+}
+.paytot > div:first-child {
+  display: flex;
+  flex-direction: column;
 }
 .paytot b {
   font-size: 26px;
@@ -938,6 +944,88 @@ h2 {
 }
 .paytot[hidden] {
   display: none;
+}
+.paysw {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--sub);
+}
+.paysw button {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 17px;
+  background: none;
+  color: var(--ink2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.paysw [aria-pressed="true"] {
+  background: var(--card);
+  color: var(--link);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+/* the table: candidate, date, amount, and a total row; narrow enough for a phone without scrolling sideways */
+.paytbl table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+.paytbl th,
+.paytbl td {
+  padding: 11px 6px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.paytbl th:first-child,
+.paytbl td:first-child {
+  padding-left: 0;
+  overflow-wrap: anywhere;
+}
+.paytbl th:last-child,
+.paytbl td:last-child {
+  padding-right: 0;
+}
+.paytbl thead th {
+  border-top: 0;
+  color: var(--ink2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.paytbl thead button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.paytbl [aria-sort] button {
+  color: var(--link);
+}
+.paytbl .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.paytbl .dt {
+  white-space: nowrap;
+  color: var(--ink2);
+}
+.paytbl tfoot th,
+.paytbl tfoot td {
+  border-top: 1.5px solid var(--ink2);
+  font-weight: 700;
+}
+.paytbl tfoot td:not(.num) {
+  color: var(--ink2);
+  font-weight: 500;
 }
 .payamt {
   font-size: 17px;

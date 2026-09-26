@@ -1803,6 +1803,12 @@ function rupees(amount: number) {
   return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 var paymentsShown = -1;
+// List (one block per payment, with receipts) or Table (candidate, date, amount, with a total row); remembered per device
+var paymentsMode = "list";
+try {
+  paymentsMode = localStorage.getItem("payMode") === "table" ? "table" : "list";
+} catch (e) {}
+var paymentsSort = { key: "date", down: true };
 function showPayments() {
   var body = byId("payBody");
   body.textContent = "";
@@ -1833,10 +1839,26 @@ function showPayments() {
   body.appendChild(total);
   body.appendChild(list);
   body.appendChild(msg);
-  function draw(payments: any[]) {
+  var payments: any[] = [];
+  function modeButton(mode: string, label: string) {
+    return el("button", {
+      type: "button",
+      "aria-pressed": String(paymentsMode === mode),
+      text: label,
+      onclick: function () {
+        paymentsMode = mode;
+        try {
+          localStorage.setItem("payMode", mode);
+        } catch (e) {}
+        draw();
+      },
+    });
+  }
+  function draw() {
     list.textContent = "";
     total.textContent = "";
     total.hidden = !payments.length;
+    list.className = "enqlist";
     if (!payments.length) {
       list.appendChild(el("p", { class: "sub", text: "No payments yet. Share the link above." }));
       return;
@@ -1844,9 +1866,63 @@ function showPayments() {
     var sum = payments.reduce(function (n, item) {
       return n + item.amount;
     }, 0);
-    total.appendChild(el("small", { text: "Total received" }));
-    total.appendChild(el("b", { text: rupees(sum) }));
-    total.appendChild(el("small", { text: plural(payments.length, "payment") }));
+    total.appendChild(
+      el("div", null, [
+        el("small", { text: "Total received" }),
+        el("b", { text: rupees(sum) }),
+        el("small", { text: plural(payments.length, "payment") }),
+      ]),
+    );
+    total.appendChild(
+      el("div", { class: "paysw", role: "group", "aria-label": "Show payments as" }, [modeButton("list", "List"), modeButton("table", "Table")]),
+    );
+    if (paymentsMode === "table") {
+      drawTable(sum);
+    } else {
+      drawList();
+    }
+  }
+  // Candidate, date and amount; Date and Amount sort when their heading is tapped (again to reverse)
+  function drawTable(sum: number) {
+    list.className = "enqlist paytbl";
+    var rows = payments.slice().sort(function (a, b) {
+      var diff = paymentsSort.key === "amount" ? a.amount - b.amount : Date.parse(a.createdAt) - Date.parse(b.createdAt);
+      return paymentsSort.down ? -diff : diff;
+    });
+    function heading(key: string, label: string) {
+      var on = paymentsSort.key === key;
+      return el("th", { scope: "col", class: key === "amount" ? "num" : "", "aria-sort": on ? (paymentsSort.down ? "descending" : "ascending") : null }, [
+        el("button", {
+          type: "button",
+          text: label + (on ? (paymentsSort.down ? " \u2193" : " \u2191") : ""),
+          onclick: function () {
+            paymentsSort = { key: key, down: on ? !paymentsSort.down : true };
+            draw();
+          },
+        }),
+      ]);
+    }
+    list.appendChild(
+      el("table", null, [
+        el("thead", null, [el("tr", null, [el("th", { scope: "col", text: "Candidate" }), heading("date", "Date"), heading("amount", "Amount")])]),
+        el(
+          "tbody",
+          null,
+          rows.map(function (item) {
+            return el("tr", null, [
+              el("td", { text: titleCase(item.name) }),
+              el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short", year: "numeric" }, new Date(item.createdAt)) }),
+              el("td", { class: "num", text: rupees(item.amount) }),
+            ]);
+          }),
+        ),
+        el("tfoot", null, [
+          el("tr", null, [el("th", { scope: "row", text: "Total" }), el("td", { text: plural(rows.length, "payment") }), el("td", { class: "num", text: rupees(sum) })]),
+        ]),
+      ]),
+    );
+  }
+  function drawList() {
     payments.forEach(function (item) {
       var when = new Date(item.createdAt);
       var kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
@@ -1906,7 +1982,8 @@ function showPayments() {
   function load() {
     request("/admin/api/payments")
       .then(function (result) {
-        draw(result.payments || []);
+        payments = result.payments || [];
+        draw();
       })
       .catch(function (error) {
         list.textContent = "";
