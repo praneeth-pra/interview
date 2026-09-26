@@ -13,6 +13,7 @@ export function setupAlerts() {
   var info = {
     key: "",
     endpoints: [],
+    yours: [],
   };
   var busy = false;
   var ready;
@@ -136,7 +137,8 @@ export function setupAlerts() {
           })
           .then(function (subscription) {
             mine = subscription;
-            if (subscription && info.key && Notification.permission === "granted" && info.endpoints.indexOf(subscription.endpoint) < 0) {
+            // signed up again when the server doesn't have it for this admin, so it gets the alerts meant for them
+            if (subscription && info.key && Notification.permission === "granted" && (info.yours || []).indexOf(subscription.endpoint) < 0) {
               var json: PushSubscriptionJSON & { label?: string } = subscription.toJSON();
               json.label = label();
               return api("/admin/api/push/subscribe", json).then(function (result) {

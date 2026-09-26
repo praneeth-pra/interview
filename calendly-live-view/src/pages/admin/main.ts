@@ -1791,12 +1791,15 @@ function markEnquiriesSeen() {
     })
     .catch(function () {});
 }
-request("/admin/api/enquiries/seen")
-  .then(function (result) {
-    enquiriesSeenAt = result.seenAt || "";
-    renderEnquiryBadge();
-  })
-  .catch(function () {});
+// only owners have Enquiries
+if (boot.owner) {
+  request("/admin/api/enquiries/seen")
+    .then(function (result) {
+      enquiriesSeenAt = result.seenAt || "";
+      renderEnquiryBadge();
+    })
+    .catch(function () {});
+}
 // The Payments tab: what people sent from the public /payment page, newest first, with the total at the top. Each
 // receipt opens in a new tab; the icon beside it saves it, named after the payer.
 function rupees(amount: number) {

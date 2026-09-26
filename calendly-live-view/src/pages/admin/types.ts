@@ -31,8 +31,9 @@ export type State = {
   changes: Change[];
   iv: { names: string[]; assign: Record<string, string> };
   allow: { enabled: boolean; count: number };
-  enquiries?: string[]; // when each enquiry came in
-  payments?: number; // how many payments there are
+  owner?: boolean; // owners see Enquiries and Payments; the admins they add don't
+  enquiries?: string[]; // when each enquiry came in (owners only)
+  payments?: number; // how many payments there are (owners only)
   hours: { start: number; end: number };
   email: boolean;
 };
