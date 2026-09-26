@@ -517,10 +517,17 @@ function renderChanges() {
     );
   });
 }
-// The agenda: one day at a time, like a phone calendar's Day view. A week strip picks the day (the day on screen circled
-// in orange, dots for days with interviews), then an hour grid holds that day's interviews as blocks sized to their
-// length, tinted in the interview supporter's colour (grey when none), with a line at the current time today.
+// The agenda, like a phone calendar. Day view: a week strip picks the day (dots for days with interviews), then an hour
+// grid holds that day's interviews as blocks sized to their length, tinted in the interview supporter's colour (grey
+// when none), with a line at the current time today. Week view: the same hour grid with a column per day; tapping a
+// day's heading opens it in Day view. A Day/Week switch at the top picks between them, remembered on this device.
 var AGENDA_HOUR_PX = 80;
+var AGENDA_WEEK_HOUR_PX = 60;
+var AGENDA_VIEW_KEY = "adm.agview";
+var agendaWeek = false;
+try {
+  agendaWeek = localStorage.getItem(AGENDA_VIEW_KEY) === "week";
+} catch (e) {}
 function agendaDay() {
   var today = dayKeyOf(new Date());
   if (selectedDay && weekStart(selectedDay) === weekOf) {
@@ -541,15 +548,133 @@ function pickAgendaDay(day: string) {
   weekOf = weekStart(day);
   render();
 }
+function setAgendaWeek(on: boolean) {
+  agendaWeek = on;
+  try {
+    localStorage.setItem(AGENDA_VIEW_KEY, on ? "week" : "day");
+  } catch (e) {}
+  var body = byId("agBody");
+  body.classList.remove("swipe-next", "swipe-prev", "sw-in");
+  void body.offsetWidth;
+  body.classList.add("sw-in");
+  render();
+}
+// The hours shown: working hours, stretched to fit the interviews and, when today is on screen, the time now.
+function agendaHours(items: Item[], withNow: boolean) {
+  var nowMin = minutesOfDay(new Date());
+  var fromMin = state.hours.start;
+  var toMin = state.hours.end;
+  items.forEach(function (item) {
+    fromMin = Math.min(fromMin, item.from);
+    toMin = Math.max(toMin, item.to);
+  });
+  if (withNow && nowMin >= 7 * 60) {
+    fromMin = Math.min(fromMin, nowMin);
+    toMin = Math.max(toMin, nowMin + 30);
+  }
+  return { first: Math.floor(fromMin / 60), last: Math.min(24, Math.ceil(toMin / 60)) };
+}
+function agendaHourLines(grid: HTMLElement, hours: { first: number; last: number }, hourPx: number) {
+  grid.style.height = (hours.last - hours.first) * hourPx + "px";
+  for (var hour = hours.first; hour <= hours.last; hour++) {
+    var line = el("div", { class: "ag-hr" }, [el("span", { text: hour === 12 ? "Noon" : hourLabel(hour) })]);
+    line.style.top = (hour - hours.first) * hourPx + "px";
+    grid.appendChild(line);
+  }
+}
+// One interview block, placed in its lane. The week's narrow columns show the first name and start time only.
+function agendaBlock(item: Item, firstHour: number, hourPx: number, narrow: boolean) {
+  var booking = item.booking;
+  var interviewer = state.iv.assign[booking.id];
+  var now = Date.now();
+  var isPast = Date.parse(booking.end) <= now;
+  var needsSupport = !interviewer && Date.parse(booking.start) <= now && !booking.missed;
+  var cols = item.group.cols.length;
+  var height = Math.max(narrow ? 22 : 26, ((item.to - item.from) / 60) * hourPx - 2);
+  var start = formatTime(new Date(booking.start));
+  var block = el(
+    "button",
+    {
+      type: "button",
+      class:
+        "ag-i " +
+        (interviewer ? colorClass(interviewer) : "cn") +
+        (isPast ? " past" : "") +
+        (booking.missed ? " missed" : "") +
+        (height < 40 ? " short" : height < 66 ? " mid" : ""),
+      "aria-label": narrow ? titleCase(booking.name) + ", " + start + (interviewer ? ", " + interviewer : "") : null,
+      onclick: function () {
+        showBooking(booking.id);
+      },
+    },
+    [
+      el("b", { text: narrow ? titleCase(booking.name).split(" ")[0] : titleCase(booking.name) }),
+      narrow ? null : el("span", { class: "ag-s", text: [booking.company, booking.round, interviewer || missedLabel(booking)].filter(Boolean).join(" · ") }),
+      el("span", { class: "ag-t", text: narrow ? start : start + " – " + formatTime(new Date(booking.end)) }),
+      needsSupport
+        ? el("i", {
+            class: "need-dot",
+            title: "Support not recorded",
+            "aria-label": "Support not recorded",
+            role: "img",
+          })
+        : null,
+    ],
+  );
+  block.style.top = ((item.from - firstHour * 60) / 60) * hourPx + 1 + "px";
+  block.style.height = height + "px";
+  var gap = narrow ? 1 : 2;
+  block.style.left = "calc(" + (item.col * 100) / cols + "% + " + gap + "px)";
+  block.style.width = "calc(" + 100 / cols + "% - " + gap * 2 + "px)";
+  return block;
+}
+function agendaCount(count: number) {
+  return count ? count + (count === 1 ? " interview" : " interviews") : "No interviews";
+}
 function renderAgenda() {
   var box = byId("agenda");
   if (!box) {
     return;
   }
+  var body = byId("agBody");
+  if (!body) {
+    box.textContent = "";
+    var toggle = el("div", { class: "ag-sw", id: "agSw", role: "group", "aria-label": "Agenda view" }, [
+      el("span", { class: "ag-sw-p", "aria-hidden": "true" }),
+    ]);
+    ["Day", "Week"].forEach(function (label) {
+      toggle.appendChild(
+        el("button", {
+          type: "button",
+          text: label,
+          onclick: function () {
+            if (agendaWeek !== (label === "Week")) {
+              setAgendaWeek(label === "Week");
+            }
+          },
+        }),
+      );
+    });
+    box.appendChild(toggle);
+    body = el("div", { id: "agBody", class: "ag-body" });
+    box.appendChild(body);
+  }
+  var switcher = byId("agSw");
+  switcher.classList.toggle("is-wk", agendaWeek);
+  switcher.children[1].setAttribute("aria-pressed", agendaWeek ? "false" : "true");
+  switcher.children[2].setAttribute("aria-pressed", agendaWeek ? "true" : "false");
+  box.classList.toggle("is-wk", agendaWeek);
+  body.textContent = "";
+  if (agendaWeek) {
+    renderAgendaWeek(body);
+  } else {
+    renderAgendaDay(body);
+  }
+}
+function renderAgendaDay(box: HTMLElement) {
   var today = dayKeyOf(new Date());
   var now = Date.now();
   var shown = agendaDay();
-  box.textContent = "";
   var strip = el("div", {
     class: "ws",
     role: "group",
@@ -579,9 +704,7 @@ function renderAgenda() {
           type: "button",
           class: "ws-b" + (day === shown ? " on" : "") + (day === today ? " today" : "") + (i >= 5 ? " we" : ""),
           "aria-pressed": day === shown ? "true" : "false",
-          "aria-label":
-            formatDay(day, { weekday: "long", month: "long", day: "numeric" }) +
-            (count ? ", " + count + (count === 1 ? " interview" : " interviews") : ", no interviews"),
+          "aria-label": formatDay(day, { weekday: "long", month: "long", day: "numeric" }) + ", " + agendaCount(count).toLowerCase(),
           onclick: function () {
             pickAgendaDay(day);
           },
@@ -597,78 +720,80 @@ function renderAgenda() {
     el("div", { class: "ag-h" + (shown === today ? " today" : "") }, [
       el("b", { text: formatDay(shown, { weekday: "long" }) + "," }),
       el("span", { text: formatDay(shown, { day: "numeric", month: "short" }) }),
-      el("em", { text: items.length ? items.length + (items.length === 1 ? " interview" : " interviews") : "No interviews" }),
+      el("em", { text: agendaCount(items.length) }),
     ]),
   );
-  // the hours shown: working hours, stretched to fit the day's interviews and, today, the time now
+  var hours = agendaHours(items, shown === today);
   var nowMin = minutesOfDay(new Date());
-  var fromMin = state.hours.start;
-  var toMin = state.hours.end;
-  items.forEach(function (item) {
-    fromMin = Math.min(fromMin, item.from);
-    toMin = Math.max(toMin, item.to);
-  });
-  if (shown === today && nowMin >= 7 * 60) {
-    fromMin = Math.min(fromMin, nowMin);
-    toMin = Math.max(toMin, nowMin + 30);
-  }
-  var firstHour = Math.floor(fromMin / 60);
-  var lastHour = Math.min(24, Math.ceil(toMin / 60));
   var grid = el("div", { class: "ag-grid" });
-  grid.style.height = (lastHour - firstHour) * AGENDA_HOUR_PX + "px";
-  for (var hour = firstHour; hour <= lastHour; hour++) {
-    var line = el("div", { class: "ag-hr" }, [el("span", { text: hour === 12 ? "Noon" : hourLabel(hour) })]);
-    line.style.top = (hour - firstHour) * AGENDA_HOUR_PX + "px";
-    grid.appendChild(line);
-  }
+  agendaHourLines(grid, hours, AGENDA_HOUR_PX);
   var lane = el("div", { class: "ag-lane" });
   items.forEach(function (item) {
-    var booking = item.booking;
-    var interviewer = state.iv.assign[booking.id];
-    var isPast = Date.parse(booking.end) <= now;
-    var needsSupport = !interviewer && Date.parse(booking.start) <= now && !booking.missed;
-    var cols = item.group.cols.length;
-    var height = Math.max(26, ((item.to - item.from) / 60) * AGENDA_HOUR_PX - 2);
-    var block = el(
-      "button",
-      {
-        type: "button",
-        class:
-          "ag-i " +
-          (interviewer ? colorClass(interviewer) : "cn") +
-          (isPast ? " past" : "") +
-          (booking.missed ? " missed" : "") +
-          (height < 40 ? " short" : height < 66 ? " mid" : ""),
-        onclick: function () {
-          showBooking(booking.id);
-        },
-      },
-      [
-        el("b", { text: titleCase(booking.name) }),
-        el("span", { class: "ag-s", text: [booking.company, booking.round, interviewer || missedLabel(booking)].filter(Boolean).join(" · ") }),
-        el("span", { class: "ag-t", text: formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end)) }),
-        needsSupport
-          ? el("i", {
-              class: "need-dot",
-              title: "Support not recorded",
-              "aria-label": "Support not recorded",
-              role: "img",
-            })
-          : null,
-      ],
-    );
-    block.style.top = ((item.from - firstHour * 60) / 60) * AGENDA_HOUR_PX + 1 + "px";
-    block.style.height = height + "px";
-    block.style.left = "calc(" + (item.col * 100) / cols + "% + 2px)";
-    block.style.width = "calc(" + 100 / cols + "% - 4px)";
-    lane.appendChild(block);
+    lane.appendChild(agendaBlock(item, hours.first, AGENDA_HOUR_PX, false));
   });
   grid.appendChild(lane);
-  if (shown === today && nowMin >= firstHour * 60 && nowMin <= lastHour * 60) {
+  if (shown === today && nowMin >= hours.first * 60 && nowMin <= hours.last * 60) {
     var nowLine = el("div", { class: "ag-now" }, [el("span", { text: formatTime(now) })]);
-    nowLine.style.top = ((nowMin - firstHour * 60) / 60) * AGENDA_HOUR_PX + "px";
+    nowLine.style.top = ((nowMin - hours.first * 60) / 60) * AGENDA_HOUR_PX + "px";
     grid.appendChild(nowLine);
   }
+  box.appendChild(grid);
+}
+function renderAgendaWeek(box: HTMLElement) {
+  var today = dayKeyOf(new Date());
+  var days: string[] = [];
+  var itemsByDay: Item[][] = [];
+  var all: Item[] = [];
+  for (var i = 0; i < 7; i++) {
+    days.push(addDays(weekOf, i));
+    itemsByDay.push(dayItems(days[i]));
+    all = all.concat(itemsByDay[i]);
+  }
+  box.appendChild(
+    el("div", { class: "ag-h" }, [el("b", { text: weekTitle(weekOf) }), el("em", { text: agendaCount(all.length) })]),
+  );
+  // the day headings line up with the columns; tapping one opens that day
+  var heads = el("div", { class: "agw-h", role: "group", "aria-label": "Days" }, [el("span")]);
+  days.forEach(function (day, index) {
+    var count = itemsByDay[index].length;
+    heads.appendChild(
+      el(
+        "button",
+        {
+          type: "button",
+          class: "ws-b" + (day === today ? " today" : "") + (index >= 5 ? " we" : ""),
+          "aria-label": "Open " + formatDay(day, { weekday: "long", month: "long", day: "numeric" }) + ", " + agendaCount(count).toLowerCase(),
+          onclick: function () {
+            selectedDay = day;
+            setAgendaWeek(false);
+          },
+        },
+        [el("span", { class: "ws-w", text: formatDay(day, { weekday: "short" }) }), el("b", { text: formatDay(day, { day: "numeric" }) })],
+      ),
+    );
+  });
+  box.appendChild(heads);
+  var hasToday = days.indexOf(today) >= 0;
+  var hours = agendaHours(all, hasToday);
+  var nowMin = minutesOfDay(new Date());
+  var grid = el("div", { class: "ag-grid agw" });
+  agendaHourLines(grid, hours, AGENDA_WEEK_HOUR_PX);
+  var cols = el("div", { class: "agw-cols" });
+  days.forEach(function (day, index) {
+    var col = el("div", { class: "agw-c" + (day === today ? " today" : "") + (index >= 5 ? " we" : "") });
+    var items = itemsByDay[index];
+    layoutColumns(items);
+    items.forEach(function (item) {
+      col.appendChild(agendaBlock(item, hours.first, AGENDA_WEEK_HOUR_PX, true));
+    });
+    if (day === today && nowMin >= hours.first * 60 && nowMin <= hours.last * 60) {
+      var nowLine = el("div", { class: "ag-now", title: formatTime(Date.now()) });
+      nowLine.style.top = ((nowMin - hours.first * 60) / 60) * AGENDA_WEEK_HOUR_PX + "px";
+      col.appendChild(nowLine);
+    }
+    cols.appendChild(col);
+  });
+  grid.appendChild(cols);
   box.appendChild(grid);
 }
 function render() {
@@ -2173,7 +2298,7 @@ byId("next").onclick = function () {
   selectedDay = null;
   render();
 };
-// Swipe the agenda sideways to move a day, like paging in a calendar app.
+// Swipe the agenda sideways to move a day (a week in Week view), like paging in a calendar app.
 (function () {
   var box = byId("agenda");
   var startX = 0;
@@ -2192,10 +2317,17 @@ byId("next").onclick = function () {
     if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) {
       return;
     }
-    pickAgendaDay(addDays(agendaDay(), dx < 0 ? 1 : -1));
-    box.classList.remove("swipe-next", "swipe-prev");
-    void box.offsetWidth;
-    box.classList.add(dx < 0 ? "swipe-next" : "swipe-prev");
+    if (agendaWeek) {
+      weekOf = addDays(weekOf, dx < 0 ? 7 : -7);
+      selectedDay = null;
+      render();
+    } else {
+      pickAgendaDay(addDays(agendaDay(), dx < 0 ? 1 : -1));
+    }
+    var body = byId("agBody");
+    body.classList.remove("swipe-next", "swipe-prev", "sw-in");
+    void body.offsetWidth;
+    body.classList.add(dx < 0 ? "swipe-next" : "swipe-prev");
   });
 })();
 byId("today").onclick = function () {
@@ -2206,7 +2338,8 @@ byId("today").onclick = function () {
 };
 // Opening the Agenda brings the time now, or else the day's first interview, into view when it's further down.
 byId("tabAg").addEventListener("click", function () {
-  setTimeout(function () {
+  // before the first frame, so the page doesn't show at the top and then jump
+  requestAnimationFrame(function () {
     var mark = document.querySelector("#agenda .ag-now") || document.querySelector("#agenda .ag-i");
     if (mark && mark.getBoundingClientRect().top > innerHeight * 0.6) {
       // scroll only up and down: the page may still be sliding in sideways
