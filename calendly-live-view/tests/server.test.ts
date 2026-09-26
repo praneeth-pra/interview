@@ -110,6 +110,20 @@ describe("booking page", () => {
     expect(r.headers.get("location")).toBe("/booking");
   });
 
+  test("search engines may list the landing page, and only the landing page", async () => {
+    const home = await get(open, "/", { "x-forwarded-host": "www.hi-techie.dev" });
+    expect(home.headers.get("x-robots-tag")).toBeNull();
+    expect(home.headers.get("link")).toBe('<https://hi-techie.dev/>; rel="canonical"');
+    for (const path of ["/booking", "/enquiry", "/admin", "/api/companies"]) expect((await get(open, path)).headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    const robots = await (await get(open, "/robots.txt", { "x-forwarded-host": "hi-techie.dev" })).text();
+    expect(robots).toContain("Disallow: /admin");
+    expect(robots).toContain("Disallow: /b/");
+    expect(robots).toContain("Sitemap: https://hi-techie.dev/sitemap.xml");
+    const sitemap = await get(open, "/sitemap.xml", { "x-forwarded-host": "www.hi-techie.dev" });
+    expect(sitemap.headers.get("content-type")).toContain("application/xml");
+    expect(await sitemap.text()).toContain("<loc>https://hi-techie.dev/</loc>");
+  });
+
   test("serves the shell with fingerprinted assets, a strict policy and revalidation", async () => {
     const r = await get(open, "/booking");
     const html = await r.text();

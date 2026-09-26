@@ -47,6 +47,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 - CSS, JS and fonts are served from `/assets/<name>.<hash>.<ext>` with a one-year `immutable` cache. The hash changes whenever the file changes, so a deploy is picked up on the next page load.
 - Everything is brotli/gzip-compressed once at startup; large JSON/CSV API answers are compressed per request.
 - The Content-Security-Policy is `script-src 'self'; style-src 'self'` with no nonces, so pages must not contain inline `<script>`/`<style>` or `style="..."` attributes (a test enforces this). Per-request values go in `<script type="application/json" id="boot">`.
+- Search engines may list only the landing page (`/`): every other response carries `X-Robots-Tag: noindex`. `/robots.txt` keeps crawlers out of `/admin`, `/api/` and manage links, and `/sitemap.xml` lists the landing page. The landing page's canonical address is the one without `www.`.
 - Analytics loads in the admin page as a same-origin frame from `/admin/analytics`, only when that tab is opened.
 - `/enquiry` is a plain page (`src/pages/enquiry.html|css|js`) that posts a multipart form to `/api/enquiry`. The details go to `enquiries.json`; the resume (PDF or Word, checked by its first bytes, 1 MB at most) is saved as `DATA_DIR/resumes/<id>.<ext>`.
 
