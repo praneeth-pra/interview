@@ -2555,9 +2555,6 @@ html {
   background: var(--amber-t);
   color: var(--amber);
 }
-.bk-undo {
-  margin-top: 10px;
-}
 /* interviews marked as not having taken place */
 .ev.missed b {
   text-decoration: line-through;
@@ -3298,8 +3295,8 @@ html {
   color: var(--rc);
 }
 .rs-opts {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 8px;
 }
 .rs-opt {
@@ -3308,7 +3305,8 @@ html {
   justify-content: center;
   gap: 7px;
   min-height: 40px;
-  padding: 6px 8px;
+  flex: 1 1 auto;
+  padding: 6px 14px;
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--card);
@@ -3329,6 +3327,9 @@ html {
   border-color: var(--rc);
   background: var(--rt);
   color: var(--rc);
+}
+.rs-hint {
+  margin: 10px 0 0;
 }
 .rsd {
   flex: none;
