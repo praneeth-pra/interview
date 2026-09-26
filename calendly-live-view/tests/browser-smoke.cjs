@@ -92,6 +92,16 @@ const checks = [
     await p.keyboard.press("Escape");
     if (await p.locator("#dlMenu").isVisible()) throw new Error("menu did not close");
   }],
+  ["admin candidates from the menu", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    await p.locator("#mCand").click();
+    await p.locator("#viewAllow #addb").waitFor();
+    if (await p.locator("#viewCal").isVisible()) throw new Error("calendar still showing");
+    if (!new URL(p.url()).pathname.endsWith("/admin/allowlist")) throw new Error("url did not change: " + p.url());
+    await p.locator("#tabCal").click();
+    await p.locator("#viewCal").waitFor();
+  }],
 ];
 
 (async () => {

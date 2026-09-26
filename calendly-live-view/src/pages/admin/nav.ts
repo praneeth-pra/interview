@@ -17,7 +17,7 @@ export function setupNav() {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", allow: "Emails", stats: "Contacts", enq: "Enquiries" };
+  var TITLES = { cal: "Calendar", allow: "Candidates", stats: "Contacts", enq: "Enquiries" };
   function sync() {
     var current = currentView();
     byId("sect").textContent = TITLES[current];
@@ -31,7 +31,6 @@ export function setupNav() {
     byId("tabEnq").setAttribute("aria-selected", String(current === "enq"));
     if (current === "stats" || current === "enq") {
       byId("tabCal").setAttribute("aria-selected", "false");
-      byId("tabAllow").setAttribute("aria-selected", "false");
     }
   }
   function showStats() {
@@ -64,7 +63,7 @@ export function setupNav() {
     }
   }
   byId("tabEnq").onclick = showEnq;
-  ["tabCal", "tabAllow"].forEach(function (id) {
+  ["tabCal", "mCand"].forEach(function (id) {
     byId(id).addEventListener("click", function () {
       byId("viewStats").hidden = true;
       byId("viewEnq").hidden = true;
@@ -100,10 +99,7 @@ export function setupNav() {
       showEnq();
       return;
     }
-    var tab = byId(target === "allow" ? "tabAllow" : "tabCal");
-    if (tab) {
-      tab.click();
-    }
+    byId("tabCal").click();
     window.scrollTo(0, 0);
     sync();
   });
