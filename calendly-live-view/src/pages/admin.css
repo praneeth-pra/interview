@@ -872,6 +872,66 @@ h2 {
 .rm:hover {
   background: var(--red-t);
 }
+/* Enquiries panel: the public link, then one block per response */
+.enqlink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sub);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.enqlink button {
+  flex: none;
+}
+.enq {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.enq:first-child {
+  border-top: 0;
+}
+.enqh {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.enqh b {
+  font-size: 16px;
+}
+.enqh small {
+  flex: none;
+  color: var(--ink2);
+  font-size: 12.5px;
+}
+.enqt {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+.enqc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 4px 0 10px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.enqa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.enqa .bk-act {
+  flex-direction: row;
+  min-height: 38px;
+  padding: 6px 14px;
+}
 /* Admins panel: one row per email, then an add field */
 .admrow {
   display: flex;
