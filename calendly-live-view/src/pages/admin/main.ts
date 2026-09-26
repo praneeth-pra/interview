@@ -23,13 +23,6 @@ import { setupNav } from "./nav";
 import { setupStatsFrame } from "./stats-frame";
 import type { Allowlist, Booking, Change, State } from "./types";
 
-(function () {
-  var mark = document.querySelector(".mk");
-  var brand = document.querySelector(".bn");
-  if (mark && brand) {
-    mark.textContent = (brand.textContent.trim().charAt(0) || "").toUpperCase();
-  }
-})();
 var boot = JSON.parse(document.getElementById("boot").textContent);
 var HOUR_PX = 64;
 var state: State = {
