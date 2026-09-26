@@ -19,6 +19,8 @@ export function setupNav() {
   function sync() {
     var current = currentView();
     byId("sect").textContent = TITLES[current];
+    var searchOpen = current === "stats" ? "cq-open" : "q-open";
+    byId("qbtn").setAttribute("aria-expanded", String(current !== "allow" && body.classList.contains(searchOpen)));
     body.classList.toggle("on-cal", current === "cal");
     nav.querySelectorAll("[data-go]").forEach(function (button) {
       button.classList.toggle("on", button.getAttribute("data-go") === current);
@@ -109,9 +111,20 @@ export function setupNav() {
   byId("vAg").onclick = function () {
     view(false);
   };
-  // The search button in the phone header shows the candidate search under the week title.
+  // The search button in the phone header shows the candidate search under the week title, or on Contacts the
+  // contact search above the list.
   var searchButton = byId("qbtn");
   searchButton.onclick = function () {
+    if (currentView() === "stats") {
+      var frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
+      var toggle = frame && (frame.contentWindow as any).__contactSearch;
+      if (toggle) {
+        var shown = !!toggle();
+        body.classList.toggle("cq-open", shown);
+        searchButton.setAttribute("aria-expanded", String(shown));
+      }
+      return;
+    }
     var open = !body.classList.contains("q-open");
     body.classList.toggle("q-open", open);
     searchButton.setAttribute("aria-expanded", String(open));

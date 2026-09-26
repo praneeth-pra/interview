@@ -128,9 +128,17 @@ async function pickTime(p, s, dayIndex = 1, slotIndex = 2) {
 }
 // Contacts (Analytics before): type a name in the search and open the first match. Works on both the old page
 // (a dropdown of matches) and the new one (the contacts list filters as you type).
-async function pickPerson(f, name) {
+async function pickPerson(p, f, name) {
+  await showSearch(p, f);
   await f.locator("#pq").fill(name);
   await f.locator("#plistbox .rrow, #clist .crow").first().click();
+}
+// On phones the contact search is behind the header's search button (always shown on the old page).
+async function showSearch(p, f) {
+  if (!(await f.locator("#pq").isVisible())) {
+    await p.locator("#qbtn").click();
+    await wait(p, 300);
+  }
 }
 async function openStats(p, s) {
   await p.goto(s.main + "/admin");
@@ -344,7 +352,7 @@ const CASES = [
     async (p, s) => {
       await openStats(p, s);
       const f = p.frameLocator("iframe.la-frame");
-      await pickPerson(f, "Vikram");
+      await pickPerson(p, f, "Vikram");
       await wait(p, 1800);
     },
   ],
@@ -353,6 +361,7 @@ const CASES = [
     async (p, s) => {
       await openStats(p, s);
       const f = p.frameLocator("iframe.la-frame");
+      await showSearch(p, f);
       const i = f.locator("input").first();
       await i.click();
       await i.fill("Priya");
@@ -364,7 +373,7 @@ const CASES = [
     async (p, s) => {
       await openStats(p, s);
       const f = p.frameLocator("iframe.la-frame");
-      await pickPerson(f, "Vikram");
+      await pickPerson(p, f, "Vikram");
       await wait(p, 1800);
       await f.locator("#hist:visible, #tabAbout").first().click();
       await wait(p, 1200);
@@ -375,7 +384,7 @@ const CASES = [
     async (p, s) => {
       await openStats(p, s);
       const f = p.frameLocator("iframe.la-frame");
-      await pickPerson(f, "Vikram");
+      await pickPerson(p, f, "Vikram");
       await wait(p, 1800);
       // the Results panel is gone from Contacts; there this screen shows the contact's About tab
       if (await f.locator("#reslink").count()) {

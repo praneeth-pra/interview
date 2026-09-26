@@ -32,6 +32,7 @@ const checks = [
     await p.locator("#tabStats").click();
     const frame = p.frameLocator("iframe.la-frame");
     await frame.locator("#clist .crow").first().waitFor();
+    if (!(await frame.locator("#pq").isVisible())) await p.locator("#qbtn").click();
     await frame.locator("#pq").fill("priya");
     await frame.locator("#clist .crow").first().click();
     await frame.locator("#an:not([hidden]) .aitem").first().waitFor();

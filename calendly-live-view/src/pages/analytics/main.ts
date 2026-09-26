@@ -220,7 +220,7 @@ function initials(name) {
   return ((parts[0] || "?").charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : "")).toUpperCase();
 }
 // "Today at 3:00pm", "Thursday at 3:00pm", "Last Friday at 12:00pm", "Sep 12 at 11:00am"
-function meetingWhen(iso, now, short?) {
+function meetingWhen(iso, now) {
   var date = new Date(iso);
   var days = dayNum(ymd(date)) - dayNum(ymd(new Date(now)));
   var label =
@@ -231,9 +231,9 @@ function meetingWhen(iso, now, short?) {
         : days === -1
           ? "Yesterday"
           : Math.abs(days) < 7
-            ? fmt({ weekday: short ? "short" : "long" }, date)
+            ? fmt({ weekday: "long" }, date)
             : days > -14 && days < 0
-              ? "Last " + fmt({ weekday: short ? "short" : "long" }, date)
+              ? "Last " + fmt({ weekday: "long" }, date)
               : fmt({ day: "numeric", month: "short" }, date);
   return label + " at " + t12(date);
 }
@@ -306,22 +306,24 @@ function renderPeople() {
     row.type = "button";
     row.appendChild(span("cav", initials(person.name)));
     var main = div("cmain");
-    main.appendChild(el("b", null, niceName(person.name)));
+    var top = div("cline");
+    top.appendChild(el("b", null, niceName(person.name)));
+    top.appendChild(span("cago", person.activity ? agoShort(person.activity, now) : ""));
+    main.appendChild(top);
     var meta = div("cmeta");
     meta.appendChild(svgIcon(CAL_ICON));
     meta.appendChild(
       span(
         null,
         person.next
-          ? "Next · " + meetingWhen(person.next, now, true)
+          ? "Next meeting: " + meetingWhen(person.next, now)
           : person.past
-            ? "Last · " + meetingWhen(person.past, now, true)
+            ? "Last meeting: " + meetingWhen(person.past, now)
             : person.count + (person.count === 1 ? " booking" : " bookings"),
       ),
     );
     main.appendChild(meta);
     row.appendChild(main);
-    row.appendChild(span("cago", person.activity ? agoShort(person.activity, now) : ""));
     row.addEventListener("click", () => {
       choose(person);
     });
@@ -363,6 +365,24 @@ function setTab(name) {
 byId<HTMLInputElement>("pq").addEventListener("input", () => {
   renderPeople();
 });
+// On phones the search field is hidden until the search button in the admin header asks for it; returns whether
+// it is now shown.
+(window as any).__contactSearch = () => {
+  var field = byId<HTMLInputElement>("pq");
+  var show = !document.body.classList.contains("cq") || !byId("an").hidden;
+  document.body.classList.toggle("cq", show);
+  if (!byId("an").hidden) {
+    showHome();
+  }
+  if (show) {
+    window.scrollTo(0, 0);
+    field.focus();
+  } else if (field.value) {
+    field.value = "";
+    renderPeople();
+  }
+  return show;
+};
 byId("csort").addEventListener("click", () => {
   var index = SORTS.map((entry) => entry[0]).indexOf(sortMode);
   sortMode = SORTS[(index + 1) % SORTS.length][0];
@@ -436,8 +456,7 @@ function loadAnalytics(eventId) {
       }
     });
 }
-// ---- Phones: one short row per company (name, round steps, status, next/last date); tap for the details sheet.
-// Active companies first; ones that ended (canceled, no-show, not cleared, withdrew) fold under "Show N closed".
+// interviewer names changed: redraw the open contact
 function onIv() {
   if (data) {
     renderAnalysis();

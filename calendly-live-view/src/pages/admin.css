@@ -1827,6 +1827,12 @@ body.la-on {
 body.la-on main {
   padding-bottom: 0 !important;
 }
+/* on phones the Contacts list runs edge to edge; the frame keeps its own side margins */
+@media (max-width: 760px) {
+  body.la-on main {
+    padding-inline: 0 !important;
+  }
+}
 @media (min-width: 761px) {
   body.la-on main {
     padding-top: 0 !important;
@@ -2342,10 +2348,11 @@ button,
     width: 18px;
     height: 18px;
   }
-  body:not(.on-cal) .tbtn {
+  body:not(.on-cal):not(.la-on) .tbtn {
     display: none;
   }
-  body.q-open .tbtn {
+  body.on-cal.q-open #qbtn,
+  body.la-on.cq-open #qbtn {
     background: var(--tint);
     color: var(--link);
     border-color: transparent;
