@@ -270,14 +270,13 @@ button:disabled {
   background: var(--seg);
 }
 .dur-opts button {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
   min-width: 0;
-  padding: 6px 4px;
+  height: 36px;
   border-radius: 8px;
   color: var(--ink2);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
   transition:
     background 0.18s,
     color 0.18s,
@@ -286,21 +285,6 @@ button:disabled {
 .dur-opts button:hover {
   color: var(--ink);
   background: var(--dur-h);
-}
-.dur-opts .dm {
-  font-size: 14px;
-  font-weight: 600;
-  line-height: 1.3;
-  font-variant-numeric: tabular-nums;
-}
-.dur-opts .dh {
-  font-size: 11.5px;
-  font-weight: 500;
-  line-height: 1.3;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
 }
 .dur-opts button[aria-pressed="true"],
 .dur-opts button[aria-pressed="true"]:hover {
