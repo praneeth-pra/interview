@@ -2555,33 +2555,6 @@ html {
   background: var(--amber-t);
   color: var(--amber);
 }
-/* "Didn't happen?" under the interview support choices: the question, then two buttons side by side */
-.bk-miss {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  font-size: 13px;
-  color: var(--ink2);
-}
-.bk-miss span {
-  grid-column: 1 / -1;
-}
-.bk-miss button {
-  height: auto;
-  min-height: 34px;
-  padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-}
 .bk-undo {
   margin-top: 10px;
 }
@@ -2593,12 +2566,6 @@ html {
   align-self: center;
   padding: 3px 8px;
   font-size: 11.5px;
-}
-.bk-acts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  gap: 8px;
-  margin: 12px 0 0;
 }
 .bk-act {
   display: flex;
@@ -3240,10 +3207,21 @@ html {
 .ag-i.mid .ag-s {
   display: none;
 }
-.ag-i .need-dot {
+.ag-rs {
   position: absolute;
   top: 6px;
   right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ag-rs .bk-st {
+  padding: 1px 7px;
+}
+.ag-i.has-rs {
+  padding-right: 84px;
+}
+.ag-i .need-dot {
   width: 8px;
   height: 8px;
 }
@@ -3290,4 +3268,72 @@ html {
   .dlmenu #mAlerts {
     display: block;
   }
+}
+/* The round's status (booking panel picker and chips, agenda chips): each status sets a colour
+   (--rc) and a tint (--rt). */
+.rs-scheduled {
+  --rc: var(--link);
+  --rt: var(--tint);
+}
+.rs-cleared {
+  --rc: var(--green);
+  --rt: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.rs-rejected {
+  --rc: var(--red);
+  --rt: var(--red-t);
+}
+.rs-hold {
+  --rc: var(--amber);
+  --rt: var(--amber-t);
+}
+.rs-noshow,
+.rs-didnthappen,
+.rs-cancelled {
+  --rc: var(--ink2);
+  --rt: var(--sub);
+}
+.bk-st[class*="rs-"] {
+  background: var(--rt);
+  color: var(--rc);
+}
+.rs-opts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.rs-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    transform 0.12s var(--ease);
+}
+.rs-opt:active {
+  transform: scale(0.97);
+}
+.rs-opt[aria-pressed="true"] {
+  border-color: var(--rc);
+  background: var(--rt);
+  color: var(--rc);
+}
+.rsd {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rc);
 }

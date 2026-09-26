@@ -461,6 +461,47 @@ describe("admin", () => {
     }
   });
 
+  test("an admin sets a round's status: a result, a no-show, or back to scheduled", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-round-"));
+    const past = istMidnight() - 24 * HOUR + 10 * HOUR;
+    const done = { ...booking, id: "00000000-0000-0000-0000-000000000009", start: new Date(past).toISOString(), end: new Date(past + 30 * 60000).toISOString() };
+    const helped = { ...done, id: "00000000-0000-0000-0000-000000000008" };
+    const gone = { ...done, id: "00000000-0000-0000-0000-000000000007", cancelled: true, cancelledAt: new Date(past).toISOString() };
+    writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, done, helped, gone] }));
+    writeFileSync(join(dir, "interviewers.json"), JSON.stringify({ names: ["Praneeth"], assign: { [helped.id]: "Praneeth" } }));
+    const srv = await start(4317, {}, dir);
+    try {
+      const set = (id: string, status: string) => postJson(srv, "/admin/api/round-status", { id, status });
+      const saved = (id: string) => JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.find((b: any) => b.id === id);
+      // existing bookings start as Scheduled: nothing stored
+      let state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === done.id).outcome).toBe("");
+      expect((await set(done.id, "maybe")).status).toBe(400);
+      expect((await set(done.id, "cancelled")).status).toBe(400);
+      expect((await set(gone.id, "cleared")).status).toBe(409);
+      // no-show only after the start and without support recorded; results any time
+      expect((await set(booking.id, "noshow")).status).toBe(409);
+      expect((await set(helped.id, "noshow")).status).toBe(409);
+      expect((await set(helped.id, "rejected")).status).toBe(200);
+      expect((await set(booking.id, "hold")).status).toBe(200);
+      expect((await set(done.id, "cleared")).status).toBe(200);
+      state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === done.id).outcome).toBe("cleared");
+      expect(await (await get(srv, "/admin/export.csv")).text()).toContain("Cleared");
+      // a no-show replaces the result, and Scheduled clears both
+      expect((await set(done.id, "noshow")).status).toBe(200);
+      expect(saved(done.id).missed).toBe("noshow");
+      expect(saved(done.id).outcome).toBeUndefined();
+      expect((await set(done.id, "scheduled")).status).toBe(200);
+      expect(saved(done.id).missed).toBeUndefined();
+      expect(saved(done.id).outcome).toBeUndefined();
+      expect(saved(helped.id).outcome).toBe("rejected");
+    } finally {
+      srv.proc.kill();
+    }
+  });
+
   test("the service worker caches admin pages and assets only, and forgets them on sign-out", async () => {
     const sw = await get(open, "/sw.js");
     expect(sw.headers.get("cache-control")).toBe("no-cache");

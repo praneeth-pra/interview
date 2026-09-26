@@ -30,6 +30,7 @@ export async function commit(b: Booking, prev: Booking) {
     return false;
   }
 }
+const OUTCOME_LABEL = { cleared: "Cleared", rejected: "Rejected", hold: "On hold" } as const;
 export const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
 export async function createBooking(body: any, req: Request, source?: "admin"): Promise<Response> {
   const name = String(body?.name ?? "")
@@ -186,7 +187,9 @@ export function bookingsCsvText() {
       String(b.duration),
       b.cancelled
         ? "Cancelled"
-        : b.missed === "noshow"
+        : b.outcome
+          ? OUTCOME_LABEL[b.outcome]
+          : b.missed === "noshow"
           ? "No-show"
           : b.missed
             ? "Didn't happen"

@@ -19,6 +19,8 @@ export type Booking = {
   prevStart?: string;
   missed?: "noshow" | "other" | ""; // marked after the start time when the interview didn't take place
   missedAt?: string;
+  outcome?: "cleared" | "rejected" | "hold" | ""; // the round's result; none means Scheduled
+  outcomeAt?: string;
 };
 // A cancellation or reschedule in the last 30 days.
 export type Change = Booking & { kind: "cancelled" | "rescheduled"; at: string };
