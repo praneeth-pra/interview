@@ -1958,6 +1958,18 @@ main.tab-fade {
 body {
   overflow-x: clip;
 }
+/* Room for the scrollbar is kept even on sections too short to scroll, so switching between a long section (the
+   Agenda) and a short one doesn't shift the whole page sideways on desktops with a visible scrollbar. */
+html {
+  scrollbar-gutter: stable;
+}
+/* On desktop the header tabs aren't laid out like pages side by side, so sections only fade in. */
+@media (min-width: 761px) {
+  main.tab-next,
+  main.tab-prev {
+    animation: fade 0.2s ease;
+  }
+}
 main.tab-next > section,
 main.tab-prev > section,
 main.tab-fade > section {

@@ -2338,7 +2338,8 @@ byId("today").onclick = function () {
 };
 // Opening the Agenda brings the time now, or else the day's first interview, into view when it's further down.
 byId("tabAg").addEventListener("click", function () {
-  setTimeout(function () {
+  // before the first frame, so the page doesn't show at the top and then jump
+  requestAnimationFrame(function () {
     var mark = document.querySelector("#agenda .ag-now") || document.querySelector("#agenda .ag-i");
     if (mark && mark.getBoundingClientRect().top > innerHeight * 0.6) {
       // scroll only up and down: the page may still be sliding in sideways
