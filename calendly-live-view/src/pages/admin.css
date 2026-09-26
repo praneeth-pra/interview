@@ -1390,30 +1390,6 @@ button.card:hover {
 .bnav {
   display: none;
 }
-.vt {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 12px;
-  background: var(--sub);
-  border: 1px solid var(--line);
-  margin-bottom: 14px;
-}
-.vt button {
-  height: 34px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--ink2);
-}
-.vt [aria-selected="true"] {
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
 .agenda {
   display: block;
 }
@@ -1716,9 +1692,6 @@ body.wkv .agenda {
   width: 18px;
   height: 18px;
 }
-.vt {
-  max-width: 320px;
-}
 @media (max-width: 760px) {
   .wk {
     justify-content: space-between;
@@ -1727,9 +1700,6 @@ body.wkv .agenda {
     flex: 1;
     font-size: 17px;
     grid-column: auto;
-  }
-  .vt {
-    max-width: none;
   }
 }
 #newb {
@@ -1936,7 +1906,6 @@ button,
   touch-action: manipulation;
 }
 .bnav,
-.vt,
 .seg,
 .top,
 .legend {
@@ -2057,13 +2026,6 @@ button,
     background: var(--tint);
     text-decoration: none;
     white-space: nowrap;
-  }
-  .vt {
-    border-radius: 14px;
-  }
-  .vt button {
-    height: 38px;
-    border-radius: 11px;
   }
   .grab {
     width: 42px;
@@ -2371,29 +2333,6 @@ button,
 .brand .adm {
   display: none;
 }
-/* the date row: week title, ‹ Today ›, and a small Week/Agenda toggle at the end */
-.wk .vt {
-  display: inline-grid;
-  margin: 0 0 0 auto;
-  max-width: none;
-  padding: 2px;
-  border-radius: 10px;
-  flex: none;
-}
-.wk .vt button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 8px;
-  font-size: 13px;
-}
-.wk .vt svg {
-  display: none;
-  width: 18px;
-  height: 18px;
-}
 .gh span {
   display: none;
 }
@@ -2482,19 +2421,6 @@ button,
   }
   .status.bad {
     height: 28px;
-  }
-  .wk .vt {
-    padding: 2px;
-  }
-  .wk .vt button {
-    width: 36px;
-    padding: 0;
-  }
-  .wk .vt svg {
-    display: block;
-  }
-  .wk .vt span {
-    display: none;
   }
   .attn {
     margin: -2px 2px 12px;
@@ -3355,15 +3281,12 @@ button,
 .ws-d .cn {
   --c: #7d7a74;
 }
-/* Phones: Alerts sits in the ⋯ menu, and Calendar and Agenda are bottom-bar tabs, so the Week/Agenda switch goes. */
+/* Phones: Alerts sits in the ⋯ menu. */
 #mAlerts {
   display: none;
 }
 @media (max-width: 760px) {
   .dlmenu #mAlerts {
     display: block;
-  }
-  .wk .vt {
-    display: none;
   }
 }

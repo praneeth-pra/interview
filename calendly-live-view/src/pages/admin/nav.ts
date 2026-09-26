@@ -1,20 +1,18 @@
-// Phone bottom navigation (Calendar is the week grid, Agenda the day's timeline) and section title, the Contacts and
-// Enquiries tabs, the week/agenda switch (remembered; agenda by default on phones) and the bottom-sheet panel, which can be
-// swiped down to close.
+// Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts and Enquiries) in the header and the
+// phone bottom bar, the phone section title, and the bottom-sheet panel, which can be swiped down to close.
 export function setupNav() {
   function byId(id: string) {
     return document.getElementById(id);
   }
   var body = document.body;
   var nav = document.querySelector(".bnav");
-  var phone = matchMedia("(max-width:760px)").matches;
-  var weekView = false;
+  var weekView = new URLSearchParams(location.search).get("view") !== "agenda";
   function currentView() {
     if (!byId("viewStats").hidden) {
       return "stats";
     } else if (!byId("viewEnq").hidden) {
       return "enq";
-    } else if (phone && !weekView) {
+    } else if (!weekView) {
       return "ag";
     } else {
       return "cal";
@@ -29,11 +27,10 @@ export function setupNav() {
     nav.querySelectorAll("[data-go]").forEach(function (button) {
       button.classList.toggle("on", button.getAttribute("data-go") === current);
     });
+    byId("tabCal").setAttribute("aria-selected", String(current === "cal"));
+    byId("tabAg").setAttribute("aria-selected", String(current === "ag"));
     byId("tabStats").setAttribute("aria-selected", String(current === "stats"));
     byId("tabEnq").setAttribute("aria-selected", String(current === "enq"));
-    if (current === "stats" || current === "enq") {
-      byId("tabCal").setAttribute("aria-selected", "false");
-    }
   }
   function showStats() {
     try {
@@ -63,18 +60,28 @@ export function setupNav() {
     }
   }
   byId("tabEnq").onclick = showEnq;
-  byId("tabCal").addEventListener("click", function () {
+  function showCal(week: boolean) {
     byId("viewStats").hidden = true;
     byId("viewEnq").hidden = true;
+    view(week);
     try {
       var url = new URL(location.href);
-      if (url.searchParams.get("view") === "analytics" || url.searchParams.get("view") === "enquiries") {
+      if (week) {
         url.searchParams.delete("view");
-        history.replaceState(null, "", url.pathname + url.search);
+      } else {
+        url.searchParams.set("view", "agenda");
       }
+      history.replaceState(null, "", url.pathname + url.search);
     } catch (e) {}
     sync();
+  }
+  byId("tabCal").addEventListener("click", function () {
+    showCal(true);
   });
+  byId("tabAg").onclick = function () {
+    byId("tabCal").click();
+    showCal(false);
+  };
   nav.addEventListener("click", function (e) {
     var button = (e.target as Element).closest("[data-go]");
     if (!button) {
@@ -89,11 +96,8 @@ export function setupNav() {
       showEnq();
       return;
     }
-    // on phones, Calendar is the week grid and Agenda is the day's timeline
-    view(target === "cal");
-    byId("tabCal").click();
+    byId(target === "ag" ? "tabAg" : "tabCal").click();
     window.scrollTo(0, 0);
-    sync();
   });
   var startView = new URLSearchParams(location.search).get("view");
   if (startView === "analytics") {
@@ -101,26 +105,11 @@ export function setupNav() {
   } else if (startView === "enquiries") {
     setTimeout(showEnq, 0);
   }
-  var saved = "";
-  try {
-    saved = localStorage.getItem("adm.view") || "";
-  } catch (e) {}
-  weekView = saved ? saved === "week" : !phone;
   function view(week: boolean) {
-    if (week !== weekView) {
-      try {
-        localStorage.setItem("adm.view", week ? "week" : "agenda");
-      } catch (e) {}
-    }
     weekView = week;
     body.classList.toggle("wkv", week);
-    byId("vAg").setAttribute("aria-selected", String(!week));
-    byId("vWk").setAttribute("aria-selected", String(week));
     sync();
   }
-  byId("vAg").onclick = function () {
-    view(false);
-  };
   // The search button in the phone header shows the contact search above the Contacts list. Phones have no
   // candidate search on the Calendar, so the button is hidden there.
   var searchButton = byId("qbtn");
@@ -135,9 +124,6 @@ export function setupNav() {
       body.classList.toggle("cq-open", shown);
       searchButton.setAttribute("aria-expanded", String(shown));
     }
-  };
-  byId("vWk").onclick = function () {
-    view(true);
   };
   view(weekView);
   sync();
