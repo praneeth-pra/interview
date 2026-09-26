@@ -95,8 +95,17 @@ describe("page sources", () => {
 });
 
 describe("booking page", () => {
+  test("the home page links to booking and the enquiry page", async () => {
+    const html = await (await get(open, "/")).text();
+    expect(html).toContain('href="/booking"');
+    expect(html).toContain('href="/enquiry"');
+    const r = await fetch(open.url + "/booking/", { redirect: "manual" });
+    expect(r.status).toBe(301);
+    expect(r.headers.get("location")).toBe("/booking");
+  });
+
   test("serves the shell with fingerprinted assets, a strict policy and revalidation", async () => {
-    const r = await get(open, "/");
+    const r = await get(open, "/booking");
     const html = await r.text();
     expect(r.status).toBe(200);
     expect(r.headers.get("cache-control")).toBe("private, no-cache");
@@ -105,12 +114,12 @@ describe("booking page", () => {
     expect(r.headers.get("x-frame-options")).toBe("DENY");
     expect(assetsIn(html)).toEqual(expect.arrayContaining([expect.stringMatching(/^\/assets\/book\.[0-9a-f]{10}\.css$/), expect.stringMatching(/^\/assets\/book\.[0-9a-f]{10}\.js$/)]));
     expect(html).toContain('<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>');
-    const again = await get(open, "/", { "if-none-match": r.headers.get("etag")! });
+    const again = await get(open, "/booking", { "if-none-match": r.headers.get("etag")! });
     expect(again.status).toBe(304);
   });
 
   test("escapes the host name in the title and in the boot data", async () => {
-    const html = await (await get(open, "/")).text();
+    const html = await (await get(open, "/booking")).text();
     expect(html).toContain("<title>Interview · Hi&lt;Techie&gt;</title>");
     expect(html).not.toContain("Hi<Techie>");
     expect(boot(html)).toEqual({ host: "Hi<Techie>", event: "Interview", manage: null, info: expect.objectContaining({ loc: expect.any(String) }) });
@@ -126,7 +135,7 @@ describe("booking page", () => {
   });
 
   test("every asset a page references is served with a one-year immutable cache", async () => {
-    const pages = [await (await get(open, "/")).text(), await (await get(open, "/admin")).text(), await (await get(open, "/admin/analytics")).text()];
+    const pages = await Promise.all(["/", "/booking", "/enquiry", "/admin", "/admin/analytics"].map(async (p) => (await get(open, p)).text()));
     const css = await Promise.all(pages.flatMap(assetsIn).filter((u) => u.endsWith(".css")).map(async (u) => (await get(open, u)).text()));
     const fonts = css.flatMap((c) => [...c.matchAll(/url\((\/assets\/[^)]+)\)/g)].map((m) => m[1]));
     expect(fonts.length).toBeGreaterThan(0);
@@ -139,7 +148,7 @@ describe("booking page", () => {
   });
 
   test("an older fingerprint still gets the current file, but without the long cache", async () => {
-    const js = assetsIn(await (await get(open, "/")).text()).find((u) => u.endsWith(".js"))!;
+    const js = assetsIn(await (await get(open, "/booking")).text()).find((u) => u.endsWith(".js"))!;
     const r = await get(open, js.replace(/\.[0-9a-f]{10}\.js$/, ".0000000000.js"));
     expect(r.status).toBe(200);
     expect(r.headers.get("cache-control")).toBe("no-cache");
@@ -271,6 +280,20 @@ describe("enquiries", () => {
     expect(existsSync(join(open.dir, "resumes", e.id + ".pdf"))).toBe(false);
     // behind sign-in when it is on
     expect((await get(locked, "/admin/api/enquiries")).status).toBe(401);
+  });
+
+  test("the live state lists when enquiries came in, and opening Enquiries marks them seen", async () => {
+    const PDF2 = new TextEncoder().encode("%PDF-1.7\n");
+    // from another address: the earlier test used up this one's five an hour
+    const sent = await fetch(open.url + "/api/enquiry", { method: "POST", body: form({ ...good, name: "Ravi Teja" }, { bytes: PDF2, name: "ravi.pdf" }), headers: { "x-forwarded-for": "10.0.0.2" } });
+    expect(sent.status).toBe(200);
+    const state = await (await get(open, "/admin/api/state")).json();
+    expect(state.enquiries.length).toBe(1);
+    const before = await (await get(open, "/admin/api/enquiries/seen")).json();
+    expect(before.seenAt === "" || Date.parse(before.seenAt) < Date.parse(state.enquiries[0])).toBe(true);
+    const after = await (await postJson(open, "/admin/api/enquiries/seen", {})).json();
+    expect(Date.parse(after.seenAt)).toBeGreaterThanOrEqual(Date.parse(state.enquiries[0]));
+    expect((await (await get(open, "/admin/api/enquiries/seen")).json()).seenAt).toBe(after.seenAt);
   });
 });
 
@@ -424,7 +447,7 @@ describe("admin", () => {
 
   test("the admin page has the logo link and the frame points at /admin/analytics", async () => {
     const html = await (await get(open, "/admin")).text();
-    expect(html).toContain('<a class="brand" href="/" title="Open the booking page">');
+    expect(html).toContain('<a class="brand" href="/booking" title="Open the booking page">');
     const js = await (await get(open, assetsIn(html).find((u) => u.endsWith(".js"))!)).text();
     expect(js).toMatch(/\.src="\/admin\/analytics"/);
     expect(js).not.toContain("srcdoc");

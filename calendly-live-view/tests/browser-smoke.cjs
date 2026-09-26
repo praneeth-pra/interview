@@ -25,7 +25,7 @@ locked.stdout.on("data", (d) => (lockedLog += d));
 
 const checks = [
   ["booking page", async (p) => {
-    await p.goto(BASE + "/");
+    await p.goto(BASE + "/booking");
     await p.locator("button.day.open").nth(1).click();
     await p.locator("button.t").first().click();
     await p.locator("#go").click();
@@ -78,14 +78,15 @@ const checks = [
     await p.locator("#done:not([hidden])").waitFor();
     if (!(await p.evaluate(() => document.fonts.check("600 16px Figtree")))) throw new Error("Figtree did not load");
     await p.goto(BASE + "/admin");
-    await p.locator("#dlBtn").click();
-    await p.locator("#mEnq").click();
+    await p.locator("#tabEnq .nbadge:not([hidden])").waitFor(); // the red count for the new enquiry
+    await p.locator("#tabEnq").click();
     await p.locator(".enq", { hasText: "Asha Rao" }).waitFor();
+    await p.locator("#tabEnq .nbadge[hidden]").waitFor({ state: "attached" }); // seen now
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();
-    await p.locator("#dlMenu a[href='/admin/backup.json']").waitFor();
+    await p.locator("#dlMenu a[href='/admin/export.csv']").waitFor();
     await p.keyboard.press("Escape");
     if (await p.locator("#dlMenu").isVisible()) throw new Error("menu did not close");
   }],

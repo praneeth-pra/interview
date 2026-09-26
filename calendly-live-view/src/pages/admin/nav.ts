@@ -1,4 +1,4 @@
-// Phone bottom navigation and section title, the Contacts tab, the week/agenda switch (remembered; agenda by default
+// Phone bottom navigation and section title, the Contacts and Enquiries tabs, the week/agenda switch (remembered; agenda by default
 // on phones) and the bottom-sheet panel, which can be swiped down to close.
 export function setupNav() {
   function byId(id: string) {
@@ -9,13 +9,15 @@ export function setupNav() {
   function currentView() {
     if (!byId("viewStats").hidden) {
       return "stats";
+    } else if (!byId("viewEnq").hidden) {
+      return "enq";
     } else if (!byId("viewAllow").hidden) {
       return "allow";
     } else {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", allow: "Emails", stats: "Contacts" };
+  var TITLES = { cal: "Calendar", allow: "Emails", stats: "Contacts", enq: "Enquiries" };
   function sync() {
     var current = currentView();
     byId("sect").textContent = TITLES[current];
@@ -26,7 +28,8 @@ export function setupNav() {
       button.classList.toggle("on", button.getAttribute("data-go") === current);
     });
     byId("tabStats").setAttribute("aria-selected", String(current === "stats"));
-    if (current === "stats") {
+    byId("tabEnq").setAttribute("aria-selected", String(current === "enq"));
+    if (current === "stats" || current === "enq") {
       byId("tabCal").setAttribute("aria-selected", "false");
       byId("tabAllow").setAttribute("aria-selected", "false");
     }
@@ -37,6 +40,7 @@ export function setupNav() {
     } catch (e) {}
     byId("viewCal").hidden = true;
     byId("viewAllow").hidden = true;
+    byId("viewEnq").hidden = true;
     byId("viewStats").hidden = false;
     sync();
     window.scrollTo(0, 0);
@@ -45,12 +49,28 @@ export function setupNav() {
     }
   }
   byId("tabStats").onclick = showStats;
+  function showEnq() {
+    try {
+      history.replaceState(null, "", "/admin?view=enquiries");
+    } catch (e) {}
+    byId("viewCal").hidden = true;
+    byId("viewAllow").hidden = true;
+    byId("viewStats").hidden = true;
+    byId("viewEnq").hidden = false;
+    sync();
+    window.scrollTo(0, 0);
+    if (window.__enq) {
+      window.__enq();
+    }
+  }
+  byId("tabEnq").onclick = showEnq;
   ["tabCal", "tabAllow"].forEach(function (id) {
     byId(id).addEventListener("click", function () {
       byId("viewStats").hidden = true;
+      byId("viewEnq").hidden = true;
       try {
         var url = new URL(location.href);
-        if (url.searchParams.get("view") === "analytics") {
+        if (url.searchParams.get("view") === "analytics" || url.searchParams.get("view") === "enquiries") {
           url.searchParams.delete("view");
           history.replaceState(null, "", url.pathname + url.search);
         }
@@ -76,6 +96,10 @@ export function setupNav() {
       showStats();
       return;
     }
+    if (target === "enq") {
+      showEnq();
+      return;
+    }
     var tab = byId(target === "allow" ? "tabAllow" : "tabCal");
     if (tab) {
       tab.click();
@@ -88,8 +112,11 @@ export function setupNav() {
     attributeFilter: ["hidden"],
   });
   sync();
-  if (new URLSearchParams(location.search).get("view") === "analytics") {
+  var startView = new URLSearchParams(location.search).get("view");
+  if (startView === "analytics") {
     setTimeout(showStats, 0);
+  } else if (startView === "enquiries") {
+    setTimeout(showEnq, 0);
   }
   var phone = matchMedia("(max-width:760px)").matches;
   var saved = "";

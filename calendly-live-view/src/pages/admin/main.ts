@@ -635,6 +635,7 @@ function renderAgenda() {
 }
 var agendaScrolled = false;
 function render() {
+  renderEnquiryBadge();
   weekOf ||= weekStart(selectedDay || dayKeyOf(new Date()));
   renderStatus();
   if (state.ready) {
@@ -1736,10 +1737,11 @@ function showAdmins() {
       setMessage(msg, error.message, true);
     });
 }
-// Responses from the public /enquiry page, newest first: contact details, technology, experience and the resume.
+// The Enquiries tab: responses from the public /enquiry page, newest first, with contact details, technology,
+// experience and the resume. Opening it marks them as seen, which clears the red count.
 function showEnquiries() {
-  refreshPanel = null;
-  var body = openPanel("Enquiries", "Responses from the enquiry page.");
+  var body = byId("enqBody");
+  body.textContent = "";
   var link = location.origin + "/enquiry";
   var msg = el("p", { class: "msg", role: "status" });
   body.appendChild(
@@ -1819,6 +1821,7 @@ function showEnquiries() {
     request("/admin/api/enquiries")
       .then(function (result) {
         draw(result.enquiries || []);
+        markEnquiriesSeen();
       })
       .catch(function (error) {
         list.textContent = "";
@@ -1827,6 +1830,52 @@ function showEnquiries() {
   }
   load();
 }
+// The red count on the Enquiries tab: enquiries that came in after this admin last opened the tab (kept on the server,
+// so phone and laptop agree). The home-screen app's icon shows it too, where the phone allows it.
+var enquiriesSeenAt = "";
+var enquiriesShown = -1;
+function unreadEnquiries() {
+  var seen = enquiriesSeenAt ? Date.parse(enquiriesSeenAt) : 0;
+  return (state.enquiries || []).filter(function (at) {
+    return Date.parse(at) > seen;
+  }).length;
+}
+function renderEnquiryBadge() {
+  var count = byId("viewEnq").hidden ? unreadEnquiries() : 0;
+  document.querySelectorAll(".nbadge").forEach(function (badge: HTMLElement) {
+    badge.hidden = !count;
+    badge.textContent = count > 99 ? "99+" : String(count);
+  });
+  byId("tabEnq").setAttribute("aria-label", count ? "Enquiries, " + count + " new" : "Enquiries");
+  var nav = navigator as any;
+  try {
+    if (count && nav.setAppBadge) {
+      nav.setAppBadge(count).catch(function () {});
+    } else if (!count && nav.clearAppBadge) {
+      nav.clearAppBadge().catch(function () {});
+    }
+  } catch (e) {}
+  // a new enquiry while the tab is open shows up straight away
+  var total = (state.enquiries || []).length;
+  if (!byId("viewEnq").hidden && enquiriesShown >= 0 && total !== enquiriesShown) {
+    showEnquiries();
+  }
+  enquiriesShown = total;
+}
+function markEnquiriesSeen() {
+  request("/admin/api/enquiries/seen", {})
+    .then(function (result) {
+      enquiriesSeenAt = result.seenAt || "";
+      renderEnquiryBadge();
+    })
+    .catch(function () {});
+}
+request("/admin/api/enquiries/seen")
+  .then(function (result) {
+    enquiriesSeenAt = result.seenAt || "";
+    renderEnquiryBadge();
+  })
+  .catch(function () {});
 var searchBox = byId<HTMLInputElement>("q");
 var searchList = byId("qdrop");
 var matches: Booking[] = [];
@@ -2223,11 +2272,9 @@ document.addEventListener("visibilitychange", function () {
     }
   }
 });
-byId("mEnq").onclick = showEnquiries;
-// a "New enquiry" alert opens the list
-if (new URLSearchParams(location.search).get("view") === "enquiries") {
-  setTimeout(showEnquiries, 0);
-}
+window.__enq = showEnquiries;
+// leaving the tab brings the count back for anything new
+new MutationObserver(renderEnquiryBadge).observe(byId("viewEnq"), { attributes: true, attributeFilter: ["hidden"] });
 if (boot.login) {
   byId("mAdm").hidden = false;
   byId("mAdm").onclick = showAdmins;
