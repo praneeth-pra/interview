@@ -16,6 +16,7 @@ import {
 } from "./time";
 import { byWhom, plural, statusOf, titleCase } from "./labels";
 import { request } from "./api";
+import { sameCompany } from "../../same-company";
 import { setupAlerts } from "./alerts";
 import { setupDownloadMenu } from "./download-menu";
 import { setupNav } from "./nav";
@@ -980,12 +981,24 @@ function showBooking(id: string, refresh?: boolean) {
     body.appendChild(box);
   }
 
-  // The candidate's other interviews (same email), newest first.
+  // The candidate's other interviews (same email) with this company: its other rounds and any repeat bookings, newest
+  // first. Spellings that differ slightly ("Randstand", "Randstandi") count as the same company.
   var seen: Record<string, boolean> = {};
+  var sameEmail = function (other: Booking) {
+    return !!booking.email && other.email.toLowerCase() === booking.email.toLowerCase();
+  };
+  var sameFirm = function (other: Booking) {
+    var mine = (booking.company || "").trim().toLowerCase();
+    var theirs = (other.company || "").trim().toLowerCase();
+    return !!mine && (mine === theirs || sameCompany(mine, theirs));
+  };
+  var sameSpelling = function (other: Booking) {
+    return (other.company || "").trim().toLowerCase() === (booking.company || "").trim().toLowerCase();
+  };
   var others = (state.events || [])
     .concat(allBookings || [])
     .filter(function (other) {
-      var keep = other.id !== booking.id && !seen[other.id] && !!booking.email && other.email.toLowerCase() === booking.email.toLowerCase();
+      var keep = other.id !== booking.id && !seen[other.id] && sameEmail(other) && sameFirm(other);
       seen[other.id] = true;
       return keep;
     })
@@ -993,8 +1006,8 @@ function showBooking(id: string, refresh?: boolean) {
       return Date.parse(second.start) - Date.parse(first.start);
     });
   if (others.length) {
-    var history = el("div", { class: "bk-card bk-hist" }, [el("h3", { text: "Other interviews" })]);
-    others.slice(0, 6).forEach(function (other) {
+    var history = el("div", { class: "bk-card bk-hist" }, [el("h3", { text: "Other interviews at " + (booking.company || "").trim() })]);
+    others.slice(0, 10).forEach(function (other) {
       var otherStatus = statusOf(other);
       history.appendChild(
         el(
@@ -1008,7 +1021,14 @@ function showBooking(id: string, refresh?: boolean) {
           },
           [
             el("span", { class: "bk-hd", text: formatIst({ month: "short", day: "numeric" }, new Date(other.start)) }),
-            el("span", { class: "bk-hm", text: [other.company, other.round].filter(Boolean).join(" · ") || "Interview" }),
+            // the company is in the title; show it here only when spelled differently
+            el("span", {
+              class: "bk-hm",
+              text:
+                [sameSpelling(other) ? "" : other.company, other.round]
+                  .filter(Boolean)
+                  .join(" · ") || "Interview",
+            }),
             el("span", { class: "bk-st sm st-" + otherStatus.toLowerCase().replace(/\s+/g, ""), text: otherStatus }),
           ],
         ),
