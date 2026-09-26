@@ -399,7 +399,7 @@ function renderWeek() {
             titleCase(booking.name),
             booking.company,
             booking.round,
-            interviewer ? "Interviewer: " + interviewer : started ? "No interviewer recorded" : "",
+            interviewer ? "Interview support: " + interviewer : started ? "Interview support not recorded" : "",
           ]
             .filter(Boolean)
             .join(" · "),
@@ -937,9 +937,9 @@ function showBooking(id: string, refresh?: boolean) {
 
   // Interviewer
   if (!booking.cancelled) {
-    var box = el("div", { class: "bk-card" }, [el("h3", { text: "Interviewer" })]);
+    var box = el("div", { class: "bk-card" }, [el("h3", { text: "Interview support given by" })]);
     if (upcoming) {
-      box.appendChild(el("p", { class: "sub", text: "You can record who took it once it starts at " + formatTime(start) + "." }));
+      box.appendChild(el("p", { class: "sub", text: "You can record who gave interview support once it starts at " + formatTime(start) + "." }));
     } else {
       var choices = el("div", { class: "ivc" });
       var msg = el("p", { class: "msg", role: "status" });
@@ -968,9 +968,9 @@ function showBooking(id: string, refresh?: boolean) {
       });
       box.appendChild(choices);
       if (interviewer) {
-        box.appendChild(el("p", { class: "lockd", text: "Locked. The interviewer can't be changed once recorded." }));
+        box.appendChild(el("p", { class: "lockd", text: "Locked. This can't be changed once recorded." }));
       } else {
-        box.appendChild(el("p", { class: "sub ivh", text: "Tap who took this interview." }));
+        box.appendChild(el("p", { class: "sub ivh", text: "Tap who gave interview support." }));
       }
       var clash = clashFor(booking, interviewer);
       if (clash) {
@@ -1020,7 +1020,10 @@ function showBooking(id: string, refresh?: boolean) {
             },
           },
           [
-            el("span", { class: "bk-hd", text: formatIst({ month: "short", day: "numeric" }, new Date(other.start)) }),
+            el("span", { class: "bk-hd" }, [
+              el("span", { text: formatIst({ month: "short", day: "numeric" }, new Date(other.start)) }),
+              el("small", { text: formatTime(new Date(other.start)) }),
+            ]),
             // the company is in the title; show it here only when spelled differently
             el("span", {
               class: "bk-hm",

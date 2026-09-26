@@ -2896,7 +2896,7 @@ button,
 }
 .bk-h {
   display: grid;
-  grid-template-columns: 58px 1fr auto;
+  grid-template-columns: 64px 1fr auto;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -2916,8 +2916,14 @@ button,
   border-top: 0;
 }
 .bk-hd {
+  display: grid;
+  gap: 1px;
   font-size: 13px;
   color: var(--ink2);
+}
+.bk-hd small {
+  font-size: 12px;
+  white-space: nowrap;
 }
 .bk-hm {
   font-size: 14.5px;
