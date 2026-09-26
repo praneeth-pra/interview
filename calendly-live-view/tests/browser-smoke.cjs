@@ -96,11 +96,18 @@ const checks = [
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();
     await p.locator("#mCand").click();
-    await p.locator("#viewAllow #addb").waitFor();
-    if (await p.locator("#viewCal").isVisible()) throw new Error("calendar still showing");
-    if (!new URL(p.url()).pathname.endsWith("/admin/allowlist")) throw new Error("url did not change: " + p.url());
-    await p.locator("#tabCal").click();
-    await p.locator("#viewCal").waitFor();
+    await p.locator("#panel #viewAllow #addb").waitFor();
+    if ((await p.locator("#ptitle").textContent()) !== "Candidates") throw new Error("panel title is not Candidates");
+    if (!(await p.locator("#viewCal").isVisible())) throw new Error("calendar should stay behind the panel");
+    await p.locator("#pclose").click();
+    if (await p.locator("#viewAllow").isVisible()) throw new Error("candidates still showing after close");
+    await p.locator("#dlBtn").click();
+    await p.locator("#mNew").click();
+    await p.locator("#ptitle", { hasText: "New booking" }).waitFor();
+    if (await p.locator("#pbody #viewAllow").count()) throw new Error("candidates left inside another panel");
+    await p.locator("#pclose").click();
+    await p.goto(BASE + "/admin/allowlist");
+    await p.locator("#panel #viewAllow #addb").waitFor();
   }],
 ];
 
