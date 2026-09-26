@@ -1803,12 +1803,17 @@ function rupees(amount: number) {
   return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 var paymentsShown = -1;
-// List (one block per payment, with receipts) or Table (candidate, date, amount, with a total row); remembered per device
-var paymentsMode = "list";
+// Three views, remembered per device: By candidate (one row per candidate email: payments, total paid, last paid),
+// Table (candidate, date, amount) and List (one block per payment, with its receipt). Table and List can be filtered to
+// one candidate, which shows their subtotal; tapping a candidate in By candidate does that.
+var paymentsMode = "people";
 try {
-  paymentsMode = localStorage.getItem("payMode") === "table" ? "table" : "list";
+  var savedMode = localStorage.getItem("payMode") || "";
+  paymentsMode = ["people", "table", "list"].indexOf(savedMode) >= 0 ? savedMode : "people";
 } catch (e) {}
 var paymentsSort = { key: "date", down: true };
+var peopleSort = { key: "last", down: true };
+var paymentsFilter = "";
 function showPayments() {
   var body = byId("payBody");
   body.textContent = "";
@@ -1834,12 +1839,30 @@ function showPayments() {
       }),
     ]),
   );
-  var total = el("div", { class: "paytot", hidden: true });
+  var bar = el("div", { class: "paybar", hidden: true });
   var list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
-  body.appendChild(total);
+  body.appendChild(bar);
   body.appendChild(list);
   body.appendChild(msg);
   var payments: any[] = [];
+  // one entry per candidate email, with the name from their latest payment (payments come newest first)
+  function people() {
+    var byEmail: Record<string, any> = {};
+    var out: any[] = [];
+    payments.forEach(function (item) {
+      var p = byEmail[item.email];
+      if (!p) {
+        p = byEmail[item.email] = { email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt };
+        out.push(p);
+      }
+      p.count++;
+      p.total += item.amount;
+      if (Date.parse(item.createdAt) > Date.parse(p.last)) {
+        p.last = item.createdAt;
+      }
+    });
+    return out;
+  }
   function modeButton(mode: string, label: string) {
     return el("button", {
       type: "button",
@@ -1854,76 +1877,181 @@ function showPayments() {
       },
     });
   }
+  function sortButton(sort: { key: string; down: boolean }, key: string, label: string, set: (s: { key: string; down: boolean }) => void) {
+    var on = sort.key === key;
+    return el("button", {
+      type: "button",
+      text: label + (on ? (sort.down ? " \u2193" : " \u2191") : ""),
+      onclick: function () {
+        set({ key: key, down: on ? !sort.down : true });
+        draw();
+      },
+    });
+  }
+  function heading(sort: { key: string; down: boolean }, key: string, label: string, num: boolean, set: (s: { key: string; down: boolean }) => void) {
+    var on = sort.key === key;
+    return el("th", { scope: "col", class: num ? "num" : "", "aria-sort": on ? (sort.down ? "descending" : "ascending") : null }, [
+      sortButton(sort, key, label, set),
+    ]);
+  }
   function draw() {
     list.textContent = "";
-    total.textContent = "";
-    total.hidden = !payments.length;
+    bar.textContent = "";
+    bar.hidden = !payments.length;
     list.className = "enqlist";
     if (!payments.length) {
       list.appendChild(el("p", { class: "sub", text: "No payments yet. Share the link above." }));
       return;
     }
-    var sum = payments.reduce(function (n, item) {
-      return n + item.amount;
-    }, 0);
-    total.appendChild(
-      el("div", null, [
-        el("small", { text: "Total received" }),
-        el("b", { text: rupees(sum) }),
-        el("small", { text: plural(payments.length, "payment") }),
-      ]),
-    );
-    total.appendChild(
-      el("div", { class: "paysw", role: "group", "aria-label": "Show payments as" }, [modeButton("list", "List"), modeButton("table", "Table")]),
-    );
-    if (paymentsMode === "table") {
-      drawTable(sum);
-    } else {
-      drawList();
+    var all = people();
+    if (paymentsFilter && !all.some((p) => p.email === paymentsFilter)) {
+      paymentsFilter = "";
     }
-  }
-  // Candidate, date and amount; Date and Amount sort when their heading is tapped (again to reverse)
-  function drawTable(sum: number) {
-    list.className = "enqlist paytbl";
-    var rows = payments.slice().sort(function (a, b) {
-      var diff = paymentsSort.key === "amount" ? a.amount - b.amount : Date.parse(a.createdAt) - Date.parse(b.createdAt);
-      return paymentsSort.down ? -diff : diff;
-    });
-    function heading(key: string, label: string) {
-      var on = paymentsSort.key === key;
-      return el("th", { scope: "col", class: key === "amount" ? "num" : "", "aria-sort": on ? (paymentsSort.down ? "descending" : "ascending") : null }, [
-        el("button", {
-          type: "button",
-          text: label + (on ? (paymentsSort.down ? " \u2193" : " \u2191") : ""),
-          onclick: function () {
-            paymentsSort = { key: key, down: on ? !paymentsSort.down : true };
+    var controls: HTMLElement[] = [
+      el("div", { class: "paysw", role: "group", "aria-label": "Show payments" }, [
+        modeButton("people", "By candidate"),
+        modeButton("table", "Table"),
+        modeButton("list", "List"),
+      ]),
+    ];
+    if (paymentsMode !== "people") {
+      var pick = el(
+        "select",
+        {
+          class: "payfilter",
+          "aria-label": "Show one candidate's payments",
+          onchange: function () {
+            paymentsFilter = pick.value;
             draw();
           },
-        }),
-      ]);
+        },
+        [el("option", { value: "", text: "All candidates" })].concat(
+          all
+            .slice()
+            .sort(function (a, b) {
+              return a.name.localeCompare(b.name);
+            })
+            .map(function (p) {
+              return el("option", { value: p.email, text: p.name + " (" + p.count + ")" });
+            }),
+        ),
+      );
+      pick.value = paymentsFilter;
+      controls.push(pick);
+    }
+    controls.forEach(function (c) {
+      bar.appendChild(c);
+    });
+    if (paymentsMode === "people") {
+      drawPeople(all);
+      return;
+    }
+    var rows = paymentsFilter
+      ? payments.filter(function (item) {
+          return item.email === paymentsFilter;
+        })
+      : payments;
+    var who = paymentsFilter
+      ? all.filter(function (p) {
+          return p.email === paymentsFilter;
+        })[0]
+      : null;
+    if (who) {
+      list.appendChild(
+        el("div", { class: "paysum" }, [
+          el("div", null, [el("b", { text: who.name }), el("small", { text: who.email })]),
+          el("div", { class: "num" }, [el("b", { text: rupees(who.total) }), el("small", { text: plural(who.count, "payment") })]),
+        ]),
+      );
+    }
+    if (paymentsMode === "table") {
+      drawTable(rows, who);
+    } else {
+      drawList(rows);
+    }
+  }
+  // one row per candidate; tapping one shows their payments
+  function drawPeople(all: any[]) {
+    list.className = "enqlist paytbl";
+    var rows = all.slice().sort(function (a, b) {
+      var diff = peopleSort.key === "total" ? a.total - b.total : peopleSort.key === "count" ? a.count - b.count : Date.parse(a.last) - Date.parse(b.last);
+      return peopleSort.down ? -diff : diff;
+    });
+    function setSort(next: { key: string; down: boolean }) {
+      peopleSort = next;
     }
     list.appendChild(
       el("table", null, [
-        el("thead", null, [el("tr", null, [el("th", { scope: "col", text: "Candidate" }), heading("date", "Date"), heading("amount", "Amount")])]),
+        el("thead", null, [
+          el("tr", null, [
+            el("th", { scope: "col", text: "Candidate" }),
+            heading(peopleSort, "count", "Paid", true, setSort),
+            heading(peopleSort, "total", "Total", true, setSort),
+            heading(peopleSort, "last", "Last", false, setSort),
+          ]),
+        ]),
+        el(
+          "tbody",
+          null,
+          rows.map(function (p) {
+            function open() {
+              paymentsFilter = p.email;
+              paymentsMode = "table";
+              draw();
+            }
+            return el("tr", { class: "tap", tabindex: "0", title: "Show " + p.name + "'s payments", onclick: open, onkeydown: onEnterOrSpace(open) }, [
+              el("td", null, [el("span", { class: "pn", text: p.name }), el("small", { text: p.email })]),
+              el("td", { class: "num", text: String(p.count) + "\u00D7" }),
+              el("td", { class: "num", text: rupees(p.total) }),
+              el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short" }, new Date(p.last)) }),
+            ]);
+          }),
+        ),
+      ]),
+    );
+  }
+  // Candidate, date and amount; Date and Amount sort when their heading is tapped (again to reverse). Filtered to one
+  // candidate, the last row is their total.
+  function drawTable(filtered: any[], who: any) {
+    list.className = "enqlist paytbl";
+    var rows = filtered.slice().sort(function (a, b) {
+      var diff = paymentsSort.key === "amount" ? a.amount - b.amount : Date.parse(a.createdAt) - Date.parse(b.createdAt);
+      return paymentsSort.down ? -diff : diff;
+    });
+    function setSort(next: { key: string; down: boolean }) {
+      paymentsSort = next;
+    }
+    list.appendChild(
+      el("table", null, [
+        el("thead", null, [
+          el("tr", null, [
+            // filtered to one candidate, their name is in the summary above instead
+            who ? null : el("th", { scope: "col", text: "Candidate" }),
+            heading(paymentsSort, "date", "Date", false, setSort),
+            heading(paymentsSort, "amount", "Amount", true, setSort),
+          ]),
+        ]),
         el(
           "tbody",
           null,
           rows.map(function (item) {
             return el("tr", null, [
-              el("td", { text: titleCase(item.name) }),
+              who ? null : el("td", { text: titleCase(item.name) }),
               el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short", year: "numeric" }, new Date(item.createdAt)) }),
               el("td", { class: "num", text: rupees(item.amount) }),
             ]);
           }),
         ),
-        el("tfoot", null, [
-          el("tr", null, [el("th", { scope: "row", text: "Total" }), el("td", { text: plural(rows.length, "payment") }), el("td", { class: "num", text: rupees(sum) })]),
-        ]),
+        who
+          ? el("tfoot", null, [
+              el("tr", null, [el("th", { scope: "row", text: "Total \u00B7 " + plural(who.count, "payment") }), el("td", { class: "num", text: rupees(who.total) })]),
+            ])
+          : null,
       ]),
     );
   }
-  function drawList() {
-    payments.forEach(function (item) {
+  function drawList(rows: any[]) {
+    rows.forEach(function (item) {
       var when = new Date(item.createdAt);
       var kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
       list.appendChild(
@@ -2133,8 +2261,8 @@ function renderAllow() {
   toggle.disabled = false;
   toggle.setAttribute("aria-checked", String(allow.enabled));
   byId("swd").textContent = allow.enabled
-    ? "On. Only the " + plural(allow.emails.length, "email") + " below can book."
-    : "Off. Anyone with the booking link can book.";
+    ? "On. Only the " + plural(allow.emails.length, "email") + " below can book and send payments."
+    : "Off. Anyone with the booking or payment link can use it.";
   byId("cnt").textContent = plural(allow.emails.length, "email");
   var query = byId<HTMLInputElement>("aq").value.trim().toLowerCase();
   var list = byId("alist");
@@ -2190,7 +2318,7 @@ byId("sw").onclick = function () {
     on: !allow.enabled,
   })
     .then(function () {
-      setMessage(byId("swm"), allow.enabled ? "Turned on. Only listed emails can book now." : "Turned off. Anyone with the link can book.");
+      setMessage(byId("swm"), allow.enabled ? "Turned on. Only listed emails can book and send payments now." : "Turned off. Anyone with the links can book and send payments.");
     })
     .catch(function (error) {
       button.disabled = false;

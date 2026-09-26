@@ -384,6 +384,31 @@ describe("payments", () => {
   });
 });
 
+describe("payments and the invite list", () => {
+  test("when the Candidates list is on, only its emails can send a payment, as with booking", async () => {
+    const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]);
+    const f = (email: string) => {
+      const d = new FormData();
+      d.set("email", email);
+      d.set("name", "Someone Else");
+      d.set("amount", "500");
+      d.set("receipt", new File([PNG], "r.png"));
+      return d;
+    };
+    const send = (email: string) => fetch(open.url + "/api/payment", { method: "POST", body: f(email), headers: { "x-real-ip": "10.1.9.1" } });
+    expect((await postJson(open, "/admin/api/allowlist", { action: "add", text: "listed@example.com" })).status).toBe(200);
+    expect((await postJson(open, "/admin/api/allowlist", { action: "enable", on: true })).status).toBe(200);
+    try {
+      const refused = await send("stranger@example.com");
+      expect(refused.status).toBe(403);
+      expect(await refused.json()).toEqual({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" });
+      expect((await send("Listed@Example.com")).status).toBe(200);
+    } finally {
+      await postJson(open, "/admin/api/allowlist", { action: "enable", on: false });
+    }
+  });
+});
+
 describe("admin", () => {
   test("without a session /admin shows the sign-in page and the APIs refuse", async () => {
     const html = await (await get(locked, "/admin")).text();

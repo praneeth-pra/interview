@@ -1,6 +1,6 @@
 # booking-form (hi-techie.dev)
 
-Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones. Anyone can report a payment with its receipt at `/payment` (not linked from the site, not indexed); those are in the Payments tab.
+Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones. Candidates report a payment with its receipt at `/payment` (not linked from the site, not indexed; limited to the Candidates list when it is on, like booking); those are in the Payments tab, by candidate.
 
 Runs on Railway: project `calendly-live-view`, service `booking-form`, production environment. Domains `hi-techie.dev`, `www.hi-techie.dev`.
 

@@ -1,6 +1,6 @@
 // Payments from the public /payment page, with their receipts.
 import { DATA_DIR, RECEIPT_MAX } from "./config";
-import { type Payment, paymentsStore, pushStore } from "./data";
+import { type Payment, emailAllowed, paymentsStore, pushStore } from "./data";
 import { type Srv, json, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
@@ -36,7 +36,8 @@ export async function removeReceipt(file: string) {
   if (!DATA_DIR) return void receiptsInMemory.delete(file);
   await rm(DATA_DIR + "/receipts/" + file, { force: true });
 }
-// POST /api/payment, a multipart form from the /payment page. Anyone can send one (no allowlist). Five an hour per
+// POST /api/payment, a multipart form from the /payment page. When the Candidates list is on, only its emails can send
+// one, the same as booking. Five an hour per
 // network address; a hidden "website" field that only bots fill in gets a thank-you and is dropped.
 export async function receivePayment(req: Request, srv: Srv): Promise<Response> {
   const ip = clientIp(req, srv);
@@ -64,6 +65,8 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
   const amountText = text("amount", 20).replace(/[,\s₹]/g, "");
   const amount = /^\d+(\.\d{1,2})?$/.test(amountText) ? Number(amountText) : NaN;
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
+  if (!emailAllowed(email))
+    return json({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" }, 403);
   if (name.length < 2) return json({ error: "Enter your full name." }, 400);
   if (!(amount > 0) || amount > AMOUNT_MAX) return json({ error: "Enter the amount you paid, in rupees." }, 400);
   const receipt = form.get("receipt");

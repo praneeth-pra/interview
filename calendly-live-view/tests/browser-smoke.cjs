@@ -98,14 +98,13 @@ const checks = [
     await p.click("#go");
     await p.locator("#done:not([hidden])").waitFor();
     await p.goto(BASE + "/admin?view=payments");
+    // By candidate first: tapping the candidate shows their payments in the table, with their total
+    await p.locator(".paytbl tbody tr", { hasText: "Kiran Kumar" }).click();
+    if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("candidate total is wrong");
+    await p.locator(".paysw button", { hasText: "List" }).click();
     await p.locator("#viewPay .enq", { hasText: "Kiran Kumar" }).waitFor();
-    if (!(await p.locator(".paytot b").textContent()).includes("12,500")) throw new Error("total is wrong");
     const [saved] = await Promise.all([p.waitForEvent("download"), p.locator("#viewPay .bk-act.dl").first().click()]);
     if (saved.suggestedFilename() !== "Kiran Kumar receipt.png") throw new Error("receipt saved as " + saved.suggestedFilename());
-    // the Table view: candidate, date and amount, with the total in the last row
-    await p.locator(".paysw button", { hasText: "Table" }).click();
-    if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("table total is wrong");
-    await p.locator(".paytbl tbody tr", { hasText: "Kiran Kumar" }).waitFor();
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");

@@ -87,6 +87,11 @@ form.addEventListener("submit", function (event) {
         })
         .then(function (body) {
           if (!response.ok) {
+            // the email isn't on the invite list: mark the email field, as the booking page does
+            if (body.field === "email") {
+              fields.email.setAttribute("aria-invalid", "true");
+              fields.email.focus();
+            }
             throw new Error(body.error || "Couldn't send your payment details. Try again.");
           }
         });

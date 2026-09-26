@@ -918,32 +918,54 @@ h2 {
   width: 18px;
   height: 18px;
 }
-/* Payments: the total received and the List/Table switch, above the payments */
-.paytot {
+/* Payments: the view switch and the candidate filter, above the payments */
+.paybar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.paybar[hidden] {
+  display: none;
+}
+.payfilter {
+  flex: 1 1 180px;
+  max-width: 280px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14.5px;
+}
+/* one candidate's subtotal, above their payments */
+.paysum {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin: 0 0 12px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: var(--card);
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
 }
-.paytot > div:first-child {
+.paysum > div {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
-.paytot b {
-  font-size: 26px;
-  line-height: 1.2;
+.paysum .num {
+  align-items: flex-end;
 }
-.paytot small {
+.paysum b {
+  font-size: 18px;
+}
+.paysum small {
   color: var(--ink2);
   font-size: 13px;
-}
-.paytot[hidden] {
-  display: none;
+  overflow-wrap: anywhere;
 }
 .paysw {
   display: inline-flex;
@@ -1008,6 +1030,23 @@ h2 {
 }
 .paytbl [aria-sort] button {
   color: var(--link);
+}
+.paytbl td small {
+  display: block;
+  color: var(--ink2);
+  font-size: 12.5px;
+}
+.paytbl .pn {
+  font-weight: 600;
+}
+.paytbl tr.tap {
+  cursor: pointer;
+}
+.paytbl tr.tap:hover td {
+  background: var(--sub);
+}
+.paysum + table thead th {
+  padding-top: 14px;
 }
 .paytbl .num {
   text-align: right;
