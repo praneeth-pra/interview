@@ -1,26 +1,31 @@
-// Phone bottom navigation and section title, the Contacts and Enquiries tabs, the week/agenda switch (remembered; agenda by default
-// on phones) and the bottom-sheet panel, which can be swiped down to close.
+// Phone bottom navigation (Calendar is the week grid, Agenda the day's timeline) and section title, the Contacts and
+// Enquiries tabs, the week/agenda switch (remembered; agenda by default on phones) and the bottom-sheet panel, which can be
+// swiped down to close.
 export function setupNav() {
   function byId(id: string) {
     return document.getElementById(id);
   }
   var body = document.body;
   var nav = document.querySelector(".bnav");
+  var phone = matchMedia("(max-width:760px)").matches;
+  var weekView = false;
   function currentView() {
     if (!byId("viewStats").hidden) {
       return "stats";
     } else if (!byId("viewEnq").hidden) {
       return "enq";
+    } else if (phone && !weekView) {
+      return "ag";
     } else {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", stats: "Contacts", enq: "Enquiries" };
+  var TITLES = { cal: "Calendar", ag: "Agenda", stats: "Contacts", enq: "Enquiries" };
   function sync() {
     var current = currentView();
     byId("sect").textContent = TITLES[current];
     byId("qbtn").setAttribute("aria-expanded", String(current === "stats" && body.classList.contains("cq-open")));
-    body.classList.toggle("on-cal", current === "cal");
+    body.classList.toggle("on-cal", current === "cal" || current === "ag");
     nav.querySelectorAll("[data-go]").forEach(function (button) {
       button.classList.toggle("on", button.getAttribute("data-go") === current);
     });
@@ -76,10 +81,6 @@ export function setupNav() {
       return;
     }
     var target = button.getAttribute("data-go");
-    if (target === "new") {
-      byId("mNew").click();
-      return;
-    }
     if (target === "stats") {
       showStats();
       return;
@@ -88,23 +89,23 @@ export function setupNav() {
       showEnq();
       return;
     }
+    // on phones, Calendar is the week grid and Agenda is the day's timeline
+    view(target === "cal");
     byId("tabCal").click();
     window.scrollTo(0, 0);
     sync();
   });
-  sync();
   var startView = new URLSearchParams(location.search).get("view");
   if (startView === "analytics") {
     setTimeout(showStats, 0);
   } else if (startView === "enquiries") {
     setTimeout(showEnq, 0);
   }
-  var phone = matchMedia("(max-width:760px)").matches;
   var saved = "";
   try {
     saved = localStorage.getItem("adm.view") || "";
   } catch (e) {}
-  var weekView = saved ? saved === "week" : !phone;
+  weekView = saved ? saved === "week" : !phone;
   function view(week: boolean) {
     if (week !== weekView) {
       try {
@@ -115,6 +116,7 @@ export function setupNav() {
     body.classList.toggle("wkv", week);
     byId("vAg").setAttribute("aria-selected", String(!week));
     byId("vWk").setAttribute("aria-selected", String(week));
+    sync();
   }
   byId("vAg").onclick = function () {
     view(false);
@@ -138,6 +140,7 @@ export function setupNav() {
     view(true);
   };
   view(weekView);
+  sync();
   var panel = byId("panel");
   new MutationObserver(function () {
     body.classList.toggle("sheet", !panel.hidden);

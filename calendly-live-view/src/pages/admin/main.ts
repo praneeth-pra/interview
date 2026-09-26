@@ -1507,112 +1507,6 @@ function showReschedule(booking: Booking) {
   body.appendChild(msg);
   byId("cdate").focus();
 }
-function showNewBooking() {
-  refreshPanel = null;
-  var body = openPanel("New booking", "Book a time for a candidate. The allowlist doesn't apply here.");
-  var inputs: Record<string, HTMLInputElement> = {};
-  var msg = el("p", {
-    class: "msg",
-    role: "status",
-  });
-  [
-    ["name", "Name *", "text"],
-    ["email", "Email *", "email"],
-    ["company", "Company", "text"],
-    ["round", "Interview round", "text"],
-  ].forEach(function (field) {
-    var input = el("input", {
-      id: "n" + field[0],
-      type: field[2],
-      autocomplete: "off",
-      maxlength: field[0] === "email" ? "200" : "120",
-    });
-    inputs[field[0]] = input;
-    body.appendChild(
-      el(
-        "div",
-        {
-          class: "f",
-        },
-        [
-          el("label", {
-            for: "n" + field[0],
-            text: field[1],
-          }),
-          input,
-        ],
-      ),
-    );
-  });
-  var picker = timePicker(30, selectedDay);
-  body.appendChild(picker.el);
-  body.appendChild(
-    el("p", {
-      class: "sub",
-      text: state.email
-        ? "The candidate gets the usual confirmation email with reschedule and cancel links."
-        : "Emails are off, so send the candidate the details yourself.",
-    }),
-  );
-  var button = el("button", {
-    type: "button",
-    class: "pri",
-    text: "Book",
-    onclick: function () {
-      var choice = picker.get();
-      var name = inputs.name.value.trim();
-      var email = inputs.email.value.trim();
-      if (!name) {
-        inputs.name.focus();
-        return setMessage(msg, "Enter the candidate's name.", true);
-      }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        inputs.email.focus();
-        return setMessage(msg, "Enter a valid email address.", true);
-      }
-      if (!choice) {
-        return setMessage(msg, "Pick a time.", true);
-      }
-      button.disabled = true;
-      request("/admin/api/book", {
-        name: name,
-        email: email,
-        company: inputs.company.value.trim(),
-        round: inputs.round.value.trim(),
-        startMs: choice.startMs,
-        duration: choice.duration,
-      })
-        .then(function () {
-          closePanel();
-          toast("Booked");
-          goToTime(choice.startMs);
-        })
-        .catch(function (error) {
-          button.disabled = false;
-          setMessage(msg, error.message, true);
-        });
-    },
-  });
-  body.appendChild(
-    el(
-      "div",
-      {
-        class: "row mt",
-      },
-      [
-        button,
-        el("button", {
-          type: "button",
-          class: "ghost",
-          text: "Cancel",
-          onclick: closePanel,
-        }),
-      ],
-    ),
-  );
-  body.appendChild(msg);
-  inputs.name.focus();
-}
 function showInterviewers() {
   refreshPanel = null;
   var body = openPanel("Interview supporters", "Rename, add or remove. Renaming also updates interviews already recorded.");
@@ -2356,6 +2250,13 @@ byId("today").onclick = function () {
   byId("week").textContent = "";
   render();
 };
+// The week grid only scrolls to today when drawn fresh while visible, so redraw it when the phone's Calendar tab shows it.
+document.querySelector(".bnav [data-go=cal]").addEventListener("click", function () {
+  setTimeout(function () {
+    byId("week").textContent = "";
+    render();
+  });
+});
 byId("pick").onchange = function () {
   if ((this as HTMLInputElement).value) {
     selectedDay = (this as HTMLInputElement).value;
@@ -2363,7 +2264,6 @@ byId("pick").onchange = function () {
     render();
   }
 };
-byId("mNew").onclick = showNewBooking;
 byId("mIv").onclick = showInterviewers;
 byId("pclose").onclick = closePanel;
 byId("pback").onclick = closePanel;

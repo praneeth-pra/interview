@@ -3355,7 +3355,7 @@ button,
 .ws-d .cn {
   --c: #7d7a74;
 }
-/* Phones swap these: Alerts sits in the ⋯ menu and New booking takes its place in the bottom bar. */
+/* Phones: Alerts sits in the ⋯ menu, and Calendar and Agenda are bottom-bar tabs, so the Week/Agenda switch goes. */
 #mAlerts {
   display: none;
 }
@@ -3363,7 +3363,7 @@ button,
   .dlmenu #mAlerts {
     display: block;
   }
-  .dlmenu #mNew {
+  .wk .vt {
     display: none;
   }
 }
