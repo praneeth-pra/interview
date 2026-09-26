@@ -7,6 +7,8 @@ import { CSP, sendShell, shell } from "./http";
 import { deflateSync } from "node:zlib";
 
 export const ICON = encode(readFileSync(join(import.meta.dir, "../../public/icon.png")), "image/png");
+// The browser-tab icon: the same drawing in blue with no tile, like the icons of other sites in a tab bar.
+export const FAVICON = encode(readFileSync(join(import.meta.dir, "../../public/favicon.png")), "image/png");
 // The service worker shows booking alerts, and makes the home-screen app open instantly and offline: admin pages are
 // fetched from the network first (cached copy if offline or slower than 3s; only real admin shells are cached, never the
 // sign-in page), fingerprinted /assets/ files come from the cache. Everything else, including the booking page and all
