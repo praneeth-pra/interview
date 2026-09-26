@@ -151,10 +151,14 @@ experience: string;
 createdAt: string;
 resume: { file: string; name: string; type: string; size: number };
 };
-const enquiriesStore = fileStore<{ enquiries: Enquiry[] }>(
+// seen: when each admin (by email; "" when sign-in is off) last opened the Enquiries tab, for the unread count
+const enquiriesStore = fileStore<{ enquiries: Enquiry[]; seen: Record<string, string> }>(
 "enquiries.json",
-() => ({ enquiries: [] }),
-(x) => ({ enquiries: Array.isArray(x?.enquiries) ? x.enquiries.filter((v: any) => v && typeof v.id === "string" && v.resume) : [] }),
+() => ({ enquiries: [], seen: {} }),
+(x) => ({
+enquiries: Array.isArray(x?.enquiries) ? x.enquiries.filter((v: any) => v && typeof v.id === "string" && v.resume) : [],
+seen: Object.fromEntries(Object.entries(x?.seen ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>,
+}),
 );
 const RESUME_MAX = 1024 * 1024;
 // what the first bytes of each allowed kind of file look like
@@ -469,7 +473,7 @@ intro: byHost
 ? "Hi " + firstName(b.name) + ", " + HOST_NAME + " cancelled your " + EVENT_NAME.toLowerCase() + ". Reply to this email if you have questions."
 : "Hi " + firstName(b.name) + ", your " + EVENT_NAME.toLowerCase() + " with " + HOST_NAME + " is cancelled, as you asked.",
 rows: [["What", EVENT_NAME + " with " + HOST_NAME], ["When", whenText(b.start, b.end)], ["Reason", byHost ? b.cancelReason ?? "" : ""]],
-buttons: [{ label: "Book a new time", href: base + "/", primary: true }],
+buttons: [{ label: "Book a new time", href: base + "/booking", primary: true }],
 });
 void sendEmail({ to: [b.email], subject: "Cancelled: " + EVENT_NAME + " with " + HOST_NAME + " \u2013 " + dayShort(b.start), ...c, ics: { method: "CANCEL", body: buildIcs(b, "CANCEL") }, replyTo: HOST_EMAILS });
 if (!HOST_EMAILS.length) return;
@@ -649,6 +653,8 @@ iv: { names: ivStore.data.names, assign: ivStore.data.assign },
 allow: { enabled: allowStore.data.enabled, count: allowStore.data.emails.length },
 events: activeBookings().map(pub).sort((a, b) => Date.parse(a.start) - Date.parse(b.start)),
 changes,
+// when each enquiry came in; each admin's page counts the ones newer than their last visit to Enquiries
+enquiries: enquiriesStore.data.enquiries.map((v) => v.createdAt),
 };
 }
 function send(event: string, data: unknown) {
@@ -903,6 +909,7 @@ const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, SPL
 const ADMIN_CAL = adminShell("cal");
 const ADMIN_ALLOW = adminShell("allow");
 const ENQUIRY = shell(fill(template("enquiry"), { HOST: HOST_HTML }), CSP.page);
+const HOME = shell(fill(template("home"), { HOST: HOST_HTML }), CSP.page);
 const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
 const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // A manage link carries the candidate's booking, so that page is built per request and never cached.
@@ -1179,6 +1186,7 @@ await removeResume(entry.resume.file).catch(() => {});
 return json({ error: "Couldn't save your enquiry. Try again." }, 500);
 }
 console.log("enquiry received (" + enquiriesStore.data.enquiries.length + " in total)");
+broadcastState();
 if (pushStore.data.subs.length) void pushAll({ title: "New enquiry", body: name + " \u00B7 " + tech + "\n" + experience, tag: "enquiry:" + id, url: "/admin?view=enquiries" });
 return json({ ok: true });
 }
@@ -1213,7 +1221,9 @@ const a = asset(path);
 if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS });
 return respond(req, a.body, { ...BASE_HEADERS, "Cache-Control": a.current ? "public, max-age=31536000, immutable" : "no-cache" });
 }
-if (path === "/" && method === "GET") return sendShell(req, BOOK_HOME);
+if (path === "/" && method === "GET") return sendShell(req, HOME);
+if (path === "/booking" && method === "GET") return sendShell(req, BOOK_HOME);
+if (path === "/booking/" && method === "GET") return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/booking" } });
 if (path === "/enquiry" && method === "GET") return sendShell(req, ENQUIRY);
 if ((path === "/enquiry/" || path === "/inquiry" || path === "/enquiries") && method === "GET")
 return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/enquiry" } });
@@ -1343,7 +1353,17 @@ enquiriesStore.data.enquiries = prev;
 return json({ error: "Couldn't save the change. Try again." }, 500);
 }
 await removeResume(v.resume.file).catch(() => {});
+broadcastState();
 return json({ ok: true });
+}
+// when this admin last opened Enquiries (GET), or now (POST, when they open it)
+if (path === "/admin/api/enquiries/seen") {
+const key = me?.email ?? "";
+if (method === "POST") {
+enquiriesStore.data.seen[key] = new Date().toISOString();
+await saveStore(enquiriesStore).catch(() => {});
+}
+return json({ seenAt: enquiriesStore.data.seen[key] ?? "" });
 }
 // Who can sign in: the owners (ADMIN_EMAILS, fixed) and the admins they add here.
 if (path === "/admin/api/admins" && method === "GET") return json(adminsView(me?.email ?? ""));

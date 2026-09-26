@@ -1978,7 +1978,7 @@ function renderMessage() {
         "a",
         {
           class: "pill",
-          href: "/",
+          href: "/booking",
         },
         ["Book a new time"],
       ),

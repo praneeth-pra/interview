@@ -1,6 +1,6 @@
 # booking-form (hi-techie.dev)
 
-Interview booking site for Hi-Techie: candidates pick a time at `/`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are under ⋯ → Enquiries in the admin page.
+Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones.
 
 Runs on Railway: project `calendly-live-view`, service `booking-form`, production environment. Domains `hi-techie.dev`, `www.hi-techie.dev`.
 
@@ -64,7 +64,7 @@ Every day after `BACKUP_HOUR` (IST) the server:
 1. writes a full snapshot to `/data/backups/YYYY-MM-DD.json` (the last 14 days are kept), and
 2. emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with all the data except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device) and `sessions.json` (who is signed in; a restore signs everyone out).
 
-`/data/backup-state.json` remembers the last day done, so restarts don't send duplicates; a failed email is retried every 15 minutes that day. The admin header's **Download** menu has the same backup (and the CSV) on demand.
+`/data/backup-state.json` remembers the last day done, so restarts don't send duplicates; a failed email is retried every 15 minutes that day. The admin's ⋯ menu has the bookings CSV; the full backup is still at `/admin/backup.json` for a signed-in admin.
 
 To restore, copy a backup JSON into the running service and run the restore script, then restart the service:
 

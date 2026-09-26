@@ -120,8 +120,13 @@ async function startServer(dir, port, dataDir, env = {}, onOutput) {
 
 // ---- flows ----
 const wait = (p, ms) => p.waitForTimeout(ms);
+// The booking page is at /booking now; origin/main may still serve it at /.
+async function gotoBooking(p, s) {
+  const r = await p.goto(s.main + "/booking");
+  if (r && r.status() === 404) await p.goto(s.main + "/");
+}
 async function pickTime(p, s, dayIndex = 1, slotIndex = 2) {
-  await p.goto(s.main + "/");
+  await gotoBooking(p, s);
   await wait(p, 700);
   await p.locator("button.day.open").nth(dayIndex).click();
   await wait(p, 700);
@@ -160,14 +165,14 @@ const CASES = [
   [
     "book-load",
     async (p, s) => {
-      await p.goto(s.main + "/");
+      await gotoBooking(p, s);
       await wait(p, 900);
     },
   ],
   [
     "book-60min",
     async (p, s) => {
-      await p.goto(s.main + "/");
+      await gotoBooking(p, s);
       await wait(p, 700);
       await p.click("#dur60");
       await wait(p, 800);
@@ -176,7 +181,7 @@ const CASES = [
   [
     "book-nextmonth",
     async (p, s) => {
-      await p.goto(s.main + "/");
+      await gotoBooking(p, s);
       await wait(p, 700);
       await p.click("#nextm");
       await wait(p, 600);
