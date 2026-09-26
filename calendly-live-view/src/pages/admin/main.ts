@@ -562,24 +562,22 @@ function renderAgenda() {
       class: "ws-d",
       "aria-hidden": "true",
     });
-    dayItems(day)
-      .map(function (item) {
-        var interviewer = state.iv.assign[item.booking.id];
-        return interviewer ? colorClass(interviewer) : "cn";
-      })
-      .filter(function (color, index, all) {
-        return all.indexOf(color) === index;
-      })
-      .slice(0, 3)
-      .forEach(function (color) {
-        dots.appendChild(el("i", { class: color }));
-      });
+    // a dot per interview in its supporter's colour, up to three, then "+N"
+    dayItems(day).forEach(function (item, index) {
+      var interviewer = state.iv.assign[item.booking.id];
+      if (index < 3) {
+        dots.appendChild(el("i", { class: interviewer ? colorClass(interviewer) : "cn" }));
+      }
+    });
+    if (count > 3) {
+      dots.appendChild(el("em", { text: "+" + (count - 3) }));
+    }
     strip.appendChild(
       el(
         "button",
         {
           type: "button",
-          class: "ws-b" + (day === shown ? " on" : "") + (day === today ? " today" : ""),
+          class: "ws-b" + (day === shown ? " on" : "") + (day === today ? " today" : "") + (i >= 5 ? " we" : ""),
           "aria-pressed": day === shown ? "true" : "false",
           "aria-label":
             formatDay(day, { weekday: "long", month: "long", day: "numeric" }) +
