@@ -5,9 +5,10 @@ import { companySuggestions, knownName } from "../companies";
 import { DURATIONS, HOST_NAME } from "../config";
 import { bookingsStore, emailAllowed } from "../data";
 import { receiveEnquiry } from "../enquiries";
+import { receivePayment } from "../payments";
 import { BASE_HEADERS, type Srv, json, readJson, sendShell, underLimit, clientIp } from "../http";
 import { siteUrl, tokenOk } from "../links";
-import { BOOK_HOME, ENQUIRY, FAVICON, HOME, ICON, SW_JS, bookPage, splash } from "../pages";
+import { BOOK_HOME, ENQUIRY, FAVICON, HOME, ICON, PAYMENT, SW_JS, bookPage, splash } from "../pages";
 import { bookableDays, bookingLimitMs, slotsFor } from "../schedule";
 import { DATE_KEY, EMAIL_RE, UUID, normEmail } from "../util";
 
@@ -73,6 +74,11 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   if ((path === "/enquiry/" || path === "/inquiry" || path === "/enquiries") && method === "GET")
     return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/enquiry" } });
   if (path === "/api/enquiry" && method === "POST") return receiveEnquiry(req, srv);
+  // the payment page isn't listed anywhere public and search engines are told not to index it (X-Robots-Tag)
+  if (path === "/payment" && method === "GET") return sendShell(req, PAYMENT);
+  if ((path === "/payment/" || path === "/payments" || path === "/pay") && method === "GET")
+    return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/payment" } });
+  if (path === "/api/payment" && method === "POST") return receivePayment(req, srv);
   const mm = path.match(/^\/b\/([0-9a-f-]{36})$/i);
   if (mm && method === "GET") {
     const b = bookingsStore.data.bookings.find((x) => x.id === mm[1]);

@@ -2,8 +2,9 @@ import { adminsView, dropSessions, sessionOf } from "../auth";
 import { backupData } from "../backup";
 import { bookingsCsv, cancelBooking, commit, createBooking, moveBooking, saveFailed } from "../bookings";
 import { DURATIONS, LOGIN_ON, OWNER_EMAILS } from "../config";
-import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, ivStore, normResults, pushStore, resultsStore } from "../data";
+import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, ivStore, normResults, paymentsStore, pushStore, resultsStore } from "../data";
 import { enquiryView, readResume, removeResume } from "../enquiries";
+import { paymentView, readReceipt, removeReceipt } from "../payments";
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
 import { adminState, broadcastState, enc, pub, streams } from "../live";
 import { ADMIN_ALLOW, ADMIN_CAL, ANALYTICS, LOGIN } from "../pages";
@@ -80,6 +81,53 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
         await saveStore(enquiriesStore).catch(() => {});
       }
       return json({ seenAt: enquiriesStore.data.seen[key] ?? "" });
+    }
+    // Payments from /payment, newest first; each receipt opens or downloads from its own link; a payment can be deleted.
+    if (path === "/admin/api/payments" && method === "GET")
+      return json({
+        // reversed first, so two sent in the same millisecond still list the later one first
+        payments: [...paymentsStore.data.payments]
+          .reverse()
+          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+          .map(paymentView),
+      });
+    const receiptPath = path.match(/^\/admin\/api\/payments\/([0-9a-f-]{36})\/receipt$/);
+    if (receiptPath && method === "GET") {
+      const v = paymentsStore.data.payments.find((x) => x.id === receiptPath[1]);
+      const bytes = v && (await readReceipt(v.receipt.file));
+      if (!v || !bytes) return json({ error: "That receipt isn't there any more." }, 404);
+      // opens in the browser to look at; ?download=1 saves it as "<name> receipt.jpg" instead of the uploaded file name
+      const download = url.searchParams.get("download") === "1";
+      const ext = v.receipt.file.slice(v.receipt.file.lastIndexOf("."));
+      const name = download
+        ? (v.name.replace(/[\x00-\x1f\x7f/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Payment") + " receipt" + ext
+        : v.receipt.name;
+      const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+      return new Response(bytes as Uint8Array<ArrayBuffer>, {
+        headers: {
+          ...BASE_HEADERS,
+          "Content-Type": v.receipt.type,
+          "Content-Disposition":
+            (download ? "attachment" : "inline") + '; filename="' + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(name),
+        },
+      });
+    }
+    if (path === "/admin/api/payments/delete" && method === "POST") {
+      const body = await readJson(req, 1000);
+      if (body instanceof Response) return body;
+      const v = paymentsStore.data.payments.find((x) => x.id === String(body?.id ?? ""));
+      if (!v) return json({ error: "That payment was already deleted." }, 404);
+      const prev = paymentsStore.data.payments;
+      paymentsStore.data.payments = prev.filter((x) => x !== v);
+      try {
+        await saveStore(paymentsStore);
+      } catch {
+        paymentsStore.data.payments = prev;
+        return json({ error: "Couldn't save the change. Try again." }, 500);
+      }
+      await removeReceipt(v.receipt.file).catch(() => {});
+      broadcastState();
+      return json({ ok: true });
     }
     // Who can sign in: the owners (ADMIN_EMAILS, fixed) and the admins they add here.
     if (path === "/admin/api/admins" && method === "GET") return json(adminsView(me?.email ?? ""));

@@ -918,6 +918,157 @@ h2 {
   width: 18px;
   height: 18px;
 }
+/* Payments: the view switch and the candidate filter, above the payments */
+.paybar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.paybar[hidden] {
+  display: none;
+}
+.payfilter {
+  flex: 1 1 180px;
+  max-width: 280px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14.5px;
+}
+/* one candidate's subtotal, above their payments */
+.paysum {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.paysum > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.paysum .num {
+  align-items: flex-end;
+}
+.paysum b {
+  font-size: 18px;
+}
+.paysum small {
+  color: var(--ink2);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.paysw {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--sub);
+}
+.paysw button {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 17px;
+  background: none;
+  color: var(--ink2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.paysw [aria-pressed="true"] {
+  background: var(--card);
+  color: var(--link);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+/* the table: candidate, date, amount, and a total row; narrow enough for a phone without scrolling sideways */
+.paytbl table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+.paytbl th,
+.paytbl td {
+  padding: 11px 6px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.paytbl th:first-child,
+.paytbl td:first-child {
+  padding-left: 0;
+  overflow-wrap: anywhere;
+}
+.paytbl th:last-child,
+.paytbl td:last-child {
+  padding-right: 0;
+}
+.paytbl thead th {
+  border-top: 0;
+  color: var(--ink2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.paytbl thead button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.paytbl [aria-sort] button {
+  color: var(--link);
+}
+.paytbl td small {
+  display: block;
+  color: var(--ink2);
+  font-size: 12.5px;
+}
+.paytbl .pn {
+  font-weight: 600;
+}
+.paytbl tr.tap {
+  cursor: pointer;
+}
+.paytbl tr.tap:hover td {
+  background: var(--sub);
+}
+.paysum + table thead th {
+  padding-top: 14px;
+}
+.paytbl .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.paytbl .dt {
+  white-space: nowrap;
+  color: var(--ink2);
+}
+.paytbl tfoot th,
+.paytbl tfoot td {
+  border-top: 1.5px solid var(--ink2);
+  font-weight: 700;
+}
+.paytbl tfoot td:not(.num) {
+  color: var(--ink2);
+  font-weight: 500;
+}
+.payamt {
+  font-size: 17px;
+}
 /* Admins panel: one row per email, then an add field */
 .admrow {
   display: flex;
@@ -1565,8 +1716,8 @@ body.wkv .agenda {
   }
   .bnav {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
     position: fixed;
     z-index: 35;
     left: 12px;

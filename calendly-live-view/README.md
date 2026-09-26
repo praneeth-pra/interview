@@ -1,6 +1,6 @@
 # booking-form (hi-techie.dev)
 
-Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones.
+Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones. Candidates report a payment with its receipt at `/payment` (not linked from the site, not indexed; limited to the Candidates list when it is on, like booking); those are in the Payments tab, by candidate.
 
 Runs on Railway: project `calendly-live-view`, service `booking-form`, production environment. Domains `hi-techie.dev`, `www.hi-techie.dev`.
 
@@ -11,7 +11,7 @@ src/server.ts        starts the server: loads the data, logs the settings, liste
 src/server/          the server, one module per feature:
                      routes/ (public.ts, auth.ts, admin.ts: every URL), config.ts (environment variables),
                      data.ts (what is stored, one JSON file each) and store.ts (reading and writing them),
-                     bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts, auth.ts (sign-in codes and
+                     bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts, payments.ts, auth.ts (sign-in codes and
                      sessions), email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin
                      updates), backup.ts, pages.ts (page shells), http.ts (headers, limits), sw.js (service worker)
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
@@ -50,13 +50,14 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 - Search engines may list only the landing page (`/`): every other response carries `X-Robots-Tag: noindex`. `/robots.txt` keeps crawlers out of `/admin`, `/api/` and manage links, and `/sitemap.xml` lists the landing page. The landing page's canonical address is the one without `www.`.
 - Analytics loads in the admin page as a same-origin frame from `/admin/analytics`, only when that tab is opened.
 - `/enquiry` is a plain page (`src/pages/enquiry.html|css|js`) that posts a multipart form to `/api/enquiry`. The details go to `enquiries.json`; the resume (PDF or Word, checked by its first bytes, 200 KB at most, not mentioned on the form) is saved as `DATA_DIR/resumes/<id>.<ext>`.
+- `/payment` works the same way (`src/pages/payment.html|css|js`, reusing `enquiry.css`) and posts to `/api/payment`. The details go to `payments.json`; the receipt (an image or a PDF, checked by its first bytes) is saved as `DATA_DIR/receipts/<id>.<ext>`. Its size limit is `RECEIPT_MAX_MB` (default 1), only mentioned when a file is too big.
 
 ## Security
 
 - Admin pages and APIs need a signed-in admin. Sign-in never switches itself off: if `ADMIN_EMAILS` goes missing, the admin page locks instead of opening.
 - Every response carries `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, HSTS, `Cross-Origin-Opener-Policy: same-origin` and a `Permissions-Policy` that turns off camera, microphone and location.
 - Limits count visitors by `X-Real-IP`, which Railway's edge sets to the real address (`X-Forwarded-For` can be written by the visitor, so it isn't used).
-- The server reads at most 2 MB per request. Enquiries: five an hour per network and 100 in any 24 hours in total.
+- The server reads at most 2 MB per request (more when `RECEIPT_MAX_MB` is raised). Enquiries and payments: each five an hour per network and 100 in any 24 hours in total.
 - `/api/companies` shares the built-in company list and names that at least two candidates typed; a name only one person typed stays private.
 
 ## Environment variables

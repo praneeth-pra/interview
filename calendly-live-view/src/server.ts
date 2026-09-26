@@ -35,7 +35,7 @@ const server = Bun.serve({
   port: PORT,
   hostname: "0.0.0.0",
   idleTimeout: 30,
-  // uploads are at most a 200 KB resume; anything bigger is refused before it is read
+  // uploads are at most a 200 KB resume or a payment receipt (RECEIPT_MAX); anything bigger is refused before it is read
   maxRequestBodySize: MAX_BODY,
   async fetch(req, srv) {
     return compressed(req, await route(req, srv));
