@@ -305,11 +305,12 @@ input[type="search"] {
 }
 @media (max-width: 700px) {
   body {
-    padding: 8px 2px calc(24px + env(safe-area-inset-bottom));
+    padding: 8px 18px calc(24px + env(safe-area-inset-bottom));
   }
 }
 /* ---- Contacts (like the Calendly app) ----
-   Home: a search field, every candidate in one list (latest activity first) and a floating sort pill. A contact:
+   Home: a search field (on phones behind the header's search button), every candidate in one list (latest
+   activity first) and a floating sort pill. A contact:
    back button, avatar and next meeting, an Email / Copy pill, and Activity · About tabs. */
 #home[hidden],
 .tpanel[hidden] {
@@ -335,12 +336,12 @@ input[type="search"] {
 .crow {
   position: relative;
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr);
   align-items: center;
   gap: 14px;
   width: 100%;
   height: auto;
-  min-height: 76px;
+  min-height: 72px;
   padding: 12px 16px;
   border: 0;
   border-radius: 0;
@@ -354,7 +355,7 @@ input[type="search"] {
   content: "";
   position: absolute;
   top: 0;
-  left: 76px;
+  left: 16px;
   right: 0;
   border-top: 1px solid var(--d);
 }
@@ -368,23 +369,30 @@ input[type="search"] {
 .cav {
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
+  width: 38px;
+  height: 38px;
   border-radius: 50%;
   background: var(--n);
   color: var(--o);
-  font-size: 16px;
-  font-weight: 650;
+  font-size: 15px;
+  font-weight: 500;
 }
 .cmain {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 5px;
+  min-width: 0;
+}
+.cline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   min-width: 0;
 }
 .cmain b {
-  font-size: 17px;
-  font-weight: 600;
+  font-size: 16.5px;
+  font-weight: 500;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -392,7 +400,7 @@ input[type="search"] {
 .cmeta {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 8px;
   min-width: 0;
   font-size: 14px;
   color: var(--a);
@@ -408,15 +416,18 @@ input[type="search"] {
   stroke-linecap: round;
   stroke-linejoin: round;
 }
+.cmeta svg {
+  width: 16px;
+  height: 16px;
+}
 .cmeta span {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .cago {
-  align-self: start;
-  margin-top: 2px;
-  font-size: 13px;
+  flex: none;
+  font-size: 13.5px;
   color: var(--a);
 }
 .csort {
@@ -734,30 +745,22 @@ button.acard:active {
   #home {
     padding-bottom: 96px;
   }
+  /* edge to edge, like a native list; the search field shows when the header's search button is on */
+  #home .row.nav {
+    display: none;
+    margin: 4px 0 12px;
+  }
+  body.cq #home .row.nav {
+    display: flex;
+    animation: fadein 0.2s ease;
+  }
   .clist {
-    border-radius: 16px;
-  }
-  .crow {
-    grid-template-columns: 44px minmax(0, 1fr) auto;
-    gap: 12px;
-    min-height: 72px;
-    padding: 10px 14px;
-  }
-  .crow + .crow:before {
-    left: 70px;
-  }
-  .cav {
-    width: 44px;
-    height: 44px;
-  }
-  .cmain b {
-    font-size: 16.5px;
-  }
-  .cmeta {
-    font-size: 13.5px;
+    margin: 0 -18px;
+    border-radius: 0;
+    border-block: 1px solid var(--d);
   }
   .csort {
-    right: 14px;
+    right: 16px;
   }
   #ahead {
     flex-direction: column;
