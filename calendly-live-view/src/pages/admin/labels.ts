@@ -33,6 +33,31 @@ function missedLabel(booking: Booking) {
 function statusClass(status: string) {
   return "st-" + status.toLowerCase().replace(/[^a-z]/g, "");
 }
+// The round's status, set by an admin in the booking panel. Cancelled and No-show are what the app already records
+// (a cancelled booking, the no-show mark); a booking with no result yet is Scheduled.
+type RoundStatus = { key: string; label: string };
+var ROUND_STATUSES: RoundStatus[] = [
+  { key: "scheduled", label: "Scheduled" },
+  { key: "cleared", label: "Cleared" },
+  { key: "rejected", label: "Rejected" },
+  { key: "hold", label: "On hold" },
+  { key: "noshow", label: "No-show" },
+  { key: "cancelled", label: "Cancelled" },
+];
+function roundStatus(booking: Booking): RoundStatus {
+  var key = booking.cancelled
+    ? "cancelled"
+    : booking.missed === "noshow"
+      ? "noshow"
+      : booking.missed
+        ? "didnthappen"
+        : booking.outcome || "scheduled";
+  return (
+    ROUND_STATUSES.find(function (status) {
+      return status.key === key;
+    }) || { key: key, label: key === "didnthappen" ? "Didn't happen" : "Scheduled" }
+  );
+}
 function byWhom(who: string | undefined) {
   if (who === "host") {
     return "by you";
@@ -46,4 +71,5 @@ function plural(count: number, word: string) {
   return count + " " + word + (count === 1 ? "" : "s");
 }
 
-export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural };
+export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural, ROUND_STATUSES, roundStatus };
+export type { RoundStatus };

@@ -26,6 +26,9 @@ export type Booking = {
   // set by an admin after the start time when the interview didn't take place
   missed?: "noshow" | "other";
   missedAt?: string;
+  // the round's result, set by an admin from the booking panel; no value means Scheduled
+  outcome?: "cleared" | "rejected" | "hold";
+  outcomeAt?: string;
 };
 export const activeBookings = () => bookingsStore.data.bookings.filter((b) => !b.cancelled);
 export const bookingsStore = fileStore<{ bookings: Booking[] }>(

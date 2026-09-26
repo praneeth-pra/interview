@@ -36,6 +36,8 @@ export const pub = (b: Booking) => ({
   prevStart: b.prevStart ?? "",
   missed: b.missed ?? "",
   missedAt: b.missedAt ?? "",
+  outcome: b.outcome ?? "",
+  outcomeAt: b.outcomeAt ?? "",
 });
 export function adminState() {
   const since = Date.now() - 30 * 86400000;
