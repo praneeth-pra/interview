@@ -1,4 +1,4 @@
-/* The public enquiry page, and the home page (/), which shares it: one card, the same look as the booking page. */
+/* The public enquiry page: one card, the same look as the booking page. */
 :root {
   color-scheme: light;
   --ink: #1a1a1a;
@@ -271,61 +271,6 @@ form[hidden] {
 }
 .done p {
   margin: 0;
-  color: var(--ink2);
-}
-/* home page: two big links */
-.choices {
-  display: grid;
-  gap: 12px;
-}
-.choice {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  color: var(--ink);
-  text-decoration: none;
-  transition:
-    border-color 0.15s,
-    background 0.15s;
-}
-.choice:hover {
-  border-color: var(--blue);
-  background: var(--blue-t);
-}
-.cico {
-  display: grid;
-  place-items: center;
-  width: 44px;
-  height: 44px;
-  flex: none;
-  border-radius: 12px;
-  background: var(--blue-t);
-  color: var(--blue);
-}
-.cico svg {
-  width: 22px;
-  height: 22px;
-}
-.ctxt {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  min-width: 0;
-}
-.ctxt b {
-  font-size: 17px;
-}
-.ctxt small {
-  font-size: 14px;
-  color: var(--ink2);
-}
-.chev {
-  width: 20px;
-  height: 20px;
-  flex: none;
   color: var(--ink2);
 }
 @media (max-width: 600px) {

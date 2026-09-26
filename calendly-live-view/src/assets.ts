@@ -16,13 +16,15 @@ const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   json: "application/json",
 };
-// Every page uses Figtree, an open-source font close to the Calendly app's; each stylesheet starts with its @font-face rules.
+// Every page uses Figtree, an open-source font close to the Calendly app's; the home page also uses Instrument Serif for
+// headings. Each stylesheet starts with the @font-face rules of its fonts (names separated by spaces).
 const FONT_OF_PAGE: Record<string, string> = {
   "book.css": "figtree.css",
   "admin.css": "figtree.css",
   "analytics.css": "figtree.css",
   "login.css": "figtree.css",
   "enquiry.css": "figtree.css",
+  "home.css": "figtree.css serif.css",
 };
 
 export type Encoded = { raw: Buffer; br?: Buffer; gz?: Buffer; etag: string; type: string };
@@ -81,7 +83,8 @@ for (const f of readdirSync(PAGES, { withFileTypes: true }).sort((a, b) => a.nam
   else if (f.name.endsWith(".js")) add(f.name, Buffer.from(await bundle(join(PAGES, f.name))));
   else if (f.name.endsWith(".css")) {
     const css = readFileSync(join(PAGES, f.name), "utf8");
-    add(f.name, Buffer.from(linkAssets(fontCss(FONT_OF_PAGE[f.name] ?? "") + css)));
+    const fonts = (FONT_OF_PAGE[f.name] ?? "").split(" ").filter(Boolean).map(fontCss).join("");
+    add(f.name, Buffer.from(linkAssets(fonts + css)));
   }
 }
 
