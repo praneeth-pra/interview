@@ -21,6 +21,9 @@
   --green: #0a8a3d;
   --red: #c8372d;
   --seg: #f0ede6;
+  --dur-h: rgba(26, 26, 26, 0.04);
+  --dur-on: #fbeee8;
+  --dur-b: #d97757;
   --note-bg: #fff7e8;
   --note-b: #f3dcae;
   --note-t: #7a4a00;
@@ -50,6 +53,9 @@
     --green: #3ecf7a;
     --red: #ff8a80;
     --seg: #292724;
+    --dur-h: rgba(255, 255, 255, 0.04);
+    --dur-on: #3a2820;
+    --dur-b: #d97757;
     --note-bg: #241e14;
     --note-b: #3d3220;
     --note-t: #f1d29a;
@@ -256,20 +262,22 @@ button:disabled {
   height: 15px;
 }
 .dur-opts {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
-  padding: 4px;
-  border-radius: 12px;
+  padding: 3px;
+  border-radius: 10px;
   background: var(--seg);
 }
 .dur-opts button {
-  flex: 1;
-  height: 40px;
-  border-radius: 9px;
-  border: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  padding: 6px 4px;
+  border-radius: 8px;
   color: var(--ink2);
-  font-weight: 600;
-  font-size: 15px;
   transition:
     background 0.18s,
     color 0.18s,
@@ -277,12 +285,28 @@ button:disabled {
 }
 .dur-opts button:hover {
   color: var(--ink);
+  background: var(--dur-h);
+}
+.dur-opts .dm {
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+.dur-opts .dh {
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
 }
 .dur-opts button[aria-pressed="true"],
 .dur-opts button[aria-pressed="true"]:hover {
-  background: var(--blue);
-  color: #fff;
-  box-shadow: 0 2px 10px rgba(188, 89, 53, 0.35);
+  background: var(--dur-on);
+  color: var(--day);
+  box-shadow: inset 0 0 0 1.5px var(--dur-b);
 }
 .pick {
   flex: 1;

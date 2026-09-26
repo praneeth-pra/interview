@@ -60,6 +60,7 @@ var eventName = boot.event;
 var manage: Manage | null = boot.manage;
 var info = boot.info;
 var DURATIONS = [30, 60, 90];
+var DURATION_HINTS: Record<number, string> = { 30: "Quick chat", 60: "Standard", 90: "Deep dive" };
 var state: State = {
   dur: 30,
   days: [],
@@ -341,7 +342,10 @@ function renderInfo() {
               }
             },
           },
-          [minutes + " min"],
+          [
+            el("span", { class: "dm" }, [minutes + " min"]),
+            el("span", { class: "dh" }, [DURATION_HINTS[minutes]]),
+          ],
         ),
       );
     });
