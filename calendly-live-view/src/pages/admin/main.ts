@@ -1835,8 +1835,9 @@ function statusBadge(item: any) {
   }
 }
 // Three views, remembered per device: By candidate (one row per candidate email: payments, total paid, last paid),
-// Table (candidate, date, amount) and List (one block per payment, with its receipt). Table and List can be filtered to
-// one candidate, which shows their subtotal; tapping a candidate in By candidate does that.
+// Table (candidate, date, amount) and List (one block per payment, with its receipt). The search box narrows every view
+// by name or email; when it finds one candidate, Table and List show their subtotal. Tapping a candidate in By candidate
+// searches for them.
 var paymentsMode = "people";
 try {
   var savedMode = localStorage.getItem("payMode") || "";
@@ -1844,7 +1845,8 @@ try {
 } catch (e) {}
 var paymentsSort = { key: "date", down: true };
 var peopleSort = { key: "last", down: true };
-var paymentsFilter = "";
+// what's typed in the search box: part of a candidate's name or email
+var paymentsQuery = "";
 // "" is pending and confirmed; or just "pending", "confirmed" or "discarded"
 var paymentsStatus = "";
 var paymentOpening = new URLSearchParams(location.search).get("pay") || "";
@@ -1880,6 +1882,19 @@ function showPayments() {
   body.appendChild(list);
   body.appendChild(msg);
   var payments: any[] = [];
+  // redrawing keeps this same box, so typing isn't interrupted
+  var search = el("input", {
+    type: "search",
+    class: "payfilter paysearch",
+    placeholder: "Search candidates",
+    "aria-label": "Search payments by candidate name or email",
+    autocomplete: "off",
+    oninput: function () {
+      paymentsQuery = search.value;
+      draw();
+    },
+  }) as HTMLInputElement;
+  search.value = paymentsQuery;
   // one entry per candidate email, with the name from their latest payment (payments come newest first)
   function people() {
     var byEmail: Record<string, any> = {};
@@ -1937,6 +1952,8 @@ function showPayments() {
     ]);
   }
   function draw() {
+    // checked before the bar is cleared, which takes the focus away
+    var typing = document.activeElement === search;
     list.textContent = "";
     bar.textContent = "";
     bar.hidden = !payments.length;
@@ -1946,15 +1963,20 @@ function showPayments() {
       return;
     }
     var listed = people();
-    // a candidate whose payments were all discarded isn't in By candidate, but is still in the filter
+    // a candidate whose payments were all discarded isn't in By candidate, but search still finds them
     var all = listed.slice();
     payments.forEach(function (item) {
       if (!all.some((p) => p.email === item.email)) {
         all.push({ email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, pending: 0 });
       }
     });
-    if (paymentsFilter && !all.some((p) => p.email === paymentsFilter)) {
-      paymentsFilter = "";
+    var query = paymentsQuery.trim().toLowerCase();
+    function matches(p: any) {
+      return !query || p.name.toLowerCase().indexOf(query) >= 0 || p.email.indexOf(query) >= 0;
+    }
+    var found = all.filter(matches);
+    if (!typing) {
+      search.value = paymentsQuery;
     }
     var controls: HTMLElement[] = [
       el("div", { class: "paysw", role: "group", "aria-label": "Show payments" }, [
@@ -1963,30 +1985,8 @@ function showPayments() {
         modeButton("list", "List"),
       ]),
     ];
+    controls.push(search);
     if (paymentsMode !== "people") {
-      var pick = el(
-        "select",
-        {
-          class: "payfilter",
-          "aria-label": "Show one candidate's payments",
-          onchange: function () {
-            paymentsFilter = pick.value;
-            draw();
-          },
-        },
-        [el("option", { value: "", text: "All candidates" })].concat(
-          all
-            .slice()
-            .sort(function (a, b) {
-              return a.name.localeCompare(b.name);
-            })
-            .map(function (p) {
-              return el("option", { value: p.email, text: p.name });
-            }),
-        ),
-      );
-      pick.value = paymentsFilter;
-      controls.push(pick);
       var status = el(
         "select",
         {
@@ -2010,9 +2010,16 @@ function showPayments() {
     controls.forEach(function (c) {
       bar.appendChild(c);
     });
+    if (typing) {
+      search.focus();
+    }
+    if (!found.length) {
+      list.appendChild(el("p", { class: "sub", text: "No candidate matches \u201C" + paymentsQuery.trim() + "\u201D." }));
+      return;
+    }
     if (paymentsMode === "people") {
       if (listed.length) {
-        drawPeople(listed);
+        drawPeople(listed.filter(matches));
       } else {
         list.appendChild(el("p", { class: "sub", text: "Every payment so far was discarded. Pick List or Table to see them." }));
       }
@@ -2020,13 +2027,13 @@ function showPayments() {
     }
     var rows = payments.filter(function (item) {
       var state = item.decision || "pending";
-      return (!paymentsFilter || item.email === paymentsFilter) && (paymentsStatus ? state === paymentsStatus : state !== "discarded");
+      var mine = found.some(function (p) {
+        return p.email === item.email;
+      });
+      return mine && (paymentsStatus ? state === paymentsStatus : state !== "discarded");
     });
-    var who = paymentsFilter
-      ? all.filter(function (p) {
-          return p.email === paymentsFilter;
-        })[0]
-      : null;
+    // one candidate found: their total at the top, and no candidate column
+    var who = query && found.length === 1 ? found[0] : null;
     if (who) {
       list.appendChild(
         el("div", { class: "paysum" }, [
@@ -2073,7 +2080,7 @@ function showPayments() {
           null,
           rows.map(function (p) {
             function open() {
-              paymentsFilter = p.email;
+              paymentsQuery = p.email;
               paymentsMode = "table";
               draw();
             }
@@ -2262,7 +2269,7 @@ function showPayments() {
       history.replaceState(null, "", url.pathname + url.search);
     } catch (e) {}
     paymentsMode = "list";
-    paymentsFilter = "";
+    paymentsQuery = "";
     paymentsStatus = item.decision === "discarded" ? "discarded" : "";
     return id;
   }

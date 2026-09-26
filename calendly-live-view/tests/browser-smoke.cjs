@@ -115,6 +115,13 @@ const checks = [
     await p.locator(".paysw button", { hasText: "By candidate" }).click();
     await p.locator(".paytbl tbody tr", { hasText: "Kiran Kumar" }).click();
     if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("candidate total is wrong");
+    // search by part of a name: one candidate found shows their total; no match says so
+    await p.locator(".paysearch").fill("");
+    await p.locator(".paysearch").pressSequentially("kir");
+    if ((await p.locator(".paysearch").inputValue()) !== "kir") throw new Error("typing in search was interrupted");
+    if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("search didn't find the candidate");
+    await p.fill(".paysearch", "nobody");
+    await p.locator("#viewPay .sub", { hasText: "No candidate matches" }).waitFor();
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");
