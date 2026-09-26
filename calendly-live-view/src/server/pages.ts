@@ -92,15 +92,28 @@ const bookHtml = (manage: unknown, preload: string) =>
   });
 // The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
 export const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>'), CSP.page);
-const adminShell = (tab: string) =>
+// Two versions of each admin page: an owner's, and one without the Enquiries and Payments tabs for the admins owners add.
+// The bottom bar's b3 class gives its three remaining buttons the full width.
+const ADMIN_NOT_OWNER = ADMIN_TPL.replace(/<button (id="tab(?:Enq|Pay)"|type="button" data-go="(?:enq|pay)")/g, "<button hidden $1").replace(
+  '<nav class="bnav"',
+  '<nav class="bnav b3"',
+);
+const adminPage = (tab: string, owner: boolean) =>
   shell(
-    fill(ADMIN_TPL, { HOST: HOST_HTML, SPLASH: SPLASH_LINKS, BOOT: safeJson({ tab, login: LOGIN_ON, build: BUILD }) }),
+    fill(owner ? ADMIN_TPL : ADMIN_NOT_OWNER, {
+      HOST: HOST_HTML,
+      SPLASH: SPLASH_LINKS,
+      BOOT: safeJson({ tab, login: LOGIN_ON, build: BUILD, owner }),
+    }),
     CSP.admin,
     false,
     true,
   );
-export const ADMIN_CAL = adminShell("cal");
-export const ADMIN_ALLOW = adminShell("allow");
+const ADMIN_PAGES = {
+  cal: [adminPage("cal", false), adminPage("cal", true)],
+  allow: [adminPage("allow", false), adminPage("allow", true)],
+};
+export const adminShell = (tab: "cal" | "allow", owner: boolean) => ADMIN_PAGES[tab][owner ? 1 : 0];
 export const ENQUIRY = shell(fill(template("enquiry"), { HOST: HOST_HTML }), CSP.page);
 export const PAYMENT = shell(fill(template("payment"), { HOST: HOST_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }), CSP.page);
 // the landing page is the one page search engines may list

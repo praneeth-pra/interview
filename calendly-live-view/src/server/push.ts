@@ -1,6 +1,6 @@
 // ---- Browser notifications (Web Push) for admins -----------------------------------------
 import { TZ } from "./config";
-import { type Booking, type PushSub, pushStore } from "./data";
+import { type Booking, type PushSub, isOwner, pushStore } from "./data";
 import { saveStore } from "./store";
 import { dayShort } from "./time";
 import { createCipheriv, createECDH, createPrivateKey, hkdfSync, randomBytes, sign as cryptoSign } from "node:crypto";
@@ -75,8 +75,9 @@ export async function pushTo(sub: PushSub, msg: object) {
     return 0;
   }
 }
-export async function pushAll(msg: object) {
-  const subs = [...pushStore.data.subs];
+// ownersOnly: enquiries and payments go only to devices an owner turned alerts on for
+export async function pushAll(msg: object, ownersOnly = false) {
+  const subs = pushStore.data.subs.filter((x) => !ownersOnly || isOwner(x.email ?? ""));
   if (!subs.length) return;
   const codes = await Promise.all(subs.map((x) => pushTo(x, msg)));
   const gone = new Set(subs.filter((_, i) => codes[i] === 404 || codes[i] === 410).map((x) => x.endpoint));
@@ -106,7 +107,13 @@ export function alertAdmins(kind: "booked" | "moved" | "cancelled", b: Booking) 
     url: "/admin?date=" + new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(b.start)),
   });
 }
-export const pushView = () => ({ key: pushStore.data.pub, endpoints: pushStore.data.subs.map((x) => x.endpoint) });
+// yours: the devices recorded for this admin; a device turned on before that was recorded (or by someone else) signs up
+// again, so enquiry and payment alerts reach only the owners' devices
+export const pushView = (email: string) => ({
+  key: pushStore.data.pub,
+  endpoints: pushStore.data.subs.map((x) => x.endpoint),
+  yours: pushStore.data.subs.filter((x) => x.email === email).map((x) => x.endpoint),
+});
 // The server's own key pair for signing notifications, made once and kept in push.json.
 export async function ensurePushKeys() {
   if (pushStore.data.pub && pushStore.data.priv) return;

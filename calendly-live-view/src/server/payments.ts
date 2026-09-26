@@ -110,12 +110,15 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
   console.log("payment received (" + paymentsStore.data.payments.length + " in total)");
   broadcastState();
   if (pushStore.data.subs.length)
-    void pushAll({
-      title: "New payment",
-      body: name + " · ₹" + amount.toLocaleString("en-IN"),
-      tag: "payment:" + id,
-      url: "/admin?view=payments",
-    });
+    void pushAll(
+      {
+        title: "New payment",
+        body: name + " · ₹" + amount.toLocaleString("en-IN"),
+        tag: "payment:" + id,
+        url: "/admin?view=payments",
+      },
+      true,
+    );
   return json({ ok: true });
 }
 export const paymentView = (v: Payment) => ({

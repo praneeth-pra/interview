@@ -2,12 +2,12 @@ import { adminsView, dropSessions, sessionOf } from "../auth";
 import { backupData } from "../backup";
 import { bookingsCsv, cancelBooking, commit, createBooking, moveBooking, saveFailed } from "../bookings";
 import { DURATIONS, LOGIN_ON, OWNER_EMAILS } from "../config";
-import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, ivStore, normResults, paymentsStore, pushStore, resultsStore } from "../data";
+import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, isOwner, ivStore, normResults, paymentsStore, pushStore, resultsStore } from "../data";
 import { enquiryView, readResume, removeResume } from "../enquiries";
 import { paymentView, readReceipt, removeReceipt } from "../payments";
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
 import { adminState, broadcastState, enc, pub, streams } from "../live";
-import { ADMIN_ALLOW, ADMIN_CAL, ANALYTICS, LOGIN } from "../pages";
+import { ANALYTICS, LOGIN, adminShell } from "../pages";
 import { pushEndpointOk, pushTo, pushView } from "../push";
 import { slotsFor } from "../schedule";
 import { saveStore } from "../store";
@@ -23,13 +23,17 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   if (path === "/admin" || path.startsWith("/admin/")) {
     const me = LOGIN_ON ? sessionOf(req) : null;
     const authed = !LOGIN_ON || !!me;
+    // Enquiries and payments are for owners only; other admins don't see their tabs, and their APIs refuse them.
+    const owner = authed && isOwner(me?.email ?? "");
     if ((path === "/admin" || path === "/admin/allowlist") && method === "GET") {
       if (!authed) return sendShell(req, LOGIN);
-      return sendShell(req, path === "/admin" ? ADMIN_CAL : ADMIN_ALLOW);
+      return sendShell(req, adminShell(path === "/admin" ? "cal" : "allow", owner));
     }
     if (path === "/admin/analytics" && method === "GET")
       return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
     if (!authed) return json({ error: "Sign in again." }, 401);
+    if (!owner && /^\/admin\/api\/(enquiries|payments)(\/|$)/.test(path))
+      return json({ error: "Only the owner can see enquiries and payments." }, 403);
     // Enquiries from /enquiry, newest first; each resume downloads from its own link; an enquiry can be deleted.
     if (path === "/admin/api/enquiries" && method === "GET")
       return json({
@@ -154,8 +158,8 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       await dropSessions((v) => isAdmin(v.email)).catch(() => {});
       return json(adminsView(me.email));
     }
-    if (path === "/admin/api/state" && method === "GET") return json(adminState());
-    if (path === "/admin/api/push" && method === "GET") return json(pushView());
+    if (path === "/admin/api/state" && method === "GET") return json(adminState(owner));
+    if (path === "/admin/api/push" && method === "GET") return json(pushView(me?.email ?? ""));
     if (path.startsWith("/admin/api/push/") && method === "POST") {
       const body = await readJson(req, 3000);
       if (body instanceof Response) return body;
@@ -168,7 +172,14 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
           return json({ error: "This browser sent an unexpected subscription. Try again." }, 400);
         const subs = pushStore.data.subs.filter((x) => x.endpoint !== endpoint);
         if (subs.length >= 50) return json({ error: "Too many devices. Turn alerts off on an old one first." }, 400);
-        subs.push({ endpoint, p256dh, auth, label: String(body?.label ?? "Browser").slice(0, 40), addedAt: new Date().toISOString() });
+        subs.push({
+          endpoint,
+          p256dh,
+          auth,
+          label: String(body?.label ?? "Browser").slice(0, 40),
+          addedAt: new Date().toISOString(),
+          email: me?.email ?? "",
+        });
         pushStore.data.subs = subs;
       } else if (act === "unsubscribe") {
         pushStore.data.subs = pushStore.data.subs.filter((x) => x.endpoint !== endpoint);
@@ -182,7 +193,7 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
           url: "/admin",
         });
         return code >= 200 && code < 300
-          ? json(pushView())
+          ? json(pushView(me?.email ?? ""))
           : json({ error: "The notification service didn't accept it (" + code + "). Turn alerts off and on again." }, 502);
       } else return json({ error: "Not found." }, 404);
       try {
@@ -191,7 +202,7 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
         return json({ error: "Couldn't save the change. Try again." }, 500);
       }
       console.log("browser alerts: " + pushStore.data.subs.length + " device(s)");
-      return json(pushView());
+      return json(pushView(me?.email ?? ""));
     }
     if (path === "/admin/api/bookings" && method === "GET")
       return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
@@ -260,7 +271,7 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     }
     if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
     if (path === "/admin/backup.json" && method === "GET")
-      return new Response(JSON.stringify(backupData(false), null, 1), {
+      return new Response(JSON.stringify(backupData(false, owner), null, 1), {
         headers: {
           ...BASE_HEADERS,
           "Content-Type": "application/json",
@@ -356,8 +367,8 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       const stream = new ReadableStream({
         start(c) {
           ctrl = c;
-          streams.set(c, me ? me.id : "");
-          c.enqueue(enc.encode("retry: 3000\n\nevent: state\ndata: " + JSON.stringify(adminState()) + "\n\n"));
+          streams.set(c, { sid: me ? me.id : "", owner });
+          c.enqueue(enc.encode("retry: 3000\n\nevent: state\ndata: " + JSON.stringify(adminState(owner)) + "\n\n"));
         },
         cancel() {
           streams.delete(ctrl);

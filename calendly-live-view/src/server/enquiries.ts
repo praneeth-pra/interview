@@ -102,12 +102,15 @@ export async function receiveEnquiry(req: Request, srv: Srv): Promise<Response> 
   console.log("enquiry received (" + enquiriesStore.data.enquiries.length + " in total)");
   broadcastState();
   if (pushStore.data.subs.length)
-    void pushAll({
-      title: "New enquiry",
-      body: name + " \u00B7 " + tech + "\n" + experience,
-      tag: "enquiry:" + id,
-      url: "/admin?view=enquiries",
-    });
+    void pushAll(
+      {
+        title: "New enquiry",
+        body: name + " \u00B7 " + tech + "\n" + experience,
+        tag: "enquiry:" + id,
+        url: "/admin?view=enquiries",
+      },
+      true,
+    );
   return json({ ok: true });
 }
 export const enquiryView = (v: Enquiry) => ({
