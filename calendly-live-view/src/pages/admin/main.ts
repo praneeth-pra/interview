@@ -14,7 +14,7 @@ import {
   timeAgo,
   weekStart,
 } from "./time";
-import { ROUND_STATUSES, byWhom, missedLabel, plural, roundStatus, statusOf, titleCase, type RoundStatus } from "./labels";
+import { ROUND_STATUSES, byWhom, missedLabel, plural, roundStatus, statusOf, statusPill, titleCase, type RoundStatus } from "./labels";
 import { request } from "./api";
 import { sameCompany } from "../../same-company";
 import { setupAlerts } from "./alerts";
@@ -394,7 +394,7 @@ function renderWeek() {
             booking.company,
             booking.round,
             interviewer ? "Interview support: " + interviewer : booking.missed ? missedLabel(booking) : started ? "Interview support not recorded" : "",
-            booking.outcome ? roundStatus(booking).label : "",
+            booking.outcome ? statusPill(booking).text : "",
           ]
             .filter(Boolean)
             .join(" · "),
@@ -652,7 +652,7 @@ function renderAgenda() {
         // the round's status, when it has one, and a dot when support isn't recorded, in the top corner
         booking.outcome || booking.missed || needsSupport
           ? el("span", { class: "ag-rs" }, [
-              booking.outcome || booking.missed ? el("span", { class: "bk-st sm rs-" + roundStatus(booking).key, text: roundStatus(booking).label }) : null,
+              booking.outcome || booking.missed ? el("span", statusPill(booking, true)) : null,
               needsSupport
                 ? el("i", {
                     class: "need-dot",
@@ -825,20 +825,6 @@ function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
       setMessage(msg, error.message, true);
     });
 }
-// Marks a started interview as a no-show ("noshow") or as not happened ("other"), or undoes that ("").
-function setMissed(booking: Booking, missed: "noshow" | "other" | "", msg: HTMLElement) {
-  setMessage(msg, "Saving…");
-  request("/admin/api/missed", {
-    id: booking.id,
-    missed: missed,
-  })
-    .then(function () {
-      toast(missed === "noshow" ? "Marked as no-show" : missed ? "Marked as didn't happen" : "Mark removed");
-    })
-    .catch(function (error) {
-      setMessage(msg, error.message, true);
-    });
-}
 // Small line icons for the booking sheet (24×24, stroked with the text colour).
 var ICON: Record<string, string> = {
   mail: "M4 6.5h16v11H4zM4.5 7l7.5 6 7.5-6",
@@ -888,21 +874,15 @@ function setPanelAvatar(name: string | null, interviewer?: string) {
   avatar.textContent = name ? initials(name) : "";
   avatar.className = "pav " + (interviewer ? colorClass(interviewer) : "cn");
 }
-// The round's status in the booking panel: one tap saves it. Cancelled opens the cancel sheet, so the candidate is
-// told; No-show is offered once the interview has started and nobody is recorded as giving support.
-function roundStatusCard(booking: Booking, current: RoundStatus, upcoming: boolean, supported: boolean) {
+// The round's status in the booking panel, shown once the interview has started (the result comes from the
+// interview). One tap saves a status; tapping the selected one clears it. No-show and Didn't happen are offered while
+// nobody is recorded as giving support.
+function roundStatusCard(booking: Booking, current: RoundStatus | null, supported: boolean) {
   var card = el("div", { class: "bk-card rsc" }, [el("h3", { text: "Round status" })]);
   var msg = el("p", { class: "msg", role: "status" });
-  if (booking.cancelled) {
-    card.appendChild(el("p", { class: "sub", text: "This booking was cancelled, so its status can't change." }));
-    return card;
-  }
   var options = ROUND_STATUSES.filter(function (option) {
-    return option.key === "noshow" ? !upcoming && !supported : option.key === "cancelled" ? upcoming : true;
+    return !supported || option.value !== "noshow" && option.value !== "other";
   });
-  if (current.key === "didnthappen") {
-    options.push(current);
-  }
   var group = el("div", { class: "rs-opts", role: "group", "aria-label": "Round status" });
   var buttons = options.map(function (option) {
     return el(
@@ -910,15 +890,9 @@ function roundStatusCard(booking: Booking, current: RoundStatus, upcoming: boole
       {
         type: "button",
         class: "rs-opt rs-" + option.key,
-        "aria-pressed": String(option.key === current.key),
+        "aria-pressed": String(!!current && option.key === current.key),
         onclick: function () {
-          if (option.key === current.key) {
-            return;
-          } else if (option.key === "cancelled") {
-            showCancel(booking);
-          } else if (option.key !== "didnthappen") {
-            saveRoundStatus(booking, option, buttons, msg);
-          }
+          saveRoundStatus(booking, current && option.key === current.key ? null : option, buttons, msg);
         },
       },
       [el("i", { class: "rsd", "aria-hidden": "true" }), option.label],
@@ -928,20 +902,22 @@ function roundStatusCard(booking: Booking, current: RoundStatus, upcoming: boole
     group.appendChild(button);
   });
   card.appendChild(group);
+  card.appendChild(el("p", { class: "sub rs-hint", text: current ? "Tap " + current.label + " again to clear it." : "Tap how the round went." }));
   card.appendChild(msg);
   return card;
 }
-function saveRoundStatus(booking: Booking, option: RoundStatus, buttons: HTMLElement[], msg: HTMLElement) {
+// Saves a status (null clears it); the panel redraws when the new state arrives.
+function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: HTMLElement[], msg: HTMLElement) {
   var before = buttons.map(function (button) {
     return button.getAttribute("aria-pressed");
   });
   buttons.forEach(function (button) {
-    button.setAttribute("aria-pressed", String(button.classList.contains("rs-" + option.key)));
+    button.setAttribute("aria-pressed", String(!!option && button.classList.contains("rs-" + option.key)));
   });
   setMessage(msg, "");
-  request("/admin/api/round-status", { id: booking.id, status: option.key })
+  request("/admin/api/round-status", { id: booking.id, status: option ? option.value : "" })
     .then(function () {
-      toast("Status saved: " + option.label);
+      toast(option ? "Status saved: " + option.label : "Status cleared");
     })
     .catch(function (error) {
       buttons.forEach(function (button, index) {
@@ -991,11 +967,14 @@ function showBooking(id: string, refresh?: boolean) {
         el("span", { text: formatTime(start) + " – " + formatTime(end) }),
         el("small", { text: booking.duration + " min · " + relative }),
       ]),
-      el("span", { class: "bk-st rs-" + status.key, text: status.label }),
+      // the round's status shows in its card below, not twice
+      status ? null : el("span", statusPill(booking)),
     ]),
   );
 
-  body.appendChild(roundStatusCard(booking, status, upcoming, !!interviewer));
+  if (!booking.cancelled && !upcoming) {
+    body.appendChild(roundStatusCard(booking, status, !!interviewer));
+  }
 
   // Details
   var details = el("div", { class: "bk-card bk-rows" });
@@ -1030,31 +1009,10 @@ function showBooking(id: string, refresh?: boolean) {
   }
   body.appendChild(details);
 
-  // Interview support, or, for an interview marked as not having taken place, that mark with Undo
-  if (!booking.cancelled) {
-    var box = el("div", { class: "bk-card" }, [
-      el("h3", { text: booking.missed ? (booking.missed === "noshow" ? "The candidate didn't show up" : "This interview didn't happen") : "Interview support given by" }),
-    ]);
-    if (booking.missed) {
-      var undoMsg = el("p", { class: "msg", role: "status" });
-      box.appendChild(
-        el("p", {
-          class: "sub",
-          text: "Marked " + (booking.missedAt ? timeAgo(booking.missedAt) + " " : "") + "as " + missedLabel(booking).toLowerCase() + ". It doesn't count as interview support.",
-        }),
-      );
-      box.appendChild(
-        el("button", {
-          type: "button",
-          class: "ghost bk-undo",
-          text: "Undo",
-          onclick: function () {
-            setMissed(booking, "", undoMsg);
-          },
-        }),
-      );
-      box.appendChild(undoMsg);
-    } else if (upcoming) {
+  // Interview support (not for an interview marked as a no-show or didn't happen: its status card says so)
+  if (!booking.cancelled && !booking.missed) {
+    var box = el("div", { class: "bk-card" }, [el("h3", { text: "Interview support given by" })]);
+    if (upcoming) {
       box.appendChild(el("p", { class: "sub", text: "You can record who gave interview support once it starts at " + formatTime(start) + "." }));
     } else {
       var choices = el("div", { class: "ivc" });
@@ -1124,7 +1082,6 @@ function showBooking(id: string, refresh?: boolean) {
   if (others.length) {
     var history = el("div", { class: "bk-card bk-hist" }, [el("h3", { text: "Other interviews at " + (booking.company || "").trim() })]);
     others.slice(0, 10).forEach(function (other) {
-      var otherStatus = roundStatus(other);
       history.appendChild(
         el(
           "button",
@@ -1148,7 +1105,7 @@ function showBooking(id: string, refresh?: boolean) {
                   .filter(Boolean)
                   .join(" · ") || "Interview",
             }),
-            el("span", { class: "bk-st sm rs-" + otherStatus.key, text: otherStatus.label }),
+            el("span", statusPill(other, true)),
           ],
         ),
       );

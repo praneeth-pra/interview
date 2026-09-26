@@ -521,7 +521,7 @@ describe("admin", () => {
     }
   });
 
-  test("an admin sets a round's status: a result, a no-show, or back to scheduled", async () => {
+  test("once an interview starts, an admin sets the round's status, and can clear it", async () => {
     const dir = mkdtempSync(join(tmpdir(), "booking-form-round-"));
     const past = istMidnight() - 24 * HOUR + 10 * HOUR;
     const done = { ...booking, id: "00000000-0000-0000-0000-000000000009", start: new Date(past).toISOString(), end: new Date(past + 30 * 60000).toISOString() };
@@ -534,26 +534,29 @@ describe("admin", () => {
     try {
       const set = (id: string, status: string) => postJson(srv, "/admin/api/round-status", { id, status });
       const saved = (id: string) => JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.find((b: any) => b.id === id);
-      // existing bookings start as Scheduled: nothing stored
+      // existing bookings have no status stored
       let state = await (await get(srv, "/admin/api/state")).json();
       expect(state.events.find((e: any) => e.id === done.id).outcome).toBe("");
       expect((await set(done.id, "maybe")).status).toBe(400);
       expect((await set(done.id, "cancelled")).status).toBe(400);
       expect((await set(gone.id, "cleared")).status).toBe(409);
-      // no-show only after the start and without support recorded; results any time
+      // nothing before the start; no-show and didn't happen only without support recorded
+      expect((await set(booking.id, "hold")).status).toBe(409);
       expect((await set(booking.id, "noshow")).status).toBe(409);
       expect((await set(helped.id, "noshow")).status).toBe(409);
+      expect((await set(helped.id, "other")).status).toBe(409);
       expect((await set(helped.id, "rejected")).status).toBe(200);
-      expect((await set(booking.id, "hold")).status).toBe(200);
       expect((await set(done.id, "cleared")).status).toBe(200);
       state = await (await get(srv, "/admin/api/state")).json();
       expect(state.events.find((e: any) => e.id === done.id).outcome).toBe("cleared");
       expect(await (await get(srv, "/admin/export.csv")).text()).toContain("Cleared");
-      // a no-show replaces the result, and Scheduled clears both
+      // a no-show or didn't happen replaces the result, and "" clears everything
       expect((await set(done.id, "noshow")).status).toBe(200);
       expect(saved(done.id).missed).toBe("noshow");
       expect(saved(done.id).outcome).toBeUndefined();
-      expect((await set(done.id, "scheduled")).status).toBe(200);
+      expect((await set(done.id, "other")).status).toBe(200);
+      expect(saved(done.id).missed).toBe("other");
+      expect((await set(done.id, "")).status).toBe(200);
       expect(saved(done.id).missed).toBeUndefined();
       expect(saved(done.id).outcome).toBeUndefined();
       expect(saved(helped.id).outcome).toBe("rejected");

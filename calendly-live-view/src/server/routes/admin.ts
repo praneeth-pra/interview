@@ -394,26 +394,27 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       broadcastState();
       return json({ ok: true });
     }
-    // The round's status from the booking panel: "scheduled" (no result yet), "cleared", "rejected", "hold" or "noshow".
-    // No-show reuses the missed mark; cancelling goes through /admin/api/cancel so the candidate is told.
+    // The round's result from the booking panel, once the interview has started: "cleared", "rejected", "hold",
+    // "noshow" or "other" (didn't happen), or "" to clear it. No-show and didn't happen reuse the missed mark.
     if (path === "/admin/api/round-status" && method === "POST") {
       const body = await readJson(req, 1000);
       if (body instanceof Response) return body;
       const b = bookingsStore.data.bookings.find((x) => x.id === String(body?.id ?? ""));
       const status = body?.status;
-      if (!b || !["scheduled", "cleared", "rejected", "hold", "noshow"].includes(status)) return json({ error: "Bad request." }, 400);
+      if (!b || !["", "cleared", "rejected", "hold", "noshow", "other"].includes(status)) return json({ error: "Bad request." }, 400);
       if (b.cancelled) return json({ error: "This interview was cancelled." }, 409);
-      if (status === "noshow" && Date.parse(b.start) > Date.now() + 60000)
-        return json({ error: "You can mark a no-show once the interview's start time has passed." }, 409);
-      if (status === "noshow" && ivStore.data.assign[b.id])
+      if (status && Date.parse(b.start) > Date.now() + 60000)
+        return json({ error: "You can set the round's status once the interview's start time has passed." }, 409);
+      const missed = status === "noshow" || status === "other" ? status : "";
+      if (missed && ivStore.data.assign[b.id])
         return json({ error: "Interview support is already recorded for this interview, so it happened." }, 409);
       const prev = { ...b };
       const now = new Date().toISOString();
-      if (status !== "noshow") {
+      if (!missed) {
         delete b.missed;
         delete b.missedAt;
-      } else if (b.missed !== "noshow") Object.assign(b, { missed: "noshow", missedAt: now });
-      if (status === "cleared" || status === "rejected" || status === "hold") Object.assign(b, { outcome: status, outcomeAt: now });
+      } else if (b.missed !== missed) Object.assign(b, { missed, missedAt: now });
+      if (status && !missed) Object.assign(b, { outcome: status, outcomeAt: now });
       else {
         delete b.outcome;
         delete b.outcomeAt;

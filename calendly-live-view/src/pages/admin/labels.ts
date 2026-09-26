@@ -33,30 +33,30 @@ function missedLabel(booking: Booking) {
 function statusClass(status: string) {
   return "st-" + status.toLowerCase().replace(/[^a-z]/g, "");
 }
-// The round's status, set by an admin in the booking panel. Cancelled and No-show are what the app already records
-// (a cancelled booking, the no-show mark); a booking with no result yet is Scheduled.
-type RoundStatus = { key: string; label: string };
+// The round's status, set by an admin in the booking panel once the interview has started. No-show and Didn't happen
+// are the missed mark the app already records; value is what /admin/api/round-status takes.
+type RoundStatus = { key: string; label: string; value: string };
 var ROUND_STATUSES: RoundStatus[] = [
-  { key: "scheduled", label: "Scheduled" },
-  { key: "cleared", label: "Cleared" },
-  { key: "rejected", label: "Rejected" },
-  { key: "hold", label: "On hold" },
-  { key: "noshow", label: "No-show" },
-  { key: "cancelled", label: "Cancelled" },
+  { key: "cleared", label: "Cleared", value: "cleared" },
+  { key: "rejected", label: "Rejected", value: "rejected" },
+  { key: "hold", label: "On hold", value: "hold" },
+  { key: "noshow", label: "No-show", value: "noshow" },
+  { key: "didnthappen", label: "Didn't happen", value: "other" },
 ];
-function roundStatus(booking: Booking): RoundStatus {
-  var key = booking.cancelled
-    ? "cancelled"
-    : booking.missed === "noshow"
-      ? "noshow"
-      : booking.missed
-        ? "didnthappen"
-        : booking.outcome || "scheduled";
+// The status set for a booking, or null when none is (or the booking was cancelled).
+function roundStatus(booking: Booking): RoundStatus | null {
+  var key = booking.cancelled ? "" : booking.missed === "noshow" ? "noshow" : booking.missed ? "didnthappen" : booking.outcome || "";
   return (
     ROUND_STATUSES.find(function (status) {
       return status.key === key;
-    }) || { key: key, label: key === "didnthappen" ? "Didn't happen" : "Scheduled" }
+    }) || null
   );
+}
+// A status pill: the round's status when set, otherwise Upcoming, In progress, Completed or Cancelled.
+function statusPill(booking: Booking, small?: boolean) {
+  var round = roundStatus(booking);
+  var label = round ? round.label : statusOf(booking);
+  return { class: "bk-st " + (small ? "sm " : "") + (round ? "rs-" + round.key : statusClass(label)), text: label };
 }
 function byWhom(who: string | undefined) {
   if (who === "host") {
@@ -71,5 +71,5 @@ function plural(count: number, word: string) {
   return count + " " + word + (count === 1 ? "" : "s");
 }
 
-export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural, ROUND_STATUSES, roundStatus };
+export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural, ROUND_STATUSES, roundStatus, statusPill };
 export type { RoundStatus };
