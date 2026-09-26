@@ -417,10 +417,10 @@ function evState(event, now) {
     } else {
       return "canceled";
     }
-  } else if (Date.parse(event.end) > now) {
-    return "upcoming";
   } else if (event.noShow) {
     return "noshow";
+  } else if (Date.parse(event.end) > now) {
+    return "upcoming";
   } else {
     return "done";
   }
@@ -516,7 +516,9 @@ function renderActivity(events, now) {
         : kind === "done"
           ? "You had an interview"
           : kind === "noshow"
-            ? "No-show"
+            ? event.missed === "other"
+              ? "Didn't happen"
+              : "No-show"
             : kind === "rescheduled"
               ? "Rescheduled" + (moved ? " to " + fmt({ weekday: "short", day: "numeric", month: "short" }, new Date(moved.start)) : "")
               : "Canceled" + (event.canceledBy === "invitee" ? " by the candidate" : event.canceledBy === "host" ? " by you" : "");

@@ -332,7 +332,9 @@ function analyticsFor(data: Data, id, merge) {
     var base = {
       name: "Interview",
       created: other.createdAt || other.start,
-      noShow: false,
+      // marked by an admin as a no-show ("noshow") or as not happened for another reason ("other")
+      noShow: !!other.missed,
+      missed: other.missed || "",
       company: other.company || "",
       round: other.round || "",
     };

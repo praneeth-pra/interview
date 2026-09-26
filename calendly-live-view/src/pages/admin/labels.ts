@@ -15,6 +15,8 @@ function statusOf(booking: Booking) {
   var now = Date.now();
   if (booking.cancelled) {
     return "Cancelled";
+  } else if (booking.missed) {
+    return missedLabel(booking);
   } else if (Date.parse(booking.end) <= now) {
     return "Completed";
   } else if (Date.parse(booking.start) <= now) {
@@ -22,6 +24,14 @@ function statusOf(booking: Booking) {
   } else {
     return "Upcoming";
   }
+}
+// "No-show" or "Didn't happen", for an interview marked as not having taken place ("" otherwise).
+function missedLabel(booking: Booking) {
+  return booking.missed === "noshow" ? "No-show" : booking.missed ? "Didn't happen" : "";
+}
+// The class for a status pill: "st-completed", "st-noshow", "st-didnthappen"...
+function statusClass(status: string) {
+  return "st-" + status.toLowerCase().replace(/[^a-z]/g, "");
 }
 function byWhom(who: string | undefined) {
   if (who === "host") {
@@ -36,4 +46,4 @@ function plural(count: number, word: string) {
   return count + " " + word + (count === 1 ? "" : "s");
 }
 
-export { titleCase, statusOf, byWhom, plural };
+export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural };

@@ -51,6 +51,9 @@ cancelledBy?: "candidate" | "host";
 prevStart?: string;
 prevEnd?: string;
 rescheduledBy?: "candidate" | "host";
+// set by an admin after the start time when the interview didn't take place
+missed?: "noshow" | "other";
+missedAt?: string;
 };
 type FileStore<T> = { file: string; data: T; ok: boolean; chain: Promise<void>; norm: (x: any) => T };
 function fileStore<T>(file: string, empty: () => T, norm: (x: any) => T): FileStore<T> {
@@ -589,6 +592,7 @@ const pub = (b: Booking) => ({
 id: b.id, name: b.name, email: b.email, company: b.company, round: b.round, start: b.start, end: b.end, duration: b.duration,
 createdAt: b.createdAt, source: b.source ?? "", cancelled: b.cancelled, cancelledAt: b.cancelledAt, cancelledBy: b.cancelledBy ?? "",
 cancelReason: b.cancelReason ?? "", rescheduledAt: b.rescheduledAt ?? "", rescheduledBy: b.rescheduledBy ?? "", prevStart: b.prevStart ?? "",
+missed: b.missed ?? "", missedAt: b.missedAt ?? "",
 });
 function adminState() {
 const since = Date.now() - 30 * 86400000;
@@ -952,6 +956,9 @@ Object.assign(b, {
 prevStart: b.start, prevEnd: b.end, start: new Date(startMs).toISOString(), end: new Date(endMs).toISOString(), duration,
 seq: (b.seq ?? 0) + 1, rescheduledAt: new Date().toISOString(), rescheduledBy: by,
 });
+// a new time is a new chance: it isn't "didn't happen" any more
+delete b.missed;
+delete b.missedAt;
 if (!(await commit(b, prev))) return saveFailed();
 broadcastState();
 notifyRescheduled(b, prev.start, prev.end, baseUrl(req));
@@ -984,7 +991,7 @@ const rows = [["Name", "Email", "Company", "Round", "Date", "Start (IST)", "End 
 for (const b of [...bookingsStore.data.bookings].sort((x, y) => Date.parse(x.start) - Date.parse(y.start)))
 rows.push([
 b.name, b.email, b.company, b.round, d(b.start), t12(b.start), t12(b.end), String(b.duration),
-b.cancelled ? "Cancelled" : Date.parse(b.end) <= now ? "Completed" : Date.parse(b.start) <= now ? "In progress" : "Upcoming",
+b.cancelled ? "Cancelled" : b.missed === "noshow" ? "No-show" : b.missed ? "Didn't happen" : Date.parse(b.end) <= now ? "Completed" : Date.parse(b.start) <= now ? "In progress" : "Upcoming",
 iv[b.id] ?? "", d(b.createdAt), b.source === "admin" ? "Admin" : b.source === "calendly" ? "Calendly" : "Booking page",
 b.cancelled ? who(b.cancelledBy) : "", b.cancelReason ?? "",
 ]);
@@ -1422,6 +1429,26 @@ return new Response(stream, {
 headers: { ...BASE_HEADERS, "Content-Type": "text/event-stream", "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no" },
 });
 }
+// Mark a started interview as a no-show or as not happened for another reason, or undo it ("").
+if (path === "/admin/api/missed" && method === "POST") {
+const body = await readJson(req, 1000);
+if (body instanceof Response) return body;
+const b = bookingsStore.data.bookings.find((x) => x.id === String(body?.id ?? ""));
+const missed = body?.missed;
+if (!b || (missed !== "noshow" && missed !== "other" && missed !== "")) return json({ error: "Bad request." }, 400);
+if (b.cancelled) return json({ error: "This interview was cancelled." }, 409);
+if (missed && Date.parse(b.start) > Date.now() + 60000) return json({ error: "You can mark this once the interview's start time has passed." }, 409);
+if (missed && ivStore.data.assign[b.id]) return json({ error: "Interview support is already recorded for this interview, so it happened." }, 409);
+const prev = { ...b };
+if (missed) Object.assign(b, { missed, missedAt: new Date().toISOString() });
+else {
+delete b.missed;
+delete b.missedAt;
+}
+if (!(await commit(b, prev))) return saveFailed();
+broadcastState();
+return json({ ok: true });
+}
 if (path === "/admin/api/interviewers" && method === "PUT") {
 const body = await readJson(req, 20000);
 if (body instanceof Response) return body;
@@ -1432,6 +1459,7 @@ if (!UUID.test(id) || typeof name !== "string" || (name !== "" && !iv.names.incl
 if (iv.assign[id] && iv.assign[id] !== name) return json({ error: "The interview supporter is locked once recorded, so it can't be changed." }, 409);
 const b = bookingsStore.data.bookings.find((x) => x.id === id);
 if (name && b && Date.parse(b.start) > Date.now() + 60000) return json({ error: "You can record the interview supporter once the interview starts." }, 409);
+if (name && b?.missed) return json({ error: "This interview is marked as not happened. Undo that first." }, 409);
 set[id] = name;
 }
 const prev = { ...iv.assign };

@@ -14,7 +14,7 @@ import {
   timeAgo,
   weekStart,
 } from "./time";
-import { byWhom, plural, statusOf, titleCase } from "./labels";
+import { byWhom, missedLabel, plural, statusClass, statusOf, titleCase } from "./labels";
 import { request } from "./api";
 import { sameCompany } from "../../same-company";
 import { setupAlerts } from "./alerts";
@@ -132,7 +132,7 @@ function renderCards() {
     return dayKeyOf(new Date(booking.start)) === today;
   });
   var unassigned = state.events.filter(function (booking) {
-    return Date.parse(booking.start) <= now && !state.iv.assign[booking.id];
+    return Date.parse(booking.start) <= now && !state.iv.assign[booking.id] && !booking.missed;
   });
   var next = upcoming.filter(function (booking) {
     return Date.parse(booking.start) > now;
@@ -215,7 +215,7 @@ function renderCards() {
 function renderAttention() {
   var now = Date.now();
   var unassigned = state.events.filter(function (booking) {
-    return Date.parse(booking.start) <= now && !state.iv.assign[booking.id];
+    return Date.parse(booking.start) <= now && !state.iv.assign[booking.id] && !booking.missed;
   });
   var line = byId("attn");
   line.hidden = !unassigned.length;
@@ -393,13 +393,14 @@ function renderWeek() {
             "ev " +
             (interviewer ? colorClass(interviewer) : "cn") +
             (isPast ? " past" : "") +
-            (started && !interviewer ? " need" : "") +
+            (started && !interviewer && !booking.missed ? " need" : "") +
+            (booking.missed ? " missed" : "") +
             (boxHeight < 50 ? " short" : ""),
           title: [
             titleCase(booking.name),
             booking.company,
             booking.round,
-            interviewer ? "Interview support: " + interviewer : started ? "Interview support not recorded" : "",
+            interviewer ? "Interview support: " + interviewer : booking.missed ? missedLabel(booking) : started ? "Interview support not recorded" : "",
           ]
             .filter(Boolean)
             .join(" · "),
@@ -575,7 +576,7 @@ function renderAgenda() {
           "button",
           {
             type: "button",
-            class: "ag-i " + (interviewer ? colorClass(interviewer) : "cn") + (isPast ? " past" : ""),
+            class: "ag-i " + (interviewer ? colorClass(interviewer) : "cn") + (isPast ? " past" : "") + (booking.missed ? " missed" : ""),
             onclick: function () {
               showBooking(booking.id);
             },
@@ -605,11 +606,11 @@ function renderAgenda() {
                   text: titleCase(booking.name),
                 }),
                 el("span", {
-                  text: [booking.company, booking.round, interviewer].filter(Boolean).join(" · ") || "\xA0",
+                  text: [booking.company, booking.round, interviewer || missedLabel(booking)].filter(Boolean).join(" · ") || "\xA0",
                 }),
               ],
             ),
-            !interviewer && started
+            !interviewer && started && !booking.missed
               ? el("i", {
                   class: "need-dot",
                   title: "Support not recorded",
@@ -765,6 +766,20 @@ function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
       setMessage(msg, error.message, true);
     });
 }
+// Marks a started interview as a no-show ("noshow") or as not happened ("other"), or undoes that ("").
+function setMissed(booking: Booking, missed: "noshow" | "other" | "", msg: HTMLElement) {
+  setMessage(msg, "Saving…");
+  request("/admin/api/missed", {
+    id: booking.id,
+    missed: missed,
+  })
+    .then(function () {
+      toast(missed === "noshow" ? "Marked as no-show" : missed ? "Marked as didn't happen" : "Mark removed");
+    })
+    .catch(function (error) {
+      setMessage(msg, error.message, true);
+    });
+}
 // Small line icons for the booking sheet (24×24, stroked with the text colour).
 var ICON: Record<string, string> = {
   mail: "M4 6.5h16v11H4zM4.5 7l7.5 6 7.5-6",
@@ -854,7 +869,7 @@ function showBooking(id: string, refresh?: boolean) {
         el("span", { text: formatTime(start) + " – " + formatTime(end) }),
         el("small", { text: booking.duration + " min · " + relative }),
       ]),
-      el("span", { class: "bk-st st-" + status.toLowerCase().replace(/\s+/g, ""), text: status }),
+      el("span", { class: "bk-st " + statusClass(status), text: status }),
     ]),
   );
 
@@ -935,10 +950,31 @@ function showBooking(id: string, refresh?: boolean) {
   }
   body.appendChild(details);
 
-  // Interviewer
+  // Interview support, or, for an interview marked as not having taken place, that mark with Undo
   if (!booking.cancelled) {
-    var box = el("div", { class: "bk-card" }, [el("h3", { text: "Interview support given by" })]);
-    if (upcoming) {
+    var box = el("div", { class: "bk-card" }, [
+      el("h3", { text: booking.missed ? (booking.missed === "noshow" ? "The candidate didn't show up" : "This interview didn't happen") : "Interview support given by" }),
+    ]);
+    if (booking.missed) {
+      var undoMsg = el("p", { class: "msg", role: "status" });
+      box.appendChild(
+        el("p", {
+          class: "sub",
+          text: "Marked " + (booking.missedAt ? timeAgo(booking.missedAt) + " " : "") + "as " + missedLabel(booking).toLowerCase() + ". It doesn't count as interview support.",
+        }),
+      );
+      box.appendChild(
+        el("button", {
+          type: "button",
+          class: "ghost bk-undo",
+          text: "Undo",
+          onclick: function () {
+            setMissed(booking, "", undoMsg);
+          },
+        }),
+      );
+      box.appendChild(undoMsg);
+    } else if (upcoming) {
       box.appendChild(el("p", { class: "sub", text: "You can record who gave interview support once it starts at " + formatTime(start) + "." }));
     } else {
       var choices = el("div", { class: "ivc" });
@@ -971,6 +1007,30 @@ function showBooking(id: string, refresh?: boolean) {
         box.appendChild(el("p", { class: "lockd", text: "Locked. This can't be changed once recorded." }));
       } else {
         box.appendChild(el("p", { class: "sub ivh", text: "Tap who gave interview support." }));
+        // or record that it didn't take place
+        box.appendChild(
+          el("div", { class: "bk-miss" }, [
+            el("span", { text: "Didn't happen?" }),
+            el("button", {
+              type: "button",
+              text: "Candidate no-show",
+              onclick: function () {
+                if (confirm("Mark " + titleCase(booking.name) + "'s interview as a no-show?")) {
+                  setMissed(booking, "noshow", msg);
+                }
+              },
+            }),
+            el("button", {
+              type: "button",
+              text: "Didn't happen",
+              onclick: function () {
+                if (confirm("Mark " + titleCase(booking.name) + "'s interview as didn't happen?")) {
+                  setMissed(booking, "other", msg);
+                }
+              },
+            }),
+          ]),
+        );
       }
       var clash = clashFor(booking, interviewer);
       if (clash) {
@@ -1032,7 +1092,7 @@ function showBooking(id: string, refresh?: boolean) {
                   .filter(Boolean)
                   .join(" · ") || "Interview",
             }),
-            el("span", { class: "bk-st sm st-" + otherStatus.toLowerCase().replace(/\s+/g, ""), text: otherStatus }),
+            el("span", { class: "bk-st sm " + statusClass(otherStatus), text: otherStatus }),
           ],
         ),
       );
