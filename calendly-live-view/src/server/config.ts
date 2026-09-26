@@ -48,7 +48,7 @@ export const OWNER_EMAILS = [
 // testing only, and only while ADMIN_EMAILS is empty.
 export const ADMIN_OPEN = (Bun.env.ADMIN_OPEN ?? "").trim() === "1";
 export const LOGIN_ON = OWNER_EMAILS.length > 0 || !ADMIN_OPEN;
-// The largest request the server reads: an enquiry with a 1 MB resume, with room to spare.
+// The largest request the server reads: an enquiry with a 200 KB resume, with plenty of room to spare.
 export const MAX_BODY = 2 * 1024 * 1024;
 const BACKUP_TO = (Bun.env.BACKUP_EMAIL ?? "")
   .split(/[,;\s]+/)

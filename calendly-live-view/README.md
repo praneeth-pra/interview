@@ -49,7 +49,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 - The Content-Security-Policy is `script-src 'self'; style-src 'self'` with no nonces, so pages must not contain inline `<script>`/`<style>` or `style="..."` attributes (a test enforces this). Per-request values go in `<script type="application/json" id="boot">`.
 - Search engines may list only the landing page (`/`): every other response carries `X-Robots-Tag: noindex`. `/robots.txt` keeps crawlers out of `/admin`, `/api/` and manage links, and `/sitemap.xml` lists the landing page. The landing page's canonical address is the one without `www.`.
 - Analytics loads in the admin page as a same-origin frame from `/admin/analytics`, only when that tab is opened.
-- `/enquiry` is a plain page (`src/pages/enquiry.html|css|js`) that posts a multipart form to `/api/enquiry`. The details go to `enquiries.json`; the resume (PDF or Word, checked by its first bytes, 1 MB at most) is saved as `DATA_DIR/resumes/<id>.<ext>`.
+- `/enquiry` is a plain page (`src/pages/enquiry.html|css|js`) that posts a multipart form to `/api/enquiry`. The details go to `enquiries.json`; the resume (PDF or Word, checked by its first bytes, 200 KB at most, not mentioned on the form) is saved as `DATA_DIR/resumes/<id>.<ext>`.
 
 ## Security
 

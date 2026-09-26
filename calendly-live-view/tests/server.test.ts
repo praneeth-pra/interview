@@ -280,9 +280,11 @@ describe("enquiries", () => {
     const notPdf = await send(form(good, { bytes: new TextEncoder().encode("hello"), name: "cv.pdf" }));
     expect(notPdf.status).toBe(400);
     expect((await notPdf.json()).error).toContain("PDF or Word");
-    const big = new Uint8Array(1024 * 1024 + 10);
+    const big = new Uint8Array(200 * 1024 + 1);
     big.set(PDF);
-    expect((await send(form(good, { bytes: big, name: "big.pdf" }))).status).toBe(413);
+    const tooBig = await send(form(good, { bytes: big, name: "big.pdf" }));
+    expect(tooBig.status).toBe(413);
+    expect((await tooBig.json()).error).toBe("Your resume is larger than 200 KB. Please upload a smaller file.");
     const ok = await send(form(good, { bytes: PDF, name: "Asha Rao résumé.pdf" }));
     expect(ok.status).toBe(200);
     const { enquiries } = await (await get(open, "/admin/api/enquiries")).json();
