@@ -8,7 +8,9 @@ import { saveStore } from "./store";
 import { EMAIL_RE, normEmail } from "./util";
 import { mkdir, rm } from "node:fs/promises";
 
-const RESUME_MAX = 1024 * 1024;
+// the form doesn't mention this limit; a bigger file gets RESUME_TOO_BIG, in the browser and here
+const RESUME_MAX = 200 * 1024;
+const RESUME_TOO_BIG = "Your resume is larger than 200 KB. Please upload a smaller file.";
 const ENQUIRIES_PER_DAY = 100;
 // what the first bytes of each allowed kind of file look like
 const RESUME_KINDS = [
@@ -38,7 +40,7 @@ export async function receiveEnquiry(req: Request, srv: Srv): Promise<Response> 
   if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("multipart/form-data")) return json({ error: "Bad request." }, 415);
   const length = Number(req.headers.get("content-length") ?? NaN);
   if (!(length > 0)) return json({ error: "Bad request." }, 411);
-  if (length > RESUME_MAX + 64 * 1024) return json({ error: "The resume must be under 1 MB." }, 413);
+  if (length > RESUME_MAX + 64 * 1024) return json({ error: RESUME_TOO_BIG }, 413);
   if (!underLimit("enquiry:" + ip, 5, 3600000)) return json({ error: "Too many enquiries from this network. Try again in an hour." }, 429);
   // and at most 100 saved in any 24 hours from everyone together, so a flood of fake ones can't fill the disk with resumes
   const lastDay = enquiriesStore.data.enquiries.filter((v) => Date.parse(v.createdAt) > Date.now() - 86400000).length;
@@ -68,7 +70,7 @@ export async function receiveEnquiry(req: Request, srv: Srv): Promise<Response> 
   if (!experience) return json({ error: "Choose your years of experience." }, 400);
   const resume = form.get("resume");
   if (!(resume instanceof Blob) || !resume.size) return json({ error: "Add your resume." }, 400);
-  if (resume.size > RESUME_MAX) return json({ error: "The resume must be under 1 MB." }, 413);
+  if (resume.size > RESUME_MAX) return json({ error: RESUME_TOO_BIG }, 413);
   const bytes = new Uint8Array(await resume.arrayBuffer());
   const kind = RESUME_KINDS.find((k) => k.magic.every((b, i) => bytes[i] === b));
   if (!kind) return json({ error: "The resume must be a PDF or Word file." }, 400);
