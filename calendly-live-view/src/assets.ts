@@ -16,8 +16,9 @@ const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   json: "application/json",
 };
-// Only the candidate booking page uses Inter; the admin app uses the device's own font (San Francisco on iPhone).
-const FONT_CSS_PAGES = new Set(["book.css"]);
+// The candidate booking page uses Inter; the admin app (admin, Contacts, sign-in) uses Figtree, an open-source font
+// close to the Calendly app's. Each page's stylesheet starts with the @font-face rules of its font.
+const FONT_OF_PAGE: Record<string, string> = { "book.css": "inter.css", "admin.css": "figtree.css", "analytics.css": "figtree.css", "login.css": "figtree.css" };
 
 export type Encoded = { raw: Buffer; br?: Buffer; gz?: Buffer; etag: string; type: string };
 
@@ -62,7 +63,7 @@ function add(name: string, data: Buffer) {
 const linkAssets = (text: string) => text.replace(/\/assets\/([\w-]+\.(?:css|js|woff2))\b/g, (m, n) => byName.get(n)?.url ?? m);
 
 for (const f of readdirSync(FONTS)) if (f.endsWith(".woff2")) add(f, readFileSync(join(FONTS, f)));
-const fontCss = readFileSync(join(FONTS, "inter.css"), "utf8").replace(/url\(fonts\//g, "url(/assets/");
+const fontCss = (name: string) => (name ? readFileSync(join(FONTS, name), "utf8").replace(/url\(fonts\//g, "url(/assets/") : "");
 // Page scripts are readable sources (src/pages/<page>.js, or src/pages/<page>/main.ts split into modules);
 // they are bundled and minified here, so what the browser gets is one small file per page.
 async function bundle(entry: string) {
@@ -75,7 +76,7 @@ for (const f of readdirSync(PAGES, { withFileTypes: true }).sort((a, b) => a.nam
   else if (f.name.endsWith(".js")) add(f.name, Buffer.from(await bundle(join(PAGES, f.name))));
   else if (f.name.endsWith(".css")) {
     const css = readFileSync(join(PAGES, f.name), "utf8");
-    add(f.name, Buffer.from(linkAssets(FONT_CSS_PAGES.has(f.name) ? fontCss + css : css)));
+    add(f.name, Buffer.from(linkAssets(fontCss(FONT_OF_PAGE[f.name] ?? "") + css)));
   }
 }
 

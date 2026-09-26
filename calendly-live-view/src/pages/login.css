@@ -33,7 +33,8 @@ body {
   background: var(--bg);
   color: var(--ink);
   font:
-    15px/1.5 -apple-system,
+    15px/1.5 Figtree,
+    -apple-system,
     BlinkMacSystemFont,
     system-ui,
     "Segoe UI",
