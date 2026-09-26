@@ -126,10 +126,11 @@ async function pickTime(p, s, dayIndex = 1, slotIndex = 2) {
   await p.locator("button.t").nth(slotIndex).click();
   await wait(p, 300);
 }
-// Analytics: type a name in the people search and open the first match.
+// Contacts (Analytics before): type a name in the search and open the first match. Works on both the old page
+// (a dropdown of matches) and the new one (the contacts list filters as you type).
 async function pickPerson(f, name) {
   await f.locator("#pq").fill(name);
-  await f.locator("#plistbox .rrow").first().click();
+  await f.locator("#plistbox .rrow, #clist .crow").first().click();
 }
 async function openStats(p, s) {
   await p.goto(s.main + "/admin");
@@ -365,7 +366,7 @@ const CASES = [
       const f = p.frameLocator("iframe.la-frame");
       await pickPerson(f, "Vikram");
       await wait(p, 1800);
-      await f.locator("#hist").click();
+      await f.locator("#hist:visible, #tabAbout").first().click();
       await wait(p, 1200);
     },
   ],
