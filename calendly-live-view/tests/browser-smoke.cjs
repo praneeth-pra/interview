@@ -81,6 +81,8 @@ const checks = [
     await p.locator("#tabEnq .nbadge:not([hidden])").waitFor(); // the red count for the new enquiry
     await p.locator("#tabEnq").click();
     await p.locator(".enq", { hasText: "Asha Rao" }).waitFor();
+    const [saved] = await Promise.all([p.waitForEvent("download"), p.locator(".enq .bk-act.dl").first().click()]);
+    if (saved.suggestedFilename() !== "Asha Rao resume.pdf") throw new Error("resume saved as " + saved.suggestedFilename());
     await p.locator("#tabEnq .nbadge[hidden]").waitFor({ state: "attached" }); // seen now
   }],
   ["admin download menu", async (p) => {

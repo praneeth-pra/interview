@@ -39,12 +39,19 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       const v = enquiriesStore.data.enquiries.find((x) => x.id === resumePath[1]);
       const bytes = v && (await readResume(v.resume.file));
       if (!v || !bytes) return json({ error: "That resume isn't there any more." }, 404);
-      const ascii = v.resume.name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+      // opens in the browser to read; ?download=1 saves it as "<candidate> resume.pdf" instead of the uploaded file name
+      const download = url.searchParams.get("download") === "1";
+      const ext = v.resume.file.slice(v.resume.file.lastIndexOf("."));
+      const name = download
+        ? (v.name.replace(/[\x00-\x1f\x7f/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Candidate") + " resume" + ext
+        : v.resume.name;
+      const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
       return new Response(bytes as Uint8Array<ArrayBuffer>, {
         headers: {
           ...BASE_HEADERS,
           "Content-Type": v.resume.type,
-          "Content-Disposition": 'attachment; filename="' + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(v.resume.name),
+          "Content-Disposition":
+            (download ? "attachment" : "inline") + '; filename="' + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(name),
         },
       });
     }
