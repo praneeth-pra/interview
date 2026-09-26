@@ -36,7 +36,7 @@ declare global {
   interface Window {
     __openB?: (id: string) => void;
     __stats?: () => void;
-    __statsEvent?: string; // open this booking's candidate when the Analytics tab shows
+    __statsEvent?: string; // open this booking's candidate when the Contacts tab shows
   }
   interface Navigator {
     standalone?: boolean;

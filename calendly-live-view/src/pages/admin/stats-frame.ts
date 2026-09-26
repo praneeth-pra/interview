@@ -1,4 +1,4 @@
-// The Analytics tab loads /admin/analytics in a frame the first time it is opened, sized to the window.
+// The Contacts tab loads /admin/analytics in a frame the first time it is opened, sized to the window.
 export function setupStatsFrame() {
   var box = document.getElementById("viewStats");
   if (!box) {
@@ -31,7 +31,7 @@ export function setupStatsFrame() {
     if (!frame) {
       frame = document.createElement("iframe");
       frame.className = "la-frame";
-      frame.title = "Person analytics";
+      frame.title = "Contacts";
       frame.src = "/admin/analytics" + (window.__statsEvent ? "?event=" + encodeURIComponent(window.__statsEvent) : "");
       // a frame is white until its page has drawn; show it once it has
       frame.style.visibility = "hidden";

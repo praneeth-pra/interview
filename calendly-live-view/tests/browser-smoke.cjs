@@ -35,8 +35,8 @@ const checks = [
     await frame.locator("#pq").fill("priya");
     await frame.locator("#clist .crow").first().click();
     await frame.locator("#an:not([hidden]) .aitem").first().waitFor();
-    await frame.locator("#tabAn").click();
-    await frame.locator("#kpis .khero").waitFor();
+    await frame.locator("#tabAbout").click();
+    await frame.locator("#tpAbout .agroup").first().waitFor();
     await frame.locator("#back").click();
     await frame.locator("#home:not([hidden]) .crow").first().waitFor();
   }],

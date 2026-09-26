@@ -377,13 +377,18 @@ const CASES = [
       const f = p.frameLocator("iframe.la-frame");
       await pickPerson(f, "Vikram");
       await wait(p, 1800);
-      await f.locator("#reslink").click();
-      await wait(p, 400);
-      await f.locator("#rq").fill("o");
-      await wait(p, 400);
-      await f.locator("#rsug .rrow").first().click();
-      await wait(p, 300);
-      await f.locator(".rsel2").selectOption("offer");
+      // the Results panel is gone from Contacts; there this screen shows the contact's About tab
+      if (await f.locator("#reslink").count()) {
+        await f.locator("#reslink").click();
+        await wait(p, 400);
+        await f.locator("#rq").fill("o");
+        await wait(p, 400);
+        await f.locator("#rsug .rrow").first().click();
+        await wait(p, 300);
+        await f.locator(".rsel2").selectOption("offer");
+      } else {
+        await f.locator("#tabAbout").click();
+      }
       await wait(p, 1500);
     },
   ],

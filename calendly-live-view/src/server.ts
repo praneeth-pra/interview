@@ -4,7 +4,7 @@ import { mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
 import { asset, assetList, compressed, encode, readData, respond, template } from "./assets";
 import { deflateSync } from "node:zlib";
-import { sameCompany } from "./pages/analytics/companies";
+import { sameCompany } from "./same-company";
 const KNOWN_COMPANIES: string[] = JSON.parse(readData("companies.json"));
 const ICON = encode(readFileSync(join(import.meta.dir, "../public/icon.png")), "image/png");
 for (const a of assetList()) console.log("asset " + a.url + " (" + a.raw + " bytes, " + a.br + " compressed)");
