@@ -11,7 +11,7 @@ Read README.md first for layout, commands and deploy.
 - The booking, admin and analytics pages (`src/pages/book/`, `admin/`, `analytics/`) are typed TypeScript modules; `bun run typecheck` must pass. Sign-in is `src/pages/login.js`.
 - Page scripts are readable sources; `src/assets.ts` bundles and minifies them at startup (`src/pages/<page>.js`, or `src/pages/<page>/main.ts` plus modules). Rename with a scope-aware tool (the editor's rename), never find-and-replace: the pages reuse short names like `row`, `box`, `event` in many scopes.
 - Names, companies and reasons are typed by candidates: build DOM with `textContent`, not `innerHTML` with user text.
-- Fonts: the candidate booking page uses self-hosted Inter; the admin app (admin, analytics, sign-in) uses the device's system font so it feels native on iPhone. Keep text at 11.5px or larger and grey text at 4.5:1 contrast.
+- Fonts: the candidate booking page uses self-hosted Inter; the admin app (admin, Contacts, sign-in) uses self-hosted Figtree, close to the Calendly app's font. Keep text at 11.5px or larger and grey text at 4.5:1 contrast.
 - **CSS class names are global per page and short** (`.dl`, `.ev`, `.t`, `.go`...). Before adding a class, grep the page's CSS for it; `.dl` already meant the booking panel's details list.
 - Backups (`runBackup` in `src/server.ts`) email candidate data. Keep `push.json` out of anything that leaves the volume.
 

@@ -119,7 +119,8 @@ body {
   padding: 14px 20px 64px;
   color: var(--k);
   font:
-    15px/1.5 -apple-system,
+    15px/1.5 Figtree,
+    -apple-system,
     BlinkMacSystemFont,
     system-ui,
     "Segoe UI",
@@ -391,8 +392,8 @@ input[type="search"] {
   min-width: 0;
 }
 .cmain b {
-  font-size: 16.5px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 560;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
