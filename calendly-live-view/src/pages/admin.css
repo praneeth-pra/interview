@@ -2986,83 +2986,144 @@ button,
     background: var(--bg);
   }
 }
-/* ---- Agenda: the week as rows ----
-   One row per day: weekday and date on the left (today in orange, with an orange edge), then that day's interviews
-   as cards tinted in the interview supporter's colour, with a top edge in that colour. Cards wrap when a day is busy. */
-.ag-d {
+/* ---- Agenda: one day, like a phone calendar's Day view ----
+   A week strip picks the day (circled in orange, dots for days with interviews). Below it, an hour grid holds the
+   day's interviews as blocks sized to their length, tinted in the interview supporter's colour with a top edge in that
+   colour (grey when none), and today a line with a time pill marks the time now. */
+.ws {
   display: grid;
-  grid-template-columns: 46px minmax(0, 1fr);
-  gap: 8px;
-  scroll-margin-top: calc(72px + env(safe-area-inset-top));
-  padding: 8px 8px 8px 0;
-  border-top: 1px solid var(--line);
-  position: relative;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+  margin: 2px 0 16px;
 }
-.ag-d:first-child {
-  border-top: 0;
-}
-.ag-d.today:before {
-  content: "";
-  position: absolute;
-  left: 0;
-  top: 6px;
-  bottom: 6px;
-  width: 3px;
-  border-radius: 0 3px 3px 0;
-  background: var(--blue);
-}
-.ag-dl {
+.ws-b {
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: center;
-  line-height: 1.15;
-  min-height: 44px;
+  gap: 4px;
+  padding: 6px 0 4px;
+  border: 0;
+  border-radius: 14px;
+  background: none;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
 }
-.ag-dl span {
+.ws-b:active:not(:disabled) {
+  transform: none;
+}
+.ws-w {
   font-size: 12px;
+  font-weight: 500;
   color: var(--ink2);
 }
-.ag-dl b {
-  font-size: 19px;
-  font-weight: 650;
+.ws-b b {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  font-size: 17px;
+  font-weight: 600;
   font-variant-numeric: tabular-nums;
+  transition: background 0.18s ease, color 0.18s ease;
 }
-.ag-d.today .ag-dl span,
-.ag-d.today .ag-dl b {
+.ws-b.today b {
   color: var(--link);
   font-weight: 700;
 }
-.ag-d.empty .ag-dl {
-  opacity: 0.7;
+.ws-b.on b {
+  background: var(--blue);
+  color: #fff;
 }
-.ag-g {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 1fr));
+.ws-b.on .ws-w {
+  color: var(--link);
+  font-weight: 600;
+}
+.ws-d {
+  display: flex;
+  justify-content: center;
+  gap: 3px;
+  height: 6px;
+}
+.ws-d i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.ag-h {
+  display: flex;
+  align-items: baseline;
   gap: 6px;
+  margin: 0 4px 12px;
 }
-.agenda {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  overflow: hidden;
+.ag-h b {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.ag-h span {
+  font-size: 19px;
+  color: var(--ink2);
+}
+.ag-h em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink2);
+}
+.ag-h.today b {
+  color: var(--link);
+}
+.ag-grid {
+  position: relative;
+  margin: 8px 0 12px;
+}
+.ag-hr {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--line);
+}
+.ag-hr span {
+  position: absolute;
+  left: 0;
+  width: 50px;
+  top: -8px;
+  padding-right: 8px;
+  background: var(--bg);
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+}
+.ag-lane {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 56px;
+  right: 0;
 }
 .ag-i {
-  position: relative;
+  position: absolute;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
-  min-height: 92px;
-  padding: 6px 7px;
+  padding: 5px 8px;
   border: 0;
   border-top: 3px solid var(--c);
-  border-radius: 4px 4px 8px 8px;
-  background: var(--ct);
+  border-radius: 3px 3px 8px 8px;
+  /* the tint over the page colour, so hour lines don't show through */
+  background: linear-gradient(var(--ct), var(--ct)), var(--bg);
   text-align: left;
   color: var(--ink);
   font: inherit;
+  overflow: hidden;
+  z-index: 1;
 }
 .ag-i:active:not(:disabled) {
   transform: none;
@@ -3074,69 +3135,86 @@ button,
   }
 }
 .ag-i b {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 650;
   line-height: 1.25;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ag-i.missed b {
   text-decoration: line-through;
 }
-.ag-s {
-  font-size: 11.5px;
+.ag-s,
+.ag-t {
+  font-size: 12px;
   line-height: 1.3;
   color: var(--ink2);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 .ag-t {
-  display: flex;
-  flex-direction: column;
-  margin-top: auto;
-  padding-top: 4px;
-  font-size: 11.5px;
-  line-height: 1.25;
-  color: var(--ink2);
-}
-.ag-t span:first-child {
   color: var(--ink);
-  font-weight: 600;
+  font-weight: 500;
+}
+/* short interviews: name and time on one line; middling ones leave out the company and round */
+.ag-i.short {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 3px;
+}
+.ag-i.short .ag-s,
+.ag-i.mid .ag-s {
+  display: none;
 }
 .ag-i .need-dot {
   position: absolute;
-  top: 7px;
-  right: 7px;
+  top: 6px;
+  right: 6px;
   width: 8px;
   height: 8px;
-}
-.ag-i.need b {
-  padding-right: 10px;
 }
 .ag-i.past {
   opacity: 0.72;
 }
-/* cards without a supporter: a warm grey */
 .ag-i.cn {
   --c: #8f8b83;
-  --ct: rgba(128, 122, 112, 0.13);
+  --ct: rgba(128, 122, 112, 0.16);
+}
+/* the time now: a pill on the hour column and a line across */
+.ag-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--blue);
+  z-index: 2;
+  pointer-events: none;
+}
+.ag-now span {
+  position: absolute;
+  left: 0;
+  top: -11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
 }
 @media (min-width: 761px) {
   .agenda {
-    max-width: 960px;
+    max-width: 760px;
   }
-  .ag-d {
-    grid-template-columns: 72px minmax(0, 1fr);
-    padding: 10px 12px 10px 0;
-  }
-  .ag-g {
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 8px;
+  .ws {
+    padding: 6px;
+    border: 1px solid var(--line);
+    border-radius: 20px;
+    background: var(--card);
   }
 }
 /* Phones: Alerts sits in the ⋯ menu. */
