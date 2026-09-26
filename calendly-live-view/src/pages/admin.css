@@ -3355,3 +3355,15 @@ button,
 .ws-d .cn {
   --c: #7d7a74;
 }
+/* Phones swap these: Alerts sits in the ⋯ menu and New booking takes its place in the bottom bar. */
+#mAlerts {
+  display: none;
+}
+@media (max-width: 760px) {
+  .dlmenu #mAlerts {
+    display: block;
+  }
+  .dlmenu #mNew {
+    display: none;
+  }
+}

@@ -109,6 +109,19 @@ const checks = [
     await p.goto(BASE + "/admin/allowlist");
     await p.locator("#panel #viewAllow #addb").waitFor();
   }],
+  ["admin phone: Alerts in the menu, New booking in the bottom bar", async (p) => {
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    if (await p.locator("#mNew").isVisible()) throw new Error("New booking should not be in the phone menu");
+    await p.locator("#mAlerts").click();
+    await p.locator(".pushpop h3", { hasText: "Booking notifications" }).waitFor();
+    if (await p.locator("#dlMenu").isVisible()) throw new Error("menu stayed open behind Alerts");
+    await p.keyboard.press("Escape");
+    await p.locator(".bnav [data-go='new']").click();
+    await p.locator("#ptitle", { hasText: "New booking" }).waitFor();
+    await p.locator("#pclose").click();
+  }],
 ];
 
 (async () => {
