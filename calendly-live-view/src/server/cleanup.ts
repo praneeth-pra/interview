@@ -1,7 +1,7 @@
 // One-time contacts cleanup (26 Sep 2026), run on start: deletes test bookings and merges people who booked under
 // several names or emails into one contact, by booking id. Safe to run again: bookings already cleaned are skipped.
-// Remove this file once the deploy log shows it ran.
-import { bookingsStore, ivStore } from "./data";
+// Also moves Triveni to her own email (26 Sep). Remove this file once the deploy log shows it ran.
+import { allowStore, bookingsStore, enquiriesStore, ivStore } from "./data";
 import { saveStore } from "./store";
 
 const TEST_BOOKINGS = [
@@ -74,8 +74,31 @@ const MERGES: { name: string; email: string; ids: string[] }[] = [
   },
 ];
 
+// Triveni booked under gp.aws@hotmail.com, which is also used for other things: only her records move to her own email.
+const TRIVENI_FROM = "gp.aws@hotmail.com";
+const TRIVENI_TO = "trivenimarlapati446@gmail.com";
+const isTriveni = (x: { name: string; email: string }) =>
+  x.name.trim().toLowerCase() === "triveni" && x.email.trim().toLowerCase() === TRIVENI_FROM;
+async function moveTriveni() {
+  const bookings = bookingsStore.data.bookings.filter(isTriveni);
+  const enquiries = enquiriesStore.data.enquiries.filter(isTriveni);
+  // added once, with the move, so removing it from the allowlist later sticks
+  const allow = bookings.length > 0 && !allowStore.data.emails.includes(TRIVENI_TO);
+  for (const x of [...bookings, ...enquiries]) x.email = TRIVENI_TO;
+  if (allow) allowStore.data.emails.push(TRIVENI_TO);
+  if (bookings.length) await saveStore(bookingsStore);
+  if (enquiries.length) await saveStore(enquiriesStore);
+  if (allow && allowStore.ok) await saveStore(allowStore);
+  if (bookings.length || enquiries.length || allow)
+    console.log(
+      "contacts cleanup: moved " + bookings.length + " booking(s) and " + enquiries.length + " enquiry(ies) to Triveni's email" +
+        (allow ? ", added it to the allowlist" : ""),
+    );
+}
+
 export async function cleanupContacts() {
   if (!bookingsStore.ok) return;
+  await moveTriveni();
   const all = bookingsStore.data.bookings;
   const gone = all.filter((b) => TEST_BOOKINGS.includes(b.id));
   let merged = 0;
