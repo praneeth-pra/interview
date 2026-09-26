@@ -76,12 +76,8 @@ export function setupNav() {
       return;
     }
     var target = button.getAttribute("data-go");
-    if (target === "alerts") {
-      e.stopPropagation();
-      var alertsButton = byId("pushBtn");
-      if (alertsButton) {
-        alertsButton.click();
-      }
+    if (target === "new") {
+      byId("mNew").click();
       return;
     }
     if (target === "stats") {
