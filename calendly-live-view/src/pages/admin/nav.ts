@@ -19,8 +19,50 @@ export function setupNav() {
     }
   }
   var TITLES = { cal: "Calendar", ag: "Agenda", stats: "Contacts", enq: "Enquiries" };
+  // Switching sections: the bottom bar's highlight slides to the new tab, and the page slides in from the side of travel.
+  var ORDER = ["cal", "ag", "stats", "enq"];
+  var pill = document.createElement("span");
+  pill.className = "bnav-pill";
+  pill.setAttribute("aria-hidden", "true");
+  nav.insertBefore(pill, nav.firstChild);
+  var main = document.querySelector("main");
+  var lastView = "";
+  var slideFrom = "";
+  function placePill() {
+    var active = nav.querySelector<HTMLElement>("[data-go].on");
+    pill.hidden = !active;
+    if (active) {
+      pill.style.width = active.offsetWidth + "px";
+      pill.style.transform = "translateX(" + active.offsetLeft + "px)";
+    }
+  }
+  addEventListener("resize", placePill);
+  function slide(from: string, to: string) {
+    main.classList.remove("tab-next", "tab-prev", "tab-fade");
+    void main.offsetWidth;
+    // Contacts sizes its frame from where it sits, so it fades in without sliding
+    main.classList.add(to === "stats" ? "tab-fade" : ORDER.indexOf(to) > ORDER.indexOf(from) ? "tab-next" : "tab-prev");
+  }
+  main.addEventListener("animationend", function (event) {
+    if (event.target === main) {
+      main.classList.remove("tab-next", "tab-prev", "tab-fade");
+    }
+  });
   function sync() {
     var current = currentView();
+    if (current !== lastView) {
+      // one tap can pass through Calendar on its way to Agenda: slide from where the tap started
+      if (lastView && !slideFrom) {
+        slideFrom = lastView;
+        setTimeout(function () {
+          slideFrom = "";
+        });
+      }
+      if (slideFrom && slideFrom !== current) {
+        slide(slideFrom, current);
+      }
+      lastView = current;
+    }
     byId("sect").textContent = TITLES[current];
     byId("qbtn").setAttribute("aria-expanded", String(current === "stats" && body.classList.contains("cq-open")));
     body.classList.toggle("on-cal", current === "cal" || current === "ag");
@@ -31,6 +73,7 @@ export function setupNav() {
     byId("tabAg").setAttribute("aria-selected", String(current === "ag"));
     byId("tabStats").setAttribute("aria-selected", String(current === "stats"));
     byId("tabEnq").setAttribute("aria-selected", String(current === "enq"));
+    placePill();
   }
   function showStats() {
     try {
@@ -127,6 +170,13 @@ export function setupNav() {
   };
   view(weekView);
   sync();
+  // the highlight starts in place, then animates from the next switch on
+  requestAnimationFrame(function () {
+    placePill();
+    requestAnimationFrame(function () {
+      nav.classList.add("ready");
+    });
+  });
   var panel = byId("panel");
   new MutationObserver(function () {
     body.classList.toggle("sheet", !panel.hidden);

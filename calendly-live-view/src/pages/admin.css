@@ -1606,11 +1606,32 @@ body.wkv .agenda {
     height: 23px;
   }
   .bnav .on {
-    background: var(--tint);
     color: var(--link);
   }
   .bnav .on svg {
     stroke-width: 2.2;
+  }
+  .bnav button {
+    position: relative;
+    z-index: 1;
+    transition:
+      color 0.22s ease,
+      transform 0.15s ease;
+  }
+  /* the highlight behind the active tab, which slides between tabs */
+  .bnav-pill {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 0;
+    width: 0;
+    border-radius: 28px;
+    background: var(--tint);
+  }
+  .bnav.ready .bnav-pill {
+    transition:
+      transform 0.32s cubic-bezier(0.3, 1.25, 0.5, 1),
+      width 0.32s var(--ease);
   }
   .toast {
     bottom: calc(92px + env(safe-area-inset-bottom));
@@ -1631,9 +1652,8 @@ body.wkv .agenda {
   .bnav {
     box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
   }
-  .bnav .on {
+  .bnav-pill {
     background: rgba(0, 0, 0, 0.45);
-    color: var(--link);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1923,6 +1943,37 @@ button,
 /* no slide here: the analytics frame sizes itself from its position when shown */
 #viewStats:not([hidden]) {
   animation: fade 0.24s ease backwards;
+}
+/* switching sections: the page slides in from the side of travel (Contacts only fades, see above) */
+main.tab-next {
+  animation: tabNext 0.24s var(--ease);
+}
+main.tab-prev {
+  animation: tabPrev 0.24s var(--ease);
+}
+main.tab-fade {
+  animation: fade 0.22s ease;
+}
+/* the sliding page mustn't widen the page, or phones zoom out for a moment */
+body {
+  overflow-x: clip;
+}
+main.tab-next > section,
+main.tab-prev > section,
+main.tab-fade > section {
+  animation: none !important;
+}
+@keyframes tabNext {
+  from {
+    opacity: 0;
+    transform: translateX(28px);
+  }
+}
+@keyframes tabPrev {
+  from {
+    opacity: 0;
+    transform: translateX(-28px);
+  }
 }
 @keyframes viewIn {
   from {

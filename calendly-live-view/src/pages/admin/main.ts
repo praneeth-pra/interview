@@ -2209,7 +2209,8 @@ byId("tabAg").addEventListener("click", function () {
   setTimeout(function () {
     var mark = document.querySelector("#agenda .ag-now") || document.querySelector("#agenda .ag-i");
     if (mark && mark.getBoundingClientRect().top > innerHeight * 0.6) {
-      mark.scrollIntoView({ block: "center" });
+      // scroll only up and down: the page may still be sliding in sideways
+      scrollTo(0, scrollY + mark.getBoundingClientRect().top - innerHeight / 2);
     }
   });
 });
