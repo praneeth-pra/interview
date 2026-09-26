@@ -1,46 +1,62 @@
-// Phone bottom navigation and section title, the Contacts and Enquiries tabs, the week/agenda switch (remembered; agenda by default
-// on phones) and the bottom-sheet panel, which can be swiped down to close.
+// Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts, Enquiries and Payments) in the header and the
+// phone bottom bar, the phone section title, and the bottom-sheet panel, which can be swiped down to close.
 export function setupNav() {
   function byId(id: string) {
     return document.getElementById(id);
   }
   var body = document.body;
   var nav = document.querySelector(".bnav");
+  var weekView = new URLSearchParams(location.search).get("view") !== "agenda";
   function currentView() {
     if (!byId("viewStats").hidden) {
       return "stats";
     } else if (!byId("viewEnq").hidden) {
       return "enq";
-    } else if (!byId("viewAllow").hidden) {
-      return "allow";
+    } else if (!byId("viewPay").hidden) {
+      return "pay";
+    } else if (!weekView) {
+      return "ag";
     } else {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", allow: "Emails", stats: "Contacts", enq: "Enquiries" };
+  var TITLES = { cal: "Calendar", ag: "Agenda", stats: "Contacts", enq: "Enquiries", pay: "Payments" };
+  // Switching sections is instant; only the bottom bar's highlight slides to the new tab.
+  var pill = document.createElement("span");
+  pill.className = "bnav-pill";
+  pill.setAttribute("aria-hidden", "true");
+  nav.insertBefore(pill, nav.firstChild);
+  function placePill() {
+    var active = nav.querySelector<HTMLElement>("[data-go].on");
+    pill.hidden = !active;
+    if (active) {
+      pill.style.width = active.offsetWidth + "px";
+      pill.style.transform = "translateX(" + active.offsetLeft + "px)";
+    }
+  }
+  addEventListener("resize", placePill);
   function sync() {
     var current = currentView();
     byId("sect").textContent = TITLES[current];
-    var searchOpen = current === "stats" ? "cq-open" : "q-open";
-    byId("qbtn").setAttribute("aria-expanded", String(current !== "allow" && body.classList.contains(searchOpen)));
-    body.classList.toggle("on-cal", current === "cal");
+    byId("qbtn").setAttribute("aria-expanded", String(current === "stats" && body.classList.contains("cq-open")));
+    body.classList.toggle("on-cal", current === "cal" || current === "ag");
     nav.querySelectorAll("[data-go]").forEach(function (button) {
       button.classList.toggle("on", button.getAttribute("data-go") === current);
     });
+    byId("tabCal").setAttribute("aria-selected", String(current === "cal"));
+    byId("tabAg").setAttribute("aria-selected", String(current === "ag"));
     byId("tabStats").setAttribute("aria-selected", String(current === "stats"));
     byId("tabEnq").setAttribute("aria-selected", String(current === "enq"));
-    if (current === "stats" || current === "enq") {
-      byId("tabCal").setAttribute("aria-selected", "false");
-      byId("tabAllow").setAttribute("aria-selected", "false");
-    }
+    byId("tabPay").setAttribute("aria-selected", String(current === "pay"));
+    placePill();
   }
   function showStats() {
     try {
       history.replaceState(null, "", "/admin?view=analytics");
     } catch (e) {}
     byId("viewCal").hidden = true;
-    byId("viewAllow").hidden = true;
     byId("viewEnq").hidden = true;
+    byId("viewPay").hidden = true;
     byId("viewStats").hidden = false;
     sync();
     window.scrollTo(0, 0);
@@ -54,8 +70,8 @@ export function setupNav() {
       history.replaceState(null, "", "/admin?view=enquiries");
     } catch (e) {}
     byId("viewCal").hidden = true;
-    byId("viewAllow").hidden = true;
     byId("viewStats").hidden = true;
+    byId("viewPay").hidden = true;
     byId("viewEnq").hidden = false;
     sync();
     window.scrollTo(0, 0);
@@ -64,34 +80,50 @@ export function setupNav() {
     }
   }
   byId("tabEnq").onclick = showEnq;
-  ["tabCal", "tabAllow"].forEach(function (id) {
-    byId(id).addEventListener("click", function () {
-      byId("viewStats").hidden = true;
-      byId("viewEnq").hidden = true;
-      try {
-        var url = new URL(location.href);
-        if (url.searchParams.get("view") === "analytics" || url.searchParams.get("view") === "enquiries") {
-          url.searchParams.delete("view");
-          history.replaceState(null, "", url.pathname + url.search);
-        }
-      } catch (e) {}
-      sync();
-    });
+  function showPay() {
+    try {
+      history.replaceState(null, "", "/admin?view=payments");
+    } catch (e) {}
+    byId("viewCal").hidden = true;
+    byId("viewStats").hidden = true;
+    byId("viewEnq").hidden = true;
+    byId("viewPay").hidden = false;
+    sync();
+    window.scrollTo(0, 0);
+    if (window.__pay) {
+      window.__pay();
+    }
+  }
+  byId("tabPay").onclick = showPay;
+  function showCal(week: boolean) {
+    byId("viewStats").hidden = true;
+    byId("viewEnq").hidden = true;
+    byId("viewPay").hidden = true;
+    view(week);
+    try {
+      var url = new URL(location.href);
+      if (week) {
+        url.searchParams.delete("view");
+      } else {
+        url.searchParams.set("view", "agenda");
+      }
+      history.replaceState(null, "", url.pathname + url.search);
+    } catch (e) {}
+    sync();
+  }
+  byId("tabCal").addEventListener("click", function () {
+    showCal(true);
   });
+  byId("tabAg").onclick = function () {
+    byId("tabCal").click();
+    showCal(false);
+  };
   nav.addEventListener("click", function (e) {
     var button = (e.target as Element).closest("[data-go]");
     if (!button) {
       return;
     }
     var target = button.getAttribute("data-go");
-    if (target === "alerts") {
-      e.stopPropagation();
-      var alertsButton = byId("pushBtn");
-      if (alertsButton) {
-        alertsButton.click();
-      }
-      return;
-    }
     if (target === "stats") {
       showStats();
       return;
@@ -100,70 +132,50 @@ export function setupNav() {
       showEnq();
       return;
     }
-    var tab = byId(target === "allow" ? "tabAllow" : "tabCal");
-    if (tab) {
-      tab.click();
+    if (target === "pay") {
+      showPay();
+      return;
     }
+    byId(target === "ag" ? "tabAg" : "tabCal").click();
     window.scrollTo(0, 0);
-    sync();
   });
-  new MutationObserver(sync).observe(byId("viewAllow"), {
-    attributes: true,
-    attributeFilter: ["hidden"],
-  });
-  sync();
   var startView = new URLSearchParams(location.search).get("view");
   if (startView === "analytics") {
     setTimeout(showStats, 0);
   } else if (startView === "enquiries") {
     setTimeout(showEnq, 0);
+  } else if (startView === "payments") {
+    setTimeout(showPay, 0);
   }
-  var phone = matchMedia("(max-width:760px)").matches;
-  var saved = "";
-  try {
-    saved = localStorage.getItem("adm.view") || "";
-  } catch (e) {}
-  var weekView = saved ? saved === "week" : !phone;
   function view(week: boolean) {
-    if (week !== weekView) {
-      try {
-        localStorage.setItem("adm.view", week ? "week" : "agenda");
-      } catch (e) {}
-    }
     weekView = week;
     body.classList.toggle("wkv", week);
-    byId("vAg").setAttribute("aria-selected", String(!week));
-    byId("vWk").setAttribute("aria-selected", String(week));
+    sync();
   }
-  byId("vAg").onclick = function () {
-    view(false);
-  };
-  // The search button in the phone header shows the candidate search under the week title, or on Contacts the
-  // contact search above the list.
+  // The search button in the phone header shows the contact search above the Contacts list. Phones have no
+  // candidate search on the Calendar, so the button is hidden there.
   var searchButton = byId("qbtn");
   searchButton.onclick = function () {
-    if (currentView() === "stats") {
-      var frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
-      var toggle = frame && (frame.contentWindow as any).__contactSearch;
-      if (toggle) {
-        var shown = !!toggle();
-        body.classList.toggle("cq-open", shown);
-        searchButton.setAttribute("aria-expanded", String(shown));
-      }
+    if (currentView() !== "stats") {
       return;
     }
-    var open = !body.classList.contains("q-open");
-    body.classList.toggle("q-open", open);
-    searchButton.setAttribute("aria-expanded", String(open));
-    if (open) {
-      window.scrollTo(0, 0);
-      byId("q").focus();
+    var frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
+    var toggle = frame && (frame.contentWindow as any).__contactSearch;
+    if (toggle) {
+      var shown = !!toggle();
+      body.classList.toggle("cq-open", shown);
+      searchButton.setAttribute("aria-expanded", String(shown));
     }
   };
-  byId("vWk").onclick = function () {
-    view(true);
-  };
   view(weekView);
+  sync();
+  // the highlight starts in place, then animates from the next switch on
+  requestAnimationFrame(function () {
+    placePill();
+    requestAnimationFrame(function () {
+      nav.classList.add("ready");
+    });
+  });
   var panel = byId("panel");
   new MutationObserver(function () {
     body.classList.toggle("sheet", !panel.hidden);

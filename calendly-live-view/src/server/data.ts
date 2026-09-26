@@ -26,6 +26,9 @@ export type Booking = {
   // set by an admin after the start time when the interview didn't take place
   missed?: "noshow" | "other";
   missedAt?: string;
+  // the round's result, set by an admin from the booking panel; no value means Scheduled
+  outcome?: "cleared" | "rejected" | "hold";
+  outcomeAt?: string;
 };
 export const activeBookings = () => bookingsStore.data.bookings.filter((b) => !b.cancelled);
 export const bookingsStore = fileStore<{ bookings: Booking[] }>(
@@ -132,6 +135,25 @@ export const enquiriesStore = fileStore<{ enquiries: Enquiry[]; seen: Record<str
     seen: Object.fromEntries(Object.entries(x?.seen ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>,
   }),
 );
+// Payments from the public /payment page. The details are in payments.json; each receipt is a file in DATA_DIR/receipts
+// (kept in memory when there is no data folder).
+export type Payment = {
+  id: string;
+  name: string;
+  email: string;
+  amount: number; // in rupees
+  // what the server read on the receipt: the typed amount is on it, or nothing readable (an admin checks it by eye)
+  check?: "verified" | "unread";
+  createdAt: string;
+  receipt: { file: string; name: string; type: string; size: number };
+};
+export const paymentsStore = fileStore<{ payments: Payment[] }>(
+  "payments.json",
+  () => ({ payments: [] }),
+  (x) => ({
+    payments: Array.isArray(x?.payments) ? x.payments.filter((v: any) => v && typeof v.id === "string" && v.receipt) : [],
+  }),
+);
 export const secretStore = fileStore<{ key: string }>(
   "secret.json",
   () => ({ key: "" }),
@@ -171,6 +193,7 @@ export async function loadStores() {
     resultsStore,
     adminsStore,
     enquiriesStore,
+    paymentsStore,
     sessionsStore,
   ];
   for (const s of all) await loadStore(s);

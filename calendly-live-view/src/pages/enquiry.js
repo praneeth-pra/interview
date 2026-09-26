@@ -1,6 +1,6 @@
-// The public enquiry form (/enquiry): name, email, phone, technology, experience and a resume (PDF or Word, under 1 MB),
+// The public enquiry form (/enquiry): name, email, phone, technology, experience and a resume (PDF or Word, 200 KB at most),
 // sent as one multipart request to /api/enquiry. The same rules are checked again on the server.
-var MAX_BYTES = 1024 * 1024;
+var MAX_BYTES = 200 * 1024;
 var form = document.getElementById("f");
 var fileInput = document.getElementById("cv");
 var button = document.getElementById("go");
@@ -18,7 +18,7 @@ function fileProblem(file) {
   } else if (!/\.(pdf|docx?)$/i.test(file.name)) {
     return "The resume must be a PDF or Word file.";
   } else if (file.size > MAX_BYTES) {
-    return "The resume is " + (file.size / 1048576).toFixed(1) + " MB. It must be under 1 MB.";
+    return "Your resume is larger than 200 KB. Please upload a smaller file.";
   } else if (!file.size) {
     return "That file is empty.";
   } else {
@@ -29,7 +29,7 @@ function showFile() {
   var file = fileInput.files[0];
   var problem = file ? fileProblem(file) : "";
   document.getElementById("cvname").textContent = file ? file.name : "Choose your resume";
-  document.getElementById("cvhint").textContent = problem || (file ? Math.max(1, Math.round(file.size / 1024)) + " KB · tap to change" : "PDF or Word, under 1 MB");
+  document.getElementById("cvhint").textContent = problem || (file ? Math.max(1, Math.round(file.size / 1024)) + " KB · tap to change" : "PDF or Word");
   document.getElementById("dropbox").classList.toggle("bad", !!problem);
   document.getElementById("dropbox").classList.toggle("has", !!file && !problem);
 }

@@ -126,11 +126,11 @@ export function emailBody(o: {
   const btns = (o.buttons ?? [])
     .map(
       (b) =>
-        `<a href="${e(b.href)}" style="display:inline-block;margin:0 8px 8px 0;padding:11px 22px;border-radius:40px;text-decoration:none;font-weight:600;font-size:15px;${b.primary ? "background:#006bff;color:#ffffff" : "border:1px solid #b2b2b2;color:#1a1a1a"}">${e(b.label)}</a>`,
+        `<a href="${e(b.href)}" style="display:inline-block;margin:0 8px 8px 0;padding:11px 22px;border-radius:40px;text-decoration:none;font-weight:600;font-size:15px;${b.primary ? "background:#bc5935;color:#ffffff" : "border:1px solid #b2b2b2;color:#1a1a1a"}">${e(b.label)}</a>`,
     )
     .join("");
   const html =
-    `<!doctype html><html><body style="margin:0;padding:24px 12px;background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a">` +
+    `<!doctype html><html><body style="margin:0;padding:24px 12px;background:#f4f2ec;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1a1a1a">` +
     `<div style="max-width:560px;margin:0 auto;background:#ffffff;border:1px solid #e6e6e6;border-radius:10px;padding:28px">` +
     `<h1 style="margin:0 0 8px;font-size:20px">${e(o.heading)}</h1><p style="margin:0 0 20px;color:#555555;font-size:15px;line-height:1.5">${e(o.intro)}</p>` +
     `<table role="presentation" style="border-collapse:collapse;font-size:15px;margin:0 0 22px">${rowHtml}</table>` +

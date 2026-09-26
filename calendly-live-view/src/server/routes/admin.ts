@@ -2,8 +2,9 @@ import { adminsView, dropSessions, sessionOf } from "../auth";
 import { backupData } from "../backup";
 import { bookingsCsv, cancelBooking, commit, createBooking, moveBooking, saveFailed } from "../bookings";
 import { DURATIONS, LOGIN_ON, OWNER_EMAILS } from "../config";
-import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, ivStore, normResults, pushStore, resultsStore } from "../data";
+import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, ivStore, normResults, paymentsStore, pushStore, resultsStore } from "../data";
 import { enquiryView, readResume, removeResume } from "../enquiries";
+import { paymentView, readReceipt, removeReceipt } from "../payments";
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
 import { adminState, broadcastState, enc, pub, streams } from "../live";
 import { ADMIN_ALLOW, ADMIN_CAL, ANALYTICS, LOGIN } from "../pages";
@@ -39,12 +40,19 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       const v = enquiriesStore.data.enquiries.find((x) => x.id === resumePath[1]);
       const bytes = v && (await readResume(v.resume.file));
       if (!v || !bytes) return json({ error: "That resume isn't there any more." }, 404);
-      const ascii = v.resume.name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+      // opens in the browser to read; ?download=1 saves it as "<candidate> resume.pdf" instead of the uploaded file name
+      const download = url.searchParams.get("download") === "1";
+      const ext = v.resume.file.slice(v.resume.file.lastIndexOf("."));
+      const name = download
+        ? (v.name.replace(/[\x00-\x1f\x7f/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Candidate") + " resume" + ext
+        : v.resume.name;
+      const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
       return new Response(bytes as Uint8Array<ArrayBuffer>, {
         headers: {
           ...BASE_HEADERS,
           "Content-Type": v.resume.type,
-          "Content-Disposition": 'attachment; filename="' + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(v.resume.name),
+          "Content-Disposition":
+            (download ? "attachment" : "inline") + '; filename="' + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(name),
         },
       });
     }
@@ -73,6 +81,53 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
         await saveStore(enquiriesStore).catch(() => {});
       }
       return json({ seenAt: enquiriesStore.data.seen[key] ?? "" });
+    }
+    // Payments from /payment, newest first; each receipt opens or downloads from its own link; a payment can be deleted.
+    if (path === "/admin/api/payments" && method === "GET")
+      return json({
+        // reversed first, so two sent in the same millisecond still list the later one first
+        payments: [...paymentsStore.data.payments]
+          .reverse()
+          .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+          .map(paymentView),
+      });
+    const receiptPath = path.match(/^\/admin\/api\/payments\/([0-9a-f-]{36})\/receipt$/);
+    if (receiptPath && method === "GET") {
+      const v = paymentsStore.data.payments.find((x) => x.id === receiptPath[1]);
+      const bytes = v && (await readReceipt(v.receipt.file));
+      if (!v || !bytes) return json({ error: "That receipt isn't there any more." }, 404);
+      // opens in the browser to look at; ?download=1 saves it as "<name> receipt.jpg" instead of the uploaded file name
+      const download = url.searchParams.get("download") === "1";
+      const ext = v.receipt.file.slice(v.receipt.file.lastIndexOf("."));
+      const name = download
+        ? (v.name.replace(/[\x00-\x1f\x7f/\\:*?"<>|]/g, " ").replace(/\s+/g, " ").trim().slice(0, 80) || "Payment") + " receipt" + ext
+        : v.receipt.name;
+      const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+      return new Response(bytes as Uint8Array<ArrayBuffer>, {
+        headers: {
+          ...BASE_HEADERS,
+          "Content-Type": v.receipt.type,
+          "Content-Disposition":
+            (download ? "attachment" : "inline") + '; filename="' + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(name),
+        },
+      });
+    }
+    if (path === "/admin/api/payments/delete" && method === "POST") {
+      const body = await readJson(req, 1000);
+      if (body instanceof Response) return body;
+      const v = paymentsStore.data.payments.find((x) => x.id === String(body?.id ?? ""));
+      if (!v) return json({ error: "That payment was already deleted." }, 404);
+      const prev = paymentsStore.data.payments;
+      paymentsStore.data.payments = prev.filter((x) => x !== v);
+      try {
+        await saveStore(paymentsStore);
+      } catch {
+        paymentsStore.data.payments = prev;
+        return json({ error: "Couldn't save the change. Try again." }, 500);
+      }
+      await removeReceipt(v.receipt.file).catch(() => {});
+      broadcastState();
+      return json({ ok: true });
     }
     // Who can sign in: the owners (ADMIN_EMAILS, fixed) and the admins they add here. Only an owner can change the
     // list; the admins they add can see it but not add or remove anyone.
@@ -331,10 +386,42 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       if (missed && ivStore.data.assign[b.id])
         return json({ error: "Interview support is already recorded for this interview, so it happened." }, 409);
       const prev = { ...b };
-      if (missed) Object.assign(b, { missed, missedAt: new Date().toISOString() });
-      else {
+      if (missed) {
+        Object.assign(b, { missed, missedAt: new Date().toISOString() });
+        delete b.outcome;
+        delete b.outcomeAt;
+      } else {
         delete b.missed;
         delete b.missedAt;
+      }
+      if (!(await commit(b, prev))) return saveFailed();
+      broadcastState();
+      return json({ ok: true });
+    }
+    // The round's result from the booking panel, once the interview has started: "cleared", "rejected", "hold",
+    // "noshow" or "other" (didn't happen), or "" to clear it. No-show and didn't happen reuse the missed mark.
+    if (path === "/admin/api/round-status" && method === "POST") {
+      const body = await readJson(req, 1000);
+      if (body instanceof Response) return body;
+      const b = bookingsStore.data.bookings.find((x) => x.id === String(body?.id ?? ""));
+      const status = body?.status;
+      if (!b || !["", "cleared", "rejected", "hold", "noshow", "other"].includes(status)) return json({ error: "Bad request." }, 400);
+      if (b.cancelled) return json({ error: "This interview was cancelled." }, 409);
+      if (status && Date.parse(b.start) > Date.now() + 60000)
+        return json({ error: "You can set the round's status once the interview's start time has passed." }, 409);
+      const missed = status === "noshow" || status === "other" ? status : "";
+      if (missed && ivStore.data.assign[b.id])
+        return json({ error: "Interview support is already recorded for this interview, so it happened." }, 409);
+      const prev = { ...b };
+      const now = new Date().toISOString();
+      if (!missed) {
+        delete b.missed;
+        delete b.missedAt;
+      } else if (b.missed !== missed) Object.assign(b, { missed, missedAt: now });
+      if (status && !missed) Object.assign(b, { outcome: status, outcomeAt: now });
+      else {
+        delete b.outcome;
+        delete b.outcomeAt;
       }
       if (!(await commit(b, prev))) return saveFailed();
       broadcastState();

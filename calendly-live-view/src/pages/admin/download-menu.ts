@@ -1,4 +1,4 @@
-// The ⋯ menu in the header: New booking, interviewers, downloads and sign-out.
+// The ⋯ menu in the header: New booking (Alerts on phones), candidates, interviewers, downloads and sign-out.
 export function setupDownloadMenu() {
   var btn = document.getElementById("dlBtn");
   var menu = document.getElementById("dlMenu");
@@ -14,6 +14,16 @@ export function setupDownloadMenu() {
     setOpen(menu.hidden);
   });
   menu.addEventListener("click", function (e) {
+    // Alerts opens its own sheet, so the click must not reach the document listener that closes it again.
+    if ((e.target as Element).closest("#mAlerts")) {
+      e.stopPropagation();
+      setOpen(false);
+      var alertsButton = document.getElementById("pushBtn");
+      if (alertsButton) {
+        alertsButton.click();
+      }
+      return;
+    }
     if ((e.target as Element).closest("a, button")) {
       setTimeout(function () {
         setOpen(false);

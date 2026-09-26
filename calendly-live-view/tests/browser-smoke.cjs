@@ -81,7 +81,30 @@ const checks = [
     await p.locator("#tabEnq .nbadge:not([hidden])").waitFor(); // the red count for the new enquiry
     await p.locator("#tabEnq").click();
     await p.locator(".enq", { hasText: "Asha Rao" }).waitFor();
+    const [saved] = await Promise.all([p.waitForEvent("download"), p.locator(".enq .bk-act.dl").first().click()]);
+    if (saved.suggestedFilename() !== "Asha Rao resume.pdf") throw new Error("resume saved as " + saved.suggestedFilename());
     await p.locator("#tabEnq .nbadge[hidden]").waitFor({ state: "attached" }); // seen now
+  }],
+  ["payment page, and the payment in the admin", async (p) => {
+    await p.goto(BASE + "/payment");
+    await p.fill("#em", "kiran@example.com");
+    await p.fill("#nm", "Kiran Kumar");
+    await p.fill("#am", "12,500");
+    // a receipt over the size limit is refused in the browser, with a clear message
+    await p.setInputFiles("#rc", { name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(2 * 1024 * 1024, 1) });
+    await p.locator("#dropbox.bad").waitFor();
+    if (!/larger than 1 MB/.test(await p.locator("#rchint").textContent())) throw new Error("no size message");
+    await p.setInputFiles("#rc", { name: "gpay.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]) });
+    await p.click("#go");
+    await p.locator("#done:not([hidden])").waitFor();
+    await p.goto(BASE + "/admin?view=payments");
+    // By candidate first: tapping the candidate shows their payments in the table, with their total
+    await p.locator(".paytbl tbody tr", { hasText: "Kiran Kumar" }).click();
+    if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("candidate total is wrong");
+    await p.locator(".paysw button", { hasText: "List" }).click();
+    await p.locator("#viewPay .enq", { hasText: "Kiran Kumar" }).waitFor();
+    const [saved] = await Promise.all([p.waitForEvent("download"), p.locator("#viewPay .bk-act.dl").first().click()]);
+    if (saved.suggestedFilename() !== "Kiran Kumar receipt.png") throw new Error("receipt saved as " + saved.suggestedFilename());
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");
@@ -89,6 +112,56 @@ const checks = [
     await p.locator("#dlMenu a[href='/admin/export.csv']").waitFor();
     await p.keyboard.press("Escape");
     if (await p.locator("#dlMenu").isVisible()) throw new Error("menu did not close");
+  }],
+  ["admin candidates from the menu", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    await p.locator("#mCand").click();
+    await p.locator("#panel #viewAllow #addb").waitFor();
+    if ((await p.locator("#ptitle").textContent()) !== "Candidates") throw new Error("panel title is not Candidates");
+    if (!(await p.locator("#viewCal").isVisible())) throw new Error("calendar should stay behind the panel");
+    await p.locator("#pclose").click();
+    if (await p.locator("#viewAllow").isVisible()) throw new Error("candidates still showing after close");
+    await p.locator("#dlBtn").click();
+    await p.locator("#mIv").click();
+    await p.locator("#ptitle", { hasText: "Interview supporters" }).waitFor();
+    if (await p.locator("#pbody #viewAllow").count()) throw new Error("candidates left inside another panel");
+    await p.locator("#pclose").click();
+    await p.goto(BASE + "/admin/allowlist");
+    await p.locator("#panel #viewAllow #addb").waitFor();
+  }],
+  ["admin desktop: Calendar is the week grid, Agenda is its own tab", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#week .grid").waitFor();
+    if (await p.locator("#agenda").isVisible()) throw new Error("Calendar should show only the week grid");
+    if (await p.locator(".vt").count()) throw new Error("the Week/Agenda switch should be gone");
+    await p.locator("#tabAg").click();
+    await p.locator("#agenda .ws").waitFor();
+    if (await p.locator("#week").isVisible()) throw new Error("Agenda tab should show the agenda");
+    if ((await p.locator("#tabAg").getAttribute("aria-selected")) !== "true") throw new Error("Agenda tab not selected");
+    await p.reload();
+    await p.locator("#agenda .ws").waitFor();
+    await p.locator("#tabCal").click();
+    await p.locator("#week .grid").waitFor();
+  }],
+  ["admin phone: Alerts in the menu, Calendar and Agenda in the bottom bar", async (p) => {
+    await p.setViewportSize({ width: 390, height: 844 });
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    if (await p.locator("#dlMenu").getByText("New booking").count()) throw new Error("New booking should be gone from the menu");
+    await p.locator("#mAlerts").click();
+    await p.locator(".pushpop h3", { hasText: "Booking notifications" }).waitFor();
+    if (await p.locator("#dlMenu").isVisible()) throw new Error("menu stayed open behind Alerts");
+    await p.keyboard.press("Escape");
+    if (await p.locator(".bnav").getByText("New booking").count()) throw new Error("New booking should be gone from the bottom bar");
+    await p.locator(".bnav [data-go='cal']").click();
+    await p.locator("#week .grid").waitFor();
+    if (await p.locator("#agenda").isVisible()) throw new Error("Calendar tab should show the week grid");
+    await p.locator(".bnav [data-go='ag']").click();
+    await p.locator("#agenda .ws").waitFor();
+    if (await p.locator("#week").isVisible()) throw new Error("Agenda tab should show the agenda");
+    if ((await p.locator("#sect").textContent()) !== "Agenda") throw new Error("header should say Agenda");
+    if (!(await p.locator(".bnav [data-go='ag']").evaluate((b) => b.classList.contains("on")))) throw new Error("Agenda tab not highlighted");
   }],
 ];
 

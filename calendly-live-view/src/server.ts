@@ -3,6 +3,7 @@
 import { assetList, compressed } from "./assets";
 import { startBackups } from "./server/backup";
 import { removeListedBookings } from "./server/bookings";
+import { cleanupContacts } from "./server/cleanup";
 import { ADMIN_OPEN, LOGIN_ON, OWNER_EMAILS, PORT, RESEND_API_KEY, EMAIL_FROM, MAX_BODY } from "./server/config";
 import { adminsStore, allowStore, bookingsStore, loadStores, pushStore, resultsStore } from "./server/data";
 import { ensureSecret } from "./server/links";
@@ -14,6 +15,7 @@ await loadStores();
 await ensurePushKeys();
 await ensureSecret();
 await removeListedBookings();
+await cleanupContacts();
 console.log(RESEND_API_KEY ? "email: on, sending as " + EMAIL_FROM : "email: off (set RESEND_API_KEY to send invites)");
 console.log("allowlist: " + (allowStore.data.enabled ? "on" : "off") + ", " + allowStore.data.emails.length + " emails");
 console.log(
@@ -33,7 +35,7 @@ const server = Bun.serve({
   port: PORT,
   hostname: "0.0.0.0",
   idleTimeout: 30,
-  // uploads are at most a 1 MB resume; anything bigger is refused before it is read
+  // uploads are at most a 200 KB resume or a payment receipt (RECEIPT_MAX); anything bigger is refused before it is read
   maxRequestBodySize: MAX_BODY,
   async fetch(req, srv) {
     return compressed(req, await route(req, srv));

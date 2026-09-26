@@ -4,14 +4,14 @@
   --ink2: rgba(26, 26, 26, 0.72);
   --ink3: rgba(26, 26, 26, 0.6);
   --line: rgba(26, 26, 26, 0.1);
-  --bg: #f5f6f8;
+  --bg: #f4f2ec;
   --card: #fff;
-  --sub: #f8f9fb;
-  --blue: #006bff;
-  --blue-d: #0052cc;
-  --link: #006bff;
-  --tint: rgba(0, 105, 255, 0.08);
-  --today: rgba(0, 105, 255, 0.035);
+  --sub: #f8f7f3;
+  --blue: #bc5935;
+  --blue-d: #a64b2a;
+  --link: #b4532f;
+  --tint: rgba(217, 119, 87, 0.1);
+  --today: rgba(217, 119, 87, 0.045);
   --field: #b2b2b2;
   --green: #0a8a3d;
   --amber: #a15c00;
@@ -31,11 +31,11 @@
     --bg: #141414;
     --card: #1d1d1d;
     --sub: #232323;
-    --blue: #1a6bff;
-    --blue-d: #0f5ae6;
-    --link: #8db2ff;
-    --tint: rgba(80, 140, 255, 0.15);
-    --today: rgba(80, 140, 255, 0.05);
+    --blue: #bc5935;
+    --blue-d: #a64b2a;
+    --link: #e89a7f;
+    --tint: rgba(224, 138, 109, 0.15);
+    --today: rgba(224, 138, 109, 0.05);
     --field: #555;
     --green: #3ecf7a;
     --amber: #ffb54d;
@@ -910,6 +910,196 @@ h2 {
   min-height: 38px;
   padding: 6px 14px;
 }
+.enqr {
+  display: flex;
+  gap: 8px;
+}
+.enqa .bk-act.dl {
+  width: 38px;
+  padding: 0;
+}
+.enqa .bk-act.dl svg {
+  width: 18px;
+  height: 18px;
+}
+/* Payments: the view switch and the candidate filter, above the payments */
+.paybar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.paybar[hidden] {
+  display: none;
+}
+.payfilter {
+  flex: 1 1 180px;
+  max-width: 280px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14.5px;
+}
+/* one candidate's subtotal, above their payments */
+.paysum {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.paysum > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.paysum .num {
+  align-items: flex-end;
+}
+.paysum b {
+  font-size: 18px;
+}
+.paysum small {
+  color: var(--ink2);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.paysw {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--sub);
+}
+.paysw button {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 17px;
+  background: none;
+  color: var(--ink2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.paysw [aria-pressed="true"] {
+  background: var(--card);
+  color: var(--link);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+/* the table: candidate, date, amount, and a total row; narrow enough for a phone without scrolling sideways */
+.paytbl table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+.paytbl th,
+.paytbl td {
+  padding: 11px 6px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.paytbl th:first-child,
+.paytbl td:first-child {
+  padding-left: 0;
+  overflow-wrap: anywhere;
+}
+.paytbl th:last-child,
+.paytbl td:last-child {
+  padding-right: 0;
+}
+.paytbl thead th {
+  border-top: 0;
+  color: var(--ink2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.paytbl thead button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.paytbl [aria-sort] button {
+  color: var(--link);
+}
+.paytbl td small {
+  display: block;
+  color: var(--ink2);
+  font-size: 12.5px;
+}
+.paytbl .pn {
+  font-weight: 600;
+}
+.paytbl tr.tap {
+  cursor: pointer;
+}
+.paytbl tr.tap:hover td {
+  background: var(--sub);
+}
+.paysum + table thead th {
+  padding-top: 14px;
+}
+.paytbl .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.paytbl .dt {
+  white-space: nowrap;
+  color: var(--ink2);
+}
+.paytbl tfoot th,
+.paytbl tfoot td {
+  border-top: 1.5px solid var(--ink2);
+  font-weight: 700;
+}
+.paytbl tfoot td:not(.num) {
+  color: var(--ink2);
+  font-weight: 500;
+}
+/* Verified / Needs check, from reading the receipt */
+.pchk {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 18px;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+.pchk.ok {
+  background: color-mix(in srgb, var(--green) 13%, transparent);
+  color: var(--green);
+}
+.pchk.warn {
+  background: var(--amber-t);
+  color: var(--amber);
+}
+.paytbl .num .pchk {
+  display: table;
+  margin: 3px 0 0 auto;
+}
+.paytbl td small + .pchk {
+  margin: 4px 0 0;
+}
+.payamt {
+  font-size: 17px;
+}
 /* Admins panel: one row per email, then an add field */
 .admrow {
   display: flex;
@@ -981,18 +1171,18 @@ h2 {
 }
 :root {
   --line: rgba(26, 26, 26, 0.09);
-  --bg: #f5f6f8;
-  --sub: #f3f4f7;
+  --bg: #f4f2ec;
+  --sub: #f6f4ef;
   --r: 14px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #111214;
-    --card: #1a1b1e;
-    --sub: #232428;
-    --line: #2a2b30;
-    --field: #3a3b41;
+    --bg: #161513;
+    --card: #1f1e1c;
+    --sub: #282624;
+    --line: #2f2d2a;
+    --field: #413e3a;
   }
 }
 html {
@@ -1043,15 +1233,21 @@ a.ghost:active {
 .brand .mk {
   width: 28px;
   height: 28px;
-  border-radius: 8px;
   display: grid;
   place-items: center;
   font-size: 13px;
   font-weight: 700;
-  color: #fff;
-  background: var(--blue);
+  color: #d97757;
   margin: 0;
   flex: none;
+}
+.brand .mk::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .brand .bn {
   color: var(--ink);
@@ -1152,7 +1348,6 @@ main {
   max-width: 1200px;
   padding: 28px 24px 56px;
 }
-#viewCal:not([hidden]),
 #viewAllow:not([hidden]) {
   animation: fadeUp 0.22s var(--ease);
 }
@@ -1376,30 +1571,6 @@ button.card:hover {
 .bnav {
   display: none;
 }
-.vt {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 2px;
-  padding: 3px;
-  border-radius: 12px;
-  background: var(--sub);
-  border: 1px solid var(--line);
-  margin-bottom: 14px;
-}
-.vt button {
-  height: 34px;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  font-weight: 600;
-  font-size: 14px;
-  color: var(--ink2);
-}
-.vt [aria-selected="true"] {
-  background: var(--card);
-  color: var(--ink);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-}
 .agenda {
   display: block;
 }
@@ -1408,100 +1579,6 @@ body:not(.wkv) .week {
 }
 body.wkv .agenda {
   display: none;
-}
-.ag-h {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  margin: 18px 4px 8px;
-}
-.ag-h:first-child {
-  margin-top: 4px;
-}
-.ag-h b {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.01em;
-}
-.ag-h span {
-  font-size: 13px;
-  color: var(--ink2);
-}
-.ag-h em {
-  margin-left: auto;
-  font-style: normal;
-  font-size: 12px;
-  color: var(--ink3);
-  font-weight: 500;
-}
-.ag-h.today b {
-  color: var(--link);
-}
-.ag-l {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 16px;
-  overflow: hidden;
-}
-.ag-i {
-  display: grid;
-  grid-template-columns: 62px 1fr auto;
-  align-items: center;
-  gap: 12px;
-  width: 100%;
-  padding: 13px 14px 13px 16px;
-  border: 0;
-  border-top: 1px solid var(--line);
-  background: none;
-  text-align: left;
-  color: var(--ink);
-  box-shadow: inset 3px 0 0 var(--c);
-  border-radius: 0;
-  content-visibility: auto;
-  contain-intrinsic-size: auto 64px;
-}
-.ag-i:first-child {
-  border-top: 0;
-}
-.ag-i:active:not(:disabled) {
-  transform: none;
-  background: var(--sub);
-}
-.ag-t {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.25;
-}
-.ag-t b {
-  font-size: 14px;
-  font-weight: 700;
-}
-.ag-t span {
-  font-size: 12px;
-  color: var(--ink2);
-}
-.ag-m {
-  display: flex;
-  flex-direction: column;
-  min-width: 0;
-  line-height: 1.3;
-}
-.ag-m b,
-.ag-m span {
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.ag-m b {
-  font-size: 15px;
-  font-weight: 600;
-}
-.ag-m span {
-  font-size: 13px;
-  color: var(--ink2);
-}
-.ag-i.past {
-  opacity: 0.55;
 }
 .agenda {
   max-width: 900px;
@@ -1671,7 +1748,7 @@ body.wkv .agenda {
   .bnav {
     display: grid;
     grid-template-columns: repeat(5, 1fr);
-    gap: 4px;
+    gap: 2px;
     position: fixed;
     z-index: 35;
     left: 12px;
@@ -1710,11 +1787,32 @@ body.wkv .agenda {
     height: 23px;
   }
   .bnav .on {
-    background: var(--tint);
     color: var(--link);
   }
   .bnav .on svg {
     stroke-width: 2.2;
+  }
+  .bnav button {
+    position: relative;
+    z-index: 1;
+    transition:
+      color 0.22s ease,
+      transform 0.15s ease;
+  }
+  /* the highlight behind the active tab, which slides between tabs */
+  .bnav-pill {
+    position: absolute;
+    top: 6px;
+    bottom: 6px;
+    left: 0;
+    width: 0;
+    border-radius: 28px;
+    background: var(--tint);
+  }
+  .bnav.ready .bnav-pill {
+    transition:
+      transform 0.32s cubic-bezier(0.3, 1.25, 0.5, 1),
+      width 0.32s var(--ease);
   }
   .toast {
     bottom: calc(92px + env(safe-area-inset-bottom));
@@ -1735,9 +1833,8 @@ body.wkv .agenda {
   .bnav {
     box-shadow: 0 10px 32px rgba(0, 0, 0, 0.55);
   }
-  .bnav .on {
+  .bnav-pill {
     background: rgba(0, 0, 0, 0.45);
-    color: var(--link);
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -1796,9 +1893,6 @@ body.wkv .agenda {
   width: 18px;
   height: 18px;
 }
-.vt {
-  max-width: 320px;
-}
 @media (max-width: 760px) {
   .wk {
     justify-content: space-between;
@@ -1807,9 +1901,6 @@ body.wkv .agenda {
     flex: 1;
     font-size: 17px;
     grid-column: auto;
-  }
-  .vt {
-    max-width: none;
   }
 }
 #newb {
@@ -2002,8 +2093,8 @@ body.la-on main {
 }
 /* ---- Native-app feel ----
    No grey tap flash, no text selection on controls, a short fade when switching sections, the agenda slides when
-   swiped to another week. On phones: the header shows the section title, the interviewer legend is a swipeable chip
-   row, agenda rows get a chevron, Alerts opens as a bottom sheet, and the Emails tab reads like a settings screen. */
+   swiped to another day. On phones: the header shows the section title, the interviewer legend is a swipeable chip
+   row, Alerts opens as a bottom sheet, and the Emails tab reads like a settings screen. */
 button,
 a,
 [role="button"],
@@ -2016,7 +2107,6 @@ button,
   touch-action: manipulation;
 }
 .bnav,
-.vt,
 .seg,
 .top,
 .legend {
@@ -2027,13 +2117,14 @@ button,
 .sect {
   display: none;
 }
-#viewCal:not([hidden]),
 #viewAllow:not([hidden]) {
   animation: viewIn 0.24s var(--ease) backwards;
 }
-/* no slide here: the analytics frame sizes itself from its position when shown */
-#viewStats:not([hidden]) {
-  animation: fade 0.24s ease backwards;
+/* Sections switch instantly: no fade or slide, so the page never moves when changing tabs. Room for the scrollbar is
+   kept even on sections too short to scroll, so a long section (the Agenda) and a short one line up exactly on
+   desktops with a visible scrollbar. */
+html {
+  scrollbar-gutter: stable;
 }
 @keyframes viewIn {
   from {
@@ -2059,9 +2150,6 @@ button,
     transform: translateX(-48px);
   }
 }
-.ag-h {
-  scroll-margin-top: calc(72px + env(safe-area-inset-top));
-}
 @media (max-width: 760px) {
   .top {
     gap: 10px;
@@ -2075,7 +2163,6 @@ button,
   .brand .mk {
     width: 32px;
     height: 32px;
-    border-radius: 10px;
     font-size: 15px;
   }
   .sect {
@@ -2141,33 +2228,6 @@ button,
     background: var(--tint);
     text-decoration: none;
     white-space: nowrap;
-  }
-  .vt {
-    border-radius: 14px;
-  }
-  .vt button {
-    height: 38px;
-    border-radius: 11px;
-  }
-  .ag-l {
-    border-radius: 18px;
-  }
-  .ag-i {
-    position: relative;
-    padding-right: 30px;
-    min-height: 64px;
-  }
-  .ag-i:after {
-    content: "";
-    position: absolute;
-    right: 14px;
-    top: 50%;
-    width: 7px;
-    height: 7px;
-    margin-top: -4px;
-    border-right: 2px solid var(--ink3);
-    border-top: 2px solid var(--ink3);
-    transform: rotate(45deg);
   }
   .grab {
     width: 42px;
@@ -2286,22 +2346,6 @@ button,
 #title {
   font-variant-numeric: tabular-nums;
 }
-@media (max-width: 760px) {
-  /* the interviewer / "Needs interviewer" pill sits under the name instead of squeezing it */
-  .ag-i {
-    grid-template-columns: 70px 1fr;
-    align-items: start;
-    row-gap: 6px;
-  }
-  .ag-i {
-    padding-top: 11px;
-    padding-bottom: 11px;
-    min-height: 60px;
-  }
-  .ag-t {
-    padding-top: 1px;
-  }
-}
 /* Loading placeholders, shown until the first bookings arrive */
 .skel-list {
   display: grid;
@@ -2329,7 +2373,7 @@ button,
     background-position: 0 0;
   }
 }
-/* Phone header search button; phones have no New booking button */
+/* Phone header search button (Contacts only; phones have no candidate search on Calendar) and no New booking button */
 .tbtn {
   display: none;
 }
@@ -2350,40 +2394,17 @@ button,
     width: 18px;
     height: 18px;
   }
-  body:not(.on-cal):not(.la-on) .tbtn {
+  body:not(.on-cal):not(.la-on) .tbtn,
+  body.on-cal #qbtn {
     display: none;
   }
-  body.on-cal.q-open #qbtn,
   body.la-on.cq-open #qbtn {
     background: var(--tint);
     color: var(--link);
     border-color: transparent;
   }
-  body.q-open .acts {
-    display: block !important;
-    margin: 0 0 4px;
-    animation: viewIn 0.2s var(--ease);
-  }
-  body.q-open .acts > a,
-  body.q-open .acts > button {
-    display: none !important;
-  }
   html body #newb {
     display: none !important;
-  }
-}
-@media (max-width: 760px) {
-  body.q-open .srch {
-    position: relative;
-  }
-  body.q-open .drop {
-    left: 0;
-    right: 0;
-    width: auto;
-    max-width: none;
-    max-height: 60vh;
-    overflow-y: auto;
-    border-radius: 16px;
   }
 }
 /* 30-minute boxes: name plus one line of company · round */
@@ -2441,6 +2462,14 @@ button,
   background: var(--sub);
 }
 .tbtn.more svg {
+  width: 18px;
+  height: 18px;
+}
+/* the old #dlBtn rule (inline-flex, 14px icon) outranks .tbtn.more, which left the dots small and off to the left */
+#dlBtn.more {
+  justify-content: center;
+}
+#dlBtn.more svg {
   width: 18px;
   height: 18px;
 }
@@ -2506,29 +2535,6 @@ button,
 .brand .adm {
   display: none;
 }
-/* the date row: week title, ‹ Today ›, and a small Week/Agenda toggle at the end */
-.wk .vt {
-  display: inline-grid;
-  margin: 0 0 0 auto;
-  max-width: none;
-  padding: 2px;
-  border-radius: 10px;
-  flex: none;
-}
-.wk .vt button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: 30px;
-  padding: 0 14px;
-  border-radius: 8px;
-  font-size: 13px;
-}
-.wk .vt svg {
-  display: none;
-  width: 18px;
-  height: 18px;
-}
 .gh span {
   display: none;
 }
@@ -2578,9 +2584,6 @@ button,
   background: var(--amber);
   flex: none;
 }
-.ag-i {
-  grid-template-columns: 74px 1fr auto;
-}
 .ev.need {
   box-shadow: none;
 }
@@ -2620,19 +2623,6 @@ button,
   }
   .status.bad {
     height: 28px;
-  }
-  .wk .vt {
-    padding: 2px;
-  }
-  .wk .vt button {
-    width: 36px;
-    padding: 0;
-  }
-  .wk .vt svg {
-    display: block;
-  }
-  .wk .vt span {
-    display: none;
   }
   .attn {
     margin: -2px 2px 12px;
@@ -2747,51 +2737,14 @@ button,
   background: var(--amber-t);
   color: var(--amber);
 }
-/* "Didn't happen?" under the interview support choices: the question, then two buttons side by side */
-.bk-miss {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  align-items: center;
-  gap: 8px;
-  margin-top: 14px;
-  padding-top: 12px;
-  border-top: 1px solid var(--line);
-  font-size: 13px;
-  color: var(--ink2);
-}
-.bk-miss span {
-  grid-column: 1 / -1;
-}
-.bk-miss button {
-  height: auto;
-  min-height: 34px;
-  padding: 6px 12px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-}
-.bk-undo {
-  margin-top: 10px;
-}
 /* interviews marked as not having taken place */
-.ev.missed b,
-.ag-i.missed .ag-m b {
+.ev.missed b {
   text-decoration: line-through;
 }
 .bk-st.sm {
   align-self: center;
   padding: 3px 8px;
   font-size: 11.5px;
-}
-.bk-acts {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(0, 1fr));
-  gap: 8px;
-  margin: 12px 0 0;
 }
 .bk-act {
   display: flex;
@@ -3192,4 +3145,378 @@ button,
   #viewAllow .rm:disabled {
     opacity: 0.4;
   }
+}
+/* Candidates in the phone sheet: the grouped settings cards sit on the page background, as they did on their own page. */
+@media (max-width: 760px) {
+  .pbody.grp {
+    background: var(--bg);
+  }
+}
+/* ---- Agenda: one day, like a phone calendar's Day view ----
+   A week strip picks the day (circled in orange, dots for days with interviews). Below it, an hour grid holds the
+   day's interviews as blocks sized to their length, tinted in the interview supporter's colour with a top edge in that
+   colour (grey when none), and today a line with a time pill marks the time now. */
+/* The picked day's date is orange with a short bar under it; today's date gets an orange ring (filled when it's also
+   the picked day).
+   Weekends are a shade quieter. */
+.ws {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+  margin: 2px 0 16px;
+  padding: 6px;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: var(--card);
+  box-shadow: var(--shadow);
+}
+.ws-b {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  min-width: 0;
+  padding: 7px 0 6px;
+  border: 0;
+  border-radius: 16px;
+  background: none;
+  color: var(--ink);
+  -webkit-tap-highlight-color: transparent;
+  transition: background 0.18s ease;
+}
+.ws-b:active:not(:disabled) {
+  transform: none;
+  background: var(--sub);
+}
+@media (hover: hover) {
+  .ws-b:not(.on):hover {
+    background: var(--sub);
+  }
+}
+.ws-w {
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: var(--ink2);
+}
+.ws-b.we .ws-w {
+  color: var(--ink3);
+}
+.ws-b b {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 16px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.ws-b.we:not(.on):not(.today) b {
+  color: var(--ink2);
+}
+.ws-b.today b {
+  color: var(--link);
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1.5px var(--blue);
+}
+.ws-b.on .ws-w {
+  color: var(--link);
+}
+.ws-b.on b {
+  position: relative;
+  color: var(--link);
+  font-weight: 700;
+}
+/* the picked day: orange date with a short bar under it */
+.ws-b.on:not(.today) b:after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  width: 14px;
+  height: 2.5px;
+  margin-left: -7px;
+  border-radius: 2px;
+  background: var(--blue);
+}
+.ws-b.on.today b {
+  background: var(--blue);
+  color: #fff;
+  box-shadow: none;
+}
+.ws-d {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  height: 14px;
+}
+.ws-d i {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--c);
+}
+.ws-d em {
+  margin-left: 1px;
+  font-style: normal;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--ink2);
+}
+.ag-h {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  margin: 0 4px 12px;
+}
+.ag-h b {
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+.ag-h span {
+  font-size: 19px;
+  color: var(--ink2);
+}
+.ag-h em {
+  margin-left: auto;
+  font-style: normal;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--ink2);
+}
+.ag-h.today b {
+  color: var(--link);
+}
+.ag-grid {
+  position: relative;
+  margin: 8px 0 12px;
+}
+.ag-hr {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--line);
+}
+.ag-hr span {
+  position: absolute;
+  left: 0;
+  width: 50px;
+  top: -8px;
+  padding-right: 8px;
+  background: var(--bg);
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+}
+.ag-lane {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 56px;
+  right: 0;
+}
+.ag-i {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+  padding: 5px 8px;
+  border: 0;
+  border-top: 3px solid var(--c);
+  border-radius: 3px 3px 8px 8px;
+  /* the tint over the page colour, so hour lines don't show through */
+  background: linear-gradient(var(--ct), var(--ct)), var(--bg);
+  text-align: left;
+  color: var(--ink);
+  font: inherit;
+  overflow: hidden;
+  z-index: 1;
+}
+.ag-i:active:not(:disabled) {
+  transform: none;
+  filter: brightness(0.96);
+}
+@media (hover: hover) {
+  .ag-i:hover {
+    filter: brightness(0.97);
+  }
+}
+.ag-i b {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ag-i.missed b {
+  text-decoration: line-through;
+}
+.ag-s,
+.ag-t {
+  font-size: 12px;
+  line-height: 1.3;
+  color: var(--ink2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ag-t {
+  color: var(--ink);
+  font-weight: 500;
+}
+/* short interviews: name and time on one line; middling ones leave out the company and round */
+.ag-i.short {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 3px;
+}
+.ag-i.short .ag-s,
+.ag-i.mid .ag-s {
+  display: none;
+}
+.ag-rs {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.ag-rs .bk-st {
+  padding: 1px 7px;
+}
+.ag-i.has-rs {
+  padding-right: 84px;
+}
+.ag-i .need-dot {
+  width: 8px;
+  height: 8px;
+}
+.ag-i.past {
+  opacity: 0.72;
+}
+.ag-i.cn {
+  --c: #8f8b83;
+  --ct: rgba(128, 122, 112, 0.16);
+}
+/* the time now: a pill on the hour column and a line across */
+.ag-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--blue);
+  z-index: 2;
+  pointer-events: none;
+}
+.ag-now span {
+  position: absolute;
+  left: 0;
+  top: -11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
+}
+@media (min-width: 761px) {
+  .agenda {
+    max-width: 620px;
+  }
+}
+/* Phones: Alerts sits in the ⋯ menu. */
+#mAlerts {
+  display: none;
+}
+@media (max-width: 760px) {
+  .dlmenu #mAlerts {
+    display: block;
+  }
+}
+/* The round's status (booking panel picker and chips, agenda chips): each status sets a colour
+   (--rc) and a tint (--rt). */
+.rs-scheduled {
+  --rc: var(--link);
+  --rt: var(--tint);
+}
+.rs-cleared {
+  --rc: var(--green);
+  --rt: color-mix(in srgb, var(--green) 14%, transparent);
+}
+.rs-rejected {
+  --rc: var(--red);
+  --rt: var(--red-t);
+}
+.rs-hold {
+  --rc: var(--amber);
+  --rt: var(--amber-t);
+}
+.rs-noshow,
+.rs-didnthappen,
+.rs-cancelled {
+  --rc: var(--ink2);
+  --rt: var(--sub);
+}
+.bk-st[class*="rs-"] {
+  background: var(--rt);
+  color: var(--rc);
+}
+.rs-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.rs-opt {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  flex: 1 1 auto;
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s,
+    transform 0.12s var(--ease);
+}
+.rs-opt:active {
+  transform: scale(0.97);
+}
+.rs-opt[aria-pressed="true"] {
+  border-color: var(--rc);
+  background: var(--rt);
+  color: var(--rc);
+}
+.rs-hint {
+  margin: 10px 0 0;
+}
+.rsd {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--rc);
 }

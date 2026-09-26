@@ -14,7 +14,7 @@ import {
   timeAgo,
   weekStart,
 } from "./time";
-import { byWhom, missedLabel, plural, statusClass, statusOf, titleCase } from "./labels";
+import { ROUND_STATUSES, byWhom, missedLabel, plural, roundStatus, statusOf, statusPill, titleCase, type RoundStatus } from "./labels";
 import { request } from "./api";
 import { sameCompany } from "../../same-company";
 import { setupAlerts } from "./alerts";
@@ -23,13 +23,6 @@ import { setupNav } from "./nav";
 import { setupStatsFrame } from "./stats-frame";
 import type { Allowlist, Booking, Change, State } from "./types";
 
-(function () {
-  var mark = document.querySelector(".mk");
-  var brand = document.querySelector(".bn");
-  if (mark && brand) {
-    mark.textContent = (brand.textContent.trim().charAt(0) || "").toUpperCase();
-  }
-})();
 var boot = JSON.parse(document.getElementById("boot").textContent);
 var HOUR_PX = 64;
 var state: State = {
@@ -401,6 +394,7 @@ function renderWeek() {
             booking.company,
             booking.round,
             interviewer ? "Interview support: " + interviewer : booking.missed ? missedLabel(booking) : started ? "Interview support not recorded" : "",
+            booking.outcome ? statusPill(booking).text : "",
           ]
             .filter(Boolean)
             .join(" · "),
@@ -524,6 +518,30 @@ function renderChanges() {
     );
   });
 }
+// The agenda: one day at a time, like a phone calendar's Day view. A week strip picks the day (the day on screen circled
+// in orange, dots for days with interviews), then an hour grid holds that day's interviews as blocks sized to their
+// length, tinted in the interview supporter's colour (grey when none), with a line at the current time today.
+var AGENDA_HOUR_PX = 80;
+function agendaDay() {
+  var today = dayKeyOf(new Date());
+  if (selectedDay && weekStart(selectedDay) === weekOf) {
+    return selectedDay;
+  }
+  if (weekStart(today) === weekOf) {
+    return today;
+  }
+  for (var i = 0; i < 7; i++) {
+    if (dayItems(addDays(weekOf, i)).length) {
+      return addDays(weekOf, i);
+    }
+  }
+  return weekOf;
+}
+function pickAgendaDay(day: string) {
+  selectedDay = day;
+  weekOf = weekStart(day);
+  render();
+}
 function renderAgenda() {
   var box = byId("agenda");
   if (!box) {
@@ -531,111 +549,139 @@ function renderAgenda() {
   }
   var today = dayKeyOf(new Date());
   var now = Date.now();
+  var shown = agendaDay();
   box.textContent = "";
+  var strip = el("div", {
+    class: "ws",
+    role: "group",
+    "aria-label": "Days",
+  });
   for (var i = 0; i < 7; i++) {
-    var day = addDays(weekOf, i);
-    var items = dayItems(day);
-    var isToday = day === today;
-    box.appendChild(
+    let day = addDays(weekOf, i);
+    var count = dayItems(day).length;
+    var dots = el("span", {
+      class: "ws-d",
+      "aria-hidden": "true",
+    });
+    // a dot per interview in its supporter's colour, up to three, then "+N"
+    dayItems(day).forEach(function (item, index) {
+      var interviewer = state.iv.assign[item.booking.id];
+      if (index < 3) {
+        dots.appendChild(el("i", { class: interviewer ? colorClass(interviewer) : "cn" }));
+      }
+    });
+    if (count > 3) {
+      dots.appendChild(el("em", { text: "+" + (count - 3) }));
+    }
+    strip.appendChild(
       el(
-        "div",
+        "button",
         {
-          class: "ag-h" + (isToday ? " today" : ""),
+          type: "button",
+          class: "ws-b" + (day === shown ? " on" : "") + (day === today ? " today" : "") + (i >= 5 ? " we" : ""),
+          "aria-pressed": day === shown ? "true" : "false",
+          "aria-label":
+            formatDay(day, { weekday: "long", month: "long", day: "numeric" }) +
+            (count ? ", " + count + (count === 1 ? " interview" : " interviews") : ", no interviews"),
+          onclick: function () {
+            pickAgendaDay(day);
+          },
         },
-        [
-          el("b", {
-            text: isToday
-              ? "Today"
-              : formatDay(day, {
-                  weekday: "long",
-                }),
-          }),
-          el("span", {
-            text: formatDay(day, {
-              weekday: isToday ? "long" : undefined,
-              month: "short",
-              day: "numeric",
-            }),
-          }),
-        ],
+        [el("span", { class: "ws-w", text: formatDay(day, { weekday: "short" }) }), el("b", { text: formatDay(day, { day: "numeric" }) }), dots],
       ),
     );
-    if (!items.length) {
-      continue;
-    }
-    var list = el("div", {
-      class: "ag-l",
-    });
-    items.forEach(function (item) {
-      var booking = item.booking;
-      var interviewer = state.iv.assign[booking.id];
-      var isPast = Date.parse(booking.end) <= now;
-      var started = Date.parse(booking.start) <= now;
-      list.appendChild(
-        el(
-          "button",
-          {
-            type: "button",
-            class: "ag-i " + (interviewer ? colorClass(interviewer) : "cn") + (isPast ? " past" : "") + (booking.missed ? " missed" : ""),
-            onclick: function () {
-              showBooking(booking.id);
-            },
-          },
-          [
-            el(
-              "span",
-              {
-                class: "ag-t",
-              },
-              [
-                el("b", {
-                  text: formatTime(new Date(booking.start)),
-                }),
-                el("span", {
-                  text: formatTime(new Date(booking.end)),
-                }),
-              ],
-            ),
-            el(
-              "span",
-              {
-                class: "ag-m",
-              },
-              [
-                el("b", {
-                  text: titleCase(booking.name),
-                }),
-                el("span", {
-                  text: [booking.company, booking.round, interviewer || missedLabel(booking)].filter(Boolean).join(" · ") || "\xA0",
-                }),
-              ],
-            ),
-            !interviewer && started && !booking.missed
-              ? el("i", {
-                  class: "need-dot",
-                  title: "Support not recorded",
-                  "aria-label": "Support not recorded",
-                  role: "img",
-                })
-              : null,
-          ],
-        ),
-      );
-    });
-    box.appendChild(list);
   }
-  // On a phone, the first time the agenda shows today (and after "Today"), bring today's bookings into view.
-  var todayHead = box.querySelector(".ag-h.today");
-  if (!agendaScrolled && todayHead && box.offsetParent && matchMedia("(max-width:760px)").matches) {
-    agendaScrolled = true;
-    if (todayHead.getBoundingClientRect().top > innerHeight * 0.55) {
-      todayHead.scrollIntoView({ block: "start" });
-    }
+  box.appendChild(strip);
+  var items = dayItems(shown);
+  layoutColumns(items);
+  box.appendChild(
+    el("div", { class: "ag-h" + (shown === today ? " today" : "") }, [
+      el("b", { text: formatDay(shown, { weekday: "long" }) + "," }),
+      el("span", { text: formatDay(shown, { day: "numeric", month: "short" }) }),
+      el("em", { text: items.length ? items.length + (items.length === 1 ? " interview" : " interviews") : "No interviews" }),
+    ]),
+  );
+  // the hours shown: working hours, stretched to fit the day's interviews and, today, the time now
+  var nowMin = minutesOfDay(new Date());
+  var fromMin = state.hours.start;
+  var toMin = state.hours.end;
+  items.forEach(function (item) {
+    fromMin = Math.min(fromMin, item.from);
+    toMin = Math.max(toMin, item.to);
+  });
+  if (shown === today && nowMin >= 7 * 60) {
+    fromMin = Math.min(fromMin, nowMin);
+    toMin = Math.max(toMin, nowMin + 30);
   }
+  var firstHour = Math.floor(fromMin / 60);
+  var lastHour = Math.min(24, Math.ceil(toMin / 60));
+  var grid = el("div", { class: "ag-grid" });
+  grid.style.height = (lastHour - firstHour) * AGENDA_HOUR_PX + "px";
+  for (var hour = firstHour; hour <= lastHour; hour++) {
+    var line = el("div", { class: "ag-hr" }, [el("span", { text: hour === 12 ? "Noon" : hourLabel(hour) })]);
+    line.style.top = (hour - firstHour) * AGENDA_HOUR_PX + "px";
+    grid.appendChild(line);
+  }
+  var lane = el("div", { class: "ag-lane" });
+  items.forEach(function (item) {
+    var booking = item.booking;
+    var interviewer = state.iv.assign[booking.id];
+    var isPast = Date.parse(booking.end) <= now;
+    var needsSupport = !interviewer && Date.parse(booking.start) <= now && !booking.missed;
+    var cols = item.group.cols.length;
+    var height = Math.max(26, ((item.to - item.from) / 60) * AGENDA_HOUR_PX - 2);
+    var block = el(
+      "button",
+      {
+        type: "button",
+        class:
+          "ag-i " +
+          (interviewer ? colorClass(interviewer) : "cn") +
+          (isPast ? " past" : "") +
+          (booking.missed ? " missed" : "") +
+          (height < 40 ? " short" : height < 66 ? " mid" : "") +
+          (booking.outcome || booking.missed ? " has-rs" : ""),
+        onclick: function () {
+          showBooking(booking.id);
+        },
+      },
+      [
+        el("b", { text: titleCase(booking.name) }),
+        el("span", { class: "ag-s", text: [booking.company, booking.round, interviewer].filter(Boolean).join(" · ") }),
+        el("span", { class: "ag-t", text: formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end)) }),
+        // the round's status, when it has one, and a dot when support isn't recorded, in the top corner
+        booking.outcome || booking.missed || needsSupport
+          ? el("span", { class: "ag-rs" }, [
+              booking.outcome || booking.missed ? el("span", statusPill(booking, true)) : null,
+              needsSupport
+                ? el("i", {
+                    class: "need-dot",
+                    title: "Support not recorded",
+                    "aria-label": "Support not recorded",
+                    role: "img",
+                  })
+                : null,
+            ])
+          : null,
+      ],
+    );
+    block.style.top = ((item.from - firstHour * 60) / 60) * AGENDA_HOUR_PX + 1 + "px";
+    block.style.height = height + "px";
+    block.style.left = "calc(" + (item.col * 100) / cols + "% + 2px)";
+    block.style.width = "calc(" + 100 / cols + "% - 4px)";
+    lane.appendChild(block);
+  });
+  grid.appendChild(lane);
+  if (shown === today && nowMin >= firstHour * 60 && nowMin <= lastHour * 60) {
+    var nowLine = el("div", { class: "ag-now" }, [el("span", { text: formatTime(now) })]);
+    nowLine.style.top = ((nowMin - firstHour * 60) / 60) * AGENDA_HOUR_PX + "px";
+    grid.appendChild(nowLine);
+  }
+  box.appendChild(grid);
 }
-var agendaScrolled = false;
 function render() {
   renderEnquiryBadge();
+  refreshPayments();
   weekOf ||= weekStart(selectedDay || dayKeyOf(new Date()));
   renderStatus();
   if (state.ready) {
@@ -651,7 +697,17 @@ function render() {
     }
   }
 }
+// The Candidates panel borrows the allowlist section itself, so its buttons keep their handlers. Put it back in the page
+// (hidden) whenever the panel closes or shows something else.
+function parkAllow() {
+  var section = byId("viewAllow");
+  if (section.parentElement !== document.querySelector("main")) {
+    section.hidden = true;
+    document.querySelector("main").appendChild(section);
+  }
+}
 function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
+  parkAllow();
   if (!keepFocus && byId("panel").hidden) {
     returnFocus = document.activeElement as HTMLElement;
   }
@@ -661,6 +717,7 @@ function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
   sheetBookingId = "";
   var body = byId("pbody");
   body.textContent = "";
+  body.classList.remove("grp");
   byId("panel").hidden = false;
   byId("pback").hidden = false;
   if (!keepFocus) {
@@ -669,6 +726,7 @@ function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
   return body;
 }
 function closePanel() {
+  parkAllow();
   byId("panel").hidden = true;
   byId("pback").hidden = true;
   refreshPanel = null;
@@ -767,20 +825,6 @@ function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
       setMessage(msg, error.message, true);
     });
 }
-// Marks a started interview as a no-show ("noshow") or as not happened ("other"), or undoes that ("").
-function setMissed(booking: Booking, missed: "noshow" | "other" | "", msg: HTMLElement) {
-  setMessage(msg, "Saving…");
-  request("/admin/api/missed", {
-    id: booking.id,
-    missed: missed,
-  })
-    .then(function () {
-      toast(missed === "noshow" ? "Marked as no-show" : missed ? "Marked as didn't happen" : "Mark removed");
-    })
-    .catch(function (error) {
-      setMessage(msg, error.message, true);
-    });
-}
 // Small line icons for the booking sheet (24×24, stroked with the text colour).
 var ICON: Record<string, string> = {
   mail: "M4 6.5h16v11H4zM4.5 7l7.5 6 7.5-6",
@@ -792,6 +836,7 @@ var ICON: Record<string, string> = {
   moved: "M4 12h13M13 7l5 5-5 5",
   x: "M6 6l12 12M18 6 6 18",
   note: "M5 4h14v16H5zM8.5 9h7M8.5 13h7M8.5 17h4",
+  download: "M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14",
 };
 function icon(name: string) {
   var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -829,6 +874,58 @@ function setPanelAvatar(name: string | null, interviewer?: string) {
   avatar.textContent = name ? initials(name) : "";
   avatar.className = "pav " + (interviewer ? colorClass(interviewer) : "cn");
 }
+// The round's status in the booking panel, shown once the interview has started (the result comes from the
+// interview). One tap saves a status; tapping the selected one clears it. No-show and Didn't happen are offered while
+// nobody is recorded as giving support.
+function roundStatusCard(booking: Booking, current: RoundStatus | null, supported: boolean) {
+  var card = el("div", { class: "bk-card rsc" }, [el("h3", { text: "Round status" })]);
+  var msg = el("p", { class: "msg", role: "status" });
+  var options = ROUND_STATUSES.filter(function (option) {
+    return !supported || option.value !== "noshow" && option.value !== "other";
+  });
+  var group = el("div", { class: "rs-opts", role: "group", "aria-label": "Round status" });
+  var buttons = options.map(function (option) {
+    return el(
+      "button",
+      {
+        type: "button",
+        class: "rs-opt rs-" + option.key,
+        "aria-pressed": String(!!current && option.key === current.key),
+        onclick: function () {
+          saveRoundStatus(booking, current && option.key === current.key ? null : option, buttons, msg);
+        },
+      },
+      [el("i", { class: "rsd", "aria-hidden": "true" }), option.label],
+    );
+  });
+  buttons.forEach(function (button) {
+    group.appendChild(button);
+  });
+  card.appendChild(group);
+  card.appendChild(el("p", { class: "sub rs-hint", text: current ? "Tap " + current.label + " again to clear it." : "Tap how the round went." }));
+  card.appendChild(msg);
+  return card;
+}
+// Saves a status (null clears it); the panel redraws when the new state arrives.
+function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: HTMLElement[], msg: HTMLElement) {
+  var before = buttons.map(function (button) {
+    return button.getAttribute("aria-pressed");
+  });
+  buttons.forEach(function (button) {
+    button.setAttribute("aria-pressed", String(!!option && button.classList.contains("rs-" + option.key)));
+  });
+  setMessage(msg, "");
+  request("/admin/api/round-status", { id: booking.id, status: option ? option.value : "" })
+    .then(function () {
+      toast(option ? "Status saved: " + option.label : "Status cleared");
+    })
+    .catch(function (error) {
+      buttons.forEach(function (button, index) {
+        button.setAttribute("aria-pressed", before[index] || "false");
+      });
+      setMessage(msg, error.message, true);
+    });
+}
 var sheetBookingId = "";
 function showBooking(id: string, refresh?: boolean) {
   var booking = findBooking(id);
@@ -843,7 +940,7 @@ function showBooking(id: string, refresh?: boolean) {
   var now = Date.now();
   var interviewer = state.iv.assign[booking.id] || "";
   var upcoming = Date.parse(booking.start) > now;
-  var status = statusOf(booking);
+  var status = roundStatus(booking);
   refreshPanel = function () {
     showBooking(id, true);
   };
@@ -870,53 +967,14 @@ function showBooking(id: string, refresh?: boolean) {
         el("span", { text: formatTime(start) + " – " + formatTime(end) }),
         el("small", { text: booking.duration + " min · " + relative }),
       ]),
-      el("span", { class: "bk-st " + statusClass(status), text: status }),
+      // the round's status shows in its card below, not twice
+      status ? null : el("span", statusPill(booking)),
     ]),
   );
 
-  // Quick actions: email, copy the email, open the candidate in Contacts.
-  var actions = el("div", { class: "bk-acts" });
-  if (booking.email) {
-    actions.appendChild(el("a", { class: "bk-act", href: "mailto:" + booking.email }, [icon("mail"), "Email"]));
-    actions.appendChild(
-      el(
-        "button",
-        {
-          type: "button",
-          class: "bk-act",
-          onclick: function () {
-            var done = function () {
-              toast("Email copied");
-            };
-            if (navigator.clipboard) {
-              navigator.clipboard.writeText(booking.email).then(done, function () {
-                toast(booking.email);
-              });
-            } else {
-              toast(booking.email);
-            }
-          },
-        },
-        [icon("copy"), "Copy email"],
-      ),
-    );
+  if (!booking.cancelled && !upcoming) {
+    body.appendChild(roundStatusCard(booking, status, !!interviewer));
   }
-  actions.appendChild(
-    el(
-      "button",
-      {
-        type: "button",
-        class: "bk-act",
-        onclick: function () {
-          closePanel();
-          window.__statsEvent = booking.id;
-          byId("tabStats").click();
-        },
-      },
-      [icon("person"), "Contact"],
-    ),
-  );
-  body.appendChild(actions);
 
   // Details
   var details = el("div", { class: "bk-card bk-rows" });
@@ -951,31 +1009,10 @@ function showBooking(id: string, refresh?: boolean) {
   }
   body.appendChild(details);
 
-  // Interview support, or, for an interview marked as not having taken place, that mark with Undo
-  if (!booking.cancelled) {
-    var box = el("div", { class: "bk-card" }, [
-      el("h3", { text: booking.missed ? (booking.missed === "noshow" ? "The candidate didn't show up" : "This interview didn't happen") : "Interview support given by" }),
-    ]);
-    if (booking.missed) {
-      var undoMsg = el("p", { class: "msg", role: "status" });
-      box.appendChild(
-        el("p", {
-          class: "sub",
-          text: "Marked " + (booking.missedAt ? timeAgo(booking.missedAt) + " " : "") + "as " + missedLabel(booking).toLowerCase() + ". It doesn't count as interview support.",
-        }),
-      );
-      box.appendChild(
-        el("button", {
-          type: "button",
-          class: "ghost bk-undo",
-          text: "Undo",
-          onclick: function () {
-            setMissed(booking, "", undoMsg);
-          },
-        }),
-      );
-      box.appendChild(undoMsg);
-    } else if (upcoming) {
+  // Interview support (not for an interview marked as a no-show or didn't happen: its status card says so)
+  if (!booking.cancelled && !booking.missed) {
+    var box = el("div", { class: "bk-card" }, [el("h3", { text: "Interview support given by" })]);
+    if (upcoming) {
       box.appendChild(el("p", { class: "sub", text: "You can record who gave interview support once it starts at " + formatTime(start) + "." }));
     } else {
       var choices = el("div", { class: "ivc" });
@@ -1008,30 +1045,6 @@ function showBooking(id: string, refresh?: boolean) {
         box.appendChild(el("p", { class: "lockd", text: "Locked. This can't be changed once recorded." }));
       } else {
         box.appendChild(el("p", { class: "sub ivh", text: "Tap who gave interview support." }));
-        // or record that it didn't take place
-        box.appendChild(
-          el("div", { class: "bk-miss" }, [
-            el("span", { text: "Didn't happen?" }),
-            el("button", {
-              type: "button",
-              text: "Candidate no-show",
-              onclick: function () {
-                if (confirm("Mark " + titleCase(booking.name) + "'s interview as a no-show?")) {
-                  setMissed(booking, "noshow", msg);
-                }
-              },
-            }),
-            el("button", {
-              type: "button",
-              text: "Didn't happen",
-              onclick: function () {
-                if (confirm("Mark " + titleCase(booking.name) + "'s interview as didn't happen?")) {
-                  setMissed(booking, "other", msg);
-                }
-              },
-            }),
-          ]),
-        );
       }
       var clash = clashFor(booking, interviewer);
       if (clash) {
@@ -1069,7 +1082,6 @@ function showBooking(id: string, refresh?: boolean) {
   if (others.length) {
     var history = el("div", { class: "bk-card bk-hist" }, [el("h3", { text: "Other interviews at " + (booking.company || "").trim() })]);
     others.slice(0, 10).forEach(function (other) {
-      var otherStatus = statusOf(other);
       history.appendChild(
         el(
           "button",
@@ -1093,7 +1105,7 @@ function showBooking(id: string, refresh?: boolean) {
                   .filter(Boolean)
                   .join(" · ") || "Interview",
             }),
-            el("span", { class: "bk-st sm " + statusClass(otherStatus), text: otherStatus }),
+            el("span", statusPill(other, true)),
           ],
         ),
       );
@@ -1411,112 +1423,6 @@ function showReschedule(booking: Booking) {
   body.appendChild(msg);
   byId("cdate").focus();
 }
-function showNewBooking() {
-  refreshPanel = null;
-  var body = openPanel("New booking", "Book a time for a candidate. The allowlist doesn't apply here.");
-  var inputs: Record<string, HTMLInputElement> = {};
-  var msg = el("p", {
-    class: "msg",
-    role: "status",
-  });
-  [
-    ["name", "Name *", "text"],
-    ["email", "Email *", "email"],
-    ["company", "Company", "text"],
-    ["round", "Interview round", "text"],
-  ].forEach(function (field) {
-    var input = el("input", {
-      id: "n" + field[0],
-      type: field[2],
-      autocomplete: "off",
-      maxlength: field[0] === "email" ? "200" : "120",
-    });
-    inputs[field[0]] = input;
-    body.appendChild(
-      el(
-        "div",
-        {
-          class: "f",
-        },
-        [
-          el("label", {
-            for: "n" + field[0],
-            text: field[1],
-          }),
-          input,
-        ],
-      ),
-    );
-  });
-  var picker = timePicker(30, selectedDay);
-  body.appendChild(picker.el);
-  body.appendChild(
-    el("p", {
-      class: "sub",
-      text: state.email
-        ? "The candidate gets the usual confirmation email with reschedule and cancel links."
-        : "Emails are off, so send the candidate the details yourself.",
-    }),
-  );
-  var button = el("button", {
-    type: "button",
-    class: "pri",
-    text: "Book",
-    onclick: function () {
-      var choice = picker.get();
-      var name = inputs.name.value.trim();
-      var email = inputs.email.value.trim();
-      if (!name) {
-        inputs.name.focus();
-        return setMessage(msg, "Enter the candidate's name.", true);
-      }
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        inputs.email.focus();
-        return setMessage(msg, "Enter a valid email address.", true);
-      }
-      if (!choice) {
-        return setMessage(msg, "Pick a time.", true);
-      }
-      button.disabled = true;
-      request("/admin/api/book", {
-        name: name,
-        email: email,
-        company: inputs.company.value.trim(),
-        round: inputs.round.value.trim(),
-        startMs: choice.startMs,
-        duration: choice.duration,
-      })
-        .then(function () {
-          closePanel();
-          toast("Booked");
-          goToTime(choice.startMs);
-        })
-        .catch(function (error) {
-          button.disabled = false;
-          setMessage(msg, error.message, true);
-        });
-    },
-  });
-  body.appendChild(
-    el(
-      "div",
-      {
-        class: "row mt",
-      },
-      [
-        button,
-        el("button", {
-          type: "button",
-          class: "ghost",
-          text: "Cancel",
-          onclick: closePanel,
-        }),
-      ],
-    ),
-  );
-  body.appendChild(msg);
-  inputs.name.focus();
-}
 function showInterviewers() {
   refreshPanel = null;
   var body = openPanel("Interview supporters", "Rename, add or remove. Renaming also updates interviews already recorded.");
@@ -1794,12 +1700,27 @@ function showEnquiries() {
             el("a", { href: "tel:" + item.phone.replace(/[^\d+]/g, ""), text: item.phone }),
           ]),
           el("div", { class: "enqa" }, [
-            el("a", {
-              class: "bk-act",
-              href: "/admin/api/enquiries/" + item.id + "/resume",
-              download: item.resume.name,
-              text: "Resume · " + Math.max(1, Math.round(item.resume.size / 1024)) + " KB",
-            }),
+            // the resume opens in a new tab to read; the icon beside it saves it, named after the candidate
+            el("div", { class: "enqr" }, [
+              el("a", {
+                class: "bk-act",
+                href: "/admin/api/enquiries/" + item.id + "/resume",
+                target: "_blank",
+                rel: "noopener",
+                text: "Resume · " + Math.max(1, Math.round(item.resume.size / 1024)) + " KB",
+              }),
+              el(
+                "a",
+                {
+                  class: "bk-act dl",
+                  href: "/admin/api/enquiries/" + item.id + "/resume?download=1",
+                  download: "",
+                  title: "Download resume",
+                  "aria-label": "Download the resume of " + item.name,
+                },
+                [icon("download")],
+              ),
+            ]),
             el("button", {
               type: "button",
               class: "rm",
@@ -1883,6 +1804,355 @@ request("/admin/api/enquiries/seen")
     renderEnquiryBadge();
   })
   .catch(function () {});
+// The Payments tab: what people sent from the public /payment page, newest first, with the total at the top. Each
+// receipt opens in a new tab; the icon beside it saves it, named after the payer.
+function rupees(amount: number) {
+  return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+var paymentsShown = -1;
+// Verified: the server read the typed amount on the receipt. Needs check: it couldn't read an amount (a blurry photo,
+// a HEIC photo), so look at the receipt. Payments from before the check have no badge.
+function checkBadge(item: any) {
+  if (item.check === "verified") {
+    return el("span", { class: "pchk ok", text: "Verified", title: "The amount on the receipt matches" });
+  } else if (item.check === "unread") {
+    return el("span", { class: "pchk warn", text: "Needs check", title: "The amount on the receipt couldn't be read" });
+  } else {
+    return null;
+  }
+}
+// Three views, remembered per device: By candidate (one row per candidate email: payments, total paid, last paid),
+// Table (candidate, date, amount) and List (one block per payment, with its receipt). Table and List can be filtered to
+// one candidate, which shows their subtotal; tapping a candidate in By candidate does that.
+var paymentsMode = "people";
+try {
+  var savedMode = localStorage.getItem("payMode") || "";
+  paymentsMode = ["people", "table", "list"].indexOf(savedMode) >= 0 ? savedMode : "people";
+} catch (e) {}
+var paymentsSort = { key: "date", down: true };
+var peopleSort = { key: "last", down: true };
+var paymentsFilter = "";
+function showPayments() {
+  var body = byId("payBody");
+  body.textContent = "";
+  var link = location.origin + "/payment";
+  var msg = el("p", { class: "msg", role: "status" });
+  body.appendChild(
+    el("div", { class: "enqlink" }, [
+      el("a", { href: "/payment", target: "_blank", rel: "noopener", text: link.replace(/^https?:\/\//, "") }),
+      el("button", {
+        type: "button",
+        class: "ghost",
+        text: "Copy link",
+        onclick: function () {
+          navigator.clipboard.writeText(link).then(
+            function () {
+              toast("Link copied");
+            },
+            function () {
+              setMessage(msg, "Couldn't copy. The link is " + link, true);
+            },
+          );
+        },
+      }),
+    ]),
+  );
+  var bar = el("div", { class: "paybar", hidden: true });
+  var list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
+  body.appendChild(bar);
+  body.appendChild(list);
+  body.appendChild(msg);
+  var payments: any[] = [];
+  // one entry per candidate email, with the name from their latest payment (payments come newest first)
+  function people() {
+    var byEmail: Record<string, any> = {};
+    var out: any[] = [];
+    payments.forEach(function (item) {
+      var p = byEmail[item.email];
+      if (!p) {
+        p = byEmail[item.email] = { email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, unread: 0 };
+        out.push(p);
+      }
+      p.count++;
+      p.total += item.amount;
+      if (item.check === "unread") {
+        p.unread++;
+      }
+      if (Date.parse(item.createdAt) > Date.parse(p.last)) {
+        p.last = item.createdAt;
+      }
+    });
+    return out;
+  }
+  function modeButton(mode: string, label: string) {
+    return el("button", {
+      type: "button",
+      "aria-pressed": String(paymentsMode === mode),
+      text: label,
+      onclick: function () {
+        paymentsMode = mode;
+        try {
+          localStorage.setItem("payMode", mode);
+        } catch (e) {}
+        draw();
+      },
+    });
+  }
+  function sortButton(sort: { key: string; down: boolean }, key: string, label: string, set: (s: { key: string; down: boolean }) => void) {
+    var on = sort.key === key;
+    return el("button", {
+      type: "button",
+      text: label + (on ? (sort.down ? " \u2193" : " \u2191") : ""),
+      onclick: function () {
+        set({ key: key, down: on ? !sort.down : true });
+        draw();
+      },
+    });
+  }
+  function heading(sort: { key: string; down: boolean }, key: string, label: string, num: boolean, set: (s: { key: string; down: boolean }) => void) {
+    var on = sort.key === key;
+    return el("th", { scope: "col", class: num ? "num" : "", "aria-sort": on ? (sort.down ? "descending" : "ascending") : null }, [
+      sortButton(sort, key, label, set),
+    ]);
+  }
+  function draw() {
+    list.textContent = "";
+    bar.textContent = "";
+    bar.hidden = !payments.length;
+    list.className = "enqlist";
+    if (!payments.length) {
+      list.appendChild(el("p", { class: "sub", text: "No payments yet. Share the link above." }));
+      return;
+    }
+    var all = people();
+    if (paymentsFilter && !all.some((p) => p.email === paymentsFilter)) {
+      paymentsFilter = "";
+    }
+    var controls: HTMLElement[] = [
+      el("div", { class: "paysw", role: "group", "aria-label": "Show payments" }, [
+        modeButton("people", "By candidate"),
+        modeButton("table", "Table"),
+        modeButton("list", "List"),
+      ]),
+    ];
+    if (paymentsMode !== "people") {
+      var pick = el(
+        "select",
+        {
+          class: "payfilter",
+          "aria-label": "Show one candidate's payments",
+          onchange: function () {
+            paymentsFilter = pick.value;
+            draw();
+          },
+        },
+        [el("option", { value: "", text: "All candidates" })].concat(
+          all
+            .slice()
+            .sort(function (a, b) {
+              return a.name.localeCompare(b.name);
+            })
+            .map(function (p) {
+              return el("option", { value: p.email, text: p.name + " (" + p.count + ")" });
+            }),
+        ),
+      );
+      pick.value = paymentsFilter;
+      controls.push(pick);
+    }
+    controls.forEach(function (c) {
+      bar.appendChild(c);
+    });
+    if (paymentsMode === "people") {
+      drawPeople(all);
+      return;
+    }
+    var rows = paymentsFilter
+      ? payments.filter(function (item) {
+          return item.email === paymentsFilter;
+        })
+      : payments;
+    var who = paymentsFilter
+      ? all.filter(function (p) {
+          return p.email === paymentsFilter;
+        })[0]
+      : null;
+    if (who) {
+      list.appendChild(
+        el("div", { class: "paysum" }, [
+          el("div", null, [el("b", { text: who.name }), el("small", { text: who.email })]),
+          el("div", { class: "num" }, [el("b", { text: rupees(who.total) }), el("small", { text: plural(who.count, "payment") })]),
+        ]),
+      );
+    }
+    if (paymentsMode === "table") {
+      drawTable(rows, who);
+    } else {
+      drawList(rows);
+    }
+  }
+  // one row per candidate; tapping one shows their payments
+  function drawPeople(all: any[]) {
+    list.className = "enqlist paytbl";
+    var rows = all.slice().sort(function (a, b) {
+      var diff = peopleSort.key === "total" ? a.total - b.total : peopleSort.key === "count" ? a.count - b.count : Date.parse(a.last) - Date.parse(b.last);
+      return peopleSort.down ? -diff : diff;
+    });
+    function setSort(next: { key: string; down: boolean }) {
+      peopleSort = next;
+    }
+    list.appendChild(
+      el("table", null, [
+        el("thead", null, [
+          el("tr", null, [
+            el("th", { scope: "col", text: "Candidate" }),
+            heading(peopleSort, "count", "Paid", true, setSort),
+            heading(peopleSort, "total", "Total", true, setSort),
+            heading(peopleSort, "last", "Last", false, setSort),
+          ]),
+        ]),
+        el(
+          "tbody",
+          null,
+          rows.map(function (p) {
+            function open() {
+              paymentsFilter = p.email;
+              paymentsMode = "table";
+              draw();
+            }
+            return el("tr", { class: "tap", tabindex: "0", title: "Show " + p.name + "'s payments", onclick: open, onkeydown: onEnterOrSpace(open) }, [
+              el("td", null, [
+                el("span", { class: "pn", text: p.name }),
+                el("small", { text: p.email }),
+                p.unread ? el("span", { class: "pchk warn", text: p.unread + " to check" }) : null,
+              ]),
+              el("td", { class: "num", text: String(p.count) + "\u00D7" }),
+              el("td", { class: "num", text: rupees(p.total) }),
+              el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short" }, new Date(p.last)) }),
+            ]);
+          }),
+        ),
+      ]),
+    );
+  }
+  // Candidate, date and amount; Date and Amount sort when their heading is tapped (again to reverse). Filtered to one
+  // candidate, the last row is their total.
+  function drawTable(filtered: any[], who: any) {
+    list.className = "enqlist paytbl";
+    var rows = filtered.slice().sort(function (a, b) {
+      var diff = paymentsSort.key === "amount" ? a.amount - b.amount : Date.parse(a.createdAt) - Date.parse(b.createdAt);
+      return paymentsSort.down ? -diff : diff;
+    });
+    function setSort(next: { key: string; down: boolean }) {
+      paymentsSort = next;
+    }
+    list.appendChild(
+      el("table", null, [
+        el("thead", null, [
+          el("tr", null, [
+            // filtered to one candidate, their name is in the summary above instead
+            who ? null : el("th", { scope: "col", text: "Candidate" }),
+            heading(paymentsSort, "date", "Date", false, setSort),
+            heading(paymentsSort, "amount", "Amount", true, setSort),
+          ]),
+        ]),
+        el(
+          "tbody",
+          null,
+          rows.map(function (item) {
+            return el("tr", null, [
+              who ? null : el("td", { text: titleCase(item.name) }),
+              el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short", year: "numeric" }, new Date(item.createdAt)) }),
+              el("td", { class: "num" }, [rupees(item.amount), checkBadge(item)]),
+            ]);
+          }),
+        ),
+        who
+          ? el("tfoot", null, [
+              el("tr", null, [el("th", { scope: "row", text: "Total \u00B7 " + plural(who.count, "payment") }), el("td", { class: "num", text: rupees(who.total) })]),
+            ])
+          : null,
+      ]),
+    );
+  }
+  function drawList(rows: any[]) {
+    rows.forEach(function (item) {
+      var when = new Date(item.createdAt);
+      var kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
+      list.appendChild(
+        el("div", { class: "enq" }, [
+          el("div", { class: "enqh" }, [
+            el("b", { text: titleCase(item.name) }),
+            el("small", { text: formatIst({ month: "short", day: "numeric", year: "numeric" }, when) + ", " + formatTime(when) }),
+          ]),
+          el("p", { class: "enqt payamt" }, [rupees(item.amount), checkBadge(item)]),
+          el("p", { class: "enqc" }, [el("a", { href: "mailto:" + item.email, text: item.email })]),
+          el("div", { class: "enqa" }, [
+            el("div", { class: "enqr" }, [
+              el("a", {
+                class: "bk-act",
+                href: "/admin/api/payments/" + item.id + "/receipt",
+                target: "_blank",
+                rel: "noopener",
+                text: "Receipt · " + kind,
+              }),
+              el(
+                "a",
+                {
+                  class: "bk-act dl",
+                  href: "/admin/api/payments/" + item.id + "/receipt?download=1",
+                  download: "",
+                  title: "Download receipt",
+                  "aria-label": "Download the receipt from " + item.name,
+                },
+                [icon("download")],
+              ),
+            ]),
+            el("button", {
+              type: "button",
+              class: "rm",
+              text: "Delete",
+              "aria-label": "Delete the payment from " + item.name,
+              onclick: function () {
+                if (!confirm("Delete the payment from " + item.name + ", with its receipt? This can't be undone.")) {
+                  return;
+                }
+                request("/admin/api/payments/delete", { id: item.id })
+                  .then(function () {
+                    toast("Payment deleted");
+                    load();
+                  })
+                  .catch(function (error) {
+                    setMessage(msg, error.message, true);
+                  });
+              },
+            }),
+          ]),
+        ]),
+      );
+    });
+  }
+  function load() {
+    request("/admin/api/payments")
+      .then(function (result) {
+        payments = result.payments || [];
+        draw();
+      })
+      .catch(function (error) {
+        list.textContent = "";
+        setMessage(msg, error.message, true);
+      });
+  }
+  load();
+}
+// a new payment while the tab is open shows up straight away
+function refreshPayments() {
+  var count = state.payments || 0;
+  if (!byId("viewPay").hidden && paymentsShown >= 0 && count !== paymentsShown) {
+    showPayments();
+  }
+  paymentsShown = count;
+}
 var searchBox = byId<HTMLInputElement>("q");
 var searchList = byId("qdrop");
 var matches: Booking[] = [];
@@ -2016,8 +2286,8 @@ function renderAllow() {
   toggle.disabled = false;
   toggle.setAttribute("aria-checked", String(allow.enabled));
   byId("swd").textContent = allow.enabled
-    ? "On. Only the " + plural(allow.emails.length, "email") + " below can book."
-    : "Off. Anyone with the booking link can book.";
+    ? "On. Only the " + plural(allow.emails.length, "email") + " below can book and send payments."
+    : "Off. Anyone with the booking or payment link can use it.";
   byId("cnt").textContent = plural(allow.emails.length, "email");
   var query = byId<HTMLInputElement>("aq").value.trim().toLowerCase();
   var list = byId("alist");
@@ -2073,7 +2343,7 @@ byId("sw").onclick = function () {
     on: !allow.enabled,
   })
     .then(function () {
-      setMessage(byId("swm"), allow.enabled ? "Turned on. Only listed emails can book now." : "Turned off. Anyone with the link can book.");
+      setMessage(byId("swm"), allow.enabled ? "Turned on. Only listed emails can book and send payments now." : "Turned off. Anyone with the links can book and send payments.");
     })
     .catch(function (error) {
       button.disabled = false;
@@ -2131,31 +2401,36 @@ byId("impb").onclick = function () {
     });
 };
 byId("aq").oninput = renderAllow;
+// Candidates: who may book. Opens in the side panel like New booking and Interview supporters.
+function showCandidates() {
+  refreshPanel = null;
+  var body = openPanel("Candidates", "Emails allowed to book an interview.");
+  var section = byId("viewAllow");
+  body.classList.add("grp");
+  body.appendChild(section);
+  section.hidden = false;
+  request("/admin/api/allowlist")
+    .then(function (result) {
+      allow = result.state;
+      renderAllow();
+    })
+    .catch(function (error) {
+      setMessage(byId("swm"), error.message, true);
+    });
+}
 function showTab(tab: string) {
-  var isAllow = tab === "allow";
-  byId("viewCal").hidden = isAllow;
-  byId("viewAllow").hidden = !isAllow;
-  byId("tabCal").setAttribute("aria-selected", String(!isAllow));
-  byId("tabAllow").setAttribute("aria-selected", String(isAllow));
-  history.replaceState(null, "", isAllow ? "/admin/allowlist" : "/admin" + location.search);
-  document.title = (isAllow ? "Allowed emails" : "Calendar") + " · " + document.title.split(" · ").pop();
-  if (isAllow) {
-    request("/admin/api/allowlist")
-      .then(function (result) {
-        allow = result.state;
-        renderAllow();
-      })
-      .catch(function (error) {
-        setMessage(byId("swm"), error.message, true);
-      });
+  byId("viewCal").hidden = false;
+  byId("tabCal").setAttribute("aria-selected", "true");
+  history.replaceState(null, "", "/admin" + location.search);
+  document.title = "Calendar · " + document.title.split(" · ").pop();
+  if (tab === "allow") {
+    showCandidates();
   }
 }
 byId("tabCal").onclick = function () {
   showTab("cal");
 };
-byId("tabAllow").onclick = function () {
-  showTab("allow");
-};
+byId("mCand").onclick = showCandidates;
 function connect() {
   if (stream) {
     stream.close();
@@ -2216,7 +2491,7 @@ byId("next").onclick = function () {
   selectedDay = null;
   render();
 };
-// Swipe the agenda sideways to move a week, like paging in a calendar app.
+// Swipe the agenda sideways to move a day, like paging in a calendar app.
 (function () {
   var box = byId("agenda");
   var startX = 0;
@@ -2235,19 +2510,39 @@ byId("next").onclick = function () {
     if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) {
       return;
     }
-    byId(dx < 0 ? "next" : "prev").click();
+    pickAgendaDay(addDays(agendaDay(), dx < 0 ? 1 : -1));
     box.classList.remove("swipe-next", "swipe-prev");
     void box.offsetWidth;
     box.classList.add(dx < 0 ? "swipe-next" : "swipe-prev");
   });
 })();
 byId("today").onclick = function () {
-  agendaScrolled = false;
   selectedDay = dayKeyOf(new Date());
   weekOf = weekStart(selectedDay);
   byId("week").textContent = "";
   render();
 };
+// On a phone, opening the Agenda brings the time now, or else the day's first interview, into view when it's further
+// down. Desktops open it at the top like every other section, so switching tabs never moves the page.
+byId("tabAg").addEventListener("click", function () {
+  if (innerWidth > 760) {
+    return;
+  }
+  // before the first frame, so the page doesn't show at the top and then jump
+  requestAnimationFrame(function () {
+    var mark = document.querySelector("#agenda .ag-now") || document.querySelector("#agenda .ag-i");
+    if (mark && mark.getBoundingClientRect().top > innerHeight * 0.6) {
+      scrollTo(0, scrollY + mark.getBoundingClientRect().top - innerHeight / 2);
+    }
+  });
+});
+// The week grid only scrolls to today when drawn fresh while visible, so redraw it when the phone's Calendar tab shows it.
+document.querySelector(".bnav [data-go=cal]").addEventListener("click", function () {
+  setTimeout(function () {
+    byId("week").textContent = "";
+    render();
+  });
+});
 byId("pick").onchange = function () {
   if ((this as HTMLInputElement).value) {
     selectedDay = (this as HTMLInputElement).value;
@@ -2255,7 +2550,6 @@ byId("pick").onchange = function () {
     render();
   }
 };
-byId("mNew").onclick = showNewBooking;
 byId("mIv").onclick = showInterviewers;
 byId("pclose").onclick = closePanel;
 byId("pback").onclick = closePanel;
@@ -2280,6 +2574,7 @@ document.addEventListener("visibilitychange", function () {
   }
 });
 window.__enq = showEnquiries;
+window.__pay = showPayments;
 // leaving the tab brings the count back for anything new
 new MutationObserver(renderEnquiryBadge).observe(byId("viewEnq"), { attributes: true, attributeFilter: ["hidden"] });
 if (boot.login) {

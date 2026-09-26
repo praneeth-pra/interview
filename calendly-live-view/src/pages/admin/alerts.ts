@@ -88,6 +88,10 @@ export function setupAlerts() {
   function paint() {
     btn.classList.toggle("on", isOn());
     btn.lastChild.textContent = isOn() ? "Alerts on" : "Alerts";
+    var menuSub = document.getElementById("mAlertsSub");
+    if (menuSub) {
+      menuSub.textContent = isOn() ? "On for this device" : "Booking notifications on this device";
+    }
   }
   function render(msg?: string) {
     var html = "<h3>Booking notifications</h3>";

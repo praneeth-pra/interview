@@ -4,23 +4,26 @@
   --ink2: rgba(26, 26, 26, 0.61);
   --ink3: rgba(26, 26, 26, 0.4);
   --line: rgba(26, 26, 26, 0.1);
-  --bg: #f5f6f8;
+  --bg: #f4f2ec;
   --card: #fff;
-  --blue: #006bff;
-  --blue-d: #0052cc;
-  --link: #006bff;
+  --blue: #bc5935;
+  --blue-d: #a64b2a;
+  --link: #b4532f;
   --acc: rgba(26, 26, 26, 0.61);
-  --day: #0052cc;
-  --blue-t: rgba(0, 105, 255, 0.07);
-  --blue-t2: rgba(0, 105, 255, 0.15);
-  --slot-b: rgba(0, 105, 255, 0.5);
+  --day: #a64b2a;
+  --blue-t: rgba(217, 119, 87, 0.1);
+  --blue-t2: rgba(217, 119, 87, 0.2);
+  --slot-b: rgba(201, 100, 66, 0.55);
   --sel: #666;
   --field-b: #b2b2b2;
   --err-bg: #fdecea;
   --shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
   --green: #0a8a3d;
   --red: #c8372d;
-  --seg: #eef1f5;
+  --seg: #f0ede6;
+  --dur-h: rgba(26, 26, 26, 0.04);
+  --dur-on: #fbeee8;
+  --dur-b: #d97757;
   --note-bg: #fff7e8;
   --note-b: #f3dcae;
   --note-t: #7a4a00;
@@ -32,24 +35,27 @@
     --ink: #f2f2f2;
     --ink2: #bdbdbd;
     --ink3: #5c5c5c;
-    --line: #2e2e2e;
-    --bg: #1f1f1f;
-    --card: #121212;
-    --blue: #1a6bff;
-    --blue-d: #0f5ae6;
-    --link: #8db2ff;
-    --acc: #b4c6f3;
-    --day: #a9c4ff;
-    --blue-t: #252b37;
-    --blue-t2: #2f3747;
-    --slot-b: rgba(96, 146, 255, 0.6);
-    --sel: #1c2433;
+    --line: #33312e;
+    --bg: #201f1d;
+    --card: #1b1a18;
+    --blue: #bc5935;
+    --blue-d: #a64b2a;
+    --link: #e89a7f;
+    --acc: #e3b8a7;
+    --day: #eeab93;
+    --blue-t: #33261f;
+    --blue-t2: #443027;
+    --slot-b: rgba(224, 138, 109, 0.6);
+    --sel: #3a2a22;
     --field-b: #555;
     --err-bg: #3b1f1d;
     --shadow: none;
     --green: #3ecf7a;
     --red: #ff8a80;
-    --seg: #1c2029;
+    --seg: #292724;
+    --dur-h: rgba(255, 255, 255, 0.04);
+    --dur-on: #3a2820;
+    --dur-b: #d97757;
     --note-bg: #241e14;
     --note-b: #3d3220;
     --note-t: #f1d29a;
@@ -144,14 +150,20 @@ button:disabled {
 .logo {
   width: 56px;
   height: 56px;
-  border-radius: 50%;
-  background: var(--ink);
-  color: var(--card);
+  color: #d97757;
   display: grid;
   place-items: center;
   font-weight: 700;
   font-size: 20px;
   margin-bottom: 18px;
+}
+.logo::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .host {
   display: flex;
@@ -166,14 +178,19 @@ button:disabled {
   width: 32px;
   height: 32px;
   flex: 0 0 32px;
-  border-radius: 9px;
   display: grid;
   place-items: center;
   font-size: 15px;
   font-weight: 700;
-  color: #fff;
-  background: linear-gradient(135deg, #2f7bff, #0052cc);
-  box-shadow: 0 2px 8px #0052cc4d;
+  color: #d97757;
+}
+.mark::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E") center / contain no-repeat;
 }
 .ev {
   font-size: 28px;
@@ -245,20 +262,21 @@ button:disabled {
   height: 15px;
 }
 .dur-opts {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
   gap: 4px;
-  padding: 4px;
-  border-radius: 12px;
+  padding: 3px;
+  border-radius: 10px;
   background: var(--seg);
 }
 .dur-opts button {
-  flex: 1;
-  height: 40px;
-  border-radius: 9px;
-  border: 0;
+  min-width: 0;
+  height: 36px;
+  border-radius: 8px;
   color: var(--ink2);
+  font-size: 14px;
   font-weight: 600;
-  font-size: 15px;
+  font-variant-numeric: tabular-nums;
   transition:
     background 0.18s,
     color 0.18s,
@@ -266,12 +284,13 @@ button:disabled {
 }
 .dur-opts button:hover {
   color: var(--ink);
+  background: var(--dur-h);
 }
 .dur-opts button[aria-pressed="true"],
 .dur-opts button[aria-pressed="true"]:hover {
-  background: var(--blue);
-  color: #fff;
-  box-shadow: 0 2px 10px #006bff59;
+  background: var(--dur-on);
+  color: var(--day);
+  box-shadow: inset 0 0 0 1.5px var(--dur-b);
 }
 .pick {
   flex: 1;
@@ -850,33 +869,8 @@ textarea:focus {
     max-height: 490px;
   }
 }
-/* Phones: two columns of times; the chosen time keeps its place with its Next button stacked under it. */
-@media (max-width: 900px) {
-  .tlist {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    align-items: start;
-  }
-  .tlist .slot {
-    margin: 0;
-  }
-  .tlist .slot.sel {
-    flex-direction: column;
-  }
-  .tlist .slot.sel .t,
-  .tlist .slot.sel .go {
-    flex: none;
-    width: 100%;
-  }
-  .tlist > .spin,
-  .tlist > .empty {
-    grid-column: 1/-1;
-  }
-}
-/* Choosing a time and moving on to the details form.
-   Computer: Next grows out from behind the chosen time while the time narrows. Phone: the time grid stays put, the chosen
-   time fills blue and Next floats at the bottom of the screen with the time on it. The details page then opens at once. */
+/* Choosing a time and moving on to the details form: one column of times; tapping one splits its row into the
+   time, muted, and a Next button that grows out beside it (as on Calendly). The details page then opens at once. */
 .slot.sel .t {
   flex: 1 1 0;
 }
@@ -892,48 +886,8 @@ textarea:focus {
     opacity: 0;
   }
 }
-.go-at {
-  display: none;
-}
-@media (max-width: 900px) {
-  .tlist .slot.sel {
-    flex-direction: row;
-  }
-  .tlist .slot.sel .t {
-    background: var(--blue);
-    border-color: var(--blue);
-    color: #fff;
-  }
-  .tlist .slot .go {
-    position: fixed;
-    z-index: 30;
-    left: 16px;
-    right: 16px;
-    bottom: calc(16px + env(safe-area-inset-bottom));
-    width: auto !important;
-    height: 56px;
-    border-radius: 16px;
-    font-size: 17px;
-    box-shadow: 0 10px 28px rgba(0, 107, 255, 0.35);
-    animation: barUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  .go-at {
-    display: inline;
-    font-weight: 600;
-  }
-  body:has(.slot.sel) .card {
-    padding-bottom: 92px;
-  }
-}
-@keyframes barUp {
-  from {
-    opacity: 0;
-    transform: translateY(28px);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .go,
-  .tlist .slot .go {
+  .go {
     animation: none;
   }
 }

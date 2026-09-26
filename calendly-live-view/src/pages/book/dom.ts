@@ -31,8 +31,5 @@ function el<K extends keyof HTMLElementTagNameMap>(
   });
   return node;
 }
-function initial(text: string) {
-  return (text || "?").trim().charAt(0).toUpperCase();
-}
 
-export { el, initial };
+export { el };

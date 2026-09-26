@@ -156,9 +156,9 @@ async function openStats(p, s) {
 async function openAgendaPanel(p, s, index = 0) {
   await p.goto(s.main + "/admin");
   await wait(p, 1200);
-  await p.locator("#vAg").click();
+  await p.locator("#tabAg:visible, #vAg:visible, .bnav [data-go=ag]:visible").first().click();
   await wait(p, 400);
-  await p.locator("#agenda button").nth(index).click();
+  await p.locator("#agenda .ag-i").nth(index).click();
   await wait(p, 1500);
 }
 const CASES = [
@@ -299,7 +299,7 @@ const CASES = [
     async (p, s) => {
       await p.goto(s.main + "/admin");
       await wait(p, 1200);
-      await p.click("#vAg");
+      await p.locator("#tabAg:visible, #vAg:visible, .bnav [data-go=ag]:visible").first().click();
       await wait(p, 600);
     },
   ],

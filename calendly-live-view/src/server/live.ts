@@ -1,6 +1,6 @@
 // Live admin updates over server-sent events (/admin/stream).
 import { DAY_END_MIN, DAY_START_MIN, RESEND_API_KEY } from "./config";
-import { type Booking, activeBookings, allowStore, bookingsStore, enquiriesStore, ivStore, liveSession, sessionsStore } from "./data";
+import { type Booking, activeBookings, allowStore, bookingsStore, enquiriesStore, ivStore, paymentsStore, liveSession, sessionsStore } from "./data";
 import { BUILD } from "./pages";
 
 export const enc = new TextEncoder();
@@ -36,6 +36,8 @@ export const pub = (b: Booking) => ({
   prevStart: b.prevStart ?? "",
   missed: b.missed ?? "",
   missedAt: b.missedAt ?? "",
+  outcome: b.outcome ?? "",
+  outcomeAt: b.outcomeAt ?? "",
 });
 export function adminState() {
   const since = Date.now() - 30 * 86400000;
@@ -57,6 +59,8 @@ export function adminState() {
     changes,
     // when each enquiry came in; each admin's page counts the ones newer than their last visit to Enquiries
     enquiries: enquiriesStore.data.enquiries.map((v) => v.createdAt),
+    // how many payments there are, so an open Payments tab shows a new one straight away
+    payments: paymentsStore.data.payments.length,
   };
 }
 function send(event: string, data: unknown) {

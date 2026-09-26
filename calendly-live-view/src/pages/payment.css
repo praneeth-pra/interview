@@ -1,0 +1,18 @@
+/* The public payment page: the enquiry page's look (enquiry.css), plus the rupee sign in the amount field. */
+.amt {
+  position: relative;
+}
+.amt .cur {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 14px;
+  display: flex;
+  align-items: center;
+  color: var(--ink2);
+  font-weight: 600;
+  pointer-events: none;
+}
+.amt input {
+  padding-left: 32px;
+}

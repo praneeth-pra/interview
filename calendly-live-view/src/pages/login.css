@@ -3,10 +3,10 @@
   --ink: #1a1a1a;
   --ink2: rgba(26, 26, 26, 0.62);
   --line: rgba(26, 26, 26, 0.1);
-  --bg: #f5f6f8;
+  --bg: #f4f2ec;
   --card: #fff;
   --field: #b2b2b2;
-  --blue: #006bff;
+  --blue: #bc5935;
   --red: #c8372d;
 }
 @media (prefers-color-scheme: dark) {
@@ -14,11 +14,11 @@
     color-scheme: dark;
     --ink: #f2f2f2;
     --ink2: #b3b3b3;
-    --line: #2d2d2d;
-    --bg: #141414;
-    --card: #1d1d1d;
+    --line: #34322f;
+    --bg: #1b1a18;
+    --card: #252422;
     --field: #555;
-    --blue: #1a6bff;
+    --blue: #bc5935;
     --red: #ff8a80;
   }
 }

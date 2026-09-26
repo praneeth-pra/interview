@@ -2,11 +2,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assetList, encode, template } from "../assets";
-import { EVENT_DESCRIPTION, EVENT_LOCATION, EVENT_NAME, HOST_NAME, LOGIN_ON } from "./config";
+import { EVENT_DESCRIPTION, EVENT_LOCATION, EVENT_NAME, HOST_NAME, LOGIN_ON, RECEIPT_MAX } from "./config";
 import { CSP, sendShell, shell } from "./http";
 import { deflateSync } from "node:zlib";
 
 export const ICON = encode(readFileSync(join(import.meta.dir, "../../public/icon.png")), "image/png");
+// The browser-tab icon: the same drawing in orange with no tile, which reads on light and dark tab bars.
+export const FAVICON = encode(readFileSync(join(import.meta.dir, "../../public/favicon.png")), "image/png");
 // The service worker shows booking alerts, and makes the home-screen app open instantly and offline: admin pages are
 // fetched from the network first (cached copy if offline or slower than 3s; only real admin shells are cached, never the
 // sign-in page), fingerprinted /assets/ files come from the cache. Everything else, including the booking page and all
@@ -34,7 +36,7 @@ const SPLASH_SIZES: [number, number, number][] = [
   [375, 667, 2],
   [320, 568, 2],
 ];
-const SPLASH_BG = { light: [0xf5, 0xf6, 0xf8], dark: [0x14, 0x14, 0x14] } as const;
+const SPLASH_BG = { light: [0xf4, 0xf2, 0xec], dark: [0x16, 0x15, 0x13] } as const;
 const SPLASH_LINKS = SPLASH_SIZES.flatMap(([w, h, r]) =>
   (["light", "dark"] as const).map(
     (s) =>
@@ -100,7 +102,9 @@ const adminShell = (tab: string) =>
 export const ADMIN_CAL = adminShell("cal");
 export const ADMIN_ALLOW = adminShell("allow");
 export const ENQUIRY = shell(fill(template("enquiry"), { HOST: HOST_HTML }), CSP.page);
-export const HOME = shell(fill(template("home"), { HOST: HOST_HTML }), CSP.page);
+export const PAYMENT = shell(fill(template("payment"), { HOST: HOST_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }), CSP.page);
+// the landing page is the one page search engines may list
+export const HOME = { ...shell(fill(template("home"), { HOST: HOST_HTML }), CSP.page), index: true };
 export const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
 export const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // A manage link carries the candidate's booking, so that page is built per request and never cached.

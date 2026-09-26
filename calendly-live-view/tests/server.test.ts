@@ -99,7 +99,7 @@ describe("booking page", () => {
     const html = await (await get(open, "/")).text();
     expect(html).toContain('href="/booking"');
     expect(html).toContain('href="/enquiry"');
-    for (const text of ["Land the job you", "Resume rewrite", "Interview proxy", "Get offer", "Big data engineering", "Your next opportunity is closer than it looks."]) expect(html).toContain(text);
+    for (const text of ["Land the job you", "Resume rewrite", "Interview proxy", "Get offer", "Big data engineering"]) expect(html).toContain(text);
     const css = html.match(/href="(\/assets\/home\.[^"]+\.css)"/)?.[1];
     expect(css).toBeTruthy();
     const style = await (await get(open, css!)).text();
@@ -108,6 +108,20 @@ describe("booking page", () => {
     const r = await fetch(open.url + "/booking/", { redirect: "manual" });
     expect(r.status).toBe(301);
     expect(r.headers.get("location")).toBe("/booking");
+  });
+
+  test("search engines may list the landing page, and only the landing page", async () => {
+    const home = await get(open, "/", { "x-forwarded-host": "www.hi-techie.dev" });
+    expect(home.headers.get("x-robots-tag")).toBeNull();
+    expect(home.headers.get("link")).toBe('<https://hi-techie.dev/>; rel="canonical"');
+    for (const path of ["/booking", "/enquiry", "/payment", "/admin", "/api/companies"]) expect((await get(open, path)).headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    const robots = await (await get(open, "/robots.txt", { "x-forwarded-host": "hi-techie.dev" })).text();
+    expect(robots).toContain("Disallow: /admin");
+    expect(robots).toContain("Disallow: /b/");
+    expect(robots).toContain("Sitemap: https://hi-techie.dev/sitemap.xml");
+    const sitemap = await get(open, "/sitemap.xml", { "x-forwarded-host": "www.hi-techie.dev" });
+    expect(sitemap.headers.get("content-type")).toContain("application/xml");
+    expect(await sitemap.text()).toContain("<loc>https://hi-techie.dev/</loc>");
   });
 
   test("serves the shell with fingerprinted assets, a strict policy and revalidation", async () => {
@@ -141,7 +155,7 @@ describe("booking page", () => {
   });
 
   test("every asset a page references is served with a one-year immutable cache", async () => {
-    const pages = await Promise.all(["/", "/booking", "/enquiry", "/admin", "/admin/analytics"].map(async (p) => (await get(open, p)).text()));
+    const pages = await Promise.all(["/", "/booking", "/enquiry", "/payment", "/admin", "/admin/analytics"].map(async (p) => (await get(open, p)).text()));
     const css = await Promise.all(pages.flatMap(assetsIn).filter((u) => u.endsWith(".css")).map(async (u) => (await get(open, u)).text()));
     const fonts = css.flatMap((c) => [...c.matchAll(/url\((\/assets\/[^)]+)\)/g)].map((m) => m[1]));
     expect(fonts.length).toBeGreaterThan(0);
@@ -266,9 +280,11 @@ describe("enquiries", () => {
     const notPdf = await send(form(good, { bytes: new TextEncoder().encode("hello"), name: "cv.pdf" }));
     expect(notPdf.status).toBe(400);
     expect((await notPdf.json()).error).toContain("PDF or Word");
-    const big = new Uint8Array(1024 * 1024 + 10);
+    const big = new Uint8Array(200 * 1024 + 1);
     big.set(PDF);
-    expect((await send(form(good, { bytes: big, name: "big.pdf" }))).status).toBe(413);
+    const tooBig = await send(form(good, { bytes: big, name: "big.pdf" }));
+    expect(tooBig.status).toBe(413);
+    expect((await tooBig.json()).error).toBe("Your resume is larger than 200 KB. Please upload a smaller file.");
     const ok = await send(form(good, { bytes: PDF, name: "Asha Rao résumé.pdf" }));
     expect(ok.status).toBe(200);
     const { enquiries } = await (await get(open, "/admin/api/enquiries")).json();
@@ -279,7 +295,12 @@ describe("enquiries", () => {
     const file = await get(open, "/admin/api/enquiries/" + e.id + "/resume");
     expect(file.headers.get("content-type")).toBe("application/pdf");
     expect(file.headers.get("content-disposition")).toContain("filename*=UTF-8''Asha%20Rao%20r%C3%A9sum%C3%A9.pdf");
+    expect(file.headers.get("content-disposition")).toStartWith("inline;");
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(PDF);
+    // the download icon saves it under the candidate's name
+    const saved = await get(open, "/admin/api/enquiries/" + e.id + "/resume?download=1");
+    expect(saved.headers.get("content-disposition")).toBe("attachment; filename=\"Asha Rao resume.pdf\"; filename*=UTF-8''Asha%20Rao%20resume.pdf");
+    expect(new Uint8Array(await saved.arrayBuffer())).toEqual(PDF);
     expect(existsSync(join(open.dir, "resumes", e.id + ".pdf"))).toBe(true);
     expect((await postJson(open, "/admin/api/enquiries/delete", { id: e.id })).status).toBe(200);
     expect((await (await get(open, "/admin/api/enquiries")).json()).enquiries).toEqual([]);
@@ -300,6 +321,122 @@ describe("enquiries", () => {
     const after = await (await postJson(open, "/admin/api/enquiries/seen", {})).json();
     expect(Date.parse(after.seenAt)).toBeGreaterThanOrEqual(Date.parse(state.enquiries[0]));
     expect((await (await get(open, "/admin/api/enquiries/seen")).json()).seenAt).toBe(after.seenAt);
+  });
+});
+
+describe("payments", () => {
+  const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  const PDF = new TextEncoder().encode("%PDF-1.4\n% a receipt\n");
+  const form = (fields: Record<string, string>, file?: { bytes: Uint8Array; name: string }) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) f.set(k, v);
+    if (file) f.set("receipt", new File([file.bytes], file.name));
+    return f;
+  };
+  const good = { email: "Kiran@Example.com", name: "Kiran Kumar", amount: "12,500" };
+  const send = (f: FormData, ip = "10.1.0.1") => fetch(open.url + "/api/payment", { method: "POST", body: f, headers: { "x-real-ip": ip } });
+
+  test("the page is served, kept out of search engines, and /pay redirects to it", async () => {
+    const page = await get(open, "/payment");
+    expect(page.status).toBe(200);
+    expect(page.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    const html = await page.text();
+    expect(html).toContain('id="rc"');
+    expect(html).toContain('"max":1048576');
+    expect(html).toContain("<title>Payment · Hi&lt;Techie&gt;</title>");
+    const r = await fetch(open.url + "/pay", { redirect: "manual" });
+    expect(r.status).toBe(301);
+    expect(r.headers.get("location")).toBe("/payment");
+  });
+
+  test("payments are checked, stored with the receipt, listed newest first for admins, and deletable", async () => {
+    expect((await send(form({ ...good, website: "spam.example" }, { bytes: PNG, name: "r.png" }))).status).toBe(200);
+    expect((await send(form({ ...good, amount: "abc" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
+    expect((await send(form({ ...good, amount: "0" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
+    const notImage = await send(form(good, { bytes: new TextEncoder().encode("<svg></svg>"), name: "r.svg" }));
+    expect(notImage.status).toBe(400);
+    expect((await notImage.json()).error).toContain("image or a PDF");
+    const big = new Uint8Array(1024 * 1024 + 1);
+    big.set(PNG);
+    const tooBig = await send(form(good, { bytes: big, name: "big.png" }), "10.1.0.2");
+    expect(tooBig.status).toBe(413);
+    expect((await tooBig.json()).error).toBe("Your receipt is larger than 1 MB. Please upload a smaller file.");
+    expect((await send(form(good, { bytes: PNG, name: "gpay.png" }), "10.1.0.2")).status).toBe(200);
+    expect((await send(form({ ...good, name: "Meena Iyer", amount: "999.50" }, { bytes: PDF, name: "bank.pdf" }), "10.1.0.2")).status).toBe(200);
+    const { payments } = await (await get(open, "/admin/api/payments")).json();
+    expect(payments.map((p: any) => p.name)).toEqual(["Meena Iyer", "Kiran Kumar"]);
+    expect(payments[1]).toMatchObject({ email: "kiran@example.com", amount: 12500, receipt: { name: "gpay.png", type: "image/png", size: PNG.length } });
+    expect(payments[0].amount).toBe(999.5);
+    const file = await get(open, "/admin/api/payments/" + payments[1].id + "/receipt");
+    expect(file.headers.get("content-type")).toBe("image/png");
+    expect(file.headers.get("content-disposition")).toStartWith("inline;");
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(PNG);
+    const saved = await get(open, "/admin/api/payments/" + payments[0].id + "/receipt?download=1");
+    expect(saved.headers.get("content-disposition")).toBe("attachment; filename=\"Meena Iyer receipt.pdf\"; filename*=UTF-8''Meena%20Iyer%20receipt.pdf");
+    expect(existsSync(join(open.dir, "receipts", payments[0].id + ".pdf"))).toBe(true);
+    expect((await (await get(open, "/admin/api/state")).json()).payments).toBe(2);
+    expect((await postJson(open, "/admin/api/payments/delete", { id: payments[0].id })).status).toBe(200);
+    expect((await (await get(open, "/admin/api/payments")).json()).payments.length).toBe(1);
+    expect(existsSync(join(open.dir, "receipts", payments[0].id + ".pdf"))).toBe(false);
+    // admin-only, like resumes
+    expect((await get(locked, "/admin/api/payments")).status).toBe(401);
+    expect((await get(locked, "/admin/api/payments/" + payments[1].id + "/receipt")).status).toBe(401);
+  });
+});
+
+describe("payments: the amount on the receipt", () => {
+  const receipt = (name: string) => Bun.file(join(ROOT, "tests", "receipts", name));
+  const send = async (amount: string, file: string, ip: string) => {
+    const d = new FormData();
+    d.set("email", "asha@example.com");
+    d.set("name", "Asha Rao");
+    d.set("amount", amount);
+    d.set("receipt", new File([await receipt(file).arrayBuffer()], file));
+    return fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": ip } });
+  };
+  test.skipIf(!Bun.which("tesseract"))("a screenshot showing another amount is refused; the right amount is saved as verified", async () => {
+    const wrong = await send("6000", "gpay-5000.jpg", "10.1.8.1");
+    expect(wrong.status).toBe(422);
+    expect(await wrong.json()).toEqual({ error: "The receipt shows \u20B95,000, not \u20B96,000. Enter the amount on your receipt.", field: "amount" });
+    expect((await send("5,000", "gpay-5000.jpg", "10.1.8.1")).status).toBe(200);
+    const { payments } = await (await get(open, "/admin/api/payments")).json();
+    expect(payments.find((p: any) => p.email === "asha@example.com").check).toBe("verified");
+  });
+  test("a receipt with no readable amount is saved as needing a check", async () => {
+    const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7]);
+    const d = new FormData();
+    d.set("email", "ravi@example.com");
+    d.set("name", "Ravi Teja");
+    d.set("amount", "700");
+    d.set("receipt", new File([PNG], "blurry.png"));
+    expect((await fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": "10.1.8.2" } })).status).toBe(200);
+    const { payments } = await (await get(open, "/admin/api/payments")).json();
+    expect(payments.find((p: any) => p.email === "ravi@example.com").check).toBe("unread");
+  });
+});
+
+describe("payments and the invite list", () => {
+  test("when the Candidates list is on, only its emails can send a payment, as with booking", async () => {
+    const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]);
+    const f = (email: string) => {
+      const d = new FormData();
+      d.set("email", email);
+      d.set("name", "Someone Else");
+      d.set("amount", "500");
+      d.set("receipt", new File([PNG], "r.png"));
+      return d;
+    };
+    const send = (email: string) => fetch(open.url + "/api/payment", { method: "POST", body: f(email), headers: { "x-real-ip": "10.1.9.1" } });
+    expect((await postJson(open, "/admin/api/allowlist", { action: "add", text: "listed@example.com" })).status).toBe(200);
+    expect((await postJson(open, "/admin/api/allowlist", { action: "enable", on: true })).status).toBe(200);
+    try {
+      const refused = await send("stranger@example.com");
+      expect(refused.status).toBe(403);
+      expect(await refused.json()).toEqual({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" });
+      expect((await send("Listed@Example.com")).status).toBe(200);
+    } finally {
+      await postJson(open, "/admin/api/allowlist", { action: "enable", on: false });
+    }
   });
 });
 
@@ -445,6 +582,50 @@ describe("admin", () => {
     }
   });
 
+  test("once an interview starts, an admin sets the round's status, and can clear it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-round-"));
+    const past = istMidnight() - 24 * HOUR + 10 * HOUR;
+    const done = { ...booking, id: "00000000-0000-0000-0000-000000000009", start: new Date(past).toISOString(), end: new Date(past + 30 * 60000).toISOString() };
+    const helped = { ...done, id: "00000000-0000-0000-0000-000000000008" };
+    const gone = { ...done, id: "00000000-0000-0000-0000-000000000007", cancelled: true, cancelledAt: new Date(past).toISOString() };
+    writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, done, helped, gone] }));
+    writeFileSync(join(dir, "interviewers.json"), JSON.stringify({ names: ["Praneeth"], assign: { [helped.id]: "Praneeth" } }));
+    const srv = await start(4317, {}, dir);
+    try {
+      const set = (id: string, status: string) => postJson(srv, "/admin/api/round-status", { id, status });
+      const saved = (id: string) => JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.find((b: any) => b.id === id);
+      // existing bookings have no status stored
+      let state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === done.id).outcome).toBe("");
+      expect((await set(done.id, "maybe")).status).toBe(400);
+      expect((await set(done.id, "cancelled")).status).toBe(400);
+      expect((await set(gone.id, "cleared")).status).toBe(409);
+      // nothing before the start; no-show and didn't happen only without support recorded
+      expect((await set(booking.id, "hold")).status).toBe(409);
+      expect((await set(booking.id, "noshow")).status).toBe(409);
+      expect((await set(helped.id, "noshow")).status).toBe(409);
+      expect((await set(helped.id, "other")).status).toBe(409);
+      expect((await set(helped.id, "rejected")).status).toBe(200);
+      expect((await set(done.id, "cleared")).status).toBe(200);
+      state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === done.id).outcome).toBe("cleared");
+      expect(await (await get(srv, "/admin/export.csv")).text()).toContain("Cleared");
+      // a no-show or didn't happen replaces the result, and "" clears everything
+      expect((await set(done.id, "noshow")).status).toBe(200);
+      expect(saved(done.id).missed).toBe("noshow");
+      expect(saved(done.id).outcome).toBeUndefined();
+      expect((await set(done.id, "other")).status).toBe(200);
+      expect(saved(done.id).missed).toBe("other");
+      expect((await set(done.id, "")).status).toBe(200);
+      expect(saved(done.id).missed).toBeUndefined();
+      expect(saved(done.id).outcome).toBeUndefined();
+      expect(saved(helped.id).outcome).toBe("rejected");
+    } finally {
+      srv.proc.kill();
+    }
+  });
+
   test("the service worker caches admin pages and assets only, and forgets them on sign-out", async () => {
     const sw = await get(open, "/sw.js");
     expect(sw.headers.get("cache-control")).toBe("no-cache");
@@ -490,6 +671,15 @@ test("the icon is served from public/icon.png and revalidates", async () => {
   for (const alias of ["/apple-touch-icon.png", "/apple-touch-icon-precomposed.png"]) expect(Buffer.from(await (await get(open, alias)).arrayBuffer()).equals(png)).toBe(true);
 });
 
+test("the tab icon is served from public/favicon.png at /favicon.png and /favicon.ico", async () => {
+  const png = readFileSync(join(ROOT, "public/favicon.png"));
+  for (const path of ["/favicon.png", "/favicon.ico"]) {
+    const r = await get(open, path);
+    expect(r.headers.get("content-type")).toBe("image/png");
+    expect(Buffer.from(await r.arrayBuffer()).equals(png)).toBe(true);
+  }
+});
+
 describe("backups", () => {
   const sent: any[] = [];
   let resend: ReturnType<typeof Bun.serve>;
@@ -522,7 +712,7 @@ describe("backups", () => {
     expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
     const data = JSON.parse(files["backup-" + istDay() + ".json"]);
     expect(data.app).toBe("booking-form");
-    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "results.json", "secret.json"]);
+    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "payments.json", "results.json", "secret.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["secret.json"].key).toBe(KEY);
   });

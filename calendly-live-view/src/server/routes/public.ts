@@ -5,9 +5,10 @@ import { companySuggestions, knownName } from "../companies";
 import { DURATIONS, HOST_NAME } from "../config";
 import { bookingsStore, emailAllowed } from "../data";
 import { receiveEnquiry } from "../enquiries";
+import { receivePayment } from "../payments";
 import { BASE_HEADERS, type Srv, json, readJson, sendShell, underLimit, clientIp } from "../http";
-import { tokenOk } from "../links";
-import { BOOK_HOME, ENQUIRY, HOME, ICON, SW_JS, bookPage, splash } from "../pages";
+import { siteUrl, tokenOk } from "../links";
+import { BOOK_HOME, ENQUIRY, FAVICON, HOME, ICON, PAYMENT, SW_JS, bookPage, splash } from "../pages";
 import { bookableDays, bookingLimitMs, slotsFor } from "../schedule";
 import { DATE_KEY, EMAIL_RE, UUID, normEmail } from "../util";
 
@@ -15,7 +16,6 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   const path = url.pathname;
   const method = req.method;
 
-  if (path === "/favicon.ico") return new Response(null, { status: 204 });
   if (path === "/healthz") return new Response("ok", { headers: BASE_HEADERS });
   if (path === "/sw.js")
     return new Response(SW_JS, {
@@ -29,11 +29,11 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
         start_url: "/admin",
         scope: "/",
         display: "standalone",
-        background_color: "#141414",
-        theme_color: "#141414",
+        background_color: "#161513",
+        theme_color: "#161513",
         icons: [
-          { src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icon.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon.png?v=3", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon.png?v=3", sizes: "192x192", type: "image/png", purpose: "any" },
         ],
       }),
       { headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },
@@ -44,6 +44,8 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
       ? respond(req, body, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" })
       : new Response("Not found", { status: 404, headers: BASE_HEADERS });
   }
+  if (path === "/favicon.png" || path === "/favicon.ico")
+    return respond(req, FAVICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
   if (path === "/icon.png" || path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png")
     return respond(req, ICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
   if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
@@ -51,7 +53,20 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
     if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS });
     return respond(req, a.body, { ...BASE_HEADERS, "Cache-Control": a.current ? "public, max-age=31536000, immutable" : "no-cache" });
   }
-  if (path === "/" && method === "GET") return sendShell(req, HOME);
+  if (path === "/" && method === "GET") return sendShell(req, HOME, undefined, { Link: "<" + siteUrl(req) + '/>; rel="canonical"' });
+  // For search engines: the landing page is listed; the admin, the API and candidates' manage links are not crawled.
+  if (path === "/robots.txt" && method === "GET")
+    return new Response(
+      ["User-agent: *", "Disallow: /admin", "Disallow: /api/", "Disallow: /b/", "", "Sitemap: " + siteUrl(req) + "/sitemap.xml", ""].join("\n"),
+      { headers: { ...BASE_HEADERS, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } },
+    );
+  if (path === "/sitemap.xml" && method === "GET")
+    return new Response(
+      '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>' +
+        Bun.escapeHTML(siteUrl(req)) +
+        "/</loc></url></urlset>\n",
+      { headers: { ...BASE_HEADERS, "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } },
+    );
   if (path === "/booking" && method === "GET") return sendShell(req, BOOK_HOME);
   if (path === "/booking/" && method === "GET")
     return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/booking" } });
@@ -59,6 +74,11 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   if ((path === "/enquiry/" || path === "/inquiry" || path === "/enquiries") && method === "GET")
     return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/enquiry" } });
   if (path === "/api/enquiry" && method === "POST") return receiveEnquiry(req, srv);
+  // the payment page isn't listed anywhere public and search engines are told not to index it (X-Robots-Tag)
+  if (path === "/payment" && method === "GET") return sendShell(req, PAYMENT);
+  if ((path === "/payment/" || path === "/payments" || path === "/pay") && method === "GET")
+    return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/payment" } });
+  if (path === "/api/payment" && method === "POST") return receivePayment(req, srv);
   const mm = path.match(/^\/b\/([0-9a-f-]{36})$/i);
   if (mm && method === "GET") {
     const b = bookingsStore.data.bookings.find((x) => x.id === mm[1]);
