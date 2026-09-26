@@ -16,9 +16,8 @@ const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   json: "application/json",
 };
-// The candidate booking page uses Inter; the admin app (admin, Contacts, sign-in) uses Figtree, an open-source font
-// close to the Calendly app's. Each page's stylesheet starts with the @font-face rules of its font.
-const FONT_OF_PAGE: Record<string, string> = { "book.css": "inter.css", "admin.css": "figtree.css", "analytics.css": "figtree.css", "login.css": "figtree.css" };
+// Every page uses Figtree, an open-source font close to the Calendly app's; each stylesheet starts with its @font-face rules.
+const FONT_OF_PAGE: Record<string, string> = { "book.css": "figtree.css", "admin.css": "figtree.css", "analytics.css": "figtree.css", "login.css": "figtree.css" };
 
 export type Encoded = { raw: Buffer; br?: Buffer; gz?: Buffer; etag: string; type: string };
 

@@ -21,7 +21,7 @@ const checks = [
     await p.locator("button.t").first().click();
     await p.locator("#go").click();
     await p.locator("#card input").first().waitFor();
-    if (!(await p.evaluate(() => document.fonts.check("600 16px Inter")))) throw new Error("Inter did not load");
+    if (!(await p.evaluate(() => document.fonts.check("600 16px Figtree")))) throw new Error("Figtree did not load");
   }],
   ["admin calendar", async (p) => {
     await p.goto(BASE + "/admin");
