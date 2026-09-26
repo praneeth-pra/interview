@@ -727,7 +727,7 @@ function nextButton(ms) {
         }
       },
     },
-    ["Next", el("span", { class: "go-at" }, [" \u00B7 " + formatTime(ms)])],
+    ["Next"],
   );
 }
 function toggleSlot(ms) {
