@@ -342,7 +342,7 @@ describe("payments", () => {
     expect(page.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     const html = await page.text();
     expect(html).toContain('id="rc"');
-    expect(html).toContain('"max":2097152');
+    expect(html).toContain('"max":1048576');
     expect(html).toContain("<title>Payment · Hi&lt;Techie&gt;</title>");
     const r = await fetch(open.url + "/pay", { redirect: "manual" });
     expect(r.status).toBe(301);
@@ -356,11 +356,11 @@ describe("payments", () => {
     const notImage = await send(form(good, { bytes: new TextEncoder().encode("<svg></svg>"), name: "r.svg" }));
     expect(notImage.status).toBe(400);
     expect((await notImage.json()).error).toContain("image or a PDF");
-    const big = new Uint8Array(2 * 1024 * 1024 + 1);
+    const big = new Uint8Array(1024 * 1024 + 1);
     big.set(PNG);
     const tooBig = await send(form(good, { bytes: big, name: "big.png" }), "10.1.0.2");
     expect(tooBig.status).toBe(413);
-    expect((await tooBig.json()).error).toBe("Your receipt is larger than 2 MB. Please upload a smaller file.");
+    expect((await tooBig.json()).error).toBe("Your receipt is larger than 1 MB. Please upload a smaller file.");
     expect((await send(form(good, { bytes: PNG, name: "gpay.png" }), "10.1.0.2")).status).toBe(200);
     expect((await send(form({ ...good, name: "Meena Iyer", amount: "999.50" }, { bytes: PDF, name: "bank.pdf" }), "10.1.0.2")).status).toBe(200);
     const { payments } = await (await get(open, "/admin/api/payments")).json();

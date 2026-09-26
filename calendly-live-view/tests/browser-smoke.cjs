@@ -91,9 +91,9 @@ const checks = [
     await p.fill("#nm", "Kiran Kumar");
     await p.fill("#am", "12,500");
     // a receipt over the size limit is refused in the browser, with a clear message
-    await p.setInputFiles("#rc", { name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(3 * 1024 * 1024, 1) });
+    await p.setInputFiles("#rc", { name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(2 * 1024 * 1024, 1) });
     await p.locator("#dropbox.bad").waitFor();
-    if (!/larger than 2 MB/.test(await p.locator("#rchint").textContent())) throw new Error("no size message");
+    if (!/larger than 1 MB/.test(await p.locator("#rchint").textContent())) throw new Error("no size message");
     await p.setInputFiles("#rc", { name: "gpay.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]) });
     await p.click("#go");
     await p.locator("#done:not([hidden])").waitFor();

@@ -50,7 +50,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 - Search engines may list only the landing page (`/`): every other response carries `X-Robots-Tag: noindex`. `/robots.txt` keeps crawlers out of `/admin`, `/api/` and manage links, and `/sitemap.xml` lists the landing page. The landing page's canonical address is the one without `www.`.
 - Analytics loads in the admin page as a same-origin frame from `/admin/analytics`, only when that tab is opened.
 - `/enquiry` is a plain page (`src/pages/enquiry.html|css|js`) that posts a multipart form to `/api/enquiry`. The details go to `enquiries.json`; the resume (PDF or Word, checked by its first bytes, 200 KB at most, not mentioned on the form) is saved as `DATA_DIR/resumes/<id>.<ext>`.
-- `/payment` works the same way (`src/pages/payment.html|css|js`, reusing `enquiry.css`) and posts to `/api/payment`. The details go to `payments.json`; the receipt (an image or a PDF, checked by its first bytes) is saved as `DATA_DIR/receipts/<id>.<ext>`. Its size limit is `RECEIPT_MAX_MB` (default 2), only mentioned when a file is too big.
+- `/payment` works the same way (`src/pages/payment.html|css|js`, reusing `enquiry.css`) and posts to `/api/payment`. The details go to `payments.json`; the receipt (an image or a PDF, checked by its first bytes) is saved as `DATA_DIR/receipts/<id>.<ext>`. Its size limit is `RECEIPT_MAX_MB` (default 1), only mentioned when a file is too big.
 
 ## Security
 
