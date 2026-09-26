@@ -914,6 +914,9 @@ textarea:focus {
 .go-at {
   display: none;
 }
+.gobar {
+  display: none;
+}
 @media (max-width: 900px) {
   .tlist .slot.sel {
     flex-direction: row;
@@ -942,6 +945,19 @@ textarea:focus {
   }
   body:has(.slot.sel) .card {
     padding-bottom: 92px;
+  }
+  /* Page-coloured strip behind the fixed Next button, down to the screen edge: Safari tints its
+     toolbar from fixed elements at the bottom, and without this it picks up the button's orange */
+  body:has(.slot.sel) .gobar {
+    display: block;
+    position: fixed;
+    z-index: 29;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: calc(88px + env(safe-area-inset-bottom));
+    background: var(--card);
+    border-top: 1px solid var(--line);
   }
 }
 @keyframes barUp {
