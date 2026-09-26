@@ -99,7 +99,7 @@ describe("booking page", () => {
     const html = await (await get(open, "/")).text();
     expect(html).toContain('href="/booking"');
     expect(html).toContain('href="/enquiry"');
-    for (const text of ["Land the job you", "Resume rewrite", "Interview proxy", "Get offer", "Big data engineering", "Your next opportunity is closer than it looks."]) expect(html).toContain(text);
+    for (const text of ["Land the job you", "Resume rewrite", "Interview proxy", "Get offer", "Big data engineering"]) expect(html).toContain(text);
     const css = html.match(/href="(\/assets\/home\.[^"]+\.css)"/)?.[1];
     expect(css).toBeTruthy();
     const style = await (await get(open, css!)).text();

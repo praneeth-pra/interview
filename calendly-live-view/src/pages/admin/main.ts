@@ -2138,9 +2138,8 @@ function showTab(tab: string) {
   byId("viewCal").hidden = isAllow;
   byId("viewAllow").hidden = !isAllow;
   byId("tabCal").setAttribute("aria-selected", String(!isAllow));
-  byId("tabAllow").setAttribute("aria-selected", String(isAllow));
   history.replaceState(null, "", isAllow ? "/admin/allowlist" : "/admin" + location.search);
-  document.title = (isAllow ? "Allowed emails" : "Calendar") + " · " + document.title.split(" · ").pop();
+  document.title = (isAllow ? "Candidates" : "Calendar") + " · " + document.title.split(" · ").pop();
   if (isAllow) {
     request("/admin/api/allowlist")
       .then(function (result) {
@@ -2155,8 +2154,10 @@ function showTab(tab: string) {
 byId("tabCal").onclick = function () {
   showTab("cal");
 };
-byId("tabAllow").onclick = function () {
+// Candidates (the allowed emails) lives in the ⋯ menu rather than as its own tab.
+byId("mCand").onclick = function () {
   showTab("allow");
+  window.scrollTo(0, 0);
 };
 function connect() {
   if (stream) {
