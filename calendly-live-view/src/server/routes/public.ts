@@ -28,8 +28,8 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
         start_url: "/admin",
         scope: "/",
         display: "standalone",
-        background_color: "#141414",
-        theme_color: "#141414",
+        background_color: "#161513",
+        theme_color: "#161513",
         icons: [
           { src: "/icon.png?v=3", sizes: "512x512", type: "image/png", purpose: "any" },
           { src: "/icon.png?v=3", sizes: "192x192", type: "image/png", purpose: "any" },

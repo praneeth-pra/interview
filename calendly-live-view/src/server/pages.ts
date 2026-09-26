@@ -36,7 +36,7 @@ const SPLASH_SIZES: [number, number, number][] = [
   [375, 667, 2],
   [320, 568, 2],
 ];
-const SPLASH_BG = { light: [0xf5, 0xf6, 0xf8], dark: [0x14, 0x14, 0x14] } as const;
+const SPLASH_BG = { light: [0xf4, 0xf2, 0xec], dark: [0x16, 0x15, 0x13] } as const;
 const SPLASH_LINKS = SPLASH_SIZES.flatMap(([w, h, r]) =>
   (["light", "dark"] as const).map(
     (s) =>
