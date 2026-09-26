@@ -15,7 +15,6 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   const path = url.pathname;
   const method = req.method;
 
-  if (path === "/favicon.ico") return new Response(null, { status: 204 });
   if (path === "/healthz") return new Response("ok", { headers: BASE_HEADERS });
   if (path === "/sw.js")
     return new Response(SW_JS, {
@@ -32,8 +31,8 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
         background_color: "#141414",
         theme_color: "#141414",
         icons: [
-          { src: "/icon.png", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icon.png", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon.png?v=2", sizes: "512x512", type: "image/png", purpose: "any" },
+          { src: "/icon.png?v=2", sizes: "192x192", type: "image/png", purpose: "any" },
         ],
       }),
       { headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },
@@ -44,7 +43,7 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
       ? respond(req, body, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" })
       : new Response("Not found", { status: 404, headers: BASE_HEADERS });
   }
-  if (path === "/icon.png" || path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png")
+  if (path === "/icon.png" || path === "/favicon.ico" || path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png")
     return respond(req, ICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
   if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
     const a = asset(path);

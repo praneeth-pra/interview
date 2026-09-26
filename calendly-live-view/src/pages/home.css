@@ -192,8 +192,8 @@ h2 em {
   height: 40px;
   flex: none;
   border-radius: 12px;
-  background: linear-gradient(140deg, var(--gold-b), var(--gold));
-  color: #1b2340;
+  background: linear-gradient(135deg, #2f7bff, #0052cc);
+  color: #fff;
   font-weight: 800;
   font-size: 18px;
 }
