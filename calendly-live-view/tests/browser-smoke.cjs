@@ -66,6 +66,22 @@ const checks = [
     await p.click(".admadd button");
     await p.locator(".admrow", { hasText: "helper@example.com" }).waitFor();
   }],
+  ["enquiry page, and its response in the admin", async (p) => {
+    await p.goto(BASE + "/enquiry");
+    await p.fill("#nm", "Asha Rao");
+    await p.fill("#em", "asha@example.com");
+    await p.fill("#ph", "98765 43210");
+    await p.fill("#tc", "Java");
+    await p.selectOption("#yx", "3 years");
+    await p.setInputFiles("#cv", { name: "asha.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%%EOF\n") });
+    await p.click("#go");
+    await p.locator("#done:not([hidden])").waitFor();
+    if (!(await p.evaluate(() => document.fonts.check("600 16px Figtree")))) throw new Error("Figtree did not load");
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    await p.locator("#mEnq").click();
+    await p.locator(".enq", { hasText: "Asha Rao" }).waitFor();
+  }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();

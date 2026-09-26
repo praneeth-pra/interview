@@ -222,6 +222,58 @@ describe("booking flow", () => {
   });
 });
 
+describe("enquiries", () => {
+  const PDF = new TextEncoder().encode("%PDF-1.4\n% a tiny resume\n");
+  const form = (fields: Record<string, string>, file?: { bytes: Uint8Array; name: string }) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) f.set(k, v);
+    if (file) f.set("resume", new File([file.bytes], file.name));
+    return f;
+  };
+  const good = { name: "Asha Rao", email: "Asha@Example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years" };
+  const send = (f: FormData) => fetch(open.url + "/api/enquiry", { method: "POST", body: f });
+
+  test("the page is served and its old spellings redirect to it", async () => {
+    const page = await get(open, "/enquiry");
+    expect(page.status).toBe(200);
+    const html = await page.text();
+    expect(html).toContain('id="cv"');
+    expect(html).toContain("<title>Enquiry · Hi&lt;Techie&gt;</title>");
+    const r = await fetch(open.url + "/inquiry", { redirect: "manual" });
+    expect(r.status).toBe(301);
+    expect(r.headers.get("location")).toBe("/enquiry");
+  });
+
+  test("enquiries are checked, stored with the resume, listed for admins, downloadable and deletable", async () => {
+    // a bot filling the hidden field is thanked and dropped
+    expect((await send(form({ ...good, website: "spam.example" }, { bytes: PDF, name: "cv.pdf" }))).status).toBe(200);
+    expect((await send(form({ ...good, name: "" }, { bytes: PDF, name: "cv.pdf" }))).status).toBe(400);
+    const notPdf = await send(form(good, { bytes: new TextEncoder().encode("hello"), name: "cv.pdf" }));
+    expect(notPdf.status).toBe(400);
+    expect((await notPdf.json()).error).toContain("PDF or Word");
+    const big = new Uint8Array(1024 * 1024 + 10);
+    big.set(PDF);
+    expect((await send(form(good, { bytes: big, name: "big.pdf" }))).status).toBe(413);
+    const ok = await send(form(good, { bytes: PDF, name: "Asha Rao résumé.pdf" }));
+    expect(ok.status).toBe(200);
+    const { enquiries } = await (await get(open, "/admin/api/enquiries")).json();
+    expect(enquiries.length).toBe(1);
+    const e = enquiries[0];
+    expect(e).toMatchObject({ name: "Asha Rao", email: "asha@example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years" });
+    expect(e.resume).toEqual({ name: "Asha Rao résumé.pdf", size: PDF.length });
+    const file = await get(open, "/admin/api/enquiries/" + e.id + "/resume");
+    expect(file.headers.get("content-type")).toBe("application/pdf");
+    expect(file.headers.get("content-disposition")).toContain("filename*=UTF-8''Asha%20Rao%20r%C3%A9sum%C3%A9.pdf");
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(PDF);
+    expect(existsSync(join(open.dir, "resumes", e.id + ".pdf"))).toBe(true);
+    expect((await postJson(open, "/admin/api/enquiries/delete", { id: e.id })).status).toBe(200);
+    expect((await (await get(open, "/admin/api/enquiries")).json()).enquiries).toEqual([]);
+    expect(existsSync(join(open.dir, "resumes", e.id + ".pdf"))).toBe(false);
+    // behind sign-in when it is on
+    expect((await get(locked, "/admin/api/enquiries")).status).toBe(401);
+  });
+});
+
 describe("admin", () => {
   test("without a session /admin shows the sign-in page and the APIs refuse", async () => {
     const html = await (await get(locked, "/admin")).text();
@@ -436,7 +488,7 @@ describe("backups", () => {
     expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
     const data = JSON.parse(files["backup-" + istDay() + ".json"]);
     expect(data.app).toBe("booking-form");
-    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "interviewers.json", "results.json", "secret.json"]);
+    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "results.json", "secret.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["secret.json"].key).toBe(KEY);
   });

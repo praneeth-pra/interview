@@ -1,6 +1,6 @@
 # booking-form (hi-techie.dev)
 
-Interview booking site for Hi-Techie: candidates pick a time at `/`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`.
+Interview booking site for Hi-Techie: candidates pick a time at `/`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are under ⋯ → Enquiries in the admin page.
 
 Runs on Railway: project `calendly-live-view`, service `booking-form`, production environment. Domains `hi-techie.dev`, `www.hi-techie.dev`.
 
@@ -41,6 +41,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 - Everything is brotli/gzip-compressed once at startup; large JSON/CSV API answers are compressed per request.
 - The Content-Security-Policy is `script-src 'self'; style-src 'self'` with no nonces, so pages must not contain inline `<script>`/`<style>` or `style="..."` attributes (a test enforces this). Per-request values go in `<script type="application/json" id="boot">`.
 - Analytics loads in the admin page as a same-origin frame from `/admin/analytics`, only when that tab is opened.
+- `/enquiry` is a plain page (`src/pages/enquiry.html|css|js`) that posts a multipart form to `/api/enquiry`. The details go to `enquiries.json`; the resume (PDF or Word, checked by its first bytes, 1 MB at most) is saved as `DATA_DIR/resumes/<id>.<ext>`.
 
 ## Environment variables
 

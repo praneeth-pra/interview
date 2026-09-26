@@ -1736,6 +1736,97 @@ function showAdmins() {
       setMessage(msg, error.message, true);
     });
 }
+// Responses from the public /enquiry page, newest first: contact details, technology, experience and the resume.
+function showEnquiries() {
+  refreshPanel = null;
+  var body = openPanel("Enquiries", "Responses from the enquiry page.");
+  var link = location.origin + "/enquiry";
+  var msg = el("p", { class: "msg", role: "status" });
+  body.appendChild(
+    el("div", { class: "enqlink" }, [
+      el("a", { href: "/enquiry", target: "_blank", rel: "noopener", text: link.replace(/^https?:\/\//, "") }),
+      el("button", {
+        type: "button",
+        class: "ghost",
+        text: "Copy link",
+        onclick: function () {
+          navigator.clipboard.writeText(link).then(
+            function () {
+              toast("Link copied");
+            },
+            function () {
+              setMessage(msg, "Couldn't copy. The link is " + link, true);
+            },
+          );
+        },
+      }),
+    ]),
+  );
+  var list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
+  body.appendChild(list);
+  body.appendChild(msg);
+  function draw(enquiries: any[]) {
+    list.textContent = "";
+    if (!enquiries.length) {
+      list.appendChild(el("p", { class: "sub", text: "No enquiries yet. Share the link above." }));
+      return;
+    }
+    enquiries.forEach(function (item) {
+      var when = new Date(item.createdAt);
+      list.appendChild(
+        el("div", { class: "enq" }, [
+          el("div", { class: "enqh" }, [
+            el("b", { text: titleCase(item.name) }),
+            el("small", { text: formatIst({ month: "short", day: "numeric" }, when) + ", " + formatTime(when) }),
+          ]),
+          el("p", { class: "enqt", text: item.tech + " · " + item.experience }),
+          el("p", { class: "enqc" }, [
+            el("a", { href: "mailto:" + item.email, text: item.email }),
+            el("a", { href: "tel:" + item.phone.replace(/[^\d+]/g, ""), text: item.phone }),
+          ]),
+          el("div", { class: "enqa" }, [
+            el("a", {
+              class: "bk-act",
+              href: "/admin/api/enquiries/" + item.id + "/resume",
+              download: item.resume.name,
+              text: "Resume · " + Math.max(1, Math.round(item.resume.size / 1024)) + " KB",
+            }),
+            el("button", {
+              type: "button",
+              class: "rm",
+              text: "Delete",
+              "aria-label": "Delete the enquiry from " + item.name,
+              onclick: function () {
+                if (!confirm("Delete the enquiry from " + item.name + ", with their resume? This can't be undone.")) {
+                  return;
+                }
+                request("/admin/api/enquiries/delete", { id: item.id })
+                  .then(function () {
+                    toast("Enquiry deleted");
+                    load();
+                  })
+                  .catch(function (error) {
+                    setMessage(msg, error.message, true);
+                  });
+              },
+            }),
+          ]),
+        ]),
+      );
+    });
+  }
+  function load() {
+    request("/admin/api/enquiries")
+      .then(function (result) {
+        draw(result.enquiries || []);
+      })
+      .catch(function (error) {
+        list.textContent = "";
+        setMessage(msg, error.message, true);
+      });
+  }
+  load();
+}
 var searchBox = byId<HTMLInputElement>("q");
 var searchList = byId("qdrop");
 var matches: Booking[] = [];
@@ -2132,6 +2223,11 @@ document.addEventListener("visibilitychange", function () {
     }
   }
 });
+byId("mEnq").onclick = showEnquiries;
+// a "New enquiry" alert opens the list
+if (new URLSearchParams(location.search).get("view") === "enquiries") {
+  setTimeout(showEnquiries, 0);
+}
 if (boot.login) {
   byId("mAdm").hidden = false;
   byId("mAdm").onclick = showAdmins;

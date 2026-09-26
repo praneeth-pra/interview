@@ -139,6 +139,45 @@ sessions: Array.isArray(x?.sessions)
 }),
 );
 const isAdmin = (email: string) => OWNER_EMAILS.includes(email) || adminsStore.data.emails.includes(email);
+// Enquiries from the public /enquiry page. The details are in enquiries.json; each resume is a file in DATA_DIR/resumes
+// (kept in memory when there is no data folder).
+type Enquiry = {
+id: string;
+name: string;
+email: string;
+phone: string;
+tech: string;
+experience: string;
+createdAt: string;
+resume: { file: string; name: string; type: string; size: number };
+};
+const enquiriesStore = fileStore<{ enquiries: Enquiry[] }>(
+"enquiries.json",
+() => ({ enquiries: [] }),
+(x) => ({ enquiries: Array.isArray(x?.enquiries) ? x.enquiries.filter((v: any) => v && typeof v.id === "string" && v.resume) : [] }),
+);
+const RESUME_MAX = 1024 * 1024;
+// what the first bytes of each allowed kind of file look like
+const RESUME_KINDS = [
+{ ext: ".pdf", type: "application/pdf", magic: [0x25, 0x50, 0x44, 0x46] },
+{ ext: ".docx", type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document", magic: [0x50, 0x4b, 0x03, 0x04] },
+{ ext: ".doc", type: "application/msword", magic: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1] },
+];
+const resumesInMemory = new Map<string, Uint8Array>();
+async function saveResume(file: string, bytes: Uint8Array) {
+if (!DATA_DIR) return void resumesInMemory.set(file, bytes);
+await mkdir(DATA_DIR + "/resumes", { recursive: true });
+await Bun.write(DATA_DIR + "/resumes/" + file, bytes);
+}
+async function readResume(file: string): Promise<Uint8Array | null> {
+if (!DATA_DIR) return resumesInMemory.get(file) ?? null;
+const f = Bun.file(DATA_DIR + "/resumes/" + file);
+return (await f.exists()) ? new Uint8Array(await f.arrayBuffer()) : null;
+}
+async function removeResume(file: string) {
+if (!DATA_DIR) return void resumesInMemory.delete(file);
+await rm(DATA_DIR + "/resumes/" + file, { force: true });
+}
 function knownName(email: string) {
 const e = normEmail(email);
 const groups = new Map<string, { n: number; last: number; spell: Map<string, { n: number; last: number }> }>();
@@ -764,6 +803,7 @@ await loadStore(secretStore);
 await loadStore(pushStore);
 await loadStore(resultsStore);
 await loadStore(adminsStore);
+await loadStore(enquiriesStore);
 await loadStore(sessionsStore);
 if (!pushStore.data.pub || !pushStore.data.priv) {
 const kp = createECDH("prime256v1");
@@ -862,6 +902,7 @@ const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?dura
 const adminShell = (tab: string) => shell(fill(ADMIN_TPL, { HOST: HOST_HTML, SPLASH: SPLASH_LINKS, BOOT: safeJson({ tab, login: LOGIN_ON, build: BUILD }) }), CSP.admin, false, true);
 const ADMIN_CAL = adminShell("cal");
 const ADMIN_ALLOW = adminShell("allow");
+const ENQUIRY = shell(fill(template("enquiry"), { HOST: HOST_HTML }), CSP.page);
 const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
 const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // A manage link carries the candidate's booking, so that page is built per request and never cached.
@@ -1025,6 +1066,7 @@ files: {
 "interviewers.json": ivStore.data,
 "allowlist.json": allowStore.data,
 "admins.json": adminsStore.data,
+"enquiries.json": enquiriesStore.data,
 "results.json": resultsStore.data,
 "secret.json": secretStore.data,
 ...(withPush ? { "push.json": pushStore.data } : {}),
@@ -1087,6 +1129,63 @@ backupRunning = false;
 }
 const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
 type Srv = { requestIP(r: Request): { address: string } | null; timeout(r: Request, seconds: number): void };
+// POST /api/enquiry, a multipart form from the /enquiry page. Five enquiries an hour per network address; a hidden
+// "website" field that only bots fill in gets a thank-you and is dropped.
+async function receiveEnquiry(req: Request, srv: Srv): Promise<Response> {
+const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || srv.requestIP(req)?.address || "unknown";
+if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("multipart/form-data")) return json({ error: "Bad request." }, 415);
+const length = Number(req.headers.get("content-length") ?? NaN);
+if (!(length > 0)) return json({ error: "Bad request." }, 411);
+if (length > RESUME_MAX + 64 * 1024) return json({ error: "The resume must be under 1 MB." }, 413);
+if (!underLimit("enquiry:" + ip, 5, 3600000)) return json({ error: "Too many enquiries from this network. Try again in an hour." }, 429);
+let form: FormData;
+try {
+form = await req.formData();
+} catch {
+return json({ error: "Bad request." }, 400);
+}
+const text = (k: string, max: number) => String(form.get(k) ?? "").replace(/\s+/g, " ").trim().slice(0, max);
+if (text("website", 200)) return json({ ok: true });
+const name = text("name", 100);
+const email = normEmail(text("email", 200));
+const phone = text("phone", 20);
+const tech = text("tech", 100);
+const experience = text("experience", 40);
+if (name.length < 2) return json({ error: "Enter your full name." }, 400);
+if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
+const digits = phone.replace(/\D/g, "").length;
+if (digits < 10 || digits > 15 || /[^\d\s+()-]/.test(phone)) return json({ error: "Enter a valid phone number." }, 400);
+if (tech.length < 2) return json({ error: "Tell us the technology you're looking for." }, 400);
+if (!experience) return json({ error: "Choose your years of experience." }, 400);
+const resume = form.get("resume");
+if (!(resume instanceof Blob) || !resume.size) return json({ error: "Add your resume." }, 400);
+if (resume.size > RESUME_MAX) return json({ error: "The resume must be under 1 MB." }, 413);
+const bytes = new Uint8Array(await resume.arrayBuffer());
+const kind = RESUME_KINDS.find((k) => k.magic.every((b, i) => bytes[i] === b));
+if (!kind) return json({ error: "The resume must be a PDF or Word file." }, 400);
+const id = crypto.randomUUID();
+const original = (resume instanceof File ? resume.name : "").replace(/[\u0000-\u001f"\\/]/g, "").trim().slice(-120) || "resume" + kind.ext;
+const entry: Enquiry = {
+id, name, email, phone, tech, experience, createdAt: new Date().toISOString(),
+resume: { file: id + kind.ext, name: original, type: kind.type, size: bytes.length },
+};
+try {
+await saveResume(entry.resume.file, bytes);
+enquiriesStore.data.enquiries.push(entry);
+await saveStore(enquiriesStore);
+} catch {
+enquiriesStore.data.enquiries = enquiriesStore.data.enquiries.filter((v) => v.id !== id);
+await removeResume(entry.resume.file).catch(() => {});
+return json({ error: "Couldn't save your enquiry. Try again." }, 500);
+}
+console.log("enquiry received (" + enquiriesStore.data.enquiries.length + " in total)");
+if (pushStore.data.subs.length) void pushAll({ title: "New enquiry", body: name + " \u00B7 " + tech + "\n" + experience, tag: "enquiry:" + id, url: "/admin?view=enquiries" });
+return json({ ok: true });
+}
+const enquiryView = (v: Enquiry) => ({
+id: v.id, name: v.name, email: v.email, phone: v.phone, tech: v.tech, experience: v.experience, createdAt: v.createdAt,
+resume: { name: v.resume.name, size: v.resume.size },
+});
 async function route(req: Request, srv: Srv): Promise<Response> {
 const url = new URL(req.url);
 const path = url.pathname;
@@ -1115,6 +1214,10 @@ if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS })
 return respond(req, a.body, { ...BASE_HEADERS, "Cache-Control": a.current ? "public, max-age=31536000, immutable" : "no-cache" });
 }
 if (path === "/" && method === "GET") return sendShell(req, BOOK_HOME);
+if (path === "/enquiry" && method === "GET") return sendShell(req, ENQUIRY);
+if ((path === "/enquiry/" || path === "/inquiry" || path === "/enquiries") && method === "GET")
+return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/enquiry" } });
+if (path === "/api/enquiry" && method === "POST") return receiveEnquiry(req, srv);
 const mm = path.match(/^\/b\/([0-9a-f-]{36})$/i);
 if (mm && method === "GET") {
 const b = bookingsStore.data.bookings.find((x) => x.id === mm[1]);
@@ -1209,6 +1312,39 @@ return sendShell(req, path === "/admin" ? ADMIN_CAL : ADMIN_ALLOW);
 }
 if (path === "/admin/analytics" && method === "GET") return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
 if (!authed) return json({ error: "Sign in again." }, 401);
+// Enquiries from /enquiry, newest first; each resume downloads from its own link; an enquiry can be deleted.
+if (path === "/admin/api/enquiries" && method === "GET")
+return json({ enquiries: [...enquiriesStore.data.enquiries].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(enquiryView) });
+const resumePath = path.match(/^\/admin\/api\/enquiries\/([0-9a-f-]{36})\/resume$/);
+if (resumePath && method === "GET") {
+const v = enquiriesStore.data.enquiries.find((x) => x.id === resumePath[1]);
+const bytes = v && (await readResume(v.resume.file));
+if (!v || !bytes) return json({ error: "That resume isn't there any more." }, 404);
+const ascii = v.resume.name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+return new Response(bytes, {
+headers: {
+...BASE_HEADERS,
+"Content-Type": v.resume.type,
+"Content-Disposition": 'attachment; filename="' + ascii + '"; filename*=UTF-8\'\'' + encodeURIComponent(v.resume.name),
+},
+});
+}
+if (path === "/admin/api/enquiries/delete" && method === "POST") {
+const body = await readJson(req, 1000);
+if (body instanceof Response) return body;
+const v = enquiriesStore.data.enquiries.find((x) => x.id === String(body?.id ?? ""));
+if (!v) return json({ error: "That enquiry was already deleted." }, 404);
+const prev = enquiriesStore.data.enquiries;
+enquiriesStore.data.enquiries = prev.filter((x) => x !== v);
+try {
+await saveStore(enquiriesStore);
+} catch {
+enquiriesStore.data.enquiries = prev;
+return json({ error: "Couldn't save the change. Try again." }, 500);
+}
+await removeResume(v.resume.file).catch(() => {});
+return json({ ok: true });
+}
 // Who can sign in: the owners (ADMIN_EMAILS, fixed) and the admins they add here.
 if (path === "/admin/api/admins" && method === "GET") return json(adminsView(me?.email ?? ""));
 if (path === "/admin/api/admins" && method === "POST") {

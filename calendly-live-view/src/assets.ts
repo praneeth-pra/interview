@@ -17,7 +17,13 @@ const TYPES: Record<string, string> = {
   json: "application/json",
 };
 // Every page uses Figtree, an open-source font close to the Calendly app's; each stylesheet starts with its @font-face rules.
-const FONT_OF_PAGE: Record<string, string> = { "book.css": "figtree.css", "admin.css": "figtree.css", "analytics.css": "figtree.css", "login.css": "figtree.css" };
+const FONT_OF_PAGE: Record<string, string> = {
+  "book.css": "figtree.css",
+  "admin.css": "figtree.css",
+  "analytics.css": "figtree.css",
+  "login.css": "figtree.css",
+  "enquiry.css": "figtree.css",
+};
 
 export type Encoded = { raw: Buffer; br?: Buffer; gz?: Buffer; etag: string; type: string };
 
