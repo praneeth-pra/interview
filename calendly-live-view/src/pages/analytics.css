@@ -567,11 +567,34 @@ input[type="search"] {
 #ahead .hact span {
   display: block !important;
 }
-.ctabs {
+/* the tabs, with a company search for Activity at the right end of the same line */
+.ctabbar {
   display: flex;
-  gap: 28px;
+  align-items: center;
+  gap: 16px;
   margin: 22px 0 16px;
   border-bottom: 1px solid var(--d);
+}
+.ctabs {
+  display: flex;
+  flex: none;
+  gap: 28px;
+}
+.asq {
+  flex: 1;
+  min-width: 0;
+  max-width: 240px;
+  min-height: 36px;
+  margin: 0 0 6px auto;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  border-radius: 999px;
+  background-color: var(--c);
+  box-shadow: 0 0 0 1px var(--d);
+  font-size: 16px;
+}
+.asq[hidden] {
+  display: none;
 }
 .ctabs button {
   position: relative;
@@ -780,9 +803,16 @@ button.acard:active {
     height: 60px !important;
     padding: 0 14px !important;
   }
-  .ctabs {
-    gap: 26px;
+  .ctabbar {
+    gap: 12px;
     margin-top: 20px;
+  }
+  .ctabs {
+    gap: 22px;
+  }
+  .asq {
+    padding-left: 34px;
+    background-position: 11px 50%;
   }
 }
 /* About: section title and the interviewer's colour beside their name */

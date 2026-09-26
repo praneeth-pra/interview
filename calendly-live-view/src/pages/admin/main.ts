@@ -179,11 +179,11 @@ function renderCards() {
     );
   });
   card(
-    "Needs interviewer",
+    "Support not recorded",
     String(unassigned.length),
     unassigned.length
       ? function () {
-          showList("Needs interviewer", "Started interviews with no interviewer recorded", unassigned);
+          showList("Support not recorded", "Started interviews with no interview supporter recorded", unassigned);
         }
       : null,
     unassigned.length ? " attn" : "",
@@ -220,9 +220,9 @@ function renderAttention() {
   var line = byId("attn");
   line.hidden = !unassigned.length;
   line.textContent =
-    unassigned.length + (unassigned.length === 1 ? " interview needs an interviewer" : " interviews need an interviewer");
+    unassigned.length + (unassigned.length === 1 ? " interview has no supporter recorded" : " interviews have no supporter recorded");
   line.onclick = function () {
-    showList("Needs interviewer", "Started interviews with no interviewer recorded", unassigned);
+    showList("Support not recorded", "Started interviews with no interview supporter recorded", unassigned);
   };
 }
 function renderLegend() {
@@ -612,8 +612,8 @@ function renderAgenda() {
             !interviewer && started
               ? el("i", {
                   class: "need-dot",
-                  title: "Needs interviewer",
-                  "aria-label": "Needs interviewer",
+                  title: "Support not recorded",
+                  "aria-label": "Support not recorded",
                   role: "img",
                 })
               : null,
@@ -759,7 +759,7 @@ function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
     "PUT",
   )
     .then(function () {
-      toast(name ? "Interviewer saved" : "Interviewer cleared");
+      toast(name ? "Interview supporter saved" : "Interview supporter cleared");
     })
     .catch(function (error) {
       setMessage(msg, error.message, true);
@@ -956,7 +956,7 @@ function showBooking(id: string, refresh?: boolean) {
               onclick: function () {
                 if (
                   !interviewer &&
-                  confirm("Record " + name + " as the interviewer for " + titleCase(booking.name) + "? This can't be changed later.")
+                  confirm("Record " + name + " as the interview supporter for " + titleCase(booking.name) + "? This can't be changed later.")
                 ) {
                   saveInterviewer(booking, name, msg);
                 }
@@ -1458,7 +1458,7 @@ function showNewBooking() {
 }
 function showInterviewers() {
   refreshPanel = null;
-  var body = openPanel("Interviewers", "Rename, add or remove. Renaming also updates interviews already recorded.");
+  var body = openPanel("Interview supporters", "Rename, add or remove. Renaming also updates interviews already recorded.");
   var rows = el("div");
   var msg = el("p", {
     class: "msg",
@@ -1476,7 +1476,7 @@ function showInterviewers() {
       var input = el("input", {
         type: "text",
         maxlength: "30",
-        "aria-label": "Interviewer " + (index + 1) + " name",
+        "aria-label": "Interview supporter " + (index + 1) + " name",
       });
       input.value = entry.to;
       input.oninput = function () {
@@ -1497,7 +1497,7 @@ function showInterviewers() {
               type: "button",
               class: "rm",
               text: "Remove",
-              "aria-label": "Remove " + (entry.to || "interviewer"),
+              "aria-label": "Remove " + (entry.to || "interview supporter"),
               onclick: function () {
                 list.splice(index, 1);
                 renderRows();
@@ -1514,10 +1514,10 @@ function showInterviewers() {
     el("button", {
       type: "button",
       class: "linkbtn",
-      text: "+ Add interviewer",
+      text: "+ Add interview supporter",
       onclick: function () {
         if (list.length >= 12) {
-          return setMessage(msg, "You can have up to 12 interviewers.", true);
+          return setMessage(msg, "You can have up to 12 interview supporters.", true);
         }
         list.push({
           from: "",
@@ -1539,7 +1539,7 @@ function showInterviewers() {
       })
         .then(function () {
           closePanel();
-          toast("Interviewers saved");
+          toast("Interview supporters saved");
         })
         .catch(function (error) {
           saveButton.disabled = false;
