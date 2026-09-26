@@ -918,6 +918,30 @@ h2 {
   width: 18px;
   height: 18px;
 }
+/* Payments: the total received, above the list */
+.paytot {
+  display: flex;
+  flex-direction: column;
+  margin: 0 0 12px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+.paytot b {
+  font-size: 26px;
+  line-height: 1.2;
+}
+.paytot small {
+  color: var(--ink2);
+  font-size: 13px;
+}
+.paytot[hidden] {
+  display: none;
+}
+.payamt {
+  font-size: 17px;
+}
 /* Admins panel: one row per email, then an add field */
 .admrow {
   display: flex;
@@ -1565,8 +1589,8 @@ body.wkv .agenda {
   }
   .bnav {
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 4px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 2px;
     position: fixed;
     z-index: 35;
     left: 12px;

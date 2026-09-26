@@ -32,6 +32,7 @@ export type State = {
   iv: { names: string[]; assign: Record<string, string> };
   allow: { enabled: boolean; count: number };
   enquiries?: string[]; // when each enquiry came in
+  payments?: number; // how many payments there are
   hours: { start: number; end: number };
   email: boolean;
 };
@@ -42,6 +43,7 @@ declare global {
     __openB?: (id: string) => void;
     __stats?: () => void;
     __enq?: () => void; // the Enquiries tab was opened
+    __pay?: () => void; // the Payments tab was opened
     __statsEvent?: string; // open this booking's candidate when the Contacts tab shows
   }
   interface Navigator {

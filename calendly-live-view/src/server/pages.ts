@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assetList, encode, template } from "../assets";
-import { EVENT_DESCRIPTION, EVENT_LOCATION, EVENT_NAME, HOST_NAME, LOGIN_ON } from "./config";
+import { EVENT_DESCRIPTION, EVENT_LOCATION, EVENT_NAME, HOST_NAME, LOGIN_ON, RECEIPT_MAX } from "./config";
 import { CSP, sendShell, shell } from "./http";
 import { deflateSync } from "node:zlib";
 
@@ -102,6 +102,7 @@ const adminShell = (tab: string) =>
 export const ADMIN_CAL = adminShell("cal");
 export const ADMIN_ALLOW = adminShell("allow");
 export const ENQUIRY = shell(fill(template("enquiry"), { HOST: HOST_HTML }), CSP.page);
+export const PAYMENT = shell(fill(template("payment"), { HOST: HOST_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }), CSP.page);
 // the landing page is the one page search engines may list
 export const HOME = { ...shell(fill(template("home"), { HOST: HOST_HTML }), CSP.page), index: true };
 export const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);

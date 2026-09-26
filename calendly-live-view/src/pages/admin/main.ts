@@ -681,6 +681,7 @@ function renderAgenda() {
 }
 function render() {
   renderEnquiryBadge();
+  refreshPayments();
   weekOf ||= weekStart(selectedDay || dayKeyOf(new Date()));
   renderStatus();
   if (state.ready) {
@@ -1839,6 +1840,132 @@ request("/admin/api/enquiries/seen")
     renderEnquiryBadge();
   })
   .catch(function () {});
+// The Payments tab: what people sent from the public /payment page, newest first, with the total at the top. Each
+// receipt opens in a new tab; the icon beside it saves it, named after the payer.
+function rupees(amount: number) {
+  return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
+}
+var paymentsShown = -1;
+function showPayments() {
+  var body = byId("payBody");
+  body.textContent = "";
+  var link = location.origin + "/payment";
+  var msg = el("p", { class: "msg", role: "status" });
+  body.appendChild(
+    el("div", { class: "enqlink" }, [
+      el("a", { href: "/payment", target: "_blank", rel: "noopener", text: link.replace(/^https?:\/\//, "") }),
+      el("button", {
+        type: "button",
+        class: "ghost",
+        text: "Copy link",
+        onclick: function () {
+          navigator.clipboard.writeText(link).then(
+            function () {
+              toast("Link copied");
+            },
+            function () {
+              setMessage(msg, "Couldn't copy. The link is " + link, true);
+            },
+          );
+        },
+      }),
+    ]),
+  );
+  var total = el("div", { class: "paytot", hidden: true });
+  var list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
+  body.appendChild(total);
+  body.appendChild(list);
+  body.appendChild(msg);
+  function draw(payments: any[]) {
+    list.textContent = "";
+    total.textContent = "";
+    total.hidden = !payments.length;
+    if (!payments.length) {
+      list.appendChild(el("p", { class: "sub", text: "No payments yet. Share the link above." }));
+      return;
+    }
+    var sum = payments.reduce(function (n, item) {
+      return n + item.amount;
+    }, 0);
+    total.appendChild(el("small", { text: "Total received" }));
+    total.appendChild(el("b", { text: rupees(sum) }));
+    total.appendChild(el("small", { text: plural(payments.length, "payment") }));
+    payments.forEach(function (item) {
+      var when = new Date(item.createdAt);
+      var kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
+      list.appendChild(
+        el("div", { class: "enq" }, [
+          el("div", { class: "enqh" }, [
+            el("b", { text: titleCase(item.name) }),
+            el("small", { text: formatIst({ month: "short", day: "numeric", year: "numeric" }, when) + ", " + formatTime(when) }),
+          ]),
+          el("p", { class: "enqt payamt", text: rupees(item.amount) }),
+          el("p", { class: "enqc" }, [el("a", { href: "mailto:" + item.email, text: item.email })]),
+          el("div", { class: "enqa" }, [
+            el("div", { class: "enqr" }, [
+              el("a", {
+                class: "bk-act",
+                href: "/admin/api/payments/" + item.id + "/receipt",
+                target: "_blank",
+                rel: "noopener",
+                text: "Receipt · " + kind,
+              }),
+              el(
+                "a",
+                {
+                  class: "bk-act dl",
+                  href: "/admin/api/payments/" + item.id + "/receipt?download=1",
+                  download: "",
+                  title: "Download receipt",
+                  "aria-label": "Download the receipt from " + item.name,
+                },
+                [icon("download")],
+              ),
+            ]),
+            el("button", {
+              type: "button",
+              class: "rm",
+              text: "Delete",
+              "aria-label": "Delete the payment from " + item.name,
+              onclick: function () {
+                if (!confirm("Delete the payment from " + item.name + ", with its receipt? This can't be undone.")) {
+                  return;
+                }
+                request("/admin/api/payments/delete", { id: item.id })
+                  .then(function () {
+                    toast("Payment deleted");
+                    load();
+                  })
+                  .catch(function (error) {
+                    setMessage(msg, error.message, true);
+                  });
+              },
+            }),
+          ]),
+        ]),
+      );
+    });
+  }
+  function load() {
+    request("/admin/api/payments")
+      .then(function (result) {
+        draw(result.payments || []);
+      })
+      .catch(function (error) {
+        list.textContent = "";
+        setMessage(msg, error.message, true);
+      });
+  }
+  load();
+}
+// a new payment while the tab is open shows up straight away
+function refreshPayments() {
+  var count = state.payments || 0;
+  if (!byId("viewPay").hidden && paymentsShown >= 0 && count !== paymentsShown) {
+    showPayments();
+  }
+  paymentsShown = count;
+}
 var searchBox = byId<HTMLInputElement>("q");
 var searchList = byId("qdrop");
 var matches: Booking[] = [];
@@ -2260,6 +2387,7 @@ document.addEventListener("visibilitychange", function () {
   }
 });
 window.__enq = showEnquiries;
+window.__pay = showPayments;
 // leaving the tab brings the count back for anything new
 new MutationObserver(renderEnquiryBadge).observe(byId("viewEnq"), { attributes: true, attributeFilter: ["hidden"] });
 if (boot.login) {

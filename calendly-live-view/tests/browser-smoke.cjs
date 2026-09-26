@@ -85,6 +85,24 @@ const checks = [
     if (saved.suggestedFilename() !== "Asha Rao resume.pdf") throw new Error("resume saved as " + saved.suggestedFilename());
     await p.locator("#tabEnq .nbadge[hidden]").waitFor({ state: "attached" }); // seen now
   }],
+  ["payment page, and the payment in the admin", async (p) => {
+    await p.goto(BASE + "/payment");
+    await p.fill("#em", "kiran@example.com");
+    await p.fill("#nm", "Kiran Kumar");
+    await p.fill("#am", "12,500");
+    // a receipt over the size limit is refused in the browser, with a clear message
+    await p.setInputFiles("#rc", { name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(3 * 1024 * 1024, 1) });
+    await p.locator("#dropbox.bad").waitFor();
+    if (!/larger than 2 MB/.test(await p.locator("#rchint").textContent())) throw new Error("no size message");
+    await p.setInputFiles("#rc", { name: "gpay.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]) });
+    await p.click("#go");
+    await p.locator("#done:not([hidden])").waitFor();
+    await p.goto(BASE + "/admin?view=payments");
+    await p.locator("#viewPay .enq", { hasText: "Kiran Kumar" }).waitFor();
+    if (!(await p.locator(".paytot b").textContent()).includes("12,500")) throw new Error("total is wrong");
+    const [saved] = await Promise.all([p.waitForEvent("download"), p.locator("#viewPay .bk-act.dl").first().click()]);
+    if (saved.suggestedFilename() !== "Kiran Kumar receipt.png") throw new Error("receipt saved as " + saved.suggestedFilename());
+  }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();

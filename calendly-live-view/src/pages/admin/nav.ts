@@ -1,4 +1,4 @@
-// Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts and Enquiries) in the header and the
+// Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts, Enquiries and Payments) in the header and the
 // phone bottom bar, the phone section title, and the bottom-sheet panel, which can be swiped down to close.
 export function setupNav() {
   function byId(id: string) {
@@ -12,13 +12,15 @@ export function setupNav() {
       return "stats";
     } else if (!byId("viewEnq").hidden) {
       return "enq";
+    } else if (!byId("viewPay").hidden) {
+      return "pay";
     } else if (!weekView) {
       return "ag";
     } else {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", ag: "Agenda", stats: "Contacts", enq: "Enquiries" };
+  var TITLES = { cal: "Calendar", ag: "Agenda", stats: "Contacts", enq: "Enquiries", pay: "Payments" };
   // Switching sections is instant; only the bottom bar's highlight slides to the new tab.
   var pill = document.createElement("span");
   pill.className = "bnav-pill";
@@ -45,6 +47,7 @@ export function setupNav() {
     byId("tabAg").setAttribute("aria-selected", String(current === "ag"));
     byId("tabStats").setAttribute("aria-selected", String(current === "stats"));
     byId("tabEnq").setAttribute("aria-selected", String(current === "enq"));
+    byId("tabPay").setAttribute("aria-selected", String(current === "pay"));
     placePill();
   }
   function showStats() {
@@ -53,6 +56,7 @@ export function setupNav() {
     } catch (e) {}
     byId("viewCal").hidden = true;
     byId("viewEnq").hidden = true;
+    byId("viewPay").hidden = true;
     byId("viewStats").hidden = false;
     sync();
     window.scrollTo(0, 0);
@@ -67,6 +71,7 @@ export function setupNav() {
     } catch (e) {}
     byId("viewCal").hidden = true;
     byId("viewStats").hidden = true;
+    byId("viewPay").hidden = true;
     byId("viewEnq").hidden = false;
     sync();
     window.scrollTo(0, 0);
@@ -75,9 +80,25 @@ export function setupNav() {
     }
   }
   byId("tabEnq").onclick = showEnq;
+  function showPay() {
+    try {
+      history.replaceState(null, "", "/admin?view=payments");
+    } catch (e) {}
+    byId("viewCal").hidden = true;
+    byId("viewStats").hidden = true;
+    byId("viewEnq").hidden = true;
+    byId("viewPay").hidden = false;
+    sync();
+    window.scrollTo(0, 0);
+    if (window.__pay) {
+      window.__pay();
+    }
+  }
+  byId("tabPay").onclick = showPay;
   function showCal(week: boolean) {
     byId("viewStats").hidden = true;
     byId("viewEnq").hidden = true;
+    byId("viewPay").hidden = true;
     view(week);
     try {
       var url = new URL(location.href);
@@ -111,6 +132,10 @@ export function setupNav() {
       showEnq();
       return;
     }
+    if (target === "pay") {
+      showPay();
+      return;
+    }
     byId(target === "ag" ? "tabAg" : "tabCal").click();
     window.scrollTo(0, 0);
   });
@@ -119,6 +144,8 @@ export function setupNav() {
     setTimeout(showStats, 0);
   } else if (startView === "enquiries") {
     setTimeout(showEnq, 0);
+  } else if (startView === "payments") {
+    setTimeout(showPay, 0);
   }
   function view(week: boolean) {
     weekView = week;

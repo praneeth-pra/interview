@@ -48,8 +48,10 @@ export const OWNER_EMAILS = [
 // testing only, and only while ADMIN_EMAILS is empty.
 export const ADMIN_OPEN = (Bun.env.ADMIN_OPEN ?? "").trim() === "1";
 export const LOGIN_ON = OWNER_EMAILS.length > 0 || !ADMIN_OPEN;
-// The largest request the server reads: an enquiry with a 200 KB resume, with plenty of room to spare.
-export const MAX_BODY = 2 * 1024 * 1024;
+// The largest payment receipt (/payment), in MB (default 2). The form doesn't show it; a bigger file gets a clear error.
+export const RECEIPT_MAX = Math.round(Math.min(20, Math.max(0.1, Number(Bun.env.RECEIPT_MAX_MB) || 2)) * 1024 * 1024);
+// The largest request the server reads: a payment with the largest receipt, with plenty of room to spare.
+export const MAX_BODY = Math.max(2 * 1024 * 1024, RECEIPT_MAX + 512 * 1024);
 const BACKUP_TO = (Bun.env.BACKUP_EMAIL ?? "")
   .split(/[,;\s]+/)
   .map((s) => s.trim())
