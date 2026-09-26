@@ -361,9 +361,16 @@ function setTab(name) {
     byId(entry[0]).setAttribute("aria-selected", String(on));
     byId(entry[1]).hidden = !on;
   });
+  // the company search only filters Activity
+  byId("asq").hidden = name !== "act";
 }
 byId<HTMLInputElement>("pq").addEventListener("input", () => {
   renderPeople();
+});
+byId<HTMLInputElement>("asq").addEventListener("input", () => {
+  if (data) {
+    renderActivity(data.events, Date.now());
+  }
 });
 // On phones the search field is hidden until the search button in the admin header asks for it; returns whether
 // it is now shown.
@@ -430,6 +437,7 @@ function loadAnalytics(eventId) {
   });
   byId("aemail").hidden = true;
   byId("acopy").hidden = true;
+  byId<HTMLInputElement>("asq").value = "";
   byId("aname").textContent = chosenName();
   byId("av").textContent = initials(chosenName());
   byId("asub").textContent = "Loading…";
@@ -479,9 +487,16 @@ var canOpenBooking = (() => {
 function renderActivity(events, now) {
   var box = byId("tpAct");
   box.textContent = "";
-  var list = events.slice().sort((first, second) => Date.parse(second.start) - Date.parse(first.start));
+  var query = byId<HTMLInputElement>("asq").value.trim();
+  var terms = words(query);
+  var list = events
+    .filter((event) => {
+      var text = ((event.company || "") + " " + (event.round || "")).toLowerCase();
+      return terms.every((term) => text.indexOf(term) >= 0);
+    })
+    .sort((first, second) => Date.parse(second.start) - Date.parse(first.start));
   if (!list.length) {
-    box.appendChild(div("rempty", "No activity yet."));
+    box.appendChild(div("rempty", terms.length ? "No interviews match \u201c" + query + "\u201d." : "No activity yet."));
     return;
   }
   var lastDay = "";
@@ -520,7 +535,7 @@ function renderActivity(events, now) {
     cardEl.appendChild(el("b", null, [event.company, event.round].filter(Boolean).join(" · ") || "Interview"));
     var minutes = Math.round((Date.parse(event.end) - Date.parse(event.start)) / 60000);
     cardEl.appendChild(
-      div("sub", minutes + "m" + (interviewer ? " · " + interviewer : kind === "done" ? " · Interviewer not recorded" : "") + (event.cancelReason ? " · " + event.cancelReason : "")),
+      div("sub", minutes + "m" + (interviewer ? " · " + interviewer : kind === "done" ? " · Support not recorded" : "") + (event.cancelReason ? " · " + event.cancelReason : "")),
     );
     cardEl.appendChild(div("sub", t12(start) + " – " + t12(new Date(event.end))));
     item.appendChild(cardEl);
@@ -566,7 +581,7 @@ function renderAbout(events, now) {
   });
   var names = Object.keys(taken).sort((first, second) => taken[second] - taken[first] || (first < second ? -1 : 1));
   if (names.length || notRecorded) {
-    box.appendChild(div("ahead3", "Interviews taken"));
+    box.appendChild(div("ahead3", "Interview support given"));
     var ivGroup = div("agroup");
     names.forEach((name) => {
       var row = div("arow");
