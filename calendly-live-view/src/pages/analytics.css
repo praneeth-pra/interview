@@ -2828,3 +2828,641 @@ button:active:not(:disabled) {
     border-color: var(--q);
   }
 }
+/* ---- Contacts (like the Calendly app) ----
+   Home: a search field, every candidate in one list (latest activity first) and a floating sort pill. A contact:
+   back button, avatar and next meeting, an Email / Copy / Results pill, and Activity · Analytics · About tabs. */
+#sumline {
+  display: none !important;
+}
+#home[hidden],
+.tpanel[hidden] {
+  display: none !important;
+}
+#home {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-bottom: 90px;
+}
+#home .row.nav {
+  margin: 4px 0 14px;
+}
+#home #pq {
+  max-width: none;
+  width: 100%;
+}
+.clist {
+  border-radius: 18px;
+  background: var(--c);
+  overflow: hidden;
+}
+.crow {
+  position: relative;
+  display: grid;
+  grid-template-columns: 46px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  height: auto;
+  min-height: 76px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--k);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.crow + .crow:before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 76px;
+  right: 0;
+  border-top: 1px solid var(--d);
+}
+.crow:hover {
+  background: var(--p);
+}
+.crow:active {
+  transform: none;
+  background: var(--d);
+}
+.cav {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  background: var(--n);
+  color: var(--o);
+  font-size: 16px;
+  font-weight: 650;
+}
+.cmain {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cmain b {
+  font-size: 17px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cmeta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  font-size: 14px;
+  color: var(--a);
+}
+.cmeta svg,
+.ahead2 svg {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.cmeta span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.cago {
+  align-self: start;
+  margin-top: 2px;
+  font-size: 13px;
+  color: var(--a);
+}
+.csort {
+  position: fixed;
+  right: max(16px, calc((100vw - 760px) / 2));
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  height: auto;
+  min-height: 0;
+  padding: 10px 20px;
+  border: 1px solid var(--d);
+  border-radius: 999px;
+  background: var(--c);
+  color: var(--k);
+  box-shadow: var(--u);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.csort b {
+  font-size: 15px;
+}
+.csort span {
+  font-size: 12.5px;
+  color: var(--a);
+}
+/* the contact page */
+#an {
+  max-width: 1040px;
+  margin: 0 auto;
+}
+.ctop {
+  margin: 2px 0 14px;
+}
+.back {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 38px;
+  min-height: 0;
+  padding: 0 16px 0 10px;
+  border: 1px solid var(--d);
+  border-radius: 999px;
+  background: var(--c);
+  color: var(--k);
+  font: inherit;
+  font-size: 14.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.back svg {
+  width: 20px;
+  height: 20px;
+}
+#ahead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin: 0;
+  padding: 0;
+  background: none;
+}
+#ahead .who {
+  flex-direction: row !important;
+  align-items: center !important;
+  text-align: left !important;
+  gap: 16px;
+  min-width: 0;
+}
+#ahead .av {
+  width: 64px !important;
+  height: 64px !important;
+  font-size: 22px !important;
+  flex: none;
+}
+#ahead .aname {
+  font-size: 24px !important;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+#ahead #asub {
+  margin-top: 3px;
+  font-size: 14.5px !important;
+  color: var(--a);
+}
+#ahead .hbtns {
+  display: inline-flex !important;
+  width: auto !important;
+  gap: 0 !important;
+  border: 1px solid var(--d);
+  border-radius: 20px;
+  background: var(--c);
+  overflow: hidden;
+}
+#ahead .hact {
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  width: auto !important;
+  height: 64px !important;
+  min-width: 92px;
+  padding: 0 16px !important;
+  border: 0;
+  border-radius: 0 !important;
+  background: none !important;
+  color: var(--m) !important;
+  font: inherit;
+  font-size: 13px !important;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: none !important;
+  cursor: pointer;
+}
+#ahead .hact[hidden] {
+  display: none !important;
+}
+#ahead .hact + .hact {
+  border-left: 1px solid var(--d);
+}
+#ahead .hact:hover {
+  background: var(--p) !important;
+}
+#ahead .hact svg {
+  display: block !important;
+  width: 21px !important;
+  height: 21px !important;
+}
+#ahead .hact span {
+  display: block !important;
+}
+.ctabs {
+  display: flex;
+  gap: 28px;
+  margin: 22px 0 16px;
+  border-bottom: 1px solid var(--d);
+}
+.ctabs button {
+  position: relative;
+  height: auto;
+  min-height: 0;
+  padding: 8px 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--a);
+  font: inherit;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.ctabs button:active {
+  transform: none;
+}
+.ctabs button[aria-selected="true"] {
+  color: var(--k);
+}
+.ctabs button[aria-selected="true"]:after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 3px;
+  border-radius: 3px 3px 0 0;
+  background: var(--m);
+}
+/* Activity */
+#tpAct {
+  max-width: 760px;
+}
+.aday {
+  margin: 22px 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.aday:first-child {
+  margin-top: 4px;
+}
+.aitem {
+  position: relative;
+  margin-bottom: 16px;
+}
+.aitem:before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 26px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--d);
+}
+.ahead2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--a);
+}
+.awhat {
+  flex: 1;
+  min-width: 0;
+}
+.aitem.upcoming .awhat {
+  color: var(--m);
+  font-weight: 600;
+}
+.aitem.canceled .awhat,
+.aitem.noshow .awhat {
+  color: var(--g);
+}
+.aitem.rescheduled .awhat {
+  color: var(--h);
+}
+.acard {
+  position: relative;
+  display: block;
+  width: calc(100% - 28px);
+  height: auto;
+  min-height: 0;
+  margin: 8px 0 0 28px;
+  padding: 14px 16px 14px 24px;
+  border: 1px solid var(--d);
+  border-radius: 16px;
+  background: var(--c);
+  color: var(--k);
+  font: inherit;
+  text-align: left;
+}
+button.acard {
+  cursor: pointer;
+}
+button.acard:hover {
+  border-color: var(--q);
+}
+button.acard:active {
+  transform: none;
+  background: var(--p);
+}
+.acard:before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 12px;
+  bottom: 12px;
+  width: 5px;
+  border-radius: 3px;
+  background: var(--b, var(--q));
+}
+.acard b {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+.acard .sub {
+  margin-top: 4px;
+  font-size: 13.5px;
+}
+.aitem.canceled .acard,
+.aitem.rescheduled .acard {
+  opacity: 0.7;
+}
+.aitem.canceled .acard b,
+.aitem.rescheduled .acard b {
+  text-decoration: line-through;
+}
+/* About */
+#tpAbout {
+  max-width: 760px;
+}
+.agroup {
+  border-radius: 16px;
+  background: var(--c);
+  overflow: hidden;
+}
+.arow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  min-height: 52px;
+  padding: 12px 16px;
+}
+.arow + .arow {
+  border-top: 1px solid var(--d);
+}
+.alabel {
+  color: var(--a);
+  font-size: 14.5px;
+}
+.arow b {
+  font-size: 15px;
+  font-weight: 500;
+  text-align: right;
+  overflow-wrap: anywhere;
+}
+.anote {
+  margin: 12px 4px 0;
+  font-size: 13.5px;
+  color: var(--a);
+}
+/* Analytics: to do and the headline numbers */
+#todo,
+#kpis {
+  margin-bottom: 14px;
+  padding: 16px;
+  border-radius: 18px;
+  background: var(--c);
+}
+#todo .ksec {
+  margin: 0 0 6px;
+  font-size: 15px;
+}
+.tlist {
+  display: flex;
+  flex-direction: column;
+}
+.titem {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 10px 26px 10px 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+  color: var(--k);
+  font: inherit;
+  text-align: left;
+}
+.titem + .titem {
+  border-top: 1px solid var(--d);
+}
+button.titem {
+  cursor: pointer;
+}
+button.titem:active {
+  transform: none;
+  background: var(--p);
+}
+button.titem:after {
+  content: "";
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  margin-top: -4px;
+  border-right: 2px solid var(--q);
+  border-top: 2px solid var(--q);
+  transform: rotate(45deg);
+}
+.tbul {
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--m);
+}
+.titem.iv .tbul {
+  background: var(--h);
+}
+.titem.res .tbul {
+  background: var(--g);
+}
+.ttext {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ttext b {
+  font-size: 14.5px;
+  font-weight: 600;
+}
+.ttext .sub {
+  font-size: 13px;
+}
+.tdone {
+  padding: 6px 0 2px;
+  font-size: 14px;
+  color: var(--j);
+  font-weight: 500;
+}
+.khero {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.khero > b {
+  font-size: 46px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: -0.03em;
+}
+.ktext {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.kl {
+  font-size: 16px;
+  font-weight: 650;
+}
+.ktext .sub {
+  font-size: 13px;
+}
+.kgrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 16px;
+}
+.ktile {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--p);
+}
+.ktile b {
+  font-size: 20px;
+  font-weight: 700;
+}
+.ktile span {
+  font-size: 12px;
+  color: var(--a);
+}
+.ktile.good b {
+  color: var(--j);
+}
+.ktile.bad b {
+  color: var(--g);
+}
+#tpAn #cProg,
+#tpAn #cIns {
+  margin-top: 14px;
+}
+@media (max-width: 700px) {
+  #home {
+    padding-bottom: 96px;
+  }
+  .clist {
+    border-radius: 16px;
+  }
+  .crow {
+    grid-template-columns: 44px minmax(0, 1fr) auto;
+    gap: 12px;
+    min-height: 72px;
+    padding: 10px 14px;
+  }
+  .crow + .crow:before {
+    left: 70px;
+  }
+  .cav {
+    width: 44px;
+    height: 44px;
+  }
+  .cmain b {
+    font-size: 16.5px;
+  }
+  .cmeta {
+    font-size: 13.5px;
+  }
+  .csort {
+    right: 14px;
+  }
+  #ahead {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 18px;
+  }
+  #ahead .av {
+    width: 60px !important;
+    height: 60px !important;
+  }
+  #ahead .aname {
+    font-size: 22px !important;
+  }
+  #ahead .hact {
+    min-width: 84px;
+    height: 60px !important;
+    padding: 0 14px !important;
+  }
+  .ctabs {
+    gap: 26px;
+    margin-top: 20px;
+  }
+  .kgrid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  #tpAn #cProg,
+  #tpAn #cIns {
+    margin-top: 22px !important;
+  }
+}
+.titem[hidden] {
+  display: none;
+}
+.tmore {
+  align-self: flex-start;
+  height: auto;
+  min-height: 0;
+  margin-top: 6px;
+  padding: 6px 0;
+  border: 0;
+  background: none;
+  color: var(--m);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}

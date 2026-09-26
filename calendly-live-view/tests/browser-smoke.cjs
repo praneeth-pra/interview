@@ -27,14 +27,18 @@ const checks = [
     await p.goto(BASE + "/admin");
     await p.locator("#status.live").waitFor({ state: "attached" });
   }],
-  ["admin analytics frame", async (p) => {
+  ["admin contacts", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#tabStats").click();
     const frame = p.frameLocator("iframe.la-frame");
-    await frame.locator("#empty .wtitle").waitFor();
+    await frame.locator("#clist .crow").first().waitFor();
     await frame.locator("#pq").fill("priya");
-    await frame.locator("#plistbox .rrow").first().click();
-    await frame.locator("#an:not([hidden])").waitFor();
+    await frame.locator("#clist .crow").first().click();
+    await frame.locator("#an:not([hidden]) .aitem").first().waitFor();
+    await frame.locator("#tabAn").click();
+    await frame.locator("#kpis .khero").waitFor();
+    await frame.locator("#back").click();
+    await frame.locator("#home:not([hidden]) .crow").first().waitFor();
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");

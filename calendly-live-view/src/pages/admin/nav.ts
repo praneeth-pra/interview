@@ -1,4 +1,4 @@
-// Phone bottom navigation and section title, the Analytics tab, the week/agenda switch (remembered; agenda by default
+// Phone bottom navigation and section title, the Contacts tab, the week/agenda switch (remembered; agenda by default
 // on phones) and the bottom-sheet panel, which can be swiped down to close.
 export function setupNav() {
   function byId(id: string) {
@@ -15,7 +15,7 @@ export function setupNav() {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", allow: "Emails", stats: "Analytics" };
+  var TITLES = { cal: "Calendar", allow: "Emails", stats: "Contacts" };
   function sync() {
     var current = currentView();
     byId("sect").textContent = TITLES[current];

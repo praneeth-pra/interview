@@ -670,107 +670,184 @@ function skelRows(count, label) {
   }
   return box;
 }
-function renderPeople() {
-  var box = byId("plistbox");
-  box.textContent = "";
-  var query = byId<HTMLInputElement>("pq").value.trim();
-  var terms = words(query === chosenName() ? "" : query);
-  if (pickerOpen && terms.length) {
-    if (!peopleLoaded) {
-      box.hidden = false;
-      box.appendChild(skelRows(3, "Loading people…"));
-      return;
-    }
-    var matches = people.filter((person) => {
-      var text = (person.name + " " + niceName(person.name) + " " + (person.company || "")).toLowerCase();
-      for (var i = 0; i < terms.length; i++) {
-        if (text.indexOf(terms[i]) < 0) {
-          return false;
-        }
-      }
-      return true;
-    });
-    box.hidden = false;
-    if (matches.length) {
-      matches.slice(0, 60).forEach((person) => {
-        var row = div("rrow");
-        row.tabIndex = 0;
-        row.setAttribute("role", "button");
-        row.appendChild(span("rav", avOf(niceName(person.name))));
-        var main = div("rmain");
-        main.appendChild(el("b", null, niceName(person.name)));
-        if (person.company) {
-          main.appendChild(div("sub", person.company));
-        }
-        row.appendChild(main);
-        var last = person.last
-          ? fmt(
-              {
-                day: "numeric",
-                month: "short",
-                year: "numeric",
-              },
-              new Date(person.last),
-            )
-          : "";
-        function open() {
-          choose(person);
-        }
-        row.appendChild(
-          span(
-            "sub rmeta",
-            person.count +
-              (person.count === 1 ? " booking" : " bookings") +
-              (last ? " · last " + last : "") +
-              (person.emails > 1 ? " · " + person.emails + " emails" : ""),
-          ),
-        );
-        row.addEventListener("mousedown", (event) => {
-          event.preventDefault();
-        });
-        row.addEventListener("click", open);
-        row.addEventListener("keydown", (event) => {
-          if (event.key === "Enter" || event.key === " ") {
-            event.preventDefault();
-            open();
-          }
-        });
-        box.appendChild(row);
-      });
-    } else {
-      box.appendChild(div("rempty", people.length ? "No one matches." : "No people yet. They appear once their bookings have loaded."));
-    }
+// ---- Contacts: everyone who has booked, the latest activity first (like the Calendly app's Contacts) ----
+var SORTS = [
+  ["recent", "All contacts", "Sorted by recent activity"],
+  ["upcoming", "Upcoming", "Next meeting first"],
+  ["name", "All contacts", "Sorted by name"],
+];
+var sortMode = "recent";
+try {
+  sortMode = localStorage.getItem("ct.sort") || "recent";
+} catch (error) {}
+var homeScroll = 0;
+function initials(name) {
+  var parts = niceName(String(name || "?")).trim().split(/\s+/).filter(Boolean);
+  return ((parts[0] || "?").charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : "")).toUpperCase();
+}
+// "Today at 3:00pm", "Thursday at 3:00pm", "Last Friday at 12:00pm", "Sep 12 at 11:00am"
+function meetingWhen(iso, now, short?) {
+  var date = new Date(iso);
+  var days = dayNum(ymd(date)) - dayNum(ymd(new Date(now)));
+  var label =
+    days === 0
+      ? "Today"
+      : days === 1
+        ? "Tomorrow"
+        : days === -1
+          ? "Yesterday"
+          : Math.abs(days) < 7
+            ? fmt({ weekday: short ? "short" : "long" }, date)
+            : days > -14 && days < 0
+              ? "Last " + fmt({ weekday: short ? "short" : "long" }, date)
+              : fmt({ day: "numeric", month: "short" }, date);
+  return label + " at " + t12(date);
+}
+// "now", "5h", "2d", "1w", "3mo"
+function agoShort(iso, now) {
+  var minutes = Math.max(0, (now - Date.parse(iso)) / 60000);
+  if (minutes < 60) {
+    return "now";
+  } else if (minutes < 1440) {
+    return Math.floor(minutes / 60) + "h";
+  } else if (minutes < 1440 * 7) {
+    return Math.floor(minutes / 1440) + "d";
+  } else if (minutes < 1440 * 35) {
+    return Math.floor(minutes / 10080) + "w";
   } else {
-    box.hidden = true;
+    return Math.floor(minutes / 43200) + "mo";
   }
+}
+var CAL_ICON = "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4";
+function svgIcon(path) {
+  var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.setAttribute("viewBox", "0 0 24 24");
+  svg.setAttribute("aria-hidden", "true");
+  var line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  line.setAttribute("d", path);
+  svg.appendChild(line);
+  return svg;
+}
+function sortedPeople(list) {
+  var now = Date.now();
+  var copy = list.slice();
+  if (sortMode === "name") {
+    copy.sort((first, second) => niceName(first.name).localeCompare(niceName(second.name)));
+  } else if (sortMode === "upcoming") {
+    copy.sort((first, second) => {
+      if (!!first.next !== !!second.next) {
+        return first.next ? -1 : 1;
+      }
+      return first.next ? Date.parse(first.next) - Date.parse(second.next) : Date.parse(second.activity || 0) - Date.parse(first.activity || 0);
+    });
+  } else {
+    copy.sort((first, second) => Date.parse(second.activity || second.last) - Date.parse(first.activity || first.last));
+  }
+  return copy;
+}
+function paintSort() {
+  var mode = SORTS.filter((entry) => entry[0] === sortMode)[0] || SORTS[0];
+  byId("csortt").textContent = mode[1];
+  byId("csortl").textContent = mode[2];
+}
+function renderPeople() {
+  var box = byId("clist");
+  paintSort();
+  box.textContent = "";
+  if (!peopleLoaded) {
+    box.appendChild(skelRows(5, "Loading contacts…"));
+    return;
+  }
+  var terms = words(byId<HTMLInputElement>("pq").value.trim());
+  var now = Date.now();
+  var shown = sortedPeople(people).filter((person) => {
+    var text = (person.name + " " + niceName(person.name) + " " + (person.companies_ || "")).toLowerCase();
+    return terms.every((term) => text.indexOf(term) >= 0);
+  });
+  if (!shown.length) {
+    box.appendChild(div("rempty", people.length ? "No one matches your search." : "No contacts yet. People appear here once they book."));
+    return;
+  }
+  shown.slice(0, 300).forEach((person) => {
+    var row = el("button", "crow");
+    row.type = "button";
+    row.appendChild(span("cav", initials(person.name)));
+    var main = div("cmain");
+    main.appendChild(el("b", null, niceName(person.name)));
+    var meta = div("cmeta");
+    meta.appendChild(svgIcon(CAL_ICON));
+    meta.appendChild(
+      span(
+        null,
+        person.next
+          ? "Next · " + meetingWhen(person.next, now, true)
+          : person.past
+            ? "Last · " + meetingWhen(person.past, now, true)
+            : person.count + (person.count === 1 ? " booking" : " bookings"),
+      ),
+    );
+    main.appendChild(meta);
+    row.appendChild(main);
+    row.appendChild(span("cago", person.activity ? agoShort(person.activity, now) : ""));
+    row.addEventListener("click", () => {
+      choose(person);
+    });
+    box.appendChild(row);
+  });
 }
 function choose(person) {
   chosen = person;
   pickerOpen = false;
-  byId<HTMLInputElement>("pq").value = chosenName();
-  byId<HTMLInputElement>("pq").blur();
-  renderPeople();
   onPick(person);
 }
-byId<HTMLInputElement>("pq").addEventListener("focus", function () {
-  pickerOpen = true;
-  this.select();
+// home ⇄ contact page
+function showDetail() {
+  if (!byId("home").hidden) {
+    homeScroll = window.scrollY;
+  }
+  byId("home").hidden = true;
+  byId("an").hidden = false;
+  window.scrollTo(0, 0);
+}
+function showHome() {
+  closePanel();
+  byId("an").hidden = true;
+  byId("home").hidden = false;
+  chosen = null;
+  data = null;
+  loadSeq++;
   renderPeople();
-});
+  window.scrollTo(0, homeScroll);
+}
+function setTab(name) {
+  [
+    ["tabAct", "tpAct", "act"],
+    ["tabAn", "tpAn", "an"],
+    ["tabAbout", "tpAbout", "about"],
+  ].forEach((entry) => {
+    var on = entry[2] === name;
+    byId(entry[0]).setAttribute("aria-selected", String(on));
+    byId(entry[1]).hidden = !on;
+  });
+}
 byId<HTMLInputElement>("pq").addEventListener("input", () => {
-  pickerOpen = true;
   renderPeople();
 });
-byId<HTMLInputElement>("pq").addEventListener("blur", () => {
-  setTimeout(() => {
-    pickerOpen = false;
-    renderPeople();
-  }, 200);
+byId("csort").addEventListener("click", () => {
+  var index = SORTS.map((entry) => entry[0]).indexOf(sortMode);
+  sortMode = SORTS[(index + 1) % SORTS.length][0];
+  try {
+    localStorage.setItem("ct.sort", sortMode);
+  } catch (error) {}
+  renderPeople();
 });
-byId<HTMLInputElement>("pq").addEventListener("keydown", (event) => {
-  if (event.key === "Escape") {
-    pickerOpen = false;
-    renderPeople();
+byId("back").addEventListener("click", showHome);
+byId("tabAct").addEventListener("click", () => setTab("act"));
+byId("tabAn").addEventListener("click", () => setTab("an"));
+byId("tabAbout").addEventListener("click", () => setTab("about"));
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && !byId("an").hidden && byId("panel").hidden) {
+    showHome();
   }
 });
 var DAY = 86400000;
@@ -1307,9 +1384,13 @@ function loadAnalytics(eventId) {
   data = null;
   results = {};
   insightArgs = null;
-  byId("empty").hidden = true;
-  byId("an").hidden = false;
+  showDetail();
   clearSections();
+  ["tpAct", "tpAbout", "todo", "kpis"].forEach((id) => {
+    byId(id).textContent = "";
+  });
+  byId("aemail").hidden = true;
+  byId("acopy").hidden = true;
   byId("hist").hidden = true;
   byId("reslink").hidden = true;
   byId<HTMLInputElement>("cs").value = "";
@@ -1344,9 +1425,6 @@ function loadAnalytics(eventId) {
             name: data.name,
             event: eventId,
           };
-        }
-        if (document.activeElement !== byId<HTMLInputElement>("pq")) {
-          byId<HTMLInputElement>("pq").value = chosenName();
         }
         restoreLocalResults();
         renderAnalysis();
@@ -2293,58 +2371,67 @@ function cancellations(events, counts) {
   }
   return box;
 }
-function whoInterviewed(events, now) {
+// For each interviewer: the rounds they took with this candidate and how many led to the next round (or were
+// marked cleared/offer), the number an interviewer most wants to know.
+function whoInterviewed(events, now, outcomes) {
   var byName = {};
-  var recorded = 0;
   var missing = 0;
-  events.forEach((event) => {
-    if (event.status === "active" && !event.noShow && !(Date.parse(event.end) > now)) {
-      var interviewer = ivMap[event.id];
-      if (interviewer) {
-        byName[interviewer] = (byName[interviewer] || 0) + 1;
-        recorded++;
-      } else {
-        missing++;
-      }
+  outcomes.forEach((item) => {
+    var interviewer = ivMap[item.event.id];
+    if (!interviewer) {
+      missing++;
+      return;
+    }
+    var entry = (byName[interviewer] = byName[interviewer] || { taken: 0, moved: 0, failed: 0 });
+    entry.taken++;
+    if (item.outcome === "moved") {
+      entry.moved++;
+    } else if (item.outcome === "failed") {
+      entry.failed++;
     }
   });
-  if (!recorded) {
+  var names = Object.keys(byName);
+  if (!names.length) {
     return null;
   }
   var box = el("div");
-  box.appendChild(div("ksec", "Who interviewed"));
-  var most = Math.max.apply(
-    null,
-    Object.keys(byName).map((name) => byName[name]),
-  );
-  Object.keys(byName)
-    .sort((first, second) => byName[second] - byName[first] || (first < second ? -1 : 1))
+  box.appendChild(div("ksec", "Interviewers"));
+  names
+    .sort((first, second) => byName[second].taken - byName[first].taken || (first < second ? -1 : 1))
     .forEach((name) => {
-      kvRow(box, name, byName[name] + (byName[name] === 1 ? " interview" : " interviews"), ivCls(name) + " hasbar");
+      var entry = byName[name];
+      kvRow(
+        box,
+        name,
+        entry.taken + (entry.taken === 1 ? " round" : " rounds") + " · " + entry.moved + " moved on",
+        ivCls(name) + " hasbar",
+      );
       var track = div("ivtrack " + ivCls(name));
       var fill = div("ivfill");
-      fill.style.width = Math.max(4, Math.round((byName[name] / most) * 100)) + "%";
+      fill.style.width = (entry.taken ? Math.round((entry.moved / entry.taken) * 100) : 0) + "%";
       track.appendChild(fill);
       box.appendChild(track);
     });
   if (missing) {
-    kvRow(box, "Not recorded", String(missing));
+    kvRow(box, "Interviewer not recorded", String(missing));
   }
+  box.appendChild(div("why", "Moved on: the company booked a later round, or you marked it Cleared or Offer."));
   return box;
 }
 function onIv() {
-  if (data && insightArgs) {
-    renderInsights.apply(null, insightArgs);
+  if (data) {
+    renderAnalysis();
   }
 }
 function renderInsights(events, rows, counts, progressInfo, now) {
   var section = sectionHead("cIns", "Insights", "");
   var cols = div("icols");
-  cols.appendChild(roundFunnel(rows));
-  var who = whoInterviewed(events, now);
+  cols.appendChild(weeklyChart(events, now));
+  var who = whoInterviewed(events, now, roundOutcomes(rows, now));
   if (who) {
     cols.appendChild(who);
   }
+  cols.appendChild(roundFunnel(rows));
   var cancels = cancellations(events, counts);
   if (cancels) {
     cols.appendChild(cancels);
@@ -2373,6 +2460,254 @@ function renderInsights(events, rows, counts, progressInfo, now) {
   });
   section.appendChild(cols);
 }
+// Every round that has happened, with what came of it: "moved" (a later round was booked, or the company was marked
+// Cleared or Offer), "failed" (marked Not cleared), "other" (On hold or Withdrew) or "pending".
+function roundOutcomes(rows, now) {
+  var list = [];
+  rows.forEach((row) => {
+    row.events.forEach((event) => {
+      if (event.status !== "active" || event.noShow || Date.parse(event.end) > now) {
+        return;
+      }
+      var later = row.events.some((other) => other.status === "active" && Date.parse(other.start) > Date.parse(event.start));
+      var outcome = later
+        ? "moved"
+        : row.override === "cleared" || row.override === "offer"
+          ? "moved"
+          : row.override === "notcleared"
+            ? "failed"
+            : row.override === "hold" || row.override === "withdrew"
+              ? "other"
+              : "pending";
+      list.push({ event: event, row: row, outcome: outcome });
+    });
+  });
+  return list;
+}
+function openBooking(id) {
+  var host = window.parent as any;
+  if (host && host !== window && host.__openB) {
+    host.__openB(id);
+  }
+}
+var canOpenBooking = (() => {
+  try {
+    return window.parent !== window && !!(window.parent as any).__openB;
+  } catch (error) {
+    return false;
+  }
+})();
+// ---- Activity: every interview, reschedule and cancellation, newest first, grouped by day ----
+function renderActivity(events, now) {
+  var box = byId("tpAct");
+  box.textContent = "";
+  var list = events.slice().sort((first, second) => Date.parse(second.start) - Date.parse(first.start));
+  if (!list.length) {
+    box.appendChild(div("rempty", "No activity yet."));
+    return;
+  }
+  var lastDay = "";
+  list.forEach((event) => {
+    var start = new Date(event.start);
+    var day = ymd(start);
+    if (day !== lastDay) {
+      lastDay = day;
+      box.appendChild(div("aday", fmt({ weekday: "long", day: "numeric", month: "short" }, start)));
+    }
+    var kind = evState(event, now);
+    var bookingId = event.rescheduled ? String(event.id).replace(/-moved$/, "") : event.id;
+    var moved = event.rescheduled ? events.filter((other) => other.id === bookingId)[0] : null;
+    var what =
+      kind === "upcoming"
+        ? "Upcoming interview"
+        : kind === "done"
+          ? "You had an interview"
+          : kind === "noshow"
+            ? "No-show"
+            : kind === "rescheduled"
+              ? "Rescheduled" + (moved ? " to " + fmt({ weekday: "short", day: "numeric", month: "short" }, new Date(moved.start)) : "")
+              : "Canceled" + (event.canceledBy === "invitee" ? " by the candidate" : event.canceledBy === "host" ? " by you" : "");
+    var item = div("aitem " + kind);
+    var head = div("ahead2");
+    head.appendChild(svgIcon(CAL_ICON));
+    head.appendChild(span("awhat", what));
+    head.appendChild(span("atime", t12(start)));
+    item.appendChild(head);
+    var interviewer = ivMap[bookingId];
+    var cardEl = el(canOpenBooking ? "button" : "div", "acard " + (interviewer ? ivCls(interviewer) : "none"));
+    if (canOpenBooking) {
+      (cardEl as HTMLButtonElement).type = "button";
+      cardEl.addEventListener("click", () => openBooking(bookingId));
+    }
+    cardEl.appendChild(el("b", null, [event.company, event.round].filter(Boolean).join(" · ") || "Interview"));
+    var minutes = Math.round((Date.parse(event.end) - Date.parse(event.start)) / 60000);
+    cardEl.appendChild(
+      div("sub", minutes + "m" + (interviewer ? " · " + interviewer : kind === "done" ? " · Interviewer not recorded" : "") + (event.cancelReason ? " · " + event.cancelReason : "")),
+    );
+    cardEl.appendChild(div("sub", t12(start) + " – " + t12(new Date(event.end))));
+    item.appendChild(cardEl);
+    box.appendChild(item);
+  });
+}
+// ---- About: emails, first booking, totals, and combining people with the same name ----
+function renderAbout(events) {
+  var box = byId("tpAbout");
+  box.textContent = "";
+  var group = div("agroup");
+  function line(label, value) {
+    var row = div("arow");
+    row.appendChild(span("alabel", label));
+    row.appendChild(el("b", null, value));
+    group.appendChild(row);
+  }
+  (data.emailList || []).forEach((email, index) => {
+    line(index ? "Also" : "Email", email);
+  });
+  var created = events
+    .map((event) => Date.parse(event.created || event.start))
+    .filter((time) => !isNaN(time))
+    .sort((first, second) => first - second)[0];
+  if (created) {
+    line("First booked", fmt({ day: "numeric", month: "short", year: "numeric" }, new Date(created)));
+  }
+  var real = events.filter((event) => !event.rescheduled);
+  line("Bookings", real.length + " (" + real.filter((event) => event.status === "canceled").length + " canceled)");
+  box.appendChild(group);
+  if (data.emails > 1 || !merge) {
+    var note = div("anote");
+    note.appendChild(
+      document.createTextNode(
+        data.emails > 1
+          ? "Bookings from " + data.emails + " email addresses with the same name are shown as one person. "
+          : "Showing this email address only. ",
+      ),
+    );
+    var button = el("button", "linkbtn", data.emails > 1 ? "Show separately" : "Combine again");
+    button.addEventListener("click", () => {
+      setMerge(!merge || data.emails <= 1);
+    });
+    note.appendChild(button);
+    box.appendChild(note);
+  }
+}
+// ---- Analytics: what needs doing, then the numbers that matter to an interviewer ----
+var todoAll = false;
+function renderTodo(rows, outcomes, events, now) {
+  var box = byId("todo");
+  box.textContent = "";
+  var items = [];
+  events
+    .filter((event) => event.status === "active" && Date.parse(event.start) > now && Date.parse(event.start) - now < 2 * DAY)
+    .forEach((event) => {
+      items.push({
+        cls: "soon",
+        text: "Coming up: " + ([event.company, event.round].filter(Boolean).join(" · ") || "Interview"),
+        sub: meetingWhen(event.start, now),
+        act: canOpenBooking ? () => openBooking(event.id) : null,
+      });
+    });
+  outcomes
+    .filter((item) => !ivMap[item.event.id])
+    .forEach((item) => {
+      items.push({
+        cls: "iv",
+        text: "Record who took " + ([item.event.company, item.event.round].filter(Boolean).join(" · ") || "the interview"),
+        sub: fmt({ weekday: "short", day: "numeric", month: "short" }, new Date(item.event.start)),
+        act: canOpenBooking ? () => openBooking(item.event.id) : null,
+      });
+    });
+  rows
+    .filter((row) => !row.override && (row.status === "waiting" || row.status === "quiet"))
+    .forEach((row) => {
+      var days = Math.floor((now - Date.parse(row.whenIso)) / DAY);
+      if (days >= 2) {
+        items.push({
+          cls: "res",
+          text: "Update the result: " + row.name + " · " + row.stage,
+          sub: "Interview was " + days + " days ago",
+          act: () => {
+            openResults();
+            pickCompany(row);
+          },
+        });
+      }
+    });
+  box.appendChild(div("ksec", "To do" + (items.length ? " · " + items.length : "")));
+  var list = div("tlist");
+  if (!items.length) {
+    list.appendChild(div("tdone", "All caught up. Nothing needs you right now."));
+  }
+  items.forEach((item, index) => {
+    var row = el(item.act ? "button" : "div", "titem " + item.cls);
+    if (item.act) {
+      (row as HTMLButtonElement).type = "button";
+      row.addEventListener("click", item.act);
+    }
+    row.hidden = index >= 4 && !todoAll;
+    var text = div("ttext");
+    text.appendChild(el("b", null, item.text));
+    text.appendChild(span("sub", item.sub));
+    row.appendChild(span("tbul"));
+    row.appendChild(text);
+    list.appendChild(row);
+  });
+  if (items.length > 4) {
+    var more = el("button", "tmore", todoAll ? "Show fewer" : "Show " + (items.length - 4) + " more");
+    more.type = "button";
+    more.addEventListener("click", () => {
+      todoAll = !todoAll;
+      renderTodo(rows, outcomes, events, now);
+    });
+    list.appendChild(more);
+  }
+  box.appendChild(list);
+}
+function renderKpis(rows, outcomes, counts, events, now) {
+  var box = byId("kpis");
+  box.textContent = "";
+  var moved = outcomes.filter((item) => item.outcome === "moved").length;
+  var failed = outcomes.filter((item) => item.outcome === "failed").length;
+  var decided = moved + failed;
+  var hero = div("khero");
+  hero.appendChild(el("b", null, decided ? Math.round((moved / decided) * 100) + "%" : "–"));
+  var heroText = div("ktext");
+  heroText.appendChild(span("kl", "Rounds cleared"));
+  heroText.appendChild(
+    span(
+      "sub",
+      decided
+        ? moved + " of " + decided + " rounds with a result moved on" + (outcomes.length > decided ? " · " + (outcomes.length - decided) + " waiting" : "")
+        : outcomes.length
+          ? outcomes.length + (outcomes.length === 1 ? " round is" : " rounds are") + " waiting for a result"
+          : "No interviews yet",
+    ),
+  );
+  hero.appendChild(heroText);
+  box.appendChild(hero);
+  var gaps = rows.map((row) => row.gapAvg).filter((gap) => gap !== null && gap !== undefined);
+  var active = rows.filter((row) => !isClosed(row) && row.override !== "offer").length;
+  var offers = rows.filter((row) => row.override === "offer").length;
+  var upcoming = events.filter((event) => event.status === "active" && Date.parse(event.end) > now).length;
+  var grid = div("kgrid");
+  function tile(value, label, cls?) {
+    var item = div("ktile" + (cls ? " " + cls : ""));
+    item.appendChild(el("b", null, value));
+    item.appendChild(span(null, label));
+    grid.appendChild(item);
+  }
+  tile(String(counts.held.length), counts.held.length === 1 ? "interview done" : "interviews done");
+  tile(String(upcoming), "upcoming");
+  tile(String(active), active === 1 ? "active company" : "active companies");
+  tile(String(offers), offers === 1 ? "offer" : "offers", offers ? "good" : "");
+  if (gaps.length) {
+    var average = gaps.reduce((sum, gap) => sum + gap, 0) / gaps.length;
+    tile(Math.round(average * 10) / 10 + "d", "between rounds");
+  }
+  if (counts.canceled + counts.noshow) {
+    tile(String(counts.canceled + counts.noshow), "canceled or no-show", "bad");
+  }
+  box.appendChild(grid);
+}
 function renderAnalysis() {
   if (data) {
     var events = data.events;
@@ -2383,30 +2718,27 @@ function renderAnalysis() {
     companyRows = rows;
     renderedAt = now;
     byId("aname").textContent = niceName(data.name);
-    byId("av").textContent = avOf(data.name);
-    var sub = byId("asub");
-    sub.textContent = "";
-    if (data.emails > 1) {
-      sub.appendChild(span("long", "Combined from " + data.emails + " email addresses"));
-      sub.appendChild(span("short", data.emails + " emails"));
-      sub.appendChild(document.createTextNode(" · "));
-      addLink("Show separately", () => {
-        setMerge(false);
-      });
-    } else if (!merge) {
-      sub.appendChild(document.createTextNode("Showing one email address only · "));
-      addLink("Combine again", () => {
-        setMerge(true);
-      });
-    }
-    byId("hist").hidden = false;
+    byId("av").textContent = initials(data.name);
+    var upcoming = events
+      .filter((event) => event.status === "active" && Date.parse(event.end) > now)
+      .sort((first, second) => Date.parse(first.start) - Date.parse(second.start))[0];
+    byId("asub").textContent = upcoming ? "Next meeting: " + meetingWhen(upcoming.start, now) : "No upcoming meetings";
+    var firstEmail = (data.emailList || [])[0] || "";
+    var mail = byId<HTMLAnchorElement>("aemail");
+    mail.href = "mailto:" + firstEmail;
+    mail.hidden = !firstEmail;
+    byId("acopy").hidden = !firstEmail;
     byId("reslink").hidden = false;
-    renderSummary(events, rows, counts, now);
+    var outcomes = roundOutcomes(rows, now);
+    renderActivity(events, now);
+    renderAbout(events);
+    renderTodo(rows, outcomes, events, now);
+    renderKpis(rows, outcomes, counts, events, now);
     renderAttention(rows, events, now, progressInfo);
     renderCompanies(rows, now);
     insightArgs = [events, rows, counts, progressInfo, now];
     renderInsights(events, rows, counts, progressInfo, now);
-    ["sumline", "attn", "cgrid", "cIns"].forEach((id) => {
+    ["tpAct", "todo", "kpis", "cgrid", "cIns"].forEach((id) => {
       var node = byId(id);
       node.classList.remove("enter");
       node.offsetWidth;
@@ -2416,11 +2748,6 @@ function renderAnalysis() {
       renderResultsPanel();
     }
     renderedTz = state.tz;
-  }
-  function addLink(text, onClick) {
-    var button = el("button", "linkbtn", text);
-    button.addEventListener("click", onClick);
-    sub.appendChild(button);
   }
 }
 function render() {
@@ -2449,6 +2776,18 @@ byId("hist").onclick = () => {
   }
 };
 byId("reslink").onclick = openResults;
+byId("acopy").onclick = () => {
+  var email = data && data.emailList && data.emailList[0];
+  var label = byId("acopy").querySelector("span");
+  if (email && navigator.clipboard) {
+    navigator.clipboard.writeText(email).then(() => {
+      label.textContent = "Copied";
+      setTimeout(() => {
+        label.textContent = "Copy";
+      }, 1500);
+    });
+  }
+};
 byId<HTMLInputElement>("cs").addEventListener("input", () => {
   renderCompanies(companyRows, renderedAt);
 });

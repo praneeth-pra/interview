@@ -769,6 +769,7 @@ var ICON: Record<string, string> = {
   mail: "M4 6.5h16v11H4zM4.5 7l7.5 6 7.5-6",
   copy: "M9 9h10v10H9zM5 15V5h10",
   chart: "M5 20v-7M12 20V5M19 20v-10M3 20h18",
+  person: "M12 11.6a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2zM5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6",
   cal: "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4",
   clock: "M12 7v5l3 2M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17z",
   moved: "M4 12h13M13 7l5 5-5 5",
@@ -856,7 +857,7 @@ function showBooking(id: string, refresh?: boolean) {
     ]),
   );
 
-  // Quick actions: email, copy the email, open the candidate in Analytics.
+  // Quick actions: email, copy the email, open the candidate in Contacts.
   var actions = el("div", { class: "bk-acts" });
   if (booking.email) {
     actions.appendChild(el("a", { class: "bk-act", href: "mailto:" + booking.email }, [icon("mail"), "Email"]));
@@ -895,7 +896,7 @@ function showBooking(id: string, refresh?: boolean) {
           byId("tabStats").click();
         },
       },
-      [icon("chart"), "Analytics"],
+      [icon("person"), "Contact"],
     ),
   );
   body.appendChild(actions);

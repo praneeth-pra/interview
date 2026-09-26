@@ -242,9 +242,25 @@ function peopleList(data: Data, merge) {
         event: booking.id,
         emails: {},
         companies: {},
+        activity: 0,
+        next: 0,
+        past: 0,
       };
     }
     person.count++;
+    // for the Contacts list: the latest booking or reschedule, and the next and the last meeting
+    var now = Date.now();
+    person.activity = Math.max(
+      person.activity,
+      Date.parse(booking.createdAt) || 0,
+      Date.parse(booking.rescheduledAt) || 0,
+      start <= now ? start : 0,
+    );
+    if (Date.parse(booking.end) > now) {
+      person.next = person.next ? Math.min(person.next, start) : start;
+    } else {
+      person.past = Math.max(person.past, start);
+    }
     person.emails[lower(booking.email)] = 1;
     if (start >= person.last) {
       person.last = start;
@@ -290,6 +306,9 @@ function peopleList(data: Data, merge) {
           .join(", "),
         last: new Date(person.last).toISOString(),
         emails: Object.keys(person.emails).length,
+        activity: person.activity ? new Date(Math.min(person.activity, Date.now())).toISOString() : "",
+        next: person.next ? new Date(person.next).toISOString() : "",
+        past: person.past ? new Date(person.past).toISOString() : "",
       };
     });
 }
@@ -367,6 +386,7 @@ function analyticsFor(data: Data, id, merge) {
     {
       name: booking.name,
       emails: group.emails.length,
+      emailList: group.emails,
       events: events,
     },
   ];
