@@ -785,6 +785,7 @@ var ICON: Record<string, string> = {
   moved: "M4 12h13M13 7l5 5-5 5",
   x: "M6 6l12 12M18 6 6 18",
   note: "M5 4h14v16H5zM8.5 9h7M8.5 13h7M8.5 17h4",
+  download: "M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14",
 };
 function icon(name: string) {
   var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
@@ -1780,12 +1781,27 @@ function showEnquiries() {
             el("a", { href: "tel:" + item.phone.replace(/[^\d+]/g, ""), text: item.phone }),
           ]),
           el("div", { class: "enqa" }, [
-            el("a", {
-              class: "bk-act",
-              href: "/admin/api/enquiries/" + item.id + "/resume",
-              download: item.resume.name,
-              text: "Resume · " + Math.max(1, Math.round(item.resume.size / 1024)) + " KB",
-            }),
+            // the resume opens in a new tab to read; the icon beside it saves it, named after the candidate
+            el("div", { class: "enqr" }, [
+              el("a", {
+                class: "bk-act",
+                href: "/admin/api/enquiries/" + item.id + "/resume",
+                target: "_blank",
+                rel: "noopener",
+                text: "Resume · " + Math.max(1, Math.round(item.resume.size / 1024)) + " KB",
+              }),
+              el(
+                "a",
+                {
+                  class: "bk-act dl",
+                  href: "/admin/api/enquiries/" + item.id + "/resume?download=1",
+                  download: "",
+                  title: "Download resume",
+                  "aria-label": "Download the resume of " + item.name,
+                },
+                [icon("download")],
+              ),
+            ]),
             el("button", {
               type: "button",
               class: "rm",

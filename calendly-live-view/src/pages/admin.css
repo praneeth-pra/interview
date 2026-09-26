@@ -906,6 +906,18 @@ h2 {
   min-height: 38px;
   padding: 6px 14px;
 }
+.enqr {
+  display: flex;
+  gap: 8px;
+}
+.enqa .bk-act.dl {
+  width: 38px;
+  padding: 0;
+}
+.enqa .bk-act.dl svg {
+  width: 18px;
+  height: 18px;
+}
 /* Admins panel: one row per email, then an add field */
 .admrow {
   display: flex;
@@ -2442,6 +2454,14 @@ button,
   background: var(--sub);
 }
 .tbtn.more svg {
+  width: 18px;
+  height: 18px;
+}
+/* the old #dlBtn rule (inline-flex, 14px icon) outranks .tbtn.more, which left the dots small and off to the left */
+#dlBtn.more {
+  justify-content: center;
+}
+#dlBtn.more svg {
   width: 18px;
   height: 18px;
 }

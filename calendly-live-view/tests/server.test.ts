@@ -293,7 +293,12 @@ describe("enquiries", () => {
     const file = await get(open, "/admin/api/enquiries/" + e.id + "/resume");
     expect(file.headers.get("content-type")).toBe("application/pdf");
     expect(file.headers.get("content-disposition")).toContain("filename*=UTF-8''Asha%20Rao%20r%C3%A9sum%C3%A9.pdf");
+    expect(file.headers.get("content-disposition")).toStartWith("inline;");
     expect(new Uint8Array(await file.arrayBuffer())).toEqual(PDF);
+    // the download icon saves it under the candidate's name
+    const saved = await get(open, "/admin/api/enquiries/" + e.id + "/resume?download=1");
+    expect(saved.headers.get("content-disposition")).toBe("attachment; filename=\"Asha Rao resume.pdf\"; filename*=UTF-8''Asha%20Rao%20resume.pdf");
+    expect(new Uint8Array(await saved.arrayBuffer())).toEqual(PDF);
     expect(existsSync(join(open.dir, "resumes", e.id + ".pdf"))).toBe(true);
     expect((await postJson(open, "/admin/api/enquiries/delete", { id: e.id })).status).toBe(200);
     expect((await (await get(open, "/admin/api/enquiries")).json()).enquiries).toEqual([]);
