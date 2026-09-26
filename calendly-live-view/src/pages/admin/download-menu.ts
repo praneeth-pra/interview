@@ -1,4 +1,4 @@
-// The ⋯ menu in the header: New booking, interviewers, downloads and sign-out.
+// The ⋯ menu in the header: New booking, candidates, interviewers, downloads and sign-out.
 export function setupDownloadMenu() {
   var btn = document.getElementById("dlBtn");
   var menu = document.getElementById("dlMenu");
