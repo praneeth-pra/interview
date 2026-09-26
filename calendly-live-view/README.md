@@ -28,7 +28,7 @@ Bookings and settings live as JSON files on the Railway volume mounted at `/data
 ## Run and test
 
 ```bash
-PORT=3000 DATA_DIR=/tmp/bf bun run src/server.ts       # admin is open when ADMIN_LOGIN isn't on
+PORT=3000 DATA_DIR=/tmp/bf bun run src/server.ts       # admin is open when ADMIN_EMAILS isn't set
 bun test tests/                                          # server tests, ~0.5 s
 NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs    # needs the playwright package
 NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origin/main; must match for refactors
@@ -46,7 +46,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 
 | Variable | Purpose |
 | --- | --- |
-| `ADMIN_PASSWORD`, `ADMIN_LOGIN=on` | Admin sign-in (both needed to turn it on) |
+| `ADMIN_EMAILS` | Admin sign-in: the owners' emails (comma separated). Anyone on the admin list signs in with a 6-digit code emailed to them; owners can add more admins in the ⋯ menu (Admins). Unset = the admin page is open to anyone. With email off (no `RESEND_API_KEY`), codes are printed in the server log. |
 | `DATA_DIR` | Folder for the JSON stores (`/data` on Railway) |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `HOST_EMAIL` | Confirmation emails and host copies |
 | `HOST_NAME`, `EVENT_NAME`, `EVENT_LOCATION`, `EVENT_DESCRIPTION`, `MEETING_LINK` | Text shown on pages, emails and invites |
@@ -61,7 +61,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 Every day after `BACKUP_HOUR` (IST) the server:
 
 1. writes a full snapshot to `/data/backups/YYYY-MM-DD.json` (the last 14 days are kept), and
-2. emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with all the data except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device).
+2. emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with all the data except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device) and `sessions.json` (who is signed in; a restore signs everyone out).
 
 `/data/backup-state.json` remembers the last day done, so restarts don't send duplicates; a failed email is retried every 15 minutes that day. The admin header's **Download** menu has the same backup (and the CSV) on demand.
 

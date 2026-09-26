@@ -13,7 +13,8 @@ Read README.md first for layout, commands and deploy.
 - Names, companies and reasons are typed by candidates: build DOM with `textContent`, not `innerHTML` with user text.
 - Fonts: every page (booking, admin, Contacts, sign-in) uses self-hosted Figtree, close to the Calendly app's font. Keep text at 11.5px or larger and grey text at 4.5:1 contrast.
 - **CSS class names are global per page and short** (`.dl`, `.ev`, `.t`, `.go`...). Before adding a class, grep the page's CSS for it; `.dl` already meant the booking panel's details list.
-- Backups (`runBackup` in `src/server.ts`) email candidate data. Keep `push.json` out of anything that leaves the volume.
+- Backups (`runBackup` in `src/server.ts`) email candidate data. Keep `push.json` and `sessions.json` (admin sign-in sessions) out of anything that leaves the volume.
+- Admin sign-in (`ADMIN_EMAILS`, `admins.json`): codes are emailed (printed in the log only when email is off). Never log or return a session token, and give the same answers whether or not an email is an admin.
 
 ## Before pushing
 

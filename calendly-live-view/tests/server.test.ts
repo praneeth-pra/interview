@@ -46,17 +46,35 @@ function seed(dir: string) {
   writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, ...many] }));
 }
 
+// Sign-in codes go out by email; a stand-in for the email API keeps them so the tests can read them.
+const OWNER = "owner@example.com";
+const mails: any[] = [];
+const mailServer = Bun.serve({ port: 4315, fetch: async (req) => (mails.push(await req.json()), Response.json({ id: "x" })) });
+const lockedEnv = { ADMIN_EMAILS: OWNER + ", boss@example.com chief@example.com", RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4315/emails" };
+const postJson = (s: Srv, path: string, body: unknown, headers: Record<string, string> = {}) =>
+  fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+const lastCode = (email: string) => {
+  const mail = mails.filter((m) => m.to[0] === email).at(-1);
+  return mail ? mail.subject.match(/(\d{6})$/)[1] : "";
+};
+// Asks for a code, reads it from the email and signs in; returns the session cookie.
+async function signIn(s: Srv, email: string) {
+  expect((await postJson(s, "/admin/login/code", { email })).status).toBe(200);
+  const r = await postJson(s, "/admin/login", { email, code: lastCode(email) });
+  expect(r.status).toBe(200);
+  return r.headers.get("set-cookie")!.split(";")[0];
+}
+
 let open: Srv;
 let locked: Srv;
+let ownerCookie = "";
 beforeAll(async () => {
-  [open, locked] = await Promise.all([
-    start(4311, { HOST_NAME: "Hi<Techie>" }),
-    start(4312, { ADMIN_PASSWORD: "pw123", ADMIN_LOGIN: "on" }),
-  ]);
+  [open, locked] = await Promise.all([start(4311, { HOST_NAME: "Hi<Techie>" }), start(4312, lockedEnv)]);
 });
 afterAll(() => {
   open?.proc.kill();
   locked?.proc.kill();
+  mailServer.stop(true);
 });
 
 const get = (s: Srv, path: string, headers: Record<string, string> = {}) => fetch(s.url + path, { headers, decompress: false } as RequestInit);
@@ -207,15 +225,24 @@ describe("booking flow", () => {
 describe("admin", () => {
   test("without a session /admin shows the sign-in page and the APIs refuse", async () => {
     const html = await (await get(locked, "/admin")).text();
-    expect(html).toContain('id="pw"');
+    expect(html).toContain('id="em"');
     expect((await get(locked, "/admin/api/state")).status).toBe(401);
   });
 
   test("signing in gives the admin page, and analytics loads as a same-origin frame", async () => {
-    const bad = await fetch(locked.url + "/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "nope" }) });
+    expect((await postJson(locked, "/admin/login/code", { email: OWNER })).status).toBe(200);
+    const code = lastCode(OWNER);
+    expect(code).toMatch(/^\d{6}$/);
+    const wrong = code === "000000" ? "111111" : "000000";
+    const bad = await postJson(locked, "/admin/login", { email: OWNER, code: wrong });
     expect(bad.status).toBe(401);
-    const ok = await fetch(locked.url + "/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "pw123" }) });
+    expect((await bad.json()).error).toContain("isn't right");
+    const ok = await postJson(locked, "/admin/login", { email: " Owner@Example.com ", code });
+    expect(ok.headers.get("set-cookie")).toMatch(/^bf_admin=[a-f0-9]{64}; Path=\/admin; HttpOnly; Secure; SameSite=Lax; Max-Age=\d+$/);
     const cookie = ok.headers.get("set-cookie")!.split(";")[0];
+    ownerCookie = cookie;
+    // a code works once
+    expect((await postJson(locked, "/admin/login", { email: OWNER, code })).status).toBe(401);
     const admin = await get(locked, "/admin", { cookie });
     const html = await admin.text();
     expect(boot(html)).toEqual({ tab: "cal", login: true, build: expect.stringMatching(/^[0-9a-z]+$/) });
@@ -228,13 +255,75 @@ describe("admin", () => {
     expect(la.headers.get("x-frame-options")).toBe("SAMEORIGIN");
     expect(la.headers.get("content-security-policy")).toContain("frame-ancestors 'self'");
     const out = await get(locked, "/admin/analytics");
-    expect(await out.text()).toContain('id="pw"');
+    expect(await out.text()).toContain('id="em"');
     expect(out.headers.get("x-frame-options")).toBe("SAMEORIGIN");
     // only real admin pages may be kept for offline use; the sign-in page never is
     expect(admin.headers.get("x-app-shell")).toBe("1");
     expect(la.headers.get("x-app-shell")).toBe("1");
     expect(out.headers.get("x-app-shell")).toBeNull();
     expect((await get(locked, "/admin")).headers.get("x-app-shell")).toBeNull();
+  });
+
+  test("codes are emailed only to admins, with the same answer for anyone else", async () => {
+    const before = mails.length;
+    const r = await postJson(locked, "/admin/login/code", { email: "stranger@example.com" });
+    expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: true, minutes: 10 });
+    await Bun.sleep(100);
+    expect(mails.length).toBe(before);
+    // asking again straight away is refused for anyone, so the answer never tells who is an admin
+    expect((await postJson(locked, "/admin/login/code", { email: "stranger@example.com" })).status).toBe(429);
+    expect((await postJson(locked, "/admin/login/code", { email: "not an email" })).status).toBe(400);
+    // the email's subject carries the code, for the phone's notification
+    await postJson(locked, "/admin/login/code", { email: "boss@example.com" });
+    const mail = mails.at(-1);
+    expect(mail.to).toEqual(["boss@example.com"]);
+    expect(mail.subject).toMatch(/^Sign-in code: \d{6}$/);
+    expect(mail.text).toContain(lastCode("boss@example.com"));
+  });
+
+  test("five wrong codes end the code", async () => {
+    const email = "boss@example.com";
+    const code = lastCode(email);
+    const wrong = code === "000000" ? "111111" : "000000";
+    for (let i = 0; i < 5; i++) expect((await postJson(locked, "/admin/login", { email, code: wrong })).status).toBe(401);
+    // even the right code no longer works
+    expect((await postJson(locked, "/admin/login", { email, code })).status).toBe(401);
+  });
+
+  test("owners add and remove admins; a removed admin is signed out everywhere", async () => {
+    const cookie = ownerCookie;
+    const owners = ["boss@example.com", "chief@example.com", OWNER];
+    const list = await (await get(locked, "/admin/api/admins", { cookie })).json();
+    expect(list).toEqual({ owners, emails: [], me: OWNER });
+    const added = await postJson(locked, "/admin/api/admins", { emails: ["Helper@Example.com", OWNER] }, { cookie });
+    expect(await added.json()).toEqual({ owners, emails: ["helper@example.com"], me: OWNER });
+    const helper = await signIn(locked, "helper@example.com");
+    expect((await get(locked, "/admin/api/state", { cookie: helper })).status).toBe(200);
+    // the volume keeps only a hash of the cookie
+    const stored = readFileSync(join(locked.dir, "sessions.json"), "utf8");
+    expect(stored).toContain("helper@example.com");
+    expect(stored).not.toContain(helper.split("=")[1]);
+    // a helper can't take themselves off the list
+    const self = await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie: helper });
+    expect(self.status).toBe(400);
+    expect((await postJson(locked, "/admin/api/admins", { emails: ["bad"] }, { cookie })).status).toBe(400);
+    // their live updates stop too
+    const live = await get(locked, "/admin/stream", { cookie: helper });
+    const reader = live.body!.getReader();
+    await reader.read();
+    expect((await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie })).status).toBe(200);
+    for (let r = await reader.read(); !r.done; r = await reader.read());
+    expect((await get(locked, "/admin/api/state", { cookie: helper })).status).toBe(401);
+    expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(200);
+  });
+
+  test("signing out ends the session on the server too", async () => {
+    const cookie = await signIn(locked, "chief@example.com");
+    expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(200);
+    const out = await postJson(locked, "/admin/logout", {}, { cookie });
+    expect(out.headers.get("set-cookie")).toContain("Max-Age=0");
+    expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(401);
   });
 
   test("the service worker caches admin pages and assets only, and forgets them on sign-out", async () => {
@@ -286,7 +375,7 @@ describe("backups", () => {
   const sent: any[] = [];
   let resend: ReturnType<typeof Bun.serve>;
   let srv: Srv;
-  const env = { RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4314/emails", BACKUP_EMAIL: "owner@example.com", BACKUP_HOUR: "0", ADMIN_PASSWORD: "pw123", ADMIN_LOGIN: "on" };
+  const env = { RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4314/emails", BACKUP_EMAIL: "owner@example.com", BACKUP_HOUR: "0", ADMIN_EMAILS: "owner@example.com" };
   const istDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
   const waitFor = async (ok: () => boolean) => {
     for (let i = 0; i < 100 && !ok(); i++) await Bun.sleep(30);
@@ -314,7 +403,7 @@ describe("backups", () => {
     expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
     const data = JSON.parse(files["backup-" + istDay() + ".json"]);
     expect(data.app).toBe("booking-form");
-    expect(Object.keys(data.files).sort()).toEqual(["allowlist.json", "bookings.json", "interviewers.json", "results.json", "secret.json"]);
+    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "interviewers.json", "results.json", "secret.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["secret.json"].key).toBe(KEY);
   });
@@ -349,7 +438,9 @@ describe("backups", () => {
 
   test("the admin can download a backup, and only when signed in", async () => {
     expect((await get(srv, "/admin/backup.json")).status).toBe(401);
-    const ok = await fetch(srv.url + "/admin/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ password: "pw123" }) });
+    expect((await postJson(srv, "/admin/login/code", { email: "owner@example.com" })).status).toBe(200);
+    const code = sent.at(-1).subject.match(/(\d{6})$/)[1];
+    const ok = await postJson(srv, "/admin/login", { email: "owner@example.com", code });
     const r = await get(srv, "/admin/backup.json", { cookie: ok.headers.get("set-cookie")!.split(";")[0] });
     expect(r.headers.get("content-disposition")).toBe('attachment; filename="backup-' + istDay() + '.json"');
     const data = await r.json();

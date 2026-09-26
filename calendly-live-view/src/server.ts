@@ -1,4 +1,4 @@
-import { createCipheriv, createECDH, createHmac, createPrivateKey, hkdfSync, randomBytes, sign as cryptoSign, timingSafeEqual } from "node:crypto";
+import { createCipheriv, createECDH, createHash, createHmac, createPrivateKey, hkdfSync, randomBytes, randomInt, sign as cryptoSign, timingSafeEqual } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { mkdir, readdir, rm } from "node:fs/promises";
 import { join } from "node:path";
@@ -10,8 +10,6 @@ const ICON = encode(readFileSync(join(import.meta.dir, "../public/icon.png")), "
 for (const a of assetList()) console.log("asset " + a.url + " (" + a.raw + " bytes, " + a.br + " compressed)");
 const PORT = Number(Bun.env.PORT ?? 3000);
 const DATA_DIR = (Bun.env.DATA_DIR ?? "").trim().replace(/\/+$/, "");
-const ADMIN_PASSWORD = (Bun.env.ADMIN_PASSWORD ?? "").trim();
-const LOGIN_ON = !!ADMIN_PASSWORD && /^(on|true|yes|1)$/i.test((Bun.env.ADMIN_LOGIN ?? "").trim());
 const HOST_NAME = (Bun.env.HOST_NAME ?? "Hi-Techie").trim();
 const EVENT_NAME = (Bun.env.EVENT_NAME ?? "Interview").trim();
 const RESEND_API_KEY = (Bun.env.RESEND_API_KEY ?? "").trim();
@@ -117,6 +115,27 @@ emails: [...new Set<string>((Array.isArray(x?.emails) ? x.emails : []).map(normE
 }),
 );
 const emailAllowed = (email: string) => !allowStore.data.enabled || allowStore.data.emails.includes(normEmail(email));
+// Admin sign-in. ADMIN_EMAILS (the owners) turns it on; owners can add more admins in the admin page (admins.json).
+// Anyone on the list signs in with a 6-digit code sent by email. Sessions are kept on the volume by a hash of the
+// cookie, so removing someone from the list signs out all their devices at once.
+const OWNER_EMAILS = [...new Set((Bun.env.ADMIN_EMAILS ?? "").split(/[,;\s]+/).map(normEmail).filter((e) => EMAIL_RE.test(e)))];
+const LOGIN_ON = OWNER_EMAILS.length > 0;
+const adminsStore = fileStore<{ emails: string[] }>(
+"admins.json",
+() => ({ emails: [] }),
+(x) => ({ emails: [...new Set<string>((Array.isArray(x?.emails) ? x.emails : []).map(normEmail).filter((e: string) => EMAIL_RE.test(e)))].slice(0, 50) }),
+);
+type Session = { id: string; email: string; created: string; seen: string; device: string };
+const sessionsStore = fileStore<{ sessions: Session[] }>(
+"sessions.json",
+() => ({ sessions: [] }),
+(x) => ({
+sessions: Array.isArray(x?.sessions)
+? x.sessions.filter((v: any) => v && typeof v.id === "string" && typeof v.email === "string" && typeof v.seen === "string")
+: [],
+}),
+);
+const isAdmin = (email: string) => OWNER_EMAILS.includes(email) || adminsStore.data.emails.includes(email);
 function knownName(email: string) {
 const e = normEmail(email);
 const groups = new Map<string, { n: number; last: number; spell: Map<string, { n: number; last: number }> }>();
@@ -554,7 +573,18 @@ e.waitUntil(self.registration.showNotification(d.title||"Hi-Techie",{body:d.body
 self.addEventListener("notificationclick",function(e){e.notification.close();var url=(e.notification.data&&e.notification.data.url)||"/admin";
 e.waitUntil(self.clients.matchAll({type:"window",includeUncontrolled:true}).then(function(ws){for(var i=0;i<ws.length;i++){var w=ws[i];if(new URL(w.url).pathname.indexOf("/admin")===0){if(w.navigate)w.navigate(url).catch(function(){});return w.focus()}}return self.clients.openWindow(url)}))});`;
 const enc = new TextEncoder();
-const streams = new Set<ReadableStreamDefaultController>();
+// Live admin updates, each with the session that opened it ("" when sign-in is off); a stream whose session has ended
+// (signed out, or removed from the admin list) is closed at the next update.
+const streams = new Map<ReadableStreamDefaultController, string>();
+function closeEndedStreams() {
+for (const [c, sid] of streams) {
+if (!sid || sessionsStore.data.sessions.some((v) => v.id === sid && liveSession(v))) continue;
+streams.delete(c);
+try {
+c.close();
+} catch {}
+}
+}
 const pub = (b: Booking) => ({
 id: b.id, name: b.name, email: b.email, company: b.company, round: b.round, start: b.start, end: b.end, duration: b.duration,
 createdAt: b.createdAt, source: b.source ?? "", cancelled: b.cancelled, cancelledAt: b.cancelledAt, cancelledBy: b.cancelledBy ?? "",
@@ -579,8 +609,9 @@ changes,
 };
 }
 function send(event: string, data: unknown) {
+closeEndedStreams();
 const chunk = enc.encode("event: " + event + "\ndata: " + JSON.stringify(data) + "\n\n");
-for (const c of streams) {
+for (const c of streams.keys()) {
 try {
 c.enqueue(chunk);
 } catch {
@@ -593,29 +624,101 @@ if (streams.size) send("state", adminState());
 };
 setInterval(() => send("tick", {}), 15000);
 const SESSION_COOKIE = "bf_admin";
-const sessionToken = () => createHmac("sha256", ADMIN_PASSWORD).update("booking-form admin session v1").digest("hex");
+const DAY_MS = 86400000;
+const SESSION_DAYS = 60; // signed out after this many days without opening the admin
+const sha256 = (text: string) => createHash("sha256").update(text).digest("hex");
 function safeEq(a: string, b: string) {
 const x = Buffer.from(a);
 const y = Buffer.from(b);
 return x.length === y.length && timingSafeEqual(x, y);
 }
-function hasSession(req: Request) {
-if (!LOGIN_ON) return true;
+// Lax, not Strict: a link to the admin page from an email or a chat app should open it signed in. Other sites still
+// can't use the session: a Lax cookie goes only with top-level page visits, and changes need JSON POSTs.
+const sessionCookie = (token: string, maxAge: number) => SESSION_COOKIE + "=" + token + "; Path=/admin; HttpOnly; Secure; SameSite=Lax; Max-Age=" + maxAge;
+const liveSession = (v: Session) => isAdmin(v.email) && Date.parse(v.seen) + SESSION_DAYS * DAY_MS > Date.now();
+function sessionOf(req: Request): Session | null {
 const m = (req.headers.get("cookie") ?? "").match(/(?:^|;\s*)bf_admin=([a-f0-9]{64})/);
-return !!m && safeEq(m[1], sessionToken());
+if (!m) return null;
+const id = sha256(m[1]);
+const found = sessionsStore.data.sessions.find((v) => v.id === id);
+if (!found || !liveSession(found)) return null;
+// keep active devices signed in; write at most a few times a day
+if (Date.now() - Date.parse(found.seen) > 6 * 3600000) {
+found.seen = new Date().toISOString();
+saveStore(sessionsStore).catch(() => {});
 }
-let wrong = 0;
-let wrongReset = 0;
-function passwordOk(pw: string): "ok" | "wrong" | "throttled" {
-if (Date.now() > wrongReset) {
-wrong = 0;
-wrongReset = Date.now() + 60000;
+return found;
 }
-if (wrong >= 10) return "throttled";
-if (ADMIN_PASSWORD && pw && safeEq(pw, ADMIN_PASSWORD)) return "ok";
-wrong++;
+function dropSessions(keep: (v: Session) => boolean) {
+const before = sessionsStore.data.sessions.length;
+sessionsStore.data.sessions = sessionsStore.data.sessions.filter((v) => keep(v) && liveSession(v));
+closeEndedStreams();
+return sessionsStore.data.sessions.length !== before ? saveStore(sessionsStore) : Promise.resolve();
+}
+function deviceName(req: Request) {
+const ua = req.headers.get("user-agent") ?? "";
+const os = /iPhone/.test(ua) ? "iPhone" : /iPad/.test(ua) ? "iPad" : /Android/.test(ua) ? "Android" : /Mac OS X/.test(ua) ? "Mac" : /Windows/.test(ua) ? "Windows" : "Browser";
+const app = /EdgA?\//.test(ua) ? "Edge" : /CriOS|Chrome\//.test(ua) ? "Chrome" : /FxiOS|Firefox\//.test(ua) ? "Firefox" : /Safari\//.test(ua) ? "Safari" : "";
+return app ? os + " · " + app : os;
+}
+// Sign-in codes live in memory for 10 minutes; five wrong tries end a code. Asking is limited per email (one code
+// every 30 seconds, five an hour) and per network address, the same whether or not the email is an admin.
+const CODE_MINUTES = 10;
+const pendingCodes = new Map<string, { hash: string; exp: number; tries: number }>();
+const codeAsks = new Map<string, number[]>();
+const hitCounts = new Map<string, { n: number; reset: number }>();
+function underLimit(key: string, max: number, windowMs: number) {
+const now = Date.now();
+if (hitCounts.size > 5000) for (const [k, v] of hitCounts) if (v.reset < now) hitCounts.delete(k);
+const h = hitCounts.get(key);
+if (!h || h.reset < now) {
+hitCounts.set(key, { n: 1, reset: now + windowMs });
+return true;
+}
+return ++h.n <= max;
+}
+const codeHash = (email: string, code: string) => sha256(email + ":" + code);
+async function sendSignInCode(email: string): Promise<"ok" | "wait" | "limit" | "failed"> {
+const now = Date.now();
+const asks = (codeAsks.get(email) ?? []).filter((t) => t > now - 3600000);
+if (asks.length && now - asks[asks.length - 1] < 30000) return "wait";
+if (asks.length >= 5) return "limit";
+asks.push(now);
+codeAsks.set(email, asks);
+if (!isAdmin(email)) return "ok";
+const code = String(randomInt(0, 1000000)).padStart(6, "0");
+pendingCodes.set(email, { hash: codeHash(email, code), exp: now + CODE_MINUTES * 60000, tries: 0 });
+if (!RESEND_API_KEY) {
+console.log("sign-in code for " + email + ": " + code + " (email is off, so it is only shown here)");
+return "ok";
+}
+const body = emailBody({
+heading: "Your sign-in code",
+intro: "Enter this code on the " + HOST_NAME + " admin sign-in page. It works for " + CODE_MINUTES + " minutes.",
+rows: [["Code", code]],
+note: "If you didn't try to sign in, you can ignore this email. Nobody can sign in without the code.",
+});
+// the subject shows the code in the phone's notification; sendEmail logs only the part before the colon
+return (await sendEmail({ to: [email], subject: "Sign-in code: " + code, ...body })) ? "ok" : "failed";
+}
+function checkSignInCode(email: string, code: string): "ok" | "wrong" | "expired" | "tries" {
+const p = pendingCodes.get(email);
+if (!p || p.exp < Date.now()) {
+pendingCodes.delete(email);
+return "expired";
+}
+if (p.tries >= 5) {
+pendingCodes.delete(email);
+return "tries";
+}
+if (!safeEq(codeHash(email, code), p.hash)) {
+p.tries++;
 return "wrong";
 }
+pendingCodes.delete(email);
+return "ok";
+}
+const adminsView = (me: string) => ({ owners: [...OWNER_EMAILS].sort(), emails: [...adminsStore.data.emails].sort(), me });
 const BASE_HEADERS = {
 "X-Content-Type-Options": "nosniff",
 "Referrer-Policy": "no-referrer",
@@ -656,6 +759,8 @@ await loadStore(allowStore);
 await loadStore(secretStore);
 await loadStore(pushStore);
 await loadStore(resultsStore);
+await loadStore(adminsStore);
+await loadStore(sessionsStore);
 if (!pushStore.data.pub || !pushStore.data.priv) {
 const kp = createECDH("prime256v1");
 kp.generateKeys();
@@ -686,6 +791,12 @@ console.log("cleanup: removed " + gone.length + " booking(s)" + (gone.length ? "
 }
 console.log(RESEND_API_KEY ? "email: on, sending as " + EMAIL_FROM : "email: off (set RESEND_API_KEY to send invites)");
 console.log("allowlist: " + (allowStore.data.enabled ? "on" : "off") + ", " + allowStore.data.emails.length + " emails");
+console.log(
+LOGIN_ON
+? "admin sign-in: on, " + (OWNER_EMAILS.length + adminsStore.data.emails.length) + " admin email(s)"
+: "admin sign-in: OFF, the admin page is open to anyone (set ADMIN_EMAILS to require sign-in)",
+);
+if (Bun.env.ADMIN_PASSWORD || Bun.env.ADMIN_LOGIN) console.log("ADMIN_PASSWORD and ADMIN_LOGIN are no longer used: admins sign in with an emailed code (ADMIN_EMAILS)");
 console.log("browser alerts: " + pushStore.data.subs.length + " device(s)");
 console.log("analytics results: " + Object.keys(resultsStore.data.people).length + " candidate(s)");
 const safeJson = (x: unknown) => JSON.stringify(x).replace(/</g, "\\u003c");
@@ -895,7 +1006,8 @@ const backupStateStore = fileStore<{ saved: string; emailed: string }>("backup-s
 saved: typeof x?.saved === "string" ? x.saved : "",
 emailed: typeof x?.emailed === "string" ? x.emailed : "",
 }));
-// Everything needed to restore. push.json (browser-alert keys) is only in the on-volume snapshots.
+// Everything needed to restore. push.json (browser-alert keys) is only in the on-volume snapshots; sessions.json
+// (who is signed in) is never copied, so a restore signs everyone out.
 function backupData(withPush: boolean) {
 return {
 app: "booking-form",
@@ -905,6 +1017,7 @@ files: {
 "bookings.json": bookingsStore.data,
 "interviewers.json": ivStore.data,
 "allowlist.json": allowStore.data,
+"admins.json": adminsStore.data,
 "results.json": resultsStore.data,
 "secret.json": secretStore.data,
 ...(withPush ? { "push.json": pushStore.data } : {}),
@@ -1040,27 +1153,79 @@ return path.endsWith("cancel")
 ? cancelBooking(b, String(body?.reason ?? ""), "candidate", req)
 : moveBooking(b, Number(body?.startMs), Number(body?.duration), "candidate", req);
 }
-if (path === "/admin/login" && method === "POST") {
+if ((path === "/admin/login/code" || path === "/admin/login") && method === "POST") {
 if (!LOGIN_ON) return json({ ok: true });
 const body = await readJson(req, 1000);
 if (body instanceof Response) return body;
-const r = passwordOk(String(body?.password ?? ""));
-if (r === "throttled") return json({ error: "Too many wrong passwords. Wait a minute and try again." }, 429);
-if (r === "wrong") return json({ error: "That password isn't right." }, 401);
-return json({ ok: true }, 200, {
-"Set-Cookie": SESSION_COOKIE + "=" + sessionToken() + "; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=2592000",
-});
+const email = normEmail(body?.email);
+if (!EMAIL_RE.test(email) || email.length > 200) return json({ error: "Enter a valid email address." }, 400);
+const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || srv.requestIP(req)?.address || "unknown";
+if (path === "/admin/login/code") {
+if (!underLimit("code:" + ip, 20, 3600000)) return json({ error: "Too many codes asked for from this network. Try again in an hour." }, 429);
+const r = await sendSignInCode(email);
+if (r === "wait") return json({ error: "A code was just sent. Wait 30 seconds before asking for another." }, 429);
+if (r === "limit") return json({ error: "Too many codes asked for this email. Try again in an hour." }, 429);
+if (r === "failed") return json({ error: "Couldn't send the email. Try again in a minute." }, 502);
+return json({ ok: true, minutes: CODE_MINUTES });
 }
-if (path === "/admin/logout" && method === "POST")
-return json({ ok: true }, 200, { "Set-Cookie": SESSION_COOKIE + "=; Path=/admin; HttpOnly; Secure; SameSite=Strict; Max-Age=0" });
+if (!underLimit("try:" + ip, 30, 600000)) return json({ error: "Too many tries. Wait 10 minutes and try again." }, 429);
+const r = checkSignInCode(email, String(body?.code ?? "").replace(/\D/g, ""));
+// one answer for every failure, so trying codes can't tell an admin's email from anyone else's
+if (r !== "ok") return json({ error: "That code isn't right or has expired. Check the latest email, or ask for a new code." }, 401);
+if (!isAdmin(email)) return json({ error: "This email isn't on the admin list any more." }, 403);
+const token = randomBytes(32).toString("hex");
+const now = new Date().toISOString();
+// the newest 20 devices per person stay signed in
+const mine = sessionsStore.data.sessions.filter((v) => v.email === email).sort((x, y) => Date.parse(y.seen) - Date.parse(x.seen));
+const dropIds = new Set(mine.slice(19).map((v) => v.id));
+sessionsStore.data.sessions = sessionsStore.data.sessions.filter((v) => !dropIds.has(v.id) && liveSession(v));
+sessionsStore.data.sessions.push({ id: sha256(token), email, created: now, seen: now, device: deviceName(req) });
+try {
+await saveStore(sessionsStore);
+} catch {
+return json({ error: "Couldn't sign in. Try again." }, 500);
+}
+console.log("admin sign-in: " + email + " (" + deviceName(req) + ")");
+return json({ ok: true }, 200, { "Set-Cookie": sessionCookie(token, 400 * 86400) });
+}
+if (path === "/admin/logout" && method === "POST") {
+const me = LOGIN_ON ? sessionOf(req) : null;
+if (me) await dropSessions((v) => v.id !== me.id).catch(() => {});
+return json({ ok: true }, 200, { "Set-Cookie": sessionCookie("", 0) });
+}
 if (path === "/admin" || path.startsWith("/admin/")) {
-const authed = hasSession(req);
+const me = LOGIN_ON ? sessionOf(req) : null;
+const authed = !LOGIN_ON || !!me;
 if ((path === "/admin" || path === "/admin/allowlist") && method === "GET") {
 if (!authed) return sendShell(req, LOGIN);
 return sendShell(req, path === "/admin" ? ADMIN_CAL : ADMIN_ALLOW);
 }
 if (path === "/admin/analytics" && method === "GET") return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
 if (!authed) return json({ error: "Sign in again." }, 401);
+// Who can sign in: the owners (ADMIN_EMAILS, fixed) and the admins they add here.
+if (path === "/admin/api/admins" && method === "GET") return json(adminsView(me?.email ?? ""));
+if (path === "/admin/api/admins" && method === "POST") {
+if (!me) return json({ error: "Admin sign-in is off, so there is no admin list." }, 409);
+const body = await readJson(req, 10000);
+if (body instanceof Response) return body;
+if (!Array.isArray(body?.emails) || body.emails.length > 50) return json({ error: "You can have up to 50 admins." }, 400);
+const emails = [...new Set<string>(body.emails.map(normEmail))];
+const bad = emails.find((e) => !EMAIL_RE.test(e) || e.length > 200);
+if (bad !== undefined) return json({ error: (bad || "An empty entry") + " isn't a valid email address." }, 400);
+const list = emails.filter((e) => !OWNER_EMAILS.includes(e));
+if (!OWNER_EMAILS.includes(me.email) && !list.includes(me.email)) return json({ error: "You can't remove yourself. Ask an owner to do it." }, 400);
+const prev = adminsStore.data.emails;
+adminsStore.data.emails = list;
+try {
+await saveStore(adminsStore);
+} catch {
+adminsStore.data.emails = prev;
+return json({ error: "Couldn't save the change. Try again." }, 500);
+}
+// removed admins are signed out everywhere
+await dropSessions((v) => isAdmin(v.email)).catch(() => {});
+return json(adminsView(me.email));
+}
 if (path === "/admin/api/state" && method === "GET") return json(adminState());
 if (path === "/admin/api/push" && method === "GET") return json(pushView());
 if (path.startsWith("/admin/api/push/") && method === "POST") {
@@ -1245,7 +1410,7 @@ let ctrl: ReadableStreamDefaultController;
 const stream = new ReadableStream({
 start(c) {
 ctrl = c;
-streams.add(c);
+streams.set(c, me ? me.id : "");
 c.enqueue(enc.encode("retry: 3000\n\nevent: state\ndata: " + JSON.stringify(adminState()) + "\n\n"));
 },
 cancel() {
