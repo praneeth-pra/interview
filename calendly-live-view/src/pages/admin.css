@@ -1993,10 +1993,10 @@ main.tab-fade > section {
     transform: translateY(8px);
   }
 }
-.ag-body.swipe-next {
+.agenda.swipe-next {
   animation: swipeNext 0.28s var(--ease);
 }
-.ag-body.swipe-prev {
+.agenda.swipe-prev {
   animation: swipePrev 0.28s var(--ease);
 }
 @keyframes swipeNext {
@@ -3319,164 +3319,6 @@ main.tab-fade > section {
   font-weight: 600;
   line-height: 16px;
   font-variant-numeric: tabular-nums;
-}
-/* Day/Week switch: a segmented control whose thumb slides to the picked view */
-.ag-sw {
-  position: relative;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  width: 200px;
-  margin: 0 auto 12px;
-  padding: 3px;
-  border-radius: 12px;
-  background: var(--sub);
-  box-shadow: inset 0 0 0 1px var(--line);
-}
-.ag-sw button {
-  position: relative;
-  z-index: 1;
-  padding: 6px 0;
-  border: 0;
-  border-radius: 9px;
-  background: none;
-  color: var(--ink2);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  -webkit-tap-highlight-color: transparent;
-  transition: color 0.2s ease;
-}
-.ag-sw button:active:not(:disabled) {
-  transform: none;
-}
-.ag-sw button[aria-pressed="true"] {
-  color: var(--ink);
-}
-.ag-sw-p {
-  position: absolute;
-  top: 3px;
-  bottom: 3px;
-  left: 3px;
-  width: calc(50% - 3px);
-  border-radius: 9px;
-  background: var(--card);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 0 0 0.5px rgba(0, 0, 0, 0.04);
-  transition: transform 0.3s cubic-bezier(0.3, 1.3, 0.5, 1);
-}
-.ag-sw.is-wk .ag-sw-p {
-  transform: translateX(100%);
-}
-.ag-body.sw-in {
-  animation: agSwitch 0.26s var(--ease);
-}
-@keyframes agSwitch {
-  from {
-    opacity: 0;
-    transform: scale(0.985) translateY(6px);
-  }
-}
-/* Week view: the day headings over a column per day, today's column faintly tinted */
-.agw-h {
-  display: grid;
-  grid-template-columns: 44px repeat(7, minmax(0, 1fr));
-  margin: 0 0 4px;
-}
-.agw-h .ws-b {
-  padding: 4px 0;
-}
-.agw-h .ws-b b {
-  width: 30px;
-  height: 30px;
-  font-size: 15px;
-}
-.ag-grid.agw .ag-hr span {
-  width: 40px;
-  padding-right: 5px;
-  white-space: nowrap;
-}
-.agw-cols {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  left: 44px;
-  right: 0;
-  display: grid;
-  grid-template-columns: repeat(7, minmax(0, 1fr));
-}
-.agw-c {
-  position: relative;
-  border-left: 1px solid var(--line);
-}
-.agw-c.today {
-  background: var(--tint);
-}
-.agw .ag-i {
-  gap: 0;
-  padding: 3px;
-  border-top-width: 2.5px;
-  border-radius: 2px 2px 6px 6px;
-}
-.agw .ag-i b {
-  font-size: 11.5px;
-  line-height: 1.3;
-  text-overflow: clip;
-}
-.agw .ag-t {
-  font-size: 11.5px;
-  line-height: 1.25;
-  color: var(--ink2);
-  font-weight: 500;
-}
-.agw .ag-i.short {
-  flex-direction: column;
-  padding-top: 2px;
-}
-.agw .ag-i.short .ag-t {
-  display: none;
-}
-.agw .ag-i .need-dot {
-  top: 4px;
-  right: 3px;
-  width: 6px;
-  height: 6px;
-}
-/* phones: the week's columns are too narrow for times; the hour lines give them */
-@media (max-width: 760px) {
-  .agw .ag-t {
-    display: none;
-  }
-}
-/* the time now in Week view: a line across today's column with a dot at its start */
-.agw .ag-now:before {
-  content: "";
-  position: absolute;
-  left: -5px;
-  top: -5px;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--blue);
-}
-@media (min-width: 761px) {
-  .agenda.is-wk {
-    max-width: 900px;
-  }
-  .agw-h {
-    grid-template-columns: 56px repeat(7, minmax(0, 1fr));
-  }
-  .agw-cols {
-    left: 56px;
-  }
-  .ag-grid.agw .ag-hr span {
-    width: 50px;
-    padding-right: 8px;
-  }
-  .agw .ag-i {
-    padding: 4px 6px;
-  }
-  .agw .ag-i b {
-    font-size: 12.5px;
-  }
 }
 @media (min-width: 761px) {
   .agenda {
