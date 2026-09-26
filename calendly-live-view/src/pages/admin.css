@@ -1166,7 +1166,6 @@ main {
   max-width: 1200px;
   padding: 28px 24px 56px;
 }
-#viewCal:not([hidden]),
 #viewAllow:not([hidden]) {
   animation: fadeUp 0.22s var(--ease);
 }
@@ -1936,56 +1935,14 @@ button,
 .sect {
   display: none;
 }
-#viewCal:not([hidden]),
 #viewAllow:not([hidden]) {
   animation: viewIn 0.24s var(--ease) backwards;
 }
-/* no slide here: the analytics frame sizes itself from its position when shown */
-#viewStats:not([hidden]) {
-  animation: fade 0.24s ease backwards;
-}
-/* switching sections: the page slides in from the side of travel (Contacts only fades, see above) */
-main.tab-next {
-  animation: tabNext 0.24s var(--ease);
-}
-main.tab-prev {
-  animation: tabPrev 0.24s var(--ease);
-}
-main.tab-fade {
-  animation: fade 0.22s ease;
-}
-/* the sliding page mustn't widen the page, or phones zoom out for a moment */
-body {
-  overflow-x: clip;
-}
-/* Room for the scrollbar is kept even on sections too short to scroll, so switching between a long section (the
-   Agenda) and a short one doesn't shift the whole page sideways on desktops with a visible scrollbar. */
+/* Sections switch instantly: no fade or slide, so the page never moves when changing tabs. Room for the scrollbar is
+   kept even on sections too short to scroll, so a long section (the Agenda) and a short one line up exactly on
+   desktops with a visible scrollbar. */
 html {
   scrollbar-gutter: stable;
-}
-/* On desktop the header tabs aren't laid out like pages side by side, so sections only fade in. */
-@media (min-width: 761px) {
-  main.tab-next,
-  main.tab-prev {
-    animation: fade 0.2s ease;
-  }
-}
-main.tab-next > section,
-main.tab-prev > section,
-main.tab-fade > section {
-  animation: none !important;
-}
-@keyframes tabNext {
-  from {
-    opacity: 0;
-    transform: translateX(28px);
-  }
-}
-@keyframes tabPrev {
-  from {
-    opacity: 0;
-    transform: translateX(-28px);
-  }
 }
 @keyframes viewIn {
   from {

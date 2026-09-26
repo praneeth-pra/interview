@@ -2204,13 +2204,16 @@ byId("today").onclick = function () {
   byId("week").textContent = "";
   render();
 };
-// Opening the Agenda brings the time now, or else the day's first interview, into view when it's further down.
+// On a phone, opening the Agenda brings the time now, or else the day's first interview, into view when it's further
+// down. Desktops open it at the top like every other section, so switching tabs never moves the page.
 byId("tabAg").addEventListener("click", function () {
+  if (innerWidth > 760) {
+    return;
+  }
   // before the first frame, so the page doesn't show at the top and then jump
   requestAnimationFrame(function () {
     var mark = document.querySelector("#agenda .ag-now") || document.querySelector("#agenda .ag-i");
     if (mark && mark.getBoundingClientRect().top > innerHeight * 0.6) {
-      // scroll only up and down: the page may still be sliding in sideways
       scrollTo(0, scrollY + mark.getBoundingClientRect().top - innerHeight / 2);
     }
   });
