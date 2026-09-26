@@ -3224,6 +3224,43 @@ button,
 .ag-i:last-child .ag-r:after {
   display: none;
 }
+.ag-now {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  align-items: center;
+  column-gap: 14px;
+  height: 26px;
+  padding-left: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--link);
+  font-variant-numeric: tabular-nums;
+}
+.ag-now .ag-r {
+  --c: var(--ink3);
+  margin: 0;
+}
+.ag-now i {
+  position: relative;
+  z-index: 1;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--blue);
+  box-shadow: 0 0 0 3px var(--bg);
+}
+.ag-now > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.ag-now > span:last-child:after {
+  content: "";
+  flex: 1;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--blue);
+}
 .ag-n {
   position: relative;
   z-index: 1;

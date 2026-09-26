@@ -645,8 +645,21 @@ function renderAgenda() {
   var list = el("div", {
     class: "ag-l",
   });
-  items.forEach(function (item) {
+  var nowShown = shown !== today;
+  items.forEach(function (item, index) {
     var booking = item.booking;
+    // today, a line marks the time now between the interviews before it and after it
+    if (!nowShown && Date.parse(booking.start) > now) {
+      nowShown = true;
+      if (index) {
+        list.appendChild(
+          el("div", { class: "ag-now" }, [
+            el("span", { class: "ag-r" }, [el("i")]),
+            el("span", { text: "Now " + formatTime(now) }),
+          ]),
+        );
+      }
+    }
     var interviewer = state.iv.assign[booking.id];
     var isPast = Date.parse(booking.end) <= now;
     var started = Date.parse(booking.start) <= now;
