@@ -872,6 +872,37 @@ h2 {
 .rm:hover {
   background: var(--red-t);
 }
+/* Admins panel: one row per email, then an add field */
+.admrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 44px;
+  border-top: 1px solid var(--line);
+}
+.admrow:first-child {
+  border-top: 0;
+}
+.admail {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 600;
+}
+.admlist {
+  margin: 8px 0 14px;
+}
+.admadd {
+  display: flex;
+  gap: 8px;
+}
+.admadd input {
+  flex: 1;
+  min-width: 0;
+}
+.admadd button {
+  flex: none;
+}
 @media (max-width: 900px) {
   .cards {
     grid-template-columns: repeat(2, 1fr);

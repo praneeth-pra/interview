@@ -67,6 +67,7 @@ input {
   background: var(--card);
   color: inherit;
   font: inherit;
+  font-size: 16px; /* 16px or more, or iPhones zoom in on the field */
   padding: 0 12px;
 }
 input:focus {
@@ -103,4 +104,36 @@ button:disabled {
   height: 44px;
   border-radius: 11px;
   margin: 0 0 14px;
+}
+label {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+#code {
+  font-size: 22px;
+  letter-spacing: 0.3em;
+  font-variant-numeric: tabular-nums;
+}
+#s1[hidden],
+#s2[hidden],
+.alt[hidden] {
+  display: none;
+}
+.alt {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.alt .link {
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: 4px 0;
+  background: none;
+  color: var(--blue);
+  font-size: 14px;
+  font-weight: 600;
 }

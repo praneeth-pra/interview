@@ -101,11 +101,13 @@ function seed(dir) {
 
 // ---- servers ----
 const procs = [];
-async function startServer(dir, port, dataDir, env = {}) {
+// onOutput gets the server's log; with email off, admin sign-in codes are printed there.
+async function startServer(dir, port, dataDir, env = {}, onOutput) {
   const p = spawn("bun", ["run", path.join(dir, "src/server.ts")], {
     env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ...env },
-    stdio: "ignore",
+    stdio: ["ignore", onOutput ? "pipe" : "ignore", "ignore"],
   });
+  if (onOutput) p.stdout.on("data", (d) => onOutput(String(d)));
   procs.push(p);
   for (let i = 0; i < 200; i++) {
     try {
@@ -413,8 +415,17 @@ const CASES = [
     async (p, s) => {
       await p.goto(s.login + "/admin");
       await wait(p, 500);
-      await p.fill("#pw", "nope");
-      await p.click("#go");
+      // the old page asks for a password; the new one for an email, then the code sent to it
+      if (await p.locator("#pw").count()) {
+        await p.fill("#pw", "nope");
+        await p.click("#go");
+      } else {
+        // a new address each attempt: codes can be asked for only every 30 seconds per address
+        await p.fill("#em", "wrong" + s.attempt("wrong") + "@example.com");
+        await p.click("#go");
+        await wait(p, 600);
+        await p.fill("#code", "000000");
+      }
       await wait(p, 800);
     },
   ],
@@ -423,8 +434,17 @@ const CASES = [
     async (p, s) => {
       await p.goto(s.login + "/admin");
       await wait(p, 500);
-      await p.fill("#pw", "pw123");
-      await p.click("#go");
+      if (await p.locator("#pw").count()) {
+        await p.fill("#pw", "pw123");
+        await p.click("#go");
+      } else {
+        const email = "admin" + s.attempt("ok") + "@example.com";
+        await p.fill("#em", email);
+        await p.click("#go");
+        await wait(p, 600);
+        const codes = [...s.loginLog().matchAll(/sign-in code for (\S+): (\d{6})/g)].filter((m) => m[1] === email);
+        await p.fill("#code", codes.at(-1)[2]);
+      }
       await wait(p, 2200);
     },
   ],
@@ -505,13 +525,22 @@ async function diff(page, a, b, outPath) {
         const data = path.join(tmp, `${vi}-${which}`);
         const manage = seed(data + "-open");
         seed(data + "-login");
+        let loginLog = "";
+        const attempts = {};
         servers[which] = {
           manage,
           main: await startServer(dirs[which], port++, data + "-open"),
-          login: await startServer(dirs[which], port++, data + "-login", {
-            ADMIN_PASSWORD: "pw123",
-            ADMIN_LOGIN: "on",
-          }),
+          // both kinds of sign-in are configured: the password one (origin/main) and email codes (this branch)
+          login: await startServer(
+            dirs[which],
+            port++,
+            data + "-login",
+            { ADMIN_PASSWORD: "pw123", ADMIN_LOGIN: "on", ADMIN_EMAILS: "admin1@example.com admin2@example.com admin3@example.com" },
+            (text) => (loginLog += text),
+          ),
+          loginLog: () => loginLog,
+          // counts runs of a flow on this server (a flow runs again when its first screenshot differs)
+          attempt: (flow) => (attempts[flow] = (attempts[flow] || 0) + 1),
         };
       }
       const results = [];

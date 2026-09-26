@@ -13,6 +13,15 @@ const start = new Date(Date.now() + 2 * 86400000);
 start.setUTCHours(5, 0, 0, 0);
 writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [{ id: "00000000-0000-0000-0000-000000000001", name: "Priya Sharma", email: "priya@example.com", company: "Google", round: "1st round", start: start.toISOString(), end: new Date(+start + 1800000).toISOString(), duration: 30, createdAt: new Date().toISOString(), cancelled: false, cancelledAt: "" }] }));
 const server = spawn("bun", ["run", join(__dirname, "../src/server.ts")], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RESEND_API_KEY: "" }, stdio: "ignore" });
+// A second server with admin sign-in on. Email is off there, so it prints sign-in codes to its output.
+const LOCKED = "http://127.0.0.1:" + (PORT + 1);
+const lockedDir = mkdtempSync(join(tmpdir(), "booking-form-smoke-locked-"));
+const locked = spawn("bun", ["run", join(__dirname, "../src/server.ts")], {
+  env: { ...process.env, PORT: String(PORT + 1), DATA_DIR: lockedDir, RESEND_API_KEY: "", ADMIN_EMAILS: "owner@example.com" },
+  stdio: ["ignore", "pipe", "ignore"],
+});
+let lockedLog = "";
+locked.stdout.on("data", (d) => (lockedLog += d));
 
 const checks = [
   ["booking page", async (p) => {
@@ -41,6 +50,22 @@ const checks = [
     await frame.locator("#back").click();
     await frame.locator("#home:not([hidden]) .crow").first().waitFor();
   }],
+  ["admin sign-in with an emailed code", async (p) => {
+    await p.goto(LOCKED + "/admin");
+    await p.fill("#em", "owner@example.com");
+    await p.click("#go");
+    await p.locator("#code").waitFor();
+    for (let i = 0; i < 40 && !/sign-in code for owner@example.com: \d{6}/.test(lockedLog); i++) await p.waitForTimeout(50);
+    const code = lockedLog.match(/sign-in code for owner@example.com: (\d{6})/)[1];
+    await p.fill("#code", code); // signs in once all six digits are in
+    await p.locator("#status").waitFor({ state: "attached" });
+    await p.locator("#dlBtn").click();
+    await p.locator("#mAdm").click();
+    await p.locator(".admrow").first().waitFor();
+    await p.fill(".admadd input", "helper@example.com");
+    await p.click(".admadd button");
+    await p.locator(".admrow", { hasText: "helper@example.com" }).waitFor();
+  }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();
@@ -52,7 +77,7 @@ const checks = [
 
 (async () => {
   for (let i = 0; i < 100; i++) {
-    try { if ((await fetch(BASE + "/healthz")).ok) break; } catch {}
+    try { if ((await fetch(BASE + "/healthz")).ok && (await fetch(LOCKED + "/healthz")).ok) break; } catch {}
     await new Promise((r) => setTimeout(r, 50));
   }
   const browser = await chromium.launch();
@@ -69,5 +94,6 @@ const checks = [
   }
   await browser.close();
   server.kill();
+  locked.kill();
   process.exit(failed ? 1 : 0);
 })();
