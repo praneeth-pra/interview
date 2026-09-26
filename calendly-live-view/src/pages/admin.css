@@ -2566,8 +2566,7 @@ button,
   margin-top: 10px;
 }
 /* interviews marked as not having taken place */
-.ev.missed b,
-.ag-i.missed .ag-m b {
+.ev.missed b {
   text-decoration: line-through;
 }
 .bk-st.sm {
@@ -2987,9 +2986,10 @@ button,
     background: var(--bg);
   }
 }
-/* ---- Agenda: a week strip over the day's timeline ----
-   The day on screen is circled in orange and dots mark days with interviews. Each interview is a node in its
-   interview supporter's colour (grey when none), taller for longer interviews, joined to the next by a line. */
+/* ---- Agenda: one day, like a phone calendar's Day view ----
+   A week strip picks the day (circled in orange, dots for days with interviews). Below it, an hour grid holds the
+   day's interviews as blocks sized to their length, tinted in the interview supporter's colour with a top edge in that
+   colour (grey when none), and today a line with a time pill marks the time now. */
 .ws {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -3054,220 +3054,161 @@ button,
 .ag-h {
   display: flex;
   align-items: baseline;
-  gap: 8px;
-  margin: 0 4px 8px;
+  gap: 6px;
+  margin: 0 4px 12px;
 }
 .ag-h b {
-  font-size: 17px;
+  font-size: 19px;
   font-weight: 700;
   letter-spacing: -0.01em;
 }
 .ag-h span {
-  font-size: 13px;
+  font-size: 19px;
   color: var(--ink2);
 }
 .ag-h em {
   margin-left: auto;
   font-style: normal;
   font-size: 12px;
-  color: var(--ink2);
   font-weight: 500;
+  color: var(--ink2);
 }
 .ag-h.today b {
   color: var(--link);
 }
-.ag-none {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 28px 16px;
-  border: 1px dashed var(--line);
-  border-radius: 16px;
-  text-align: center;
-  font-size: 14px;
-  color: var(--ink2);
-}
-.ag-none p {
-  margin: 0;
-}
-.ag-l {
-  display: flex;
-  flex-direction: column;
-}
-.ag-i {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr) auto;
-  align-items: center;
-  column-gap: 14px;
-  width: 100%;
-  padding: 7px 10px 7px 4px;
-  border: 0;
-  border-radius: 16px;
-  background: none;
-  text-align: left;
-  color: var(--ink);
-  content-visibility: auto;
-  contain-intrinsic-size: auto 72px;
-}
-.ag-i:active:not(:disabled) {
-  transform: none;
-  background: var(--sub);
-}
-@media (hover: hover) {
-  .ag-i:hover {
-    background: var(--sub);
-  }
-}
-/* the rail: a line through the row, cut at the first and last node */
-.ag-r {
+.ag-grid {
   position: relative;
-  align-self: stretch;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  margin: -7px 0;
+  margin: 8px 0 12px;
 }
-.ag-r:before,
-.ag-r:after {
-  content: "";
+.ag-hr {
   position: absolute;
-  left: 50%;
-  width: 3px;
-  margin-left: -1.5px;
-  background: var(--c);
-  opacity: 0.55;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid var(--line);
 }
-.ag-r:before {
-  top: 0;
-  bottom: 50%;
-}
-.ag-r:after {
-  top: 50%;
-  bottom: 0;
-}
-.ag-i:first-child .ag-r:before,
-.ag-i:last-child .ag-r:after {
-  display: none;
-}
-.ag-now {
-  display: grid;
-  grid-template-columns: 52px minmax(0, 1fr);
-  align-items: center;
-  column-gap: 14px;
-  height: 26px;
-  padding-left: 4px;
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--link);
+.ag-hr span {
+  position: absolute;
+  left: 0;
+  width: 50px;
+  top: -8px;
+  padding-right: 8px;
+  background: var(--bg);
+  text-align: right;
+  font-size: 11.5px;
+  line-height: 16px;
+  color: var(--ink2);
   font-variant-numeric: tabular-nums;
 }
-.ag-now .ag-r {
-  --c: var(--ink3);
-  margin: 0;
-}
-.ag-now i {
-  position: relative;
-  z-index: 1;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: var(--blue);
-  box-shadow: 0 0 0 3px var(--bg);
-}
-.ag-now > span:last-child {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.ag-now > span:last-child:after {
-  content: "";
-  flex: 1;
-  height: 2px;
-  border-radius: 1px;
-  background: var(--blue);
-}
-.ag-n {
-  position: relative;
-  z-index: 1;
-  width: 44px;
-  border-radius: 22px;
-  background: var(--c);
-  box-shadow: 0 0 0 4px var(--bg);
-}
-.ag-n:after {
-  content: "";
+.ag-lane {
   position: absolute;
-  inset: 0;
-  margin: auto;
-  width: 20px;
-  height: 20px;
-  background: #fff;
-  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'%3E%3Crect x='2.5' y='6.5' width='13' height='11' rx='2.5'/%3E%3Cpath d='m15.5 10.5 5.5-3.2v9.4l-5.5-3.2z'/%3E%3C/svg%3E")
-    center / contain no-repeat;
-  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linejoin='round'%3E%3Crect x='2.5' y='6.5' width='13' height='11' rx='2.5'/%3E%3Cpath d='m15.5 10.5 5.5-3.2v9.4l-5.5-3.2z'/%3E%3C/svg%3E")
-    center / contain no-repeat;
+  top: 0;
+  bottom: 0;
+  left: 56px;
+  right: 0;
 }
-.ag-m {
+.ag-i {
+  position: absolute;
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
-  padding: 8px 0;
-  line-height: 1.3;
+  padding: 5px 8px;
+  border: 0;
+  border-top: 3px solid var(--c);
+  border-radius: 3px 3px 8px 8px;
+  /* the tint over the page colour, so hour lines don't show through */
+  background: linear-gradient(var(--ct), var(--ct)), var(--bg);
+  text-align: left;
+  color: var(--ink);
+  font: inherit;
+  overflow: hidden;
+  z-index: 1;
 }
-.ag-m b,
-.ag-m span {
+.ag-i:active:not(:disabled) {
+  transform: none;
+  filter: brightness(0.96);
+}
+@media (hover: hover) {
+  .ag-i:hover {
+    filter: brightness(0.97);
+  }
+}
+.ag-i b {
+  font-size: 14px;
+  font-weight: 650;
+  line-height: 1.25;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.ag-m .ag-t {
-  font-size: 13px;
+.ag-i.missed b {
+  text-decoration: line-through;
+}
+.ag-s,
+.ag-t {
+  font-size: 12px;
+  line-height: 1.3;
   color: var(--ink2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
-.ag-m b {
-  font-size: 16.5px;
-  font-weight: 650;
-  letter-spacing: -0.01em;
+.ag-t {
+  color: var(--ink);
+  font-weight: 500;
 }
-.ag-m span {
-  font-size: 13px;
-  color: var(--ink2);
+/* short interviews: name and time on one line; middling ones leave out the company and round */
+.ag-i.short {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 8px;
+  padding-top: 3px;
 }
-.ag-c {
-  position: relative;
-  width: 22px;
-  height: 22px;
-  border: 2px solid var(--c);
-  border-radius: 50%;
-  flex: none;
-}
-.ag-c.done {
-  background: var(--c);
-}
-.ag-c.done:after {
-  content: "";
-  position: absolute;
-  left: 6px;
-  top: 2.5px;
-  width: 5px;
-  height: 10px;
-  border: solid #fff;
-  border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+.ag-i.short .ag-s,
+.ag-i.mid .ag-s {
+  display: none;
 }
 .ag-i .need-dot {
-  width: 10px;
-  height: 10px;
-  margin: 0 6px;
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
 }
-.ag-i.past .ag-m {
+.ag-i.past {
   opacity: 0.72;
+}
+.ag-i.cn {
+  --c: #8f8b83;
+  --ct: rgba(128, 122, 112, 0.16);
+}
+/* the time now: a pill on the hour column and a line across */
+.ag-now {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid var(--blue);
+  z-index: 2;
+  pointer-events: none;
+}
+.ag-now span {
+  position: absolute;
+  left: 0;
+  top: -11px;
+  padding: 2px 6px;
+  border-radius: 6px;
+  background: var(--blue);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 16px;
+  font-variant-numeric: tabular-nums;
 }
 @media (min-width: 761px) {
   .agenda {
-    max-width: 720px;
+    max-width: 760px;
   }
   .ws {
     padding: 6px;
@@ -3275,11 +3216,6 @@ button,
     border-radius: 20px;
     background: var(--card);
   }
-}
-/* bookings without a supporter: a solid grey, so the rail doesn't show through the node */
-.ag-i.cn,
-.ws-d .cn {
-  --c: #7d7a74;
 }
 /* Phones: Alerts sits in the ⋯ menu. */
 #mAlerts {

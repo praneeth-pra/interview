@@ -517,8 +517,10 @@ function renderChanges() {
     );
   });
 }
-// The agenda: a week strip (the day on screen circled, dots for days with interviews) over that day's timeline,
-// one coloured node per interview in its interview supporter's colour, joined by a line.
+// The agenda: one day at a time, like a phone calendar's Day view. A week strip picks the day (the day on screen circled
+// in orange, dots for days with interviews), then an hour grid holds that day's interviews as blocks sized to their
+// length, tinted in the interview supporter's colour (grey when none), with a line at the current time today.
+var AGENDA_HOUR_PX = 80;
 function agendaDay() {
   var today = dayKeyOf(new Date());
   if (selectedDay && weekStart(selectedDay) === weekOf) {
@@ -555,7 +557,7 @@ function renderAgenda() {
   });
   for (var i = 0; i < 7; i++) {
     let day = addDays(weekOf, i);
-    var dayCount = dayItems(day).length;
+    var count = dayItems(day).length;
     var dots = el("span", {
       class: "ws-d",
       "aria-hidden": "true",
@@ -581,141 +583,95 @@ function renderAgenda() {
           "aria-pressed": day === shown ? "true" : "false",
           "aria-label":
             formatDay(day, { weekday: "long", month: "long", day: "numeric" }) +
-            (dayCount ? ", " + dayCount + (dayCount === 1 ? " interview" : " interviews") : ", no interviews"),
+            (count ? ", " + count + (count === 1 ? " interview" : " interviews") : ", no interviews"),
           onclick: function () {
             pickAgendaDay(day);
           },
         },
-        [
-          el("span", { class: "ws-w", text: formatDay(day, { weekday: "short" }) }),
-          el("b", { text: formatDay(day, { day: "numeric" }) }),
-          dots,
-        ],
+        [el("span", { class: "ws-w", text: formatDay(day, { weekday: "short" }) }), el("b", { text: formatDay(day, { day: "numeric" }) }), dots],
       ),
     );
   }
   box.appendChild(strip);
   var items = dayItems(shown);
+  layoutColumns(items);
   box.appendChild(
-    el(
-      "div",
-      {
-        class: "ag-h" + (shown === today ? " today" : ""),
-      },
-      [
-        el("b", {
-          text: shown === today ? "Today" : formatDay(shown, { weekday: "long" }),
-        }),
-        el("span", {
-          text: formatDay(shown, {
-            weekday: shown === today ? "long" : undefined,
-            month: "short",
-            day: "numeric",
-          }),
-        }),
-        items.length ? el("em", { text: items.length + (items.length === 1 ? " interview" : " interviews") }) : null,
-      ],
-    ),
+    el("div", { class: "ag-h" + (shown === today ? " today" : "") }, [
+      el("b", { text: formatDay(shown, { weekday: "long" }) + "," }),
+      el("span", { text: formatDay(shown, { day: "numeric", month: "short" }) }),
+      el("em", { text: items.length ? items.length + (items.length === 1 ? " interview" : " interviews") : "No interviews" }),
+    ]),
   );
-  if (!items.length) {
-    // point to the next day this week that has interviews
-    var later = "";
-    for (var ahead = 1; !later && weekStart(addDays(shown, ahead)) === weekOf; ahead++) {
-      if (dayItems(addDays(shown, ahead)).length) {
-        later = addDays(shown, ahead);
-      }
-    }
-    box.appendChild(
-      el("div", { class: "ag-none" }, [
-        el("p", { text: shown === today ? "No interviews today." : "No interviews this day." }),
-        later
-          ? el("button", {
-              type: "button",
-              class: "ghost",
-              text: "Next: " + formatDay(later, { weekday: "long" }) + " ›",
-              onclick: function () {
-                pickAgendaDay(later);
-              },
-            })
-          : null,
-      ]),
-    );
-    return;
-  }
-  var list = el("div", {
-    class: "ag-l",
+  // the hours shown: working hours, stretched to fit the day's interviews and, today, the time now
+  var nowMin = minutesOfDay(new Date());
+  var fromMin = state.hours.start;
+  var toMin = state.hours.end;
+  items.forEach(function (item) {
+    fromMin = Math.min(fromMin, item.from);
+    toMin = Math.max(toMin, item.to);
   });
-  var nowShown = shown !== today;
-  items.forEach(function (item, index) {
+  if (shown === today && nowMin >= 7 * 60) {
+    fromMin = Math.min(fromMin, nowMin);
+    toMin = Math.max(toMin, nowMin + 30);
+  }
+  var firstHour = Math.floor(fromMin / 60);
+  var lastHour = Math.min(24, Math.ceil(toMin / 60));
+  var grid = el("div", { class: "ag-grid" });
+  grid.style.height = (lastHour - firstHour) * AGENDA_HOUR_PX + "px";
+  for (var hour = firstHour; hour <= lastHour; hour++) {
+    var line = el("div", { class: "ag-hr" }, [el("span", { text: hour === 12 ? "Noon" : hourLabel(hour) })]);
+    line.style.top = (hour - firstHour) * AGENDA_HOUR_PX + "px";
+    grid.appendChild(line);
+  }
+  var lane = el("div", { class: "ag-lane" });
+  items.forEach(function (item) {
     var booking = item.booking;
-    // today, a line marks the time now between the interviews before it and after it
-    if (!nowShown && Date.parse(booking.start) > now) {
-      nowShown = true;
-      if (index) {
-        list.appendChild(
-          el("div", { class: "ag-now" }, [
-            el("span", { class: "ag-r" }, [el("i")]),
-            el("span", { text: "Now " + formatTime(now) }),
-          ]),
-        );
-      }
-    }
     var interviewer = state.iv.assign[booking.id];
     var isPast = Date.parse(booking.end) <= now;
-    var started = Date.parse(booking.start) <= now;
-    var minutes = Math.round((Date.parse(booking.end) - Date.parse(booking.start)) / 60000);
-    var node = el("span", {
-      class: "ag-n",
-      "aria-hidden": "true",
-    });
-    // taller nodes for longer interviews, like blocks of time
-    node.style.height = Math.max(44, Math.min(96, 24 + minutes * 0.8)) + "px";
-    list.appendChild(
-      el(
-        "button",
-        {
-          type: "button",
-          class: "ag-i " + (interviewer ? colorClass(interviewer) : "cn") + (isPast ? " past" : "") + (booking.missed ? " missed" : ""),
-          onclick: function () {
-            showBooking(booking.id);
-          },
+    var needsSupport = !interviewer && Date.parse(booking.start) <= now && !booking.missed;
+    var cols = item.group.cols.length;
+    var height = Math.max(26, ((item.to - item.from) / 60) * AGENDA_HOUR_PX - 2);
+    var block = el(
+      "button",
+      {
+        type: "button",
+        class:
+          "ag-i " +
+          (interviewer ? colorClass(interviewer) : "cn") +
+          (isPast ? " past" : "") +
+          (booking.missed ? " missed" : "") +
+          (height < 40 ? " short" : height < 66 ? " mid" : ""),
+        onclick: function () {
+          showBooking(booking.id);
         },
-        [
-          el("span", { class: "ag-r" }, [node]),
-          el(
-            "span",
-            {
-              class: "ag-m",
-            },
-            [
-              el("span", {
-                class: "ag-t",
-                text: formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end)) + " (" + minutes + " min)",
-              }),
-              el("b", {
-                text: titleCase(booking.name),
-              }),
-              el("span", {
-                text: [booking.company, booking.round, interviewer || missedLabel(booking)].filter(Boolean).join(" · ") || "\xA0",
-              }),
-            ],
-          ),
-          !interviewer && started && !booking.missed
-            ? el("i", {
-                class: "need-dot",
-                title: "Support not recorded",
-                "aria-label": "Support not recorded",
-                role: "img",
-              })
-            : el("i", {
-                class: "ag-c" + (isPast && !booking.missed ? " done" : ""),
-                "aria-hidden": "true",
-              }),
-        ],
-      ),
+      },
+      [
+        el("b", { text: titleCase(booking.name) }),
+        el("span", { class: "ag-s", text: [booking.company, booking.round, interviewer || missedLabel(booking)].filter(Boolean).join(" · ") }),
+        el("span", { class: "ag-t", text: formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end)) }),
+        needsSupport
+          ? el("i", {
+              class: "need-dot",
+              title: "Support not recorded",
+              "aria-label": "Support not recorded",
+              role: "img",
+            })
+          : null,
+      ],
     );
+    block.style.top = ((item.from - firstHour * 60) / 60) * AGENDA_HOUR_PX + 1 + "px";
+    block.style.height = height + "px";
+    block.style.left = "calc(" + (item.col * 100) / cols + "% + 2px)";
+    block.style.width = "calc(" + 100 / cols + "% - 4px)";
+    lane.appendChild(block);
   });
-  box.appendChild(list);
+  grid.appendChild(lane);
+  if (shown === today && nowMin >= firstHour * 60 && nowMin <= lastHour * 60) {
+    var nowLine = el("div", { class: "ag-now" }, [el("span", { text: formatTime(now) })]);
+    nowLine.style.top = ((nowMin - firstHour * 60) / 60) * AGENDA_HOUR_PX + "px";
+    grid.appendChild(nowLine);
+  }
+  box.appendChild(grid);
 }
 function render() {
   renderEnquiryBadge();
@@ -2250,6 +2206,15 @@ byId("today").onclick = function () {
   byId("week").textContent = "";
   render();
 };
+// Opening the Agenda brings the time now, or else the day's first interview, into view when it's further down.
+byId("tabAg").addEventListener("click", function () {
+  setTimeout(function () {
+    var mark = document.querySelector("#agenda .ag-now") || document.querySelector("#agenda .ag-i");
+    if (mark && mark.getBoundingClientRect().top > innerHeight * 0.6) {
+      mark.scrollIntoView({ block: "center" });
+    }
+  });
+});
 // The week grid only scrolls to today when drawn fresh while visible, so redraw it when the phone's Calendar tab shows it.
 document.querySelector(".bnav [data-go=cal]").addEventListener("click", function () {
   setTimeout(function () {
