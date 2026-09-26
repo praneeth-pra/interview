@@ -7,7 +7,7 @@ import { bookingsStore, emailAllowed } from "../data";
 import { receiveEnquiry } from "../enquiries";
 import { BASE_HEADERS, type Srv, json, readJson, sendShell, underLimit, clientIp } from "../http";
 import { siteUrl, tokenOk } from "../links";
-import { BOOK_HOME, ENQUIRY, HOME, ICON, SW_JS, bookPage, splash } from "../pages";
+import { BOOK_HOME, ENQUIRY, FAVICON, HOME, ICON, SW_JS, bookPage, splash } from "../pages";
 import { bookableDays, bookingLimitMs, slotsFor } from "../schedule";
 import { DATE_KEY, EMAIL_RE, UUID, normEmail } from "../util";
 
@@ -43,7 +43,9 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
       ? respond(req, body, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" })
       : new Response("Not found", { status: 404, headers: BASE_HEADERS });
   }
-  if (path === "/icon.png" || path === "/favicon.ico" || path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png")
+  if (path === "/favicon.png" || path === "/favicon.ico")
+    return respond(req, FAVICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
+  if (path === "/icon.png" || path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png")
     return respond(req, ICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
   if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
     const a = asset(path);
