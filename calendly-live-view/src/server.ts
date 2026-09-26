@@ -3,6 +3,7 @@
 import { assetList, compressed } from "./assets";
 import { startBackups } from "./server/backup";
 import { removeListedBookings } from "./server/bookings";
+import { cleanupContacts } from "./server/cleanup";
 import { ADMIN_OPEN, LOGIN_ON, OWNER_EMAILS, PORT, RESEND_API_KEY, EMAIL_FROM, MAX_BODY } from "./server/config";
 import { adminsStore, allowStore, bookingsStore, loadStores, pushStore, resultsStore } from "./server/data";
 import { ensureSecret } from "./server/links";
@@ -14,6 +15,7 @@ await loadStores();
 await ensurePushKeys();
 await ensureSecret();
 await removeListedBookings();
+await cleanupContacts();
 console.log(RESEND_API_KEY ? "email: on, sending as " + EMAIL_FROM : "email: off (set RESEND_API_KEY to send invites)");
 console.log("allowlist: " + (allowStore.data.enabled ? "on" : "off") + ", " + allowStore.data.emails.length + " emails");
 console.log(
