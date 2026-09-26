@@ -869,33 +869,8 @@ textarea:focus {
     max-height: 490px;
   }
 }
-/* Phones: two columns of times; the chosen time keeps its place with its Next button stacked under it. */
-@media (max-width: 900px) {
-  .tlist {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 10px;
-    align-items: start;
-  }
-  .tlist .slot {
-    margin: 0;
-  }
-  .tlist .slot.sel {
-    flex-direction: column;
-  }
-  .tlist .slot.sel .t,
-  .tlist .slot.sel .go {
-    flex: none;
-    width: 100%;
-  }
-  .tlist > .spin,
-  .tlist > .empty {
-    grid-column: 1/-1;
-  }
-}
-/* Choosing a time and moving on to the details form.
-   Computer: Next grows out from behind the chosen time while the time narrows. Phone: the time grid stays put, the chosen
-   time fills blue and Next floats at the bottom of the screen with the time on it. The details page then opens at once. */
+/* Choosing a time and moving on to the details form: one column of times; tapping one splits its row into the
+   time, muted, and a Next button that grows out beside it (as on Calendly). The details page then opens at once. */
 .slot.sel .t {
   flex: 1 1 0;
 }
@@ -911,64 +886,8 @@ textarea:focus {
     opacity: 0;
   }
 }
-.go-at {
-  display: none;
-}
-.gobar {
-  display: none;
-}
-@media (max-width: 900px) {
-  .tlist .slot.sel {
-    flex-direction: row;
-  }
-  .tlist .slot.sel .t {
-    background: var(--blue);
-    border-color: var(--blue);
-    color: #fff;
-  }
-  .tlist .slot .go {
-    position: fixed;
-    z-index: 30;
-    left: 16px;
-    right: 16px;
-    bottom: calc(16px + env(safe-area-inset-bottom));
-    width: auto !important;
-    height: 56px;
-    border-radius: 16px;
-    font-size: 17px;
-    box-shadow: 0 10px 28px rgba(188, 89, 53, 0.35);
-    animation: barUp 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-  }
-  .go-at {
-    display: inline;
-    font-weight: 600;
-  }
-  body:has(.slot.sel) .card {
-    padding-bottom: 92px;
-  }
-  /* Page-coloured strip behind the fixed Next button, down to the screen edge: Safari tints its
-     toolbar from fixed elements at the bottom, and without this it picks up the button's orange */
-  body:has(.slot.sel) .gobar {
-    display: block;
-    position: fixed;
-    z-index: 29;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    height: calc(88px + env(safe-area-inset-bottom));
-    background: var(--card);
-    border-top: 1px solid var(--line);
-  }
-}
-@keyframes barUp {
-  from {
-    opacity: 0;
-    transform: translateY(28px);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
-  .go,
-  .tlist .slot .go {
+  .go {
     animation: none;
   }
 }
