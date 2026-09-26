@@ -1,6 +1,6 @@
 // Payments from the public /payment page, with their receipts.
 import { DATA_DIR, RECEIPT_MAX } from "./config";
-import { type Payment, emailAllowed, paymentsStore, pushStore } from "./data";
+import { INSTALLMENTS, type Installment, type Payment, emailAllowed, paymentsStore, pushStore } from "./data";
 import { type Srv, json, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
@@ -64,12 +64,14 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
   if (text("website", 200)) return json({ ok: true });
   const email = normEmail(text("email", 200));
   const name = text("name", 100);
+  const installment = text("installment", 20);
   const amountText = text("amount", 20).replace(/[,\s₹]/g, "");
   const amount = /^\d+(\.\d{1,2})?$/.test(amountText) ? Number(amountText) : NaN;
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
   if (!emailAllowed(email))
     return json({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" }, 403);
   if (name.length < 2) return json({ error: "Enter your full name." }, 400);
+  if (!Object.hasOwn(INSTALLMENTS, installment)) return json({ error: "Choose which installment this is.", field: "installment" }, 400);
   if (!(amount > 0) || amount > AMOUNT_MAX) return json({ error: "Enter the amount you paid, in rupees." }, 400);
   const receipt = form.get("receipt");
   if (!(receipt instanceof Blob) || !receipt.size) return json({ error: "Attach your payment receipt." }, 400);
@@ -94,6 +96,7 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
     name,
     email,
     amount,
+    installment: installment as Installment,
     check: check.status,
     createdAt: new Date().toISOString(),
     receipt: { file: id + kind.ext, name: original, type: kind.type, size: bytes.length },
@@ -113,9 +116,9 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
     void pushAll(
       {
         title: "New payment",
-        body: name + " · ₹" + amount.toLocaleString("en-IN"),
+        body: name + " · ₹" + amount.toLocaleString("en-IN") + " · " + INSTALLMENTS[installment as Installment],
         tag: "payment:" + id,
-        url: "/admin?view=payments",
+        url: "/admin?view=payments&pay=" + id,
       },
       true,
     );
@@ -126,7 +129,10 @@ export const paymentView = (v: Payment) => ({
   name: v.name,
   email: v.email,
   amount: v.amount,
+  installment: v.installment ?? "",
   check: v.check ?? "",
+  decision: v.decision ?? "",
+  decidedAt: v.decidedAt ?? "",
   createdAt: v.createdAt,
   receipt: { name: v.receipt.name, type: v.receipt.type, size: v.receipt.size },
 });

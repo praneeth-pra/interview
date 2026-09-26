@@ -89,6 +89,7 @@ const checks = [
     await p.goto(BASE + "/payment");
     await p.fill("#em", "kiran@example.com");
     await p.fill("#nm", "Kiran Kumar");
+    await p.selectOption("#in", "1");
     await p.fill("#am", "12,500");
     // a receipt over the size limit is refused in the browser, with a clear message
     await p.setInputFiles("#rc", { name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(2 * 1024 * 1024, 1) });
@@ -97,14 +98,23 @@ const checks = [
     await p.setInputFiles("#rc", { name: "gpay.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]) });
     await p.click("#go");
     await p.locator("#done:not([hidden])").waitFor();
-    await p.goto(BASE + "/admin?view=payments");
-    // By candidate first: tapping the candidate shows their payments in the table, with their total
+    // the alert opens the new payment, pending, with Confirm and Discard
+    const id = (await (await p.request.get(BASE + "/admin/api/payments")).json()).payments[0].id;
+    await p.goto(BASE + "/admin?view=payments&pay=" + id);
+    await p.locator("#tabPay .pbadge:not([hidden])").waitFor({ state: "attached" });
+    const card = p.locator("#viewPay .enq.hl", { hasText: "Kiran Kumar" });
+    await card.locator(".pst", { hasText: "Pending" }).waitFor();
+    const [saved] = await Promise.all([p.waitForEvent("download"), card.locator(".bk-act.dl").click()]);
+    if (saved.suggestedFilename() !== "Kiran Kumar receipt.png") throw new Error("receipt saved as " + saved.suggestedFilename());
+    p.once("dialog", (d) => d.accept());
+    await card.locator("button", { hasText: "Confirm" }).click();
+    // confirmed is final: no buttons left, and it counts in the candidate's total
+    await p.locator("#viewPay .enq .pdone", { hasText: "Confirmed" }).waitFor();
+    if (await p.locator("#viewPay .pdec button").count()) throw new Error("buttons still there after confirming");
+    await p.locator("#tabPay .pbadge[hidden]").waitFor({ state: "attached" });
+    await p.locator(".paysw button", { hasText: "By candidate" }).click();
     await p.locator(".paytbl tbody tr", { hasText: "Kiran Kumar" }).click();
     if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("candidate total is wrong");
-    await p.locator(".paysw button", { hasText: "List" }).click();
-    await p.locator("#viewPay .enq", { hasText: "Kiran Kumar" }).waitFor();
-    const [saved] = await Promise.all([p.waitForEvent("download"), p.locator("#viewPay .bk-act.dl").first().click()]);
-    if (saved.suggestedFilename() !== "Kiran Kumar receipt.png") throw new Error("receipt saved as " + saved.suggestedFilename());
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");

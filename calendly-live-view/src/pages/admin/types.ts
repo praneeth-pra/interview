@@ -34,6 +34,7 @@ export type State = {
   owner?: boolean; // owners see Enquiries and Payments; the admins they add don't
   enquiries?: string[]; // when each enquiry came in (owners only)
   payments?: number; // how many payments there are (owners only)
+  paymentsPending?: number; // how many are waiting to be confirmed or discarded (owners only)
   hours: { start: number; end: number };
   email: boolean;
 };

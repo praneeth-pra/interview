@@ -333,7 +333,7 @@ describe("payments", () => {
     if (file) f.set("receipt", new File([file.bytes], file.name));
     return f;
   };
-  const good = { email: "Kiran@Example.com", name: "Kiran Kumar", amount: "12,500" };
+  const good = { email: "Kiran@Example.com", name: "Kiran Kumar", installment: "advance", amount: "12,500" };
   const send = (f: FormData, ip = "10.1.0.1") => fetch(open.url + "/api/payment", { method: "POST", body: f, headers: { "x-real-ip": ip } });
 
   test("the page is served, kept out of search engines, and /pay redirects to it", async () => {
@@ -349,10 +349,16 @@ describe("payments", () => {
     expect(r.headers.get("location")).toBe("/payment");
   });
 
-  test("payments are checked, stored with the receipt, listed newest first for admins, and deletable", async () => {
+  test("payments are checked, stored with the receipt, listed newest first for admins, and confirmed or discarded once", async () => {
     expect((await send(form({ ...good, website: "spam.example" }, { bytes: PNG, name: "r.png" }))).status).toBe(200);
     expect((await send(form({ ...good, amount: "abc" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
     expect((await send(form({ ...good, amount: "0" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
+    // which installment it is: one of the four, and required
+    for (const installment of ["", "4", "toString"]) {
+      const r = await send(form({ ...good, installment }, { bytes: PNG, name: "r.png" }), "10.1.0.3");
+      expect(r.status).toBe(400);
+      expect(await r.json()).toEqual({ error: "Choose which installment this is.", field: "installment" });
+    }
     const notImage = await send(form(good, { bytes: new TextEncoder().encode("<svg></svg>"), name: "r.svg" }));
     expect(notImage.status).toBe(400);
     expect((await notImage.json()).error).toContain("image or a PDF");
@@ -362,11 +368,12 @@ describe("payments", () => {
     expect(tooBig.status).toBe(413);
     expect((await tooBig.json()).error).toBe("Your receipt is larger than 1 MB. Please upload a smaller file.");
     expect((await send(form(good, { bytes: PNG, name: "gpay.png" }), "10.1.0.2")).status).toBe(200);
-    expect((await send(form({ ...good, name: "Meena Iyer", amount: "999.50" }, { bytes: PDF, name: "bank.pdf" }), "10.1.0.2")).status).toBe(200);
+    expect((await send(form({ ...good, name: "Meena Iyer", installment: "2", amount: "999.50" }, { bytes: PDF, name: "bank.pdf" }), "10.1.0.2")).status).toBe(200);
     const { payments } = await (await get(open, "/admin/api/payments")).json();
     expect(payments.map((p: any) => p.name)).toEqual(["Meena Iyer", "Kiran Kumar"]);
     expect(payments[1]).toMatchObject({ email: "kiran@example.com", amount: 12500, receipt: { name: "gpay.png", type: "image/png", size: PNG.length } });
     expect(payments[0].amount).toBe(999.5);
+    expect(payments.map((p: any) => p.installment)).toEqual(["2", "advance"]);
     const file = await get(open, "/admin/api/payments/" + payments[1].id + "/receipt");
     expect(file.headers.get("content-type")).toBe("image/png");
     expect(file.headers.get("content-disposition")).toStartWith("inline;");
@@ -374,10 +381,26 @@ describe("payments", () => {
     const saved = await get(open, "/admin/api/payments/" + payments[0].id + "/receipt?download=1");
     expect(saved.headers.get("content-disposition")).toBe("attachment; filename=\"Meena Iyer receipt.pdf\"; filename*=UTF-8''Meena%20Iyer%20receipt.pdf");
     expect(existsSync(join(open.dir, "receipts", payments[0].id + ".pdf"))).toBe(true);
-    expect((await (await get(open, "/admin/api/state")).json()).payments).toBe(2);
-    expect((await postJson(open, "/admin/api/payments/delete", { id: payments[0].id })).status).toBe(200);
-    expect((await (await get(open, "/admin/api/payments")).json()).payments.length).toBe(1);
-    expect(existsSync(join(open.dir, "receipts", payments[0].id + ".pdf"))).toBe(false);
+    expect(payments[0].decision).toBe("");
+    expect(await (await get(open, "/admin/api/state")).json()).toMatchObject({ payments: 2, paymentsPending: 2 });
+    // no deleting: each payment is confirmed or discarded once, and that's final
+    expect((await postJson(open, "/admin/api/payments/delete", { id: payments[0].id })).status).toBe(404);
+    expect((await postJson(open, "/admin/api/payments/decide", { id: payments[0].id, decision: "maybe" })).status).toBe(400);
+    expect((await postJson(open, "/admin/api/payments/decide", { id: "nope", decision: "confirm" })).status).toBe(404);
+    const confirmed = await postJson(open, "/admin/api/payments/decide", { id: payments[1].id, decision: "confirm" });
+    expect(confirmed.status).toBe(200);
+    expect((await confirmed.json()).payment).toMatchObject({ id: payments[1].id, decision: "confirmed" });
+    const again = await postJson(open, "/admin/api/payments/decide", { id: payments[1].id, decision: "discard" });
+    expect(again.status).toBe(409);
+    expect((await again.json()).error).toBe("This payment was already confirmed. It can't be changed.");
+    expect((await postJson(open, "/admin/api/payments/decide", { id: payments[0].id, decision: "discard" })).status).toBe(200);
+    expect((await postJson(open, "/admin/api/payments/decide", { id: payments[0].id, decision: "confirm" })).status).toBe(409);
+    const after = (await (await get(open, "/admin/api/payments")).json()).payments;
+    expect(after.map((p: any) => p.decision)).toEqual(["discarded", "confirmed"]);
+    expect(after[1].decidedAt).toBeTruthy();
+    expect((await (await get(open, "/admin/api/state")).json()).paymentsPending).toBe(0);
+    // a discarded payment keeps its receipt
+    expect(existsSync(join(open.dir, "receipts", payments[0].id + ".pdf"))).toBe(true);
     // admin-only, like resumes
     expect((await get(locked, "/admin/api/payments")).status).toBe(401);
     expect((await get(locked, "/admin/api/payments/" + payments[1].id + "/receipt")).status).toBe(401);
@@ -390,6 +413,7 @@ describe("payments: the amount on the receipt", () => {
     const d = new FormData();
     d.set("email", "asha@example.com");
     d.set("name", "Asha Rao");
+    d.set("installment", "1");
     d.set("amount", amount);
     d.set("receipt", new File([await receipt(file).arrayBuffer()], file));
     return fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": ip } });
@@ -407,6 +431,7 @@ describe("payments: the amount on the receipt", () => {
     const d = new FormData();
     d.set("email", "ravi@example.com");
     d.set("name", "Ravi Teja");
+    d.set("installment", "3");
     d.set("amount", "700");
     d.set("receipt", new File([PNG], "blurry.png"));
     expect((await fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": "10.1.8.2" } })).status).toBe(200);
@@ -422,6 +447,7 @@ describe("payments and the invite list", () => {
       const d = new FormData();
       d.set("email", email);
       d.set("name", "Someone Else");
+      d.set("installment", "advance");
       d.set("amount", "500");
       d.set("receipt", new File([PNG], "r.png"));
       return d;
@@ -548,7 +574,7 @@ describe("admin", () => {
       expect(r.status).toBe(403);
       expect((await r.json()).error).toContain("Only the owner");
     }
-    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/delete"])
+    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide"])
       expect((await postJson(locked, path, { id }, { cookie: aide })).status).toBe(403);
     // the owner still gets them (the made-up id isn't there, so its file is a 404, not a 403)
     for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments"])
