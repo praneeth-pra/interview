@@ -1,4 +1,4 @@
-import { el, initial } from "./dom";
+import { el } from "./dom";
 import { ICONS } from "./icons";
 import { formatIst, formatRange, formatTime, middayOf, todayKey } from "./time";
 import { companies, loadCompanies, suggestCompanies } from "./companies";
@@ -299,7 +299,7 @@ function renderInfo() {
             class: "mark",
             "aria-hidden": "true",
           },
-          [(hostName || "?").trim().charAt(0).toUpperCase()],
+          [],
         ),
         hostName,
       ],
@@ -1460,7 +1460,7 @@ function renderDone() {
         class: "logo",
         "aria-hidden": "true",
       },
-      [initial(hostName)],
+      [],
     ),
   );
   inner.appendChild(
@@ -1937,7 +1937,7 @@ function renderMessage() {
         class: "logo",
         "aria-hidden": "true",
       },
-      [initial(hostName)],
+      [],
     ),
   );
   var heading = el(
