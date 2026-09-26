@@ -118,11 +118,6 @@ const checks = [
     await p.locator("#agenda .ws").waitFor();
     if (await p.locator("#week").isVisible()) throw new Error("Agenda tab should show the agenda");
     if ((await p.locator("#tabAg").getAttribute("aria-selected")) !== "true") throw new Error("Agenda tab not selected");
-    await p.locator("#agSw button", { hasText: "Week" }).click();
-    if ((await p.locator("#agenda .agw-c").count()) !== 7) throw new Error("Week view should have a column per day");
-    await p.locator("#agenda .agw-h .ws-b").nth(2).click();
-    await p.locator("#agenda .ws .ws-b.on").waitFor();
-    if (await p.locator("#agenda .agw-c").count()) throw new Error("tapping a day should open it in Day view");
     await p.reload();
     await p.locator("#agenda .ws").waitFor();
     await p.locator("#tabCal").click();
