@@ -74,10 +74,12 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       }
       return json({ seenAt: enquiriesStore.data.seen[key] ?? "" });
     }
-    // Who can sign in: the owners (ADMIN_EMAILS, fixed) and the admins they add here.
+    // Who can sign in: the owners (ADMIN_EMAILS, fixed) and the admins they add here. Only an owner can change the
+    // list; the admins they add can see it but not add or remove anyone.
     if (path === "/admin/api/admins" && method === "GET") return json(adminsView(me?.email ?? ""));
     if (path === "/admin/api/admins" && method === "POST") {
       if (!me) return json({ error: "Admin sign-in is off, so there is no admin list." }, 409);
+      if (!OWNER_EMAILS.includes(me.email)) return json({ error: "Only the owner can add or remove admins." }, 403);
       const body = await readJson(req, 10000);
       if (body instanceof Response) return body;
       if (!Array.isArray(body?.emails) || body.emails.length > 50) return json({ error: "You can have up to 50 admins." }, 400);
@@ -85,8 +87,6 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       const bad = emails.find((e) => !EMAIL_RE.test(e) || e.length > 200);
       if (bad !== undefined) return json({ error: (bad || "An empty entry") + " isn't a valid email address." }, 400);
       const list = emails.filter((e) => !OWNER_EMAILS.includes(e));
-      if (!OWNER_EMAILS.includes(me.email) && !list.includes(me.email))
-        return json({ error: "You can't remove yourself. Ask an owner to do it." }, 400);
       const prev = adminsStore.data.emails;
       adminsStore.data.emails = list;
       try {

@@ -552,6 +552,10 @@ h2 {
   background: var(--tint);
   color: var(--link);
 }
+.tag.g {
+  background: var(--line);
+  color: var(--ink2);
+}
 .cmain {
   flex: 1;
   min-width: 0;

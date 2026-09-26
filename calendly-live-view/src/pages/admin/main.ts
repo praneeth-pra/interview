@@ -1667,8 +1667,12 @@ function showAdmins() {
         return ok;
       });
   }
+  var addRow = el("div", { class: "admadd" }, [input, addButton]);
   function draw() {
-    me.textContent = view.me ? "You're signed in as " + view.me + "." : "";
+    // only an owner can add or remove admins; everyone else sees the list
+    var owner = view.owners.indexOf(view.me) >= 0;
+    me.textContent = view.me ? "You're signed in as " + view.me + "." + (owner ? "" : " Only the owner can add or remove admins.") : "";
+    addRow.hidden = !owner;
     rows.textContent = "";
     view.owners.forEach(function (email) {
       rows.appendChild(el("div", { class: "admrow" }, [el("span", { class: "admail", text: email }), el("span", { class: "tag r", text: "Owner" })]));
@@ -1677,7 +1681,8 @@ function showAdmins() {
       rows.appendChild(
         el("div", { class: "admrow" }, [
           el("span", { class: "admail", text: email }),
-          el("button", {
+          owner
+            ? el("button", {
             type: "button",
             class: "rm",
             text: "Remove",
@@ -1692,7 +1697,8 @@ function showAdmins() {
                 );
               }
             },
-          }),
+          })
+            : el("span", { class: "tag g", text: "Admin" }),
         ]),
       );
     });
@@ -1725,7 +1731,8 @@ function showAdmins() {
   });
   body.appendChild(me);
   body.appendChild(rows);
-  body.appendChild(el("div", { class: "admadd" }, [input, addButton]));
+  addRow.hidden = true;
+  body.appendChild(addRow);
   body.appendChild(msg);
   request("/admin/api/admins")
     .then(function (result) {

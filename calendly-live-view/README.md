@@ -62,7 +62,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 
 | Variable | Purpose |
 | --- | --- |
-| `ADMIN_EMAILS` | Admin sign-in: the owners' emails (comma separated). Anyone on the admin list signs in with a 6-digit code emailed to them; owners can add more admins in the ⋯ menu (Admins). Unset = the admin page stays locked (only admins added earlier can sign in). With email off (no `RESEND_API_KEY`), codes are printed in the server log. |
+| `ADMIN_EMAILS` | Admin sign-in: the owners' emails (comma separated). Anyone on the admin list signs in with a 6-digit code emailed to them; only owners can add or remove admins, in the ⋯ menu (Admins); the admins they add can see the list but not change it. Unset = the admin page stays locked (only admins added earlier can sign in). With email off (no `RESEND_API_KEY`), codes are printed in the server log. |
 | `ADMIN_OPEN` | `1` turns admin sign-in off while `ADMIN_EMAILS` is empty. For local testing only; never set it on Railway. |
 | `DATA_DIR` | Folder for the JSON stores (`/data` on Railway) |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `HOST_EMAIL` | Confirmation emails and host copies |
