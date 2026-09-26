@@ -12,7 +12,7 @@ const dir = mkdtempSync(join(tmpdir(), "booking-form-smoke-"));
 const start = new Date(Date.now() + 2 * 86400000);
 start.setUTCHours(5, 0, 0, 0);
 writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [{ id: "00000000-0000-0000-0000-000000000001", name: "Priya Sharma", email: "priya@example.com", company: "Google", round: "1st round", start: start.toISOString(), end: new Date(+start + 1800000).toISOString(), duration: 30, createdAt: new Date().toISOString(), cancelled: false, cancelledAt: "" }] }));
-const server = spawn("bun", ["run", join(__dirname, "../src/server.ts")], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RESEND_API_KEY: "" }, stdio: "ignore" });
+const server = spawn("bun", ["run", join(__dirname, "../src/server.ts")], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RESEND_API_KEY: "", ADMIN_OPEN: "1" }, stdio: "ignore" });
 // A second server with admin sign-in on. Email is off there, so it prints sign-in codes to its output.
 const LOCKED = "http://127.0.0.1:" + (PORT + 1);
 const lockedDir = mkdtempSync(join(tmpdir(), "booking-form-smoke-locked-"));

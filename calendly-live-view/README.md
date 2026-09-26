@@ -7,7 +7,13 @@ Runs on Railway: project `calendly-live-view`, service `booking-form`, productio
 ## Layout
 
 ```
-src/server.ts        HTTP server: booking rules, emails (Resend), web push, admin APIs, JSON stores
+src/server.ts        starts the server: loads the data, logs the settings, listens, runs backups
+src/server/          the server, one module per feature:
+                     routes/ (public.ts, auth.ts, admin.ts: every URL), config.ts (environment variables),
+                     data.ts (what is stored, one JSON file each) and store.ts (reading and writing them),
+                     bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts, auth.ts (sign-in codes and
+                     sessions), email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin
+                     updates), backup.ts, pages.ts (page shells), http.ts (headers, limits), sw.js (service worker)
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
 src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|js   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
@@ -16,7 +22,7 @@ src/pages/admin/     the admin page: main.ts (calendar, panel, forms, search, al
                      stats-frame.ts, download-menu.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
 src/pages/analytics/ the Analytics tab (framed in admin): main.ts (people picker, company progress, timeline, insights),
                      api.ts (answers the page's old dashboard API in the browser from /admin/api/*), companies.ts, rounds.ts
-src/fonts/           Figtree (open source, SIL OFL), self-hosted for every page
+src/fonts/           Figtree and Instrument Serif (open source, SIL OFL), self-hosted
 data/companies.json  company suggestions for the booking form ("Name|Alias|Alias")
 public/icon.png      app icon (admin home-screen app and browser alerts)
 tests/               bun tests for the server, a Chromium smoke test, and visual.cjs (screen-by-screen comparison with main)
@@ -28,7 +34,8 @@ Bookings and settings live as JSON files on the Railway volume mounted at `/data
 ## Run and test
 
 ```bash
-PORT=3000 DATA_DIR=/tmp/bf bun run src/server.ts       # admin is open when ADMIN_EMAILS isn't set
+ADMIN_OPEN=1 PORT=3000 DATA_DIR=/tmp/bf bun run src/server.ts   # ADMIN_OPEN=1: no sign-in, for local testing only
+bun install && bun run typecheck                         # strict server check and the page modules (dev tools only)
 bun test tests/                                          # server tests, ~0.5 s
 NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs    # needs the playwright package
 NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origin/main; must match for refactors
@@ -43,11 +50,20 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 - Analytics loads in the admin page as a same-origin frame from `/admin/analytics`, only when that tab is opened.
 - `/enquiry` is a plain page (`src/pages/enquiry.html|css|js`) that posts a multipart form to `/api/enquiry`. The details go to `enquiries.json`; the resume (PDF or Word, checked by its first bytes, 1 MB at most) is saved as `DATA_DIR/resumes/<id>.<ext>`.
 
+## Security
+
+- Admin pages and APIs need a signed-in admin. Sign-in never switches itself off: if `ADMIN_EMAILS` goes missing, the admin page locks instead of opening.
+- Every response carries `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, HSTS, `Cross-Origin-Opener-Policy: same-origin` and a `Permissions-Policy` that turns off camera, microphone and location.
+- Limits count visitors by `X-Real-IP`, which Railway's edge sets to the real address (`X-Forwarded-For` can be written by the visitor, so it isn't used).
+- The server reads at most 2 MB per request. Enquiries: five an hour per network and 100 in any 24 hours in total.
+- `/api/companies` shares the built-in company list and names that at least two candidates typed; a name only one person typed stays private.
+
 ## Environment variables
 
 | Variable | Purpose |
 | --- | --- |
-| `ADMIN_EMAILS` | Admin sign-in: the owners' emails (comma separated). Anyone on the admin list signs in with a 6-digit code emailed to them; owners can add more admins in the ⋯ menu (Admins). Unset = the admin page is open to anyone. With email off (no `RESEND_API_KEY`), codes are printed in the server log. |
+| `ADMIN_EMAILS` | Admin sign-in: the owners' emails (comma separated). Anyone on the admin list signs in with a 6-digit code emailed to them; owners can add more admins in the ⋯ menu (Admins). Unset = the admin page stays locked (only admins added earlier can sign in). With email off (no `RESEND_API_KEY`), codes are printed in the server log. |
+| `ADMIN_OPEN` | `1` turns admin sign-in off while `ADMIN_EMAILS` is empty. For local testing only; never set it on Railway. |
 | `DATA_DIR` | Folder for the JSON stores (`/data` on Railway) |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `HOST_EMAIL` | Confirmation emails and host copies |
 | `HOST_NAME`, `EVENT_NAME`, `EVENT_LOCATION`, `EVENT_DESCRIPTION`, `MEETING_LINK` | Text shown on pages, emails and invites |
