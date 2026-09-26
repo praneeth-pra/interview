@@ -16,7 +16,7 @@ src/pages/admin/     the admin page: main.ts (calendar, panel, forms, search, al
                      stats-frame.ts, download-menu.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
 src/pages/analytics/ the Analytics tab (framed in admin): main.ts (people picker, company progress, timeline, insights),
                      api.ts (answers the page's old dashboard API in the browser from /admin/api/*), companies.ts, rounds.ts
-src/fonts/           Inter (same files Google Fonts serves), self-hosted
+src/fonts/           Figtree (open source, SIL OFL), self-hosted for every page
 data/companies.json  company suggestions for the booking form ("Name|Alias|Alias")
 public/icon.png      app icon (admin home-screen app and browser alerts)
 tests/               bun tests for the server, a Chromium smoke test, and visual.cjs (screen-by-screen comparison with main)
