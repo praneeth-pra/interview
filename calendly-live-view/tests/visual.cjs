@@ -158,7 +158,7 @@ async function openAgendaPanel(p, s, index = 0) {
   await wait(p, 1200);
   await p.locator("#vAg").click();
   await wait(p, 400);
-  await p.locator("#agenda button").nth(index).click();
+  await p.locator("#agenda .ag-i").nth(index).click();
   await wait(p, 1500);
 }
 const CASES = [
