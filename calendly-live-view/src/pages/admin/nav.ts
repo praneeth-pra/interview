@@ -11,18 +11,16 @@ export function setupNav() {
       return "stats";
     } else if (!byId("viewEnq").hidden) {
       return "enq";
-    } else if (!byId("viewAllow").hidden) {
-      return "allow";
     } else {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", allow: "Candidates", stats: "Contacts", enq: "Enquiries" };
+  var TITLES = { cal: "Calendar", stats: "Contacts", enq: "Enquiries" };
   function sync() {
     var current = currentView();
     byId("sect").textContent = TITLES[current];
     var searchOpen = current === "stats" ? "cq-open" : "q-open";
-    byId("qbtn").setAttribute("aria-expanded", String(current !== "allow" && body.classList.contains(searchOpen)));
+    byId("qbtn").setAttribute("aria-expanded", String(body.classList.contains(searchOpen)));
     body.classList.toggle("on-cal", current === "cal");
     nav.querySelectorAll("[data-go]").forEach(function (button) {
       button.classList.toggle("on", button.getAttribute("data-go") === current);
@@ -38,7 +36,6 @@ export function setupNav() {
       history.replaceState(null, "", "/admin?view=analytics");
     } catch (e) {}
     byId("viewCal").hidden = true;
-    byId("viewAllow").hidden = true;
     byId("viewEnq").hidden = true;
     byId("viewStats").hidden = false;
     sync();
@@ -53,7 +50,6 @@ export function setupNav() {
       history.replaceState(null, "", "/admin?view=enquiries");
     } catch (e) {}
     byId("viewCal").hidden = true;
-    byId("viewAllow").hidden = true;
     byId("viewStats").hidden = true;
     byId("viewEnq").hidden = false;
     sync();
@@ -63,19 +59,17 @@ export function setupNav() {
     }
   }
   byId("tabEnq").onclick = showEnq;
-  ["tabCal", "mCand"].forEach(function (id) {
-    byId(id).addEventListener("click", function () {
-      byId("viewStats").hidden = true;
-      byId("viewEnq").hidden = true;
-      try {
-        var url = new URL(location.href);
-        if (url.searchParams.get("view") === "analytics" || url.searchParams.get("view") === "enquiries") {
-          url.searchParams.delete("view");
-          history.replaceState(null, "", url.pathname + url.search);
-        }
-      } catch (e) {}
-      sync();
-    });
+  byId("tabCal").addEventListener("click", function () {
+    byId("viewStats").hidden = true;
+    byId("viewEnq").hidden = true;
+    try {
+      var url = new URL(location.href);
+      if (url.searchParams.get("view") === "analytics" || url.searchParams.get("view") === "enquiries") {
+        url.searchParams.delete("view");
+        history.replaceState(null, "", url.pathname + url.search);
+      }
+    } catch (e) {}
+    sync();
   });
   nav.addEventListener("click", function (e) {
     var button = (e.target as Element).closest("[data-go]");
@@ -102,10 +96,6 @@ export function setupNav() {
     byId("tabCal").click();
     window.scrollTo(0, 0);
     sync();
-  });
-  new MutationObserver(sync).observe(byId("viewAllow"), {
-    attributes: true,
-    attributeFilter: ["hidden"],
   });
   sync();
   var startView = new URLSearchParams(location.search).get("view");

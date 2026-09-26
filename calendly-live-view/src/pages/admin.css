@@ -3214,3 +3214,9 @@ button,
     opacity: 0.4;
   }
 }
+/* Candidates in the phone sheet: the grouped settings cards sit on the page background, as they did on their own page. */
+@media (max-width: 760px) {
+  .pbody.grp {
+    background: var(--bg);
+  }
+}

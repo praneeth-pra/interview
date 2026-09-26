@@ -644,7 +644,17 @@ function render() {
     }
   }
 }
+// The Candidates panel borrows the allowlist section itself, so its buttons keep their handlers. Put it back in the page
+// (hidden) whenever the panel closes or shows something else.
+function parkAllow() {
+  var section = byId("viewAllow");
+  if (section.parentElement !== document.querySelector("main")) {
+    section.hidden = true;
+    document.querySelector("main").appendChild(section);
+  }
+}
 function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
+  parkAllow();
   if (!keepFocus && byId("panel").hidden) {
     returnFocus = document.activeElement as HTMLElement;
   }
@@ -654,6 +664,7 @@ function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
   sheetBookingId = "";
   var body = byId("pbody");
   body.textContent = "";
+  body.classList.remove("grp");
   byId("panel").hidden = false;
   byId("pback").hidden = false;
   if (!keepFocus) {
@@ -662,6 +673,7 @@ function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
   return body;
 }
 function closePanel() {
+  parkAllow();
   byId("panel").hidden = true;
   byId("pback").hidden = true;
   refreshPanel = null;
@@ -2133,32 +2145,36 @@ byId("impb").onclick = function () {
     });
 };
 byId("aq").oninput = renderAllow;
+// Candidates: who may book. Opens in the side panel like New booking and Interview supporters.
+function showCandidates() {
+  refreshPanel = null;
+  var body = openPanel("Candidates", "Emails allowed to book an interview.");
+  var section = byId("viewAllow");
+  body.classList.add("grp");
+  body.appendChild(section);
+  section.hidden = false;
+  request("/admin/api/allowlist")
+    .then(function (result) {
+      allow = result.state;
+      renderAllow();
+    })
+    .catch(function (error) {
+      setMessage(byId("swm"), error.message, true);
+    });
+}
 function showTab(tab: string) {
-  var isAllow = tab === "allow";
-  byId("viewCal").hidden = isAllow;
-  byId("viewAllow").hidden = !isAllow;
-  byId("tabCal").setAttribute("aria-selected", String(!isAllow));
-  history.replaceState(null, "", isAllow ? "/admin/allowlist" : "/admin" + location.search);
-  document.title = (isAllow ? "Candidates" : "Calendar") + " · " + document.title.split(" · ").pop();
-  if (isAllow) {
-    request("/admin/api/allowlist")
-      .then(function (result) {
-        allow = result.state;
-        renderAllow();
-      })
-      .catch(function (error) {
-        setMessage(byId("swm"), error.message, true);
-      });
+  byId("viewCal").hidden = false;
+  byId("tabCal").setAttribute("aria-selected", "true");
+  history.replaceState(null, "", "/admin" + location.search);
+  document.title = "Calendar · " + document.title.split(" · ").pop();
+  if (tab === "allow") {
+    showCandidates();
   }
 }
 byId("tabCal").onclick = function () {
   showTab("cal");
 };
-// Candidates (the allowed emails) lives in the ⋯ menu rather than as its own tab.
-byId("mCand").onclick = function () {
-  showTab("allow");
-  window.scrollTo(0, 0);
-};
+byId("mCand").onclick = showCandidates;
 function connect() {
   if (stream) {
     stream.close();
