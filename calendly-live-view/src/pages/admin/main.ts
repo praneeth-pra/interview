@@ -517,27 +517,11 @@ function renderChanges() {
     );
   });
 }
-// The agenda: a week strip (the day on screen circled, dots for days with interviews) over that day's timeline,
-// one coloured node per interview in its interview supporter's colour, joined by a line.
-function agendaDay() {
-  var today = dayKeyOf(new Date());
-  if (selectedDay && weekStart(selectedDay) === weekOf) {
-    return selectedDay;
-  }
-  if (weekStart(today) === weekOf) {
-    return today;
-  }
-  for (var i = 0; i < 7; i++) {
-    if (dayItems(addDays(weekOf, i)).length) {
-      return addDays(weekOf, i);
-    }
-  }
-  return weekOf;
-}
-function pickAgendaDay(day: string) {
-  selectedDay = day;
-  weekOf = weekStart(day);
-  render();
+// The agenda: the week as rows, one per day (weekday and date on the left, today in orange), each holding that day's
+// interviews as cards tinted in the interview supporter's colour (grey when none), wrapping when a day is busy.
+function durationLabel(minutes: number) {
+  var hours = Math.floor(minutes / 60);
+  return (hours ? hours + "h" : "") + (hours && minutes % 60 ? " " : "") + (minutes % 60 ? (minutes % 60) + "min" : "");
 }
 function renderAgenda() {
   var box = byId("agenda");
@@ -546,176 +530,78 @@ function renderAgenda() {
   }
   var today = dayKeyOf(new Date());
   var now = Date.now();
-  var shown = agendaDay();
   box.textContent = "";
-  var strip = el("div", {
-    class: "ws",
-    role: "group",
-    "aria-label": "Days",
-  });
   for (var i = 0; i < 7; i++) {
-    let day = addDays(weekOf, i);
-    var dayCount = dayItems(day).length;
-    var dots = el("span", {
-      class: "ws-d",
-      "aria-hidden": "true",
+    var day = addDays(weekOf, i);
+    var items = dayItems(day);
+    var isToday = day === today;
+    var cards = el("div", {
+      class: "ag-g",
     });
-    dayItems(day)
-      .map(function (item) {
-        var interviewer = state.iv.assign[item.booking.id];
-        return interviewer ? colorClass(interviewer) : "cn";
-      })
-      .filter(function (color, index, all) {
-        return all.indexOf(color) === index;
-      })
-      .slice(0, 3)
-      .forEach(function (color) {
-        dots.appendChild(el("i", { class: color }));
-      });
-    strip.appendChild(
-      el(
-        "button",
-        {
-          type: "button",
-          class: "ws-b" + (day === shown ? " on" : "") + (day === today ? " today" : ""),
-          "aria-pressed": day === shown ? "true" : "false",
-          "aria-label":
-            formatDay(day, { weekday: "long", month: "long", day: "numeric" }) +
-            (dayCount ? ", " + dayCount + (dayCount === 1 ? " interview" : " interviews") : ", no interviews"),
-          onclick: function () {
-            pickAgendaDay(day);
+    items.forEach(function (item) {
+      var booking = item.booking;
+      var interviewer = state.iv.assign[booking.id];
+      var isPast = Date.parse(booking.end) <= now;
+      var started = Date.parse(booking.start) <= now;
+      var minutes = Math.round((Date.parse(booking.end) - Date.parse(booking.start)) / 60000);
+      var needsSupport = !interviewer && started && !booking.missed;
+      cards.appendChild(
+        el(
+          "button",
+          {
+            type: "button",
+            class: "ag-i " + (interviewer ? colorClass(interviewer) : "cn") + (isPast ? " past" : "") + (booking.missed ? " missed" : "") + (needsSupport ? " need" : ""),
+            onclick: function () {
+              showBooking(booking.id);
+            },
           },
-        },
-        [
-          el("span", { class: "ws-w", text: formatDay(day, { weekday: "short" }) }),
-          el("b", { text: formatDay(day, { day: "numeric" }) }),
-          dots,
-        ],
-      ),
-    );
-  }
-  box.appendChild(strip);
-  var items = dayItems(shown);
-  box.appendChild(
-    el(
-      "div",
-      {
-        class: "ag-h" + (shown === today ? " today" : ""),
-      },
-      [
-        el("b", {
-          text: shown === today ? "Today" : formatDay(shown, { weekday: "long" }),
-        }),
-        el("span", {
-          text: formatDay(shown, {
-            weekday: shown === today ? "long" : undefined,
-            month: "short",
-            day: "numeric",
-          }),
-        }),
-        items.length ? el("em", { text: items.length + (items.length === 1 ? " interview" : " interviews") }) : null,
-      ],
-    ),
-  );
-  if (!items.length) {
-    // point to the next day this week that has interviews
-    var later = "";
-    for (var ahead = 1; !later && weekStart(addDays(shown, ahead)) === weekOf; ahead++) {
-      if (dayItems(addDays(shown, ahead)).length) {
-        later = addDays(shown, ahead);
-      }
-    }
+          [
+            el("b", {
+              text: titleCase(booking.name),
+            }),
+            el("span", {
+              class: "ag-s",
+              text: [booking.company, booking.round, interviewer || missedLabel(booking)].filter(Boolean).join(" · "),
+            }),
+            el("span", { class: "ag-t" }, [
+              el("span", { text: formatTime(new Date(booking.start)) }),
+              el("span", { text: durationLabel(minutes) }),
+            ]),
+            needsSupport
+              ? el("i", {
+                  class: "need-dot",
+                  title: "Support not recorded",
+                  "aria-label": "Support not recorded",
+                  role: "img",
+                })
+              : null,
+          ],
+        ),
+      );
+    });
     box.appendChild(
-      el("div", { class: "ag-none" }, [
-        el("p", { text: shown === today ? "No interviews today." : "No interviews this day." }),
-        later
-          ? el("button", {
-              type: "button",
-              class: "ghost",
-              text: "Next: " + formatDay(later, { weekday: "long" }) + " ›",
-              onclick: function () {
-                pickAgendaDay(later);
-              },
-            })
-          : null,
-      ]),
-    );
-    return;
-  }
-  var list = el("div", {
-    class: "ag-l",
-  });
-  var nowShown = shown !== today;
-  items.forEach(function (item, index) {
-    var booking = item.booking;
-    // today, a line marks the time now between the interviews before it and after it
-    if (!nowShown && Date.parse(booking.start) > now) {
-      nowShown = true;
-      if (index) {
-        list.appendChild(
-          el("div", { class: "ag-now" }, [
-            el("span", { class: "ag-r" }, [el("i")]),
-            el("span", { text: "Now " + formatTime(now) }),
-          ]),
-        );
-      }
-    }
-    var interviewer = state.iv.assign[booking.id];
-    var isPast = Date.parse(booking.end) <= now;
-    var started = Date.parse(booking.start) <= now;
-    var minutes = Math.round((Date.parse(booking.end) - Date.parse(booking.start)) / 60000);
-    var node = el("span", {
-      class: "ag-n",
-      "aria-hidden": "true",
-    });
-    // taller nodes for longer interviews, like blocks of time
-    node.style.height = Math.max(44, Math.min(96, 24 + minutes * 0.8)) + "px";
-    list.appendChild(
       el(
-        "button",
+        "div",
         {
-          type: "button",
-          class: "ag-i " + (interviewer ? colorClass(interviewer) : "cn") + (isPast ? " past" : "") + (booking.missed ? " missed" : ""),
-          onclick: function () {
-            showBooking(booking.id);
-          },
+          class: "ag-d" + (isToday ? " today" : "") + (items.length ? "" : " empty"),
         },
         [
-          el("span", { class: "ag-r" }, [node]),
           el(
-            "span",
+            "div",
             {
-              class: "ag-m",
+              class: "ag-dl",
+              "aria-label": (isToday ? "Today, " : "") + formatDay(day, { weekday: "long", month: "long", day: "numeric" }),
             },
             [
-              el("span", {
-                class: "ag-t",
-                text: formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end)) + " (" + minutes + " min)",
-              }),
-              el("b", {
-                text: titleCase(booking.name),
-              }),
-              el("span", {
-                text: [booking.company, booking.round, interviewer || missedLabel(booking)].filter(Boolean).join(" · ") || "\xA0",
-              }),
+              el("span", { text: formatDay(day, { weekday: "short" }), "aria-hidden": "true" }),
+              el("b", { text: formatDay(day, { day: "numeric" }), "aria-hidden": "true" }),
             ],
           ),
-          !interviewer && started && !booking.missed
-            ? el("i", {
-                class: "need-dot",
-                title: "Support not recorded",
-                "aria-label": "Support not recorded",
-                role: "img",
-              })
-            : el("i", {
-                class: "ag-c" + (isPast && !booking.missed ? " done" : ""),
-                "aria-hidden": "true",
-              }),
+          cards,
         ],
       ),
     );
-  });
-  box.appendChild(list);
+  }
 }
 function render() {
   renderEnquiryBadge();
@@ -2219,7 +2105,7 @@ byId("next").onclick = function () {
   selectedDay = null;
   render();
 };
-// Swipe the agenda sideways to move a day, like paging in a calendar app.
+// Swipe the agenda sideways to move a week, like paging in a calendar app.
 (function () {
   var box = byId("agenda");
   var startX = 0;
@@ -2238,7 +2124,7 @@ byId("next").onclick = function () {
     if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) {
       return;
     }
-    pickAgendaDay(addDays(agendaDay(), dx < 0 ? 1 : -1));
+    byId(dx < 0 ? "next" : "prev").click();
     box.classList.remove("swipe-next", "swipe-prev");
     void box.offsetWidth;
     box.classList.add(dx < 0 ? "swipe-next" : "swipe-prev");
@@ -2250,6 +2136,15 @@ byId("today").onclick = function () {
   byId("week").textContent = "";
   render();
 };
+// On a phone, opening the Agenda brings today's row into view when it's further down the week.
+byId("tabAg").addEventListener("click", function () {
+  setTimeout(function () {
+    var todayRow = document.querySelector(".ag-d.today");
+    if (todayRow && matchMedia("(max-width:760px)").matches && todayRow.getBoundingClientRect().top > innerHeight * 0.55) {
+      todayRow.scrollIntoView({ block: "start" });
+    }
+  });
+});
 // The week grid only scrolls to today when drawn fresh while visible, so redraw it when the phone's Calendar tab shows it.
 document.querySelector(".bnav [data-go=cal]").addEventListener("click", function () {
   setTimeout(function () {

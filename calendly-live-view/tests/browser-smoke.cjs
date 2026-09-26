@@ -115,11 +115,11 @@ const checks = [
     if (await p.locator("#agenda").isVisible()) throw new Error("Calendar should show only the week grid");
     if (await p.locator(".vt").count()) throw new Error("the Week/Agenda switch should be gone");
     await p.locator("#tabAg").click();
-    await p.locator("#agenda .ws").waitFor();
+    await p.locator("#agenda .ag-d").waitFor();
     if (await p.locator("#week").isVisible()) throw new Error("Agenda tab should show the agenda");
     if ((await p.locator("#tabAg").getAttribute("aria-selected")) !== "true") throw new Error("Agenda tab not selected");
     await p.reload();
-    await p.locator("#agenda .ws").waitFor();
+    await p.locator("#agenda .ag-d").waitFor();
     await p.locator("#tabCal").click();
     await p.locator("#week .grid").waitFor();
   }],
@@ -137,7 +137,7 @@ const checks = [
     await p.locator("#week .grid").waitFor();
     if (await p.locator("#agenda").isVisible()) throw new Error("Calendar tab should show the week grid");
     await p.locator(".bnav [data-go='ag']").click();
-    await p.locator("#agenda .ws").waitFor();
+    await p.locator("#agenda .ag-d").waitFor();
     if (await p.locator("#week").isVisible()) throw new Error("Agenda tab should show the agenda");
     if ((await p.locator("#sect").textContent()) !== "Agenda") throw new Error("header should say Agenda");
     if (!(await p.locator(".bnav [data-go='ag']").evaluate((b) => b.classList.contains("on")))) throw new Error("Agenda tab not highlighted");
