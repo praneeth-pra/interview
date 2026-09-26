@@ -100,7 +100,8 @@ const adminShell = (tab: string) =>
 export const ADMIN_CAL = adminShell("cal");
 export const ADMIN_ALLOW = adminShell("allow");
 export const ENQUIRY = shell(fill(template("enquiry"), { HOST: HOST_HTML }), CSP.page);
-export const HOME = shell(fill(template("home"), { HOST: HOST_HTML }), CSP.page);
+// the landing page is the one page search engines may list
+export const HOME = { ...shell(fill(template("home"), { HOST: HOST_HTML }), CSP.page), index: true };
 export const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
 export const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // A manage link carries the candidate's booking, so that page is built per request and never cached.

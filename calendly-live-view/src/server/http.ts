@@ -23,21 +23,25 @@ export const CSP = {
   frame: CSP_BASE + "; frame-ancestors 'self'",
 };
 // app: an admin page the home-screen app may keep for offline use (the service worker only caches responses marked so).
-type Shell = { body: ReturnType<typeof encode>; csp: string; framed?: boolean; app?: boolean };
+// index: a page search engines may list (only the landing page); everything else is sent with "noindex".
+type Shell = { body: ReturnType<typeof encode>; csp: string; framed?: boolean; app?: boolean; index?: boolean };
 export const shell = (html: string, csp: string, framed = false, app = false): Shell => ({
   body: encode(html, "text/html; charset=utf-8"),
   csp,
   framed,
   app,
 });
-export function sendShell(req: Request, s: Shell, cache = "private, no-cache") {
-  return respond(req, s.body, {
+export function sendShell(req: Request, s: Shell, cache = "private, no-cache", extra: Record<string, string> = {}) {
+  const headers: Record<string, string> = {
     ...BASE_HEADERS,
     "Cache-Control": cache,
     "Content-Security-Policy": s.csp,
     ...(s.framed ? { "X-Frame-Options": "SAMEORIGIN" } : {}),
     ...(s.app ? { "X-App-Shell": "1" } : {}),
-  });
+    ...extra,
+  };
+  if (s.index) delete headers["X-Robots-Tag"];
+  return respond(req, s.body, headers);
 }
 export async function readJson(req: Request, max = 5000): Promise<any | Response> {
   if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return json({ error: "Bad request." }, 415);

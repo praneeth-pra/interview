@@ -6,7 +6,7 @@ import { DURATIONS, HOST_NAME } from "../config";
 import { bookingsStore, emailAllowed } from "../data";
 import { receiveEnquiry } from "../enquiries";
 import { BASE_HEADERS, type Srv, json, readJson, sendShell, underLimit, clientIp } from "../http";
-import { tokenOk } from "../links";
+import { siteUrl, tokenOk } from "../links";
 import { BOOK_HOME, ENQUIRY, HOME, ICON, SW_JS, bookPage, splash } from "../pages";
 import { bookableDays, bookingLimitMs, slotsFor } from "../schedule";
 import { DATE_KEY, EMAIL_RE, UUID, normEmail } from "../util";
@@ -51,7 +51,20 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
     if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS });
     return respond(req, a.body, { ...BASE_HEADERS, "Cache-Control": a.current ? "public, max-age=31536000, immutable" : "no-cache" });
   }
-  if (path === "/" && method === "GET") return sendShell(req, HOME);
+  if (path === "/" && method === "GET") return sendShell(req, HOME, undefined, { Link: "<" + siteUrl(req) + '/>; rel="canonical"' });
+  // For search engines: the landing page is listed; the admin, the API and candidates' manage links are not crawled.
+  if (path === "/robots.txt" && method === "GET")
+    return new Response(
+      ["User-agent: *", "Disallow: /admin", "Disallow: /api/", "Disallow: /b/", "", "Sitemap: " + siteUrl(req) + "/sitemap.xml", ""].join("\n"),
+      { headers: { ...BASE_HEADERS, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } },
+    );
+  if (path === "/sitemap.xml" && method === "GET")
+    return new Response(
+      '<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>' +
+        Bun.escapeHTML(siteUrl(req)) +
+        "/</loc></url></urlset>\n",
+      { headers: { ...BASE_HEADERS, "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "public, max-age=3600" } },
+    );
   if (path === "/booking" && method === "GET") return sendShell(req, BOOK_HOME);
   if (path === "/booking/" && method === "GET")
     return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/booking" } });
