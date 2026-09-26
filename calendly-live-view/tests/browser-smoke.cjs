@@ -102,25 +102,45 @@ const checks = [
     await p.locator("#pclose").click();
     if (await p.locator("#viewAllow").isVisible()) throw new Error("candidates still showing after close");
     await p.locator("#dlBtn").click();
-    await p.locator("#mNew").click();
-    await p.locator("#ptitle", { hasText: "New booking" }).waitFor();
+    await p.locator("#mIv").click();
+    await p.locator("#ptitle", { hasText: "Interview supporters" }).waitFor();
     if (await p.locator("#pbody #viewAllow").count()) throw new Error("candidates left inside another panel");
     await p.locator("#pclose").click();
     await p.goto(BASE + "/admin/allowlist");
     await p.locator("#panel #viewAllow #addb").waitFor();
   }],
-  ["admin phone: Alerts in the menu, New booking in the bottom bar", async (p) => {
+  ["admin desktop: Calendar is the week grid, Agenda is its own tab", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#week .grid").waitFor();
+    if (await p.locator("#agenda").isVisible()) throw new Error("Calendar should show only the week grid");
+    if (await p.locator(".vt").count()) throw new Error("the Week/Agenda switch should be gone");
+    await p.locator("#tabAg").click();
+    await p.locator("#agenda .ws").waitFor();
+    if (await p.locator("#week").isVisible()) throw new Error("Agenda tab should show the agenda");
+    if ((await p.locator("#tabAg").getAttribute("aria-selected")) !== "true") throw new Error("Agenda tab not selected");
+    await p.reload();
+    await p.locator("#agenda .ws").waitFor();
+    await p.locator("#tabCal").click();
+    await p.locator("#week .grid").waitFor();
+  }],
+  ["admin phone: Alerts in the menu, Calendar and Agenda in the bottom bar", async (p) => {
     await p.setViewportSize({ width: 390, height: 844 });
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();
-    if (await p.locator("#mNew").isVisible()) throw new Error("New booking should not be in the phone menu");
+    if (await p.locator("#dlMenu").getByText("New booking").count()) throw new Error("New booking should be gone from the menu");
     await p.locator("#mAlerts").click();
     await p.locator(".pushpop h3", { hasText: "Booking notifications" }).waitFor();
     if (await p.locator("#dlMenu").isVisible()) throw new Error("menu stayed open behind Alerts");
     await p.keyboard.press("Escape");
-    await p.locator(".bnav [data-go='new']").click();
-    await p.locator("#ptitle", { hasText: "New booking" }).waitFor();
-    await p.locator("#pclose").click();
+    if (await p.locator(".bnav").getByText("New booking").count()) throw new Error("New booking should be gone from the bottom bar");
+    await p.locator(".bnav [data-go='cal']").click();
+    await p.locator("#week .grid").waitFor();
+    if (await p.locator("#agenda").isVisible()) throw new Error("Calendar tab should show the week grid");
+    await p.locator(".bnav [data-go='ag']").click();
+    await p.locator("#agenda .ws").waitFor();
+    if (await p.locator("#week").isVisible()) throw new Error("Agenda tab should show the agenda");
+    if ((await p.locator("#sect").textContent()) !== "Agenda") throw new Error("header should say Agenda");
+    if (!(await p.locator(".bnav [data-go='ag']").evaluate((b) => b.classList.contains("on")))) throw new Error("Agenda tab not highlighted");
   }],
 ];
 
