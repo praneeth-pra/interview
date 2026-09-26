@@ -930,7 +930,7 @@ h2 {
 .paybar[hidden] {
   display: none;
 }
-.payfilter {
+.paybar .payfilter {
   flex: 1 1 180px;
   max-width: 280px;
   height: 40px;
@@ -941,6 +941,11 @@ h2 {
   color: var(--ink);
   font: inherit;
   font-size: 14.5px;
+}
+/* 16px, or iPhones zoom in while typing */
+.paybar .paysearch {
+  padding: 0 16px;
+  font-size: 16px;
 }
 /* one candidate's subtotal, above their payments */
 .paysum {
