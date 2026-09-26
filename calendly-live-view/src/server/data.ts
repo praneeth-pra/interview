@@ -1,5 +1,5 @@
 // Everything the app keeps: the types and the file store for each kind of data.
-import { DEFAULT_INTERVIEWERS, OWNER_EMAILS } from "./config";
+import { DEFAULT_INTERVIEWERS, LOGIN_ON, OWNER_EMAILS } from "./config";
 import { fileStore, loadStore, type FileStore } from "./store";
 import { DAY_MS, EMAIL_RE, normEmail } from "./util";
 
@@ -112,6 +112,9 @@ export const sessionsStore = fileStore<{ sessions: Session[] }>(
   }),
 );
 export const isAdmin = (email: string) => OWNER_EMAILS.includes(email) || adminsStore.data.emails.includes(email);
+// Enquiries and payments are for the owners (ADMIN_EMAILS) only, not for the admins they add. With sign-in off (local
+// testing) everyone is an owner.
+export const isOwner = (email: string) => !LOGIN_ON || OWNER_EMAILS.includes(email);
 const SESSION_DAYS = 60; // signed out after this many days without opening the admin
 export const liveSession = (v: Session) => isAdmin(v.email) && Date.parse(v.seen) + SESSION_DAYS * DAY_MS > Date.now();
 // Enquiries from the public /enquiry page. The details are in enquiries.json; each resume is a file in DATA_DIR/resumes
@@ -162,7 +165,8 @@ export const secretStore = fileStore<{ key: string }>(
 // ---- Browser notifications (Web Push) for admins -----------------------------------------
 // Keys and device subscriptions live in push.json on the volume. Notifications go straight from
 // this server to the browser push services (Apple, Google, Mozilla, Microsoft); nothing else is involved.
-export type PushSub = { endpoint: string; p256dh: string; auth: string; label: string; addedAt: string };
+// email: the admin who turned alerts on for the device ("" before it was recorded, or with sign-in off)
+export type PushSub = { endpoint: string; p256dh: string; auth: string; label: string; addedAt: string; email?: string };
 export const pushStore = fileStore<{ pub: string; priv: string; subs: PushSub[] }>(
   "push.json",
   () => ({ pub: "", priv: "", subs: [] }),

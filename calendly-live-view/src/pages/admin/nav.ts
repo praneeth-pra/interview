@@ -66,6 +66,10 @@ export function setupNav() {
   }
   byId("tabStats").onclick = showStats;
   function showEnq() {
+    // admins who aren't owners don't have this tab
+    if (byId("tabEnq").hidden) {
+      return;
+    }
     try {
       history.replaceState(null, "", "/admin?view=enquiries");
     } catch (e) {}
@@ -81,6 +85,10 @@ export function setupNav() {
   }
   byId("tabEnq").onclick = showEnq;
   function showPay() {
+    // admins who aren't owners don't have this tab
+    if (byId("tabPay").hidden) {
+      return;
+    }
     try {
       history.replaceState(null, "", "/admin?view=payments");
     } catch (e) {}

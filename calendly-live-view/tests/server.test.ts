@@ -463,7 +463,7 @@ describe("admin", () => {
     expect((await postJson(locked, "/admin/login", { email: OWNER, code })).status).toBe(401);
     const admin = await get(locked, "/admin", { cookie });
     const html = await admin.text();
-    expect(boot(html)).toEqual({ tab: "cal", login: true, build: expect.stringMatching(/^[0-9a-z]+$/) });
+    expect(boot(html)).toEqual({ tab: "cal", login: true, build: expect.stringMatching(/^[0-9a-z]+$/), owner: true });
     const state = await (await get(locked, "/admin/api/state", { cookie })).json();
     expect(state.build).toBe(boot(html).build);
     expect(admin.headers.get("content-security-policy")).toContain("frame-src 'self'");
@@ -539,6 +539,86 @@ describe("admin", () => {
     for (let r = await reader.read(); !r.done; r = await reader.read());
     expect((await get(locked, "/admin/api/state", { cookie: helper })).status).toBe(401);
     expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(200);
+  });
+
+  test("only owners see enquiries and payments; the admins they add get neither the tabs nor the data", async () => {
+    const cookie = ownerCookie;
+    expect((await postJson(locked, "/admin/api/admins", { emails: ["aide@example.com"] }, { cookie })).status).toBe(200);
+    const aide = await signIn(locked, "aide@example.com");
+    const id = "00000000-0000-0000-0000-00000000abcd";
+    // every enquiry and payment API refuses them, before looking anything up
+    const gets = ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/enquiries/" + id + "/resume", "/admin/api/payments", "/admin/api/payments/" + id + "/receipt?download=1"];
+    for (const path of gets) {
+      const r = await get(locked, path, { cookie: aide });
+      expect(r.status).toBe(403);
+      expect((await r.json()).error).toContain("Only the owner");
+    }
+    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/delete"])
+      expect((await postJson(locked, path, { id }, { cookie: aide })).status).toBe(403);
+    // the owner still gets them (the made-up id isn't there, so its file is a 404, not a 403)
+    for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments"])
+      expect((await get(locked, path, { cookie })).status).toBe(200);
+    expect((await get(locked, "/admin/api/enquiries/" + id + "/resume", { cookie })).status).toBe(404);
+    expect((await get(locked, "/admin/api/payments/" + id + "/receipt", { cookie })).status).toBe(404);
+    // the page has no Enquiries or Payments tabs for them, in the header or the phone's bottom bar
+    const page = await (await get(locked, "/admin", { cookie: aide })).text();
+    expect(boot(page).owner).toBe(false);
+    expect(page).toContain('<button hidden id="tabEnq"');
+    expect(page).toContain('<button hidden id="tabPay"');
+    expect(page).toContain('<button hidden type="button" data-go="enq"');
+    expect(page).toContain('<button hidden type="button" data-go="pay"');
+    expect(page).toContain('<nav class="bnav b3"');
+    expect(boot(await (await get(locked, "/admin/allowlist", { cookie: aide })).text()).owner).toBe(false);
+    const ownerPage = await (await get(locked, "/admin", { cookie })).text();
+    expect(ownerPage).not.toContain("<button hidden");
+    expect(ownerPage).toContain('<nav class="bnav"');
+    // the live state leaves out when enquiries came in and how many payments there are
+    const mine = await (await get(locked, "/admin/api/state", { cookie: aide })).json();
+    expect(mine.owner).toBe(false);
+    expect(mine.enquiries).toBeUndefined();
+    expect(mine.payments).toBeUndefined();
+    const theirs = await (await get(locked, "/admin/api/state", { cookie })).json();
+    expect(theirs.owner).toBe(true);
+    expect(Array.isArray(theirs.enquiries)).toBe(true);
+    expect(typeof theirs.payments).toBe("number");
+    const live = await get(locked, "/admin/stream", { cookie: aide });
+    const reader = live.body!.getReader();
+    const first = new TextDecoder().decode((await reader.read()).value);
+    expect(first).toContain('"owner":false');
+    expect(first).not.toContain('"enquiries"');
+    expect(first).not.toContain('"payments"');
+    await reader.cancel();
+    // the backup they can download has no enquiries or payments; the owner's has both
+    const backup = await (await get(locked, "/admin/backup.json", { cookie: aide })).json();
+    expect(Object.keys(backup.files)).not.toContain("enquiries.json");
+    expect(Object.keys(backup.files)).not.toContain("payments.json");
+    expect(Object.keys(backup.files)).toContain("bookings.json");
+    const full = await (await get(locked, "/admin/backup.json", { cookie })).json();
+    expect(Object.keys(full.files)).toEqual(expect.arrayContaining(["enquiries.json", "payments.json"]));
+    // a device's alerts are recorded for the admin who turned them on, so enquiry and payment alerts go only to owners'
+    const endpoint = "https://fcm.googleapis.com/fcm/send/aide-device";
+    const sub = { endpoint, keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) }, label: "Test" };
+    const view = await (await postJson(locked, "/admin/api/push/subscribe", sub, { cookie: aide })).json();
+    expect(view.endpoints).toContain(endpoint);
+    expect(view.yours).toEqual([endpoint]);
+    expect((await (await get(locked, "/admin/api/push", { cookie })).json()).yours).not.toContain(endpoint);
+    expect(JSON.parse(readFileSync(join(locked.dir, "push.json"), "utf8")).subs.find((x: any) => x.endpoint === endpoint).email).toBe("aide@example.com");
+    await postJson(locked, "/admin/api/push/unsubscribe", { endpoint }, { cookie: aide });
+    expect((await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie })).status).toBe(200);
+  });
+
+  test("an admin who isn't an owner can't change or remove the owners", async () => {
+    const cookie = ownerCookie;
+    await postJson(locked, "/admin/api/admins", { emails: ["aide2@example.com"] }, { cookie });
+    const aide = await signIn(locked, "aide2@example.com");
+    const owners = ["boss@example.com", "chief@example.com", OWNER];
+    // only an owner changes the list: whatever an admin sends is refused, and the owners stay as they are
+    for (const emails of [["aide2@example.com"], ["aide2@example.com", "boss@example.com"], []]) {
+      expect((await postJson(locked, "/admin/api/admins", { emails }, { cookie: aide })).status).toBe(403);
+    }
+    expect(await (await get(locked, "/admin/api/admins", { cookie })).json()).toMatchObject({ owners, emails: ["aide2@example.com"] });
+    expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(200);
+    expect((await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie })).status).toBe(200);
   });
 
   test("signing out ends the session on the server too", async () => {
