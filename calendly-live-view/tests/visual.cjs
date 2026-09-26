@@ -104,7 +104,7 @@ const procs = [];
 // onOutput gets the server's log; with email off, admin sign-in codes are printed there.
 async function startServer(dir, port, dataDir, env = {}, onOutput) {
   const p = spawn("bun", ["run", path.join(dir, "src/server.ts")], {
-    env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ...env },
+    env: { ...process.env, PORT: String(port), DATA_DIR: dataDir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ADMIN_OPEN: "1", ...env },
     stdio: ["ignore", onOutput ? "pipe" : "ignore", "ignore"],
   });
   if (onOutput) p.stdout.on("data", (d) => onOutput(String(d)));

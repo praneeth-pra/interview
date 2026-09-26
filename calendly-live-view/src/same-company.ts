@@ -22,10 +22,10 @@ var SUFFIX = {
   software: 1,
   labs: 1,
 };
-function digits(text) {
+function digits(text: string) {
   return text.replace(/\D/g, "");
 }
-function sameCompany(first, second) {
+function sameCompany(first: string, second: string) {
   var firstKey = simKey(first);
   var secondKey = simKey(second);
   if (!firstKey || !secondKey) {
@@ -43,7 +43,7 @@ function sameCompany(first, second) {
   var longer = Math.max(firstCompact.length, secondCompact.length);
   return shorter >= 5 && osaDistance(firstCompact, secondCompact) <= (longer <= 9 ? 1 : 2);
 }
-function osaDistance(first, second) {
+function osaDistance(first: string, second: string) {
   var i;
   var j;
   var rows = first.length;
@@ -66,13 +66,13 @@ function osaDistance(first, second) {
   }
   return table[rows][cols];
 }
-function simKey(name) {
+function simKey(name: string) {
   return name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
     .trim()
     .split(" ")
-    .filter((word) => word && !SUFFIX[word])
+    .filter((word) => word && !SUFFIX[word as keyof typeof SUFFIX])
     .join(" ");
 }
 

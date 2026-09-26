@@ -51,7 +51,7 @@ export function respond(req: Request, body: Encoded, headers: Record<string, str
     data = body.gz;
     h["Content-Encoding"] = "gzip";
   }
-  return new Response(req.method === "HEAD" ? null : data, { status, headers: h });
+  return new Response(req.method === "HEAD" ? null : (data as Uint8Array<ArrayBuffer>), { status, headers: h });
 }
 
 const fingerprint = (name: string, data: Buffer) => {

@@ -743,13 +743,6 @@ textarea:focus {
   width: 18px;
   height: 18px;
 }
-.foot {
-  max-width: 1060px;
-  margin: 18px auto 0;
-  text-align: center;
-  font-size: 13px;
-  color: var(--ink2);
-}
 @media (max-width: 900px) {
   body {
     padding: 0;
@@ -820,9 +813,6 @@ textarea:focus {
   .done {
     padding: 32px 20px;
   }
-  .foot {
-    padding-bottom: 24px;
-  }
 }
 @media (max-width: 380px) {
   .day {
@@ -838,41 +828,6 @@ textarea:focus {
     animation: none !important;
     transition: none !important;
   }
-}
-.rchips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 8px;
-}
-.rchip {
-  height: 32px;
-  padding: 0 13px;
-  border-radius: 16px;
-  border: 1px solid var(--line);
-  background: var(--seg);
-  color: var(--ink2);
-  font: inherit;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition:
-    background 0.15s,
-    color 0.15s,
-    border-color 0.15s;
-}
-.rchip:hover {
-  color: var(--ink);
-  border-color: var(--ink3);
-}
-.rchip[aria-pressed="true"] {
-  background: var(--blue);
-  border-color: var(--blue);
-  color: #fff;
-}
-.rchip:focus-visible {
-  outline: 2px solid var(--blue);
-  outline-offset: 2px;
 }
 /* Days that can't be booked (past, full or outside the window) recede so open days stand out. */
 .day:not(.open) {

@@ -1,0 +1,39 @@
+// Which interview times are free.
+import { DAYS_AHEAD, DAY_END_MIN, DAY_START_MIN, SLOT_STEP_MIN } from "./config";
+import { activeBookings } from "./data";
+import { istParts, istToUtcMs } from "./time";
+import { pad } from "./util";
+
+export function overlapsExisting(startMs: number, endMs: number, ignoreId = "") {
+  return activeBookings().some((b) => b.id !== ignoreId && Date.parse(b.start) < endMs && Date.parse(b.end) > startMs);
+}
+export function slotOk(startMs: number, duration: number) {
+  if (!(startMs > Date.now()) || startMs % 60000 !== 0) return false;
+  const p = istParts(startMs);
+  const min = p.hh * 60 + p.mm;
+  return min >= DAY_START_MIN && min + duration <= DAY_END_MIN && (min - DAY_START_MIN) % SLOT_STEP_MIN === 0;
+}
+// Midnight (IST) after the last day candidates may book.
+export function bookingLimitMs() {
+  const t = istParts(Date.now());
+  return istToUtcMs(t.y, t.mo, t.d + DAYS_AHEAD, 0);
+}
+export function slotsFor(y: number, mo: number, d: number, duration: number, ignoreId = "") {
+  const out: number[] = [];
+  const now = Date.now();
+  for (let m = DAY_START_MIN; m + duration <= DAY_END_MIN; m += SLOT_STEP_MIN) {
+    const s = istToUtcMs(y, mo, d, m);
+    if (s > now && !overlapsExisting(s, s + duration * 60000, ignoreId)) out.push(s);
+  }
+  return out;
+}
+export function bookableDays(duration: number, ignoreId = "") {
+  const today = istParts(Date.now());
+  const out: { key: string; open: boolean }[] = [];
+  for (let i = 0; i < DAYS_AHEAD; i++) {
+    const t = new Date(Date.UTC(today.y, today.mo - 1, today.d + i));
+    const [y, mo, d] = [t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()];
+    out.push({ key: y + "-" + pad(mo) + "-" + pad(d), open: slotsFor(y, mo, d, duration, ignoreId).length > 0 });
+  }
+  return out;
+}

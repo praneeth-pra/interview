@@ -27,7 +27,7 @@ async function start(port: number, env: Record<string, string>, existing?: strin
   const dir = existing ?? mkdtempSync(join(tmpdir(), "booking-form-"));
   if (!existing) seed(dir);
   const proc = Bun.spawn(["bun", "run", join(ROOT, "src/server.ts")], {
-    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ...env },
+    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ADMIN_OPEN: "1", ...env },
     stdout: "ignore",
     stderr: "inherit",
   });
@@ -291,7 +291,7 @@ describe("enquiries", () => {
   test("the live state lists when enquiries came in, and opening Enquiries marks them seen", async () => {
     const PDF2 = new TextEncoder().encode("%PDF-1.7\n");
     // from another address: the earlier test used up this one's five an hour
-    const sent = await fetch(open.url + "/api/enquiry", { method: "POST", body: form({ ...good, name: "Ravi Teja" }, { bytes: PDF2, name: "ravi.pdf" }), headers: { "x-forwarded-for": "10.0.0.2" } });
+    const sent = await fetch(open.url + "/api/enquiry", { method: "POST", body: form({ ...good, name: "Ravi Teja" }, { bytes: PDF2, name: "ravi.pdf" }), headers: { "x-real-ip": "10.0.0.2" } });
     expect(sent.status).toBe(200);
     const state = await (await get(open, "/admin/api/state")).json();
     expect(state.enquiries.length).toBe(1);
@@ -572,5 +572,81 @@ describe("backups", () => {
     expect(JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.length).toBe(61);
     expect(existsSync(join(dir, "bookings.json.pre-restore"))).toBe(true);
     expect(existsSync(join(dir, "push.json"))).toBe(true);
+  });
+});
+
+describe("hardening", () => {
+  let bare: Srv;
+  const PDF = new TextEncoder().encode("%PDF-1.4\n% a tiny resume\n");
+  const enquiry = (headers: Record<string, string> = {}) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ name: "Asha Rao", email: "asha@example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years" })) f.set(k, v);
+    f.set("resume", new File([PDF], "cv.pdf"));
+    return fetch(bare.url + "/api/enquiry", { method: "POST", body: f, headers });
+  };
+  beforeAll(async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-bare-"));
+    seed(dir);
+    // two people typed "Quillsoft", one typed "Asha Rao Consulting"; 99 enquiries came in during the last day
+    const typed = [
+      { ...booking, id: "20000000-0000-0000-0000-000000000001", email: "a@example.com", company: "Quillsoft" },
+      { ...booking, id: "20000000-0000-0000-0000-000000000002", email: "b@example.com", company: "Quillsoft" },
+      { ...booking, id: "20000000-0000-0000-0000-000000000003", email: "c@example.com", company: "Asha Rao Consulting" },
+    ].map((b, i) => ({ ...b, cancelled: true, start: new Date(FUTURE - (i + 100) * 24 * HOUR).toISOString() }));
+    const bookings = JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings;
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [...bookings, ...typed] }));
+    const recent = Array.from({ length: 99 }, (_, i) => ({
+      id: "30000000-0000-0000-0000-" + String(i).padStart(12, "0"), name: "X", email: "x@example.com", phone: "9876543210", tech: "Java",
+      experience: "1 year", createdAt: new Date(Date.now() - i * 60000).toISOString(), resume: { file: "none.pdf", name: "cv.pdf", type: "application/pdf", size: 10 },
+    }));
+    writeFileSync(join(dir, "enquiries.json"), JSON.stringify({ enquiries: recent, seen: {} }));
+    // no ADMIN_EMAILS and no ADMIN_OPEN: what production would get if the variable were deleted
+    bare = await start(4316, { ADMIN_OPEN: "" }, dir);
+  });
+  afterAll(() => bare?.proc.kill());
+
+  test("without ADMIN_EMAILS the admin area stays locked", async () => {
+    const page = await (await get(bare, "/admin")).text();
+    expect(page).toContain('id="em"');
+    expect((await get(bare, "/admin/api/state")).status).toBe(401);
+    expect((await get(bare, "/admin/export.csv")).status).toBe(401);
+    expect((await get(bare, "/admin/backup.json")).status).toBe(401);
+    expect((await postJson(bare, "/admin/login/code", { email: "anyone@example.com" })).status).toBe(200);
+    expect((await postJson(bare, "/admin/login", { email: "anyone@example.com", code: "000000" })).status).toBe(401);
+  });
+
+  test("security headers are on every response", async () => {
+    for (const path of ["/", "/booking", "/api/companies", "/healthz"]) {
+      const r = await get(bare, path);
+      expect(r.headers.get("cross-origin-opener-policy")).toBe("same-origin");
+      expect(r.headers.get("permissions-policy")).toContain("camera=()");
+      expect(r.headers.get("x-frame-options")).toBe("DENY");
+    }
+  });
+
+  test("company names only one candidate typed are not shared", async () => {
+    const { companies } = await (await get(bare, "/api/companies")).json();
+    const names = companies.map((c: any) => c.n);
+    expect(names).toContain("Quillsoft");
+    expect(names).not.toContain("Asha Rao Consulting");
+  });
+
+  test("oversized requests are refused before they are read", async () => {
+    const big = "x".repeat(3 * 1024 * 1024);
+    const r = await fetch(bare.url + "/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: big }).catch(() => null);
+    expect(r === null || r.status === 413).toBe(true);
+  });
+
+  test("a made-up X-Forwarded-For doesn't get round the enquiry limit, and there's a daily cap for everyone", async () => {
+    // the 100th enquiry of the day is saved, the next is refused whatever network it comes from
+    expect((await enquiry({ "x-real-ip": "10.9.0.1" })).status).toBe(200);
+    const capped = await enquiry({ "x-real-ip": "10.9.0.2" });
+    expect(capped.status).toBe(429);
+    expect((await capped.json()).error).toContain("Try again tomorrow");
+    // per network: five an hour, counted by the address Railway reports, not by X-Forwarded-For
+    const codes = [];
+    for (let i = 0; i < 6; i++) codes.push((await enquiry({ "x-real-ip": "10.9.0.3", "x-forwarded-for": "172.16.0." + i })).status);
+    expect(codes.at(-1)).toBe(429);
+    expect((await (await enquiry({ "x-real-ip": "10.9.0.3" })).json()).error).toContain("from this network");
   });
 });

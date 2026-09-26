@@ -761,10 +761,6 @@ button.acard:active {
   font-size: 13.5px;
   color: var(--a);
 }
-.tlist {
-  display: flex;
-  flex-direction: column;
-}
 @media (max-width: 700px) {
   #home {
     padding-bottom: 96px;
