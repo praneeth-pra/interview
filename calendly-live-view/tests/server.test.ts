@@ -384,6 +384,37 @@ describe("payments", () => {
   });
 });
 
+describe("payments: the amount on the receipt", () => {
+  const receipt = (name: string) => Bun.file(join(ROOT, "tests", "receipts", name));
+  const send = async (amount: string, file: string, ip: string) => {
+    const d = new FormData();
+    d.set("email", "asha@example.com");
+    d.set("name", "Asha Rao");
+    d.set("amount", amount);
+    d.set("receipt", new File([await receipt(file).arrayBuffer()], file));
+    return fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": ip } });
+  };
+  test.skipIf(!Bun.which("tesseract"))("a screenshot showing another amount is refused; the right amount is saved as verified", async () => {
+    const wrong = await send("6000", "gpay-5000.jpg", "10.1.8.1");
+    expect(wrong.status).toBe(422);
+    expect(await wrong.json()).toEqual({ error: "The receipt shows \u20B95,000, not \u20B96,000. Enter the amount on your receipt.", field: "amount" });
+    expect((await send("5,000", "gpay-5000.jpg", "10.1.8.1")).status).toBe(200);
+    const { payments } = await (await get(open, "/admin/api/payments")).json();
+    expect(payments.find((p: any) => p.email === "asha@example.com").check).toBe("verified");
+  });
+  test("a receipt with no readable amount is saved as needing a check", async () => {
+    const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7]);
+    const d = new FormData();
+    d.set("email", "ravi@example.com");
+    d.set("name", "Ravi Teja");
+    d.set("amount", "700");
+    d.set("receipt", new File([PNG], "blurry.png"));
+    expect((await fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": "10.1.8.2" } })).status).toBe(200);
+    const { payments } = await (await get(open, "/admin/api/payments")).json();
+    expect(payments.find((p: any) => p.email === "ravi@example.com").check).toBe("unread");
+  });
+});
+
 describe("payments and the invite list", () => {
   test("when the Candidates list is on, only its emails can send a payment, as with booking", async () => {
     const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]);

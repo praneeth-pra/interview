@@ -22,6 +22,8 @@ jobs:
           bun-version: 1.3.11
       - name: Install the type checker (dev only; the app itself has no dependencies)
         run: bun install --frozen-lockfile
+      - name: Install the receipt readers the Docker image has (tesseract, pdftotext)
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils
       - name: Server and unit tests
         run: bun test tests/
       - name: Type check the server (strict) and the page modules

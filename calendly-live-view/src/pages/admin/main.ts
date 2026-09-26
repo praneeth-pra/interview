@@ -1803,6 +1803,17 @@ function rupees(amount: number) {
   return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
 var paymentsShown = -1;
+// Verified: the server read the typed amount on the receipt. Needs check: it couldn't read an amount (a blurry photo,
+// a HEIC photo), so look at the receipt. Payments from before the check have no badge.
+function checkBadge(item: any) {
+  if (item.check === "verified") {
+    return el("span", { class: "pchk ok", text: "Verified", title: "The amount on the receipt matches" });
+  } else if (item.check === "unread") {
+    return el("span", { class: "pchk warn", text: "Needs check", title: "The amount on the receipt couldn't be read" });
+  } else {
+    return null;
+  }
+}
 // Three views, remembered per device: By candidate (one row per candidate email: payments, total paid, last paid),
 // Table (candidate, date, amount) and List (one block per payment, with its receipt). Table and List can be filtered to
 // one candidate, which shows their subtotal; tapping a candidate in By candidate does that.
@@ -1852,11 +1863,14 @@ function showPayments() {
     payments.forEach(function (item) {
       var p = byEmail[item.email];
       if (!p) {
-        p = byEmail[item.email] = { email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt };
+        p = byEmail[item.email] = { email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, unread: 0 };
         out.push(p);
       }
       p.count++;
       p.total += item.amount;
+      if (item.check === "unread") {
+        p.unread++;
+      }
       if (Date.parse(item.createdAt) > Date.parse(p.last)) {
         p.last = item.createdAt;
       }
@@ -2000,7 +2014,11 @@ function showPayments() {
               draw();
             }
             return el("tr", { class: "tap", tabindex: "0", title: "Show " + p.name + "'s payments", onclick: open, onkeydown: onEnterOrSpace(open) }, [
-              el("td", null, [el("span", { class: "pn", text: p.name }), el("small", { text: p.email })]),
+              el("td", null, [
+                el("span", { class: "pn", text: p.name }),
+                el("small", { text: p.email }),
+                p.unread ? el("span", { class: "pchk warn", text: p.unread + " to check" }) : null,
+              ]),
               el("td", { class: "num", text: String(p.count) + "\u00D7" }),
               el("td", { class: "num", text: rupees(p.total) }),
               el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short" }, new Date(p.last)) }),
@@ -2038,7 +2056,7 @@ function showPayments() {
             return el("tr", null, [
               who ? null : el("td", { text: titleCase(item.name) }),
               el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short", year: "numeric" }, new Date(item.createdAt)) }),
-              el("td", { class: "num", text: rupees(item.amount) }),
+              el("td", { class: "num" }, [rupees(item.amount), checkBadge(item)]),
             ]);
           }),
         ),
@@ -2060,7 +2078,7 @@ function showPayments() {
             el("b", { text: titleCase(item.name) }),
             el("small", { text: formatIst({ month: "short", day: "numeric", year: "numeric" }, when) + ", " + formatTime(when) }),
           ]),
-          el("p", { class: "enqt payamt", text: rupees(item.amount) }),
+          el("p", { class: "enqt payamt" }, [rupees(item.amount), checkBadge(item)]),
           el("p", { class: "enqc" }, [el("a", { href: "mailto:" + item.email, text: item.email })]),
           el("div", { class: "enqa" }, [
             el("div", { class: "enqr" }, [

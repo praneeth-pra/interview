@@ -4,6 +4,7 @@ import { type Payment, emailAllowed, paymentsStore, pushStore } from "./data";
 import { type Srv, json, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
+import { checkReceipt } from "./receipt-check";
 import { saveStore } from "./store";
 import { EMAIL_RE, normEmail } from "./util";
 import { mkdir, rm } from "node:fs/promises";
@@ -12,6 +13,7 @@ import { mkdir, rm } from "node:fs/promises";
 const mb = (n: number) => String(Math.round((n / 1048576) * 10) / 10);
 export const RECEIPT_TOO_BIG = "Your receipt is larger than " + mb(RECEIPT_MAX) + " MB. Please upload a smaller file.";
 const PAYMENTS_PER_DAY = 100;
+const rupees = (n: number) => "\u20B9" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const AMOUNT_MAX = 10000000;
 // what the first bytes of each allowed kind of file look like (HEIC photos have "ftyp" after a 4-byte length)
 const RECEIPT_KINDS = [
@@ -75,6 +77,12 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
   const bytes = new Uint8Array(await receipt.arrayBuffer());
   const kind = RECEIPT_KINDS.find((k) => k.magic.every((b, i) => bytes[k.at + i] === b));
   if (!kind) return json({ error: "The receipt must be an image or a PDF." }, 400);
+  // the amount typed must be the one on the receipt; a receipt with no readable amount is kept for an admin to check
+  const check = await checkReceipt(bytes, kind.type, amount);
+  if (check.status === "mismatch") {
+    const shown = check.read.map(rupees).join(" or ");
+    return json({ error: "The receipt shows " + shown + ", not " + rupees(amount) + ". Enter the amount on your receipt.", field: "amount" }, 422);
+  }
   const id = crypto.randomUUID();
   const original =
     (receipt instanceof File ? receipt.name : "")
@@ -86,6 +94,7 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
     name,
     email,
     amount,
+    check: check.status,
     createdAt: new Date().toISOString(),
     receipt: { file: id + kind.ext, name: original, type: kind.type, size: bytes.length },
   };
@@ -114,6 +123,7 @@ export const paymentView = (v: Payment) => ({
   name: v.name,
   email: v.email,
   amount: v.amount,
+  check: v.check ?? "",
   createdAt: v.createdAt,
   receipt: { name: v.receipt.name, type: v.receipt.type, size: v.receipt.size },
 });

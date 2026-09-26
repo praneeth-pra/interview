@@ -1,6 +1,7 @@
 // The public payment form (/payment): email, full name, the amount paid in rupees and a receipt (an image or a PDF), sent
-// as one multipart request to /api/payment. The receipt's size limit comes from the server (the boot block) and is only
-// mentioned when a file is too big. The same rules are checked again on the server.
+// as one multipart request to /api/payment, which also checks that the amount is the one on the receipt. The receipt's
+// size limit comes from the server (the boot block) and is only mentioned when a file is too big. The same rules are
+// checked again on the server.
 var MAX_BYTES = JSON.parse(document.getElementById("boot").textContent).max;
 var MAX_TEXT = Math.round((MAX_BYTES / 1048576) * 10) / 10 + " MB";
 var form = document.getElementById("f");
@@ -77,7 +78,7 @@ form.addEventListener("submit", function (event) {
     return;
   }
   button.disabled = true;
-  button.textContent = "Sending…";
+  button.textContent = "Checking your receipt…";
   fetch("/api/payment", { method: "POST", body: new FormData(form) })
     .then(function (response) {
       return response
@@ -87,10 +88,11 @@ form.addEventListener("submit", function (event) {
         })
         .then(function (body) {
           if (!response.ok) {
-            // the email isn't on the invite list: mark the email field, as the booking page does
-            if (body.field === "email") {
-              fields.email.setAttribute("aria-invalid", "true");
-              fields.email.focus();
+            // the email isn't on the invite list, or the amount isn't the one on the receipt
+            var field = fields[body.field];
+            if (field) {
+              field.setAttribute("aria-invalid", "true");
+              field.focus();
             }
             throw new Error(body.error || "Couldn't send your payment details. Try again.");
           }

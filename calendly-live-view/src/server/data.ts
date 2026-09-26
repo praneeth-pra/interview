@@ -142,6 +142,8 @@ export type Payment = {
   name: string;
   email: string;
   amount: number; // in rupees
+  // what the server read on the receipt: the typed amount is on it, or nothing readable (an admin checks it by eye)
+  check?: "verified" | "unread";
   createdAt: string;
   receipt: { file: string; name: string; type: string; size: number };
 };
