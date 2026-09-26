@@ -147,6 +147,11 @@ export type Payment = {
   amount: number; // in rupees
   // what the server read on the receipt: the typed amount is on it, or nothing readable (an admin checks it by eye)
   check?: "verified" | "unread";
+  // the owner's decision, final once made: confirmed payments count in the totals, discarded ones are kept but set
+  // aside. No value means it is waiting for a decision.
+  decision?: "confirmed" | "discarded";
+  decidedAt?: string;
+  decidedBy?: string;
   createdAt: string;
   receipt: { file: string; name: string; type: string; size: number };
 };

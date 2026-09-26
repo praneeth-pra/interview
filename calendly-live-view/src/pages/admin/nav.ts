@@ -90,7 +90,9 @@ export function setupNav() {
       return;
     }
     try {
-      history.replaceState(null, "", "/admin?view=payments");
+      // keep ?pay= from a payment alert, so the tab can open that payment
+      var pay = new URLSearchParams(location.search).get("pay");
+      history.replaceState(null, "", "/admin?view=payments" + (pay ? "&pay=" + encodeURIComponent(pay) : ""));
     } catch (e) {}
     byId("viewCal").hidden = true;
     byId("viewStats").hidden = true;

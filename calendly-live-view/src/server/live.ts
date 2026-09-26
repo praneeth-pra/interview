@@ -65,6 +65,8 @@ export function adminState(owner: boolean) {
           enquiries: enquiriesStore.data.enquiries.map((v) => v.createdAt),
           // how many payments there are, so an open Payments tab shows a new one straight away
           payments: paymentsStore.data.payments.length,
+          // how many wait for the owner to confirm or discard them, for the count on the Payments tab
+          paymentsPending: paymentsStore.data.payments.filter((v) => !v.decision).length,
         }
       : {}),
   };

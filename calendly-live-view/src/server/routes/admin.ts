@@ -4,7 +4,7 @@ import { bookingsCsv, cancelBooking, commit, createBooking, moveBooking, saveFai
 import { DURATIONS, LOGIN_ON, OWNER_EMAILS } from "../config";
 import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, isOwner, ivStore, normResults, paymentsStore, pushStore, resultsStore } from "../data";
 import { enquiryView, readResume, removeResume } from "../enquiries";
-import { paymentView, readReceipt, removeReceipt } from "../payments";
+import { paymentView, readReceipt } from "../payments";
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
 import { adminState, broadcastState, enc, pub, streams } from "../live";
 import { ANALYTICS, LOGIN, adminShell } from "../pages";
@@ -116,22 +116,28 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
         },
       });
     }
-    if (path === "/admin/api/payments/delete" && method === "POST") {
+    // Confirm or discard a payment waiting for a decision. Either is final: a decided payment can't be changed or deleted.
+    if (path === "/admin/api/payments/decide" && method === "POST") {
       const body = await readJson(req, 1000);
       if (body instanceof Response) return body;
+      const decision = body?.decision === "confirm" ? "confirmed" : body?.decision === "discard" ? "discarded" : "";
+      if (!decision) return json({ error: "Bad request." }, 400);
       const v = paymentsStore.data.payments.find((x) => x.id === String(body?.id ?? ""));
-      if (!v) return json({ error: "That payment was already deleted." }, 404);
-      const prev = paymentsStore.data.payments;
-      paymentsStore.data.payments = prev.filter((x) => x !== v);
+      if (!v) return json({ error: "That payment isn't there any more." }, 404);
+      if (v.decision) return json({ error: "This payment was already " + v.decision + ". It can't be changed." }, 409);
+      v.decision = decision;
+      v.decidedAt = new Date().toISOString();
+      v.decidedBy = me?.email ?? "";
       try {
         await saveStore(paymentsStore);
       } catch {
-        paymentsStore.data.payments = prev;
+        delete v.decision;
+        delete v.decidedAt;
+        delete v.decidedBy;
         return json({ error: "Couldn't save the change. Try again." }, 500);
       }
-      await removeReceipt(v.receipt.file).catch(() => {});
       broadcastState();
-      return json({ ok: true });
+      return json({ ok: true, payment: paymentView(v) });
     }
     // Who can sign in: the owners (ADMIN_EMAILS, fixed) and the admins they add here.
     if (path === "/admin/api/admins" && method === "GET") return json(adminsView(me?.email ?? ""));

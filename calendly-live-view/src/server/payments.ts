@@ -115,7 +115,7 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
         title: "New payment",
         body: name + " · ₹" + amount.toLocaleString("en-IN"),
         tag: "payment:" + id,
-        url: "/admin?view=payments",
+        url: "/admin?view=payments&pay=" + id,
       },
       true,
     );
@@ -127,6 +127,8 @@ export const paymentView = (v: Payment) => ({
   email: v.email,
   amount: v.amount,
   check: v.check ?? "",
+  decision: v.decision ?? "",
+  decidedAt: v.decidedAt ?? "",
   createdAt: v.createdAt,
   receipt: { name: v.receipt.name, type: v.receipt.type, size: v.receipt.size },
 });

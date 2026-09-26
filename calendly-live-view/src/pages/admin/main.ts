@@ -1763,7 +1763,7 @@ function unreadEnquiries() {
 }
 function renderEnquiryBadge() {
   var count = byId("viewEnq").hidden ? unreadEnquiries() : 0;
-  document.querySelectorAll(".nbadge").forEach(function (badge: HTMLElement) {
+  document.querySelectorAll(".nbadge:not(.pbadge)").forEach(function (badge: HTMLElement) {
     badge.hidden = !count;
     badge.textContent = count > 99 ? "99+" : String(count);
   });
@@ -1800,8 +1800,9 @@ if (boot.owner) {
     })
     .catch(function () {});
 }
-// The Payments tab: what people sent from the public /payment page, newest first, with the total at the top. Each
-// receipt opens in a new tab; the icon beside it saves it, named after the payer.
+// The Payments tab: what people sent from the public /payment page, newest first. Each receipt opens in a new tab; the
+// icon beside it saves it, named after the payer. A new payment is Pending until an owner confirms or discards it, and
+// that's final. Totals count confirmed payments only; discarded ones are kept but hidden unless the status filter asks.
 function rupees(amount: number) {
   return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
@@ -1817,6 +1818,15 @@ function checkBadge(item: any) {
     return null;
   }
 }
+function statusBadge(item: any) {
+  if (item.decision === "confirmed") {
+    return el("span", { class: "pst ok", text: "Confirmed" });
+  } else if (item.decision === "discarded") {
+    return el("span", { class: "pst off", text: "Discarded" });
+  } else {
+    return el("span", { class: "pst wait", text: "Pending" });
+  }
+}
 // Three views, remembered per device: By candidate (one row per candidate email: payments, total paid, last paid),
 // Table (candidate, date, amount) and List (one block per payment, with its receipt). Table and List can be filtered to
 // one candidate, which shows their subtotal; tapping a candidate in By candidate does that.
@@ -1828,6 +1838,10 @@ try {
 var paymentsSort = { key: "date", down: true };
 var peopleSort = { key: "last", down: true };
 var paymentsFilter = "";
+// "" is pending and confirmed; or just "pending", "confirmed" or "discarded"
+var paymentsStatus = "";
+var paymentOpening = new URLSearchParams(location.search).get("pay") || "";
+var paymentShown = ""; // the one an alert opened, highlighted
 function showPayments() {
   var body = byId("payBody");
   body.textContent = "";
@@ -1864,15 +1878,19 @@ function showPayments() {
     var byEmail: Record<string, any> = {};
     var out: any[] = [];
     payments.forEach(function (item) {
+      if (item.decision === "discarded") {
+        return;
+      }
       var p = byEmail[item.email];
       if (!p) {
-        p = byEmail[item.email] = { email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, unread: 0 };
+        p = byEmail[item.email] = { email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, pending: 0 };
         out.push(p);
       }
-      p.count++;
-      p.total += item.amount;
-      if (item.check === "unread") {
-        p.unread++;
+      if (item.decision === "confirmed") {
+        p.count++;
+        p.total += item.amount;
+      } else {
+        p.pending++;
       }
       if (Date.parse(item.createdAt) > Date.parse(p.last)) {
         p.last = item.createdAt;
@@ -1920,7 +1938,14 @@ function showPayments() {
       list.appendChild(el("p", { class: "sub", text: "No payments yet. Share the link above." }));
       return;
     }
-    var all = people();
+    var listed = people();
+    // a candidate whose payments were all discarded isn't in By candidate, but is still in the filter
+    var all = listed.slice();
+    payments.forEach(function (item) {
+      if (!all.some((p) => p.email === item.email)) {
+        all.push({ email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, pending: 0 });
+      }
+    });
     if (paymentsFilter && !all.some((p) => p.email === paymentsFilter)) {
       paymentsFilter = "";
     }
@@ -1949,25 +1974,47 @@ function showPayments() {
               return a.name.localeCompare(b.name);
             })
             .map(function (p) {
-              return el("option", { value: p.email, text: p.name + " (" + p.count + ")" });
+              return el("option", { value: p.email, text: p.name });
             }),
         ),
       );
       pick.value = paymentsFilter;
       controls.push(pick);
+      var status = el(
+        "select",
+        {
+          class: "payfilter",
+          "aria-label": "Show payments by status",
+          onchange: function () {
+            paymentsStatus = status.value;
+            draw();
+          },
+        },
+        [
+          el("option", { value: "", text: "Pending and confirmed" }),
+          el("option", { value: "pending", text: "Pending" }),
+          el("option", { value: "confirmed", text: "Confirmed" }),
+          el("option", { value: "discarded", text: "Discarded" }),
+        ],
+      );
+      status.value = paymentsStatus;
+      controls.push(status);
     }
     controls.forEach(function (c) {
       bar.appendChild(c);
     });
     if (paymentsMode === "people") {
-      drawPeople(all);
+      if (listed.length) {
+        drawPeople(listed);
+      } else {
+        list.appendChild(el("p", { class: "sub", text: "Every payment so far was discarded. Pick List or Table to see them." }));
+      }
       return;
     }
-    var rows = paymentsFilter
-      ? payments.filter(function (item) {
-          return item.email === paymentsFilter;
-        })
-      : payments;
+    var rows = payments.filter(function (item) {
+      var state = item.decision || "pending";
+      return (!paymentsFilter || item.email === paymentsFilter) && (paymentsStatus ? state === paymentsStatus : state !== "discarded");
+    });
     var who = paymentsFilter
       ? all.filter(function (p) {
           return p.email === paymentsFilter;
@@ -1977,9 +2024,16 @@ function showPayments() {
       list.appendChild(
         el("div", { class: "paysum" }, [
           el("div", null, [el("b", { text: who.name }), el("small", { text: who.email })]),
-          el("div", { class: "num" }, [el("b", { text: rupees(who.total) }), el("small", { text: plural(who.count, "payment") })]),
+          el("div", { class: "num" }, [
+            el("b", { text: rupees(who.total) }),
+            el("small", { text: plural(who.count, "confirmed payment") + (who.pending ? " \u00B7 " + who.pending + " pending" : "") }),
+          ]),
         ]),
       );
+    }
+    if (!rows.length) {
+      list.appendChild(el("p", { class: "sub", text: paymentsStatus ? "No " + paymentsStatus + " payments here." : "No payments here." }));
+      return;
     }
     if (paymentsMode === "table") {
       drawTable(rows, who);
@@ -2002,7 +2056,7 @@ function showPayments() {
         el("thead", null, [
           el("tr", null, [
             el("th", { scope: "col", text: "Candidate" }),
-            heading(peopleSort, "count", "Paid", true, setSort),
+            heading(peopleSort, "count", "Confirmed", true, setSort),
             heading(peopleSort, "total", "Total", true, setSort),
             heading(peopleSort, "last", "Last", false, setSort),
           ]),
@@ -2020,7 +2074,7 @@ function showPayments() {
               el("td", null, [
                 el("span", { class: "pn", text: p.name }),
                 el("small", { text: p.email }),
-                p.unread ? el("span", { class: "pchk warn", text: p.unread + " to check" }) : null,
+                p.pending ? el("span", { class: "pst wait", text: p.pending + " pending" }) : null,
               ]),
               el("td", { class: "num", text: String(p.count) + "\u00D7" }),
               el("td", { class: "num", text: rupees(p.total) }),
@@ -2059,29 +2113,84 @@ function showPayments() {
             return el("tr", null, [
               who ? null : el("td", { text: titleCase(item.name) }),
               el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short", year: "numeric" }, new Date(item.createdAt)) }),
-              el("td", { class: "num" }, [rupees(item.amount), checkBadge(item)]),
+              el("td", { class: "num" }, [rupees(item.amount), statusBadge(item)]),
             ]);
           }),
         ),
         who
           ? el("tfoot", null, [
-              el("tr", null, [el("th", { scope: "row", text: "Total \u00B7 " + plural(who.count, "payment") }), el("td", { class: "num", text: rupees(who.total) })]),
+              el("tr", null, [
+                el("th", { scope: "row", text: "Confirmed \u00B7 " + plural(who.count, "payment") }),
+                el("td", { class: "num", text: rupees(who.total) }),
+              ]),
             ])
           : null,
       ]),
     );
+  }
+  // Pending: Confirm and Discard, each asked once. Decided: when, and nothing to press; the server refuses a change too.
+  function decided(item: any) {
+    if (item.decision) {
+      var at = new Date(item.decidedAt || item.createdAt);
+      return el("small", {
+        class: "pdone",
+        text: (item.decision === "confirmed" ? "Confirmed " : "Discarded ") + formatIst({ month: "short", day: "numeric" }, at) + ", " + formatTime(at),
+      });
+    }
+    var who = titleCase(item.name);
+    function decide(decision: string) {
+      var question =
+        decision === "confirm"
+          ? "Confirm " + rupees(item.amount) + " from " + who + "? Once confirmed, it can't be changed or discarded."
+          : "Discard " + rupees(item.amount) + " from " + who + "? It won't count in their total, and it can't be changed after this.";
+      if (!confirm(question)) {
+        return;
+      }
+      request("/admin/api/payments/decide", { id: item.id, decision: decision })
+        .then(function (result) {
+          toast(decision === "confirm" ? "Payment confirmed" : "Payment discarded");
+          payments = payments.map(function (p) {
+            return p.id === item.id ? result.payment : p;
+          });
+          draw();
+        })
+        .catch(function (error) {
+          setMessage(msg, error.message, true);
+          load();
+        });
+    }
+    return el("div", { class: "pdec" }, [
+      el("button", {
+        type: "button",
+        class: "rm",
+        text: "Discard",
+        "aria-label": "Discard the payment from " + who,
+        onclick: function () {
+          decide("discard");
+        },
+      }),
+      el("button", {
+        type: "button",
+        class: "pri",
+        text: "Confirm",
+        "aria-label": "Confirm the payment from " + who,
+        onclick: function () {
+          decide("confirm");
+        },
+      }),
+    ]);
   }
   function drawList(rows: any[]) {
     rows.forEach(function (item) {
       var when = new Date(item.createdAt);
       var kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
       list.appendChild(
-        el("div", { class: "enq" }, [
+        el("div", { class: "enq" + (item.decision === "discarded" ? " off" : "") + (item.id === paymentShown ? " hl" : ""), "data-pay": item.id }, [
           el("div", { class: "enqh" }, [
             el("b", { text: titleCase(item.name) }),
             el("small", { text: formatIst({ month: "short", day: "numeric", year: "numeric" }, when) + ", " + formatTime(when) }),
           ]),
-          el("p", { class: "enqt payamt" }, [rupees(item.amount), checkBadge(item)]),
+          el("p", { class: "enqt payamt" }, [rupees(item.amount), statusBadge(item), item.decision ? null : checkBadge(item)]),
           el("p", { class: "enqc" }, [el("a", { href: "mailto:" + item.email, text: item.email })]),
           el("div", { class: "enqa" }, [
             el("div", { class: "enqr" }, [
@@ -2104,25 +2213,7 @@ function showPayments() {
                 [icon("download")],
               ),
             ]),
-            el("button", {
-              type: "button",
-              class: "rm",
-              text: "Delete",
-              "aria-label": "Delete the payment from " + item.name,
-              onclick: function () {
-                if (!confirm("Delete the payment from " + item.name + ", with its receipt? This can't be undone.")) {
-                  return;
-                }
-                request("/admin/api/payments/delete", { id: item.id })
-                  .then(function () {
-                    toast("Payment deleted");
-                    load();
-                  })
-                  .catch(function (error) {
-                    setMessage(msg, error.message, true);
-                  });
-              },
-            }),
+            decided(item),
           ]),
         ]),
       );
@@ -2132,22 +2223,56 @@ function showPayments() {
     request("/admin/api/payments")
       .then(function (result) {
         payments = result.payments || [];
+        var opening = openFromAlert();
         draw();
+        var target = opening && list.querySelector('[data-pay="' + opening + '"]');
+        if (target) {
+          target.scrollIntoView({ block: "center" });
+        }
       })
       .catch(function (error) {
         list.textContent = "";
         setMessage(msg, error.message, true);
       });
   }
+  // a payment alert opens /admin?view=payments&pay=<id>: show that payment in the list, whatever it is
+  function openFromAlert() {
+    var id = paymentOpening;
+    var item = payments.filter(function (p) {
+      return p.id === id;
+    })[0];
+    if (!item) {
+      return "";
+    }
+    paymentOpening = "";
+    paymentShown = id;
+    try {
+      var url = new URL(location.href);
+      url.searchParams.delete("pay");
+      history.replaceState(null, "", url.pathname + url.search);
+    } catch (e) {}
+    paymentsMode = "list";
+    paymentsFilter = "";
+    paymentsStatus = item.decision === "discarded" ? "discarded" : "";
+    return id;
+  }
   load();
 }
-// a new payment while the tab is open shows up straight away
+// a new or decided payment while the tab is open shows up straight away; the badge counts pending ones
+var paymentsKey = "";
 function refreshPayments() {
-  var count = state.payments || 0;
-  if (!byId("viewPay").hidden && paymentsShown >= 0 && count !== paymentsShown) {
+  var pending = state.paymentsPending || 0;
+  document.querySelectorAll(".pbadge").forEach(function (badge: HTMLElement) {
+    badge.hidden = !pending;
+    badge.textContent = pending > 99 ? "99+" : String(pending);
+  });
+  byId("tabPay").setAttribute("aria-label", pending ? "Payments, " + pending + " pending" : "Payments");
+  var key = (state.payments || 0) + "/" + pending;
+  if (!byId("viewPay").hidden && paymentsShown >= 0 && key !== paymentsKey) {
     showPayments();
   }
-  paymentsShown = count;
+  paymentsKey = key;
+  paymentsShown = state.payments || 0;
 }
 var searchBox = byId<HTMLInputElement>("q");
 var searchList = byId("qdrop");

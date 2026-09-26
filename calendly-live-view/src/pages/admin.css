@@ -1067,7 +1067,8 @@ h2 {
   font-weight: 500;
 }
 /* Verified / Needs check, from reading the receipt */
-.pchk {
+.pchk,
+.pst {
   display: inline-block;
   margin-left: 8px;
   padding: 1px 8px;
@@ -1086,12 +1087,52 @@ h2 {
   background: var(--amber-t);
   color: var(--amber);
 }
-.paytbl .num .pchk {
+/* a payment's state: Pending until an owner confirms or discards it */
+.pst.wait {
+  background: var(--amber-t);
+  color: var(--amber);
+}
+.pst.ok {
+  background: color-mix(in srgb, var(--green) 13%, transparent);
+  color: var(--green);
+}
+.pst.off {
+  background: var(--sub);
+  color: var(--ink2);
+}
+.paytbl .num .pchk,
+.paytbl .num .pst {
   display: table;
   margin: 3px 0 0 auto;
 }
-.paytbl td small + .pchk {
+.paytbl td small + .pchk,
+.paytbl td small + .pst {
   margin: 4px 0 0;
+}
+.pdec {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.pdec .pri {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13.5px;
+}
+.pdone {
+  color: var(--ink2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.enq.off {
+  opacity: 0.7;
+}
+/* the payment an alert opened */
+.enq.hl {
+  margin: 0 -10px;
+  padding: 14px 10px;
+  border-radius: 10px;
+  background: var(--sub);
 }
 .payamt {
   font-size: 17px;

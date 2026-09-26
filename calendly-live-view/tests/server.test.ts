@@ -349,7 +349,7 @@ describe("payments", () => {
     expect(r.headers.get("location")).toBe("/payment");
   });
 
-  test("payments are checked, stored with the receipt, listed newest first for admins, and deletable", async () => {
+  test("payments are checked, stored with the receipt, listed newest first for admins, and confirmed or discarded once", async () => {
     expect((await send(form({ ...good, website: "spam.example" }, { bytes: PNG, name: "r.png" }))).status).toBe(200);
     expect((await send(form({ ...good, amount: "abc" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
     expect((await send(form({ ...good, amount: "0" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
@@ -374,10 +374,26 @@ describe("payments", () => {
     const saved = await get(open, "/admin/api/payments/" + payments[0].id + "/receipt?download=1");
     expect(saved.headers.get("content-disposition")).toBe("attachment; filename=\"Meena Iyer receipt.pdf\"; filename*=UTF-8''Meena%20Iyer%20receipt.pdf");
     expect(existsSync(join(open.dir, "receipts", payments[0].id + ".pdf"))).toBe(true);
-    expect((await (await get(open, "/admin/api/state")).json()).payments).toBe(2);
-    expect((await postJson(open, "/admin/api/payments/delete", { id: payments[0].id })).status).toBe(200);
-    expect((await (await get(open, "/admin/api/payments")).json()).payments.length).toBe(1);
-    expect(existsSync(join(open.dir, "receipts", payments[0].id + ".pdf"))).toBe(false);
+    expect(payments[0].decision).toBe("");
+    expect(await (await get(open, "/admin/api/state")).json()).toMatchObject({ payments: 2, paymentsPending: 2 });
+    // no deleting: each payment is confirmed or discarded once, and that's final
+    expect((await postJson(open, "/admin/api/payments/delete", { id: payments[0].id })).status).toBe(404);
+    expect((await postJson(open, "/admin/api/payments/decide", { id: payments[0].id, decision: "maybe" })).status).toBe(400);
+    expect((await postJson(open, "/admin/api/payments/decide", { id: "nope", decision: "confirm" })).status).toBe(404);
+    const confirmed = await postJson(open, "/admin/api/payments/decide", { id: payments[1].id, decision: "confirm" });
+    expect(confirmed.status).toBe(200);
+    expect((await confirmed.json()).payment).toMatchObject({ id: payments[1].id, decision: "confirmed" });
+    const again = await postJson(open, "/admin/api/payments/decide", { id: payments[1].id, decision: "discard" });
+    expect(again.status).toBe(409);
+    expect((await again.json()).error).toBe("This payment was already confirmed. It can't be changed.");
+    expect((await postJson(open, "/admin/api/payments/decide", { id: payments[0].id, decision: "discard" })).status).toBe(200);
+    expect((await postJson(open, "/admin/api/payments/decide", { id: payments[0].id, decision: "confirm" })).status).toBe(409);
+    const after = (await (await get(open, "/admin/api/payments")).json()).payments;
+    expect(after.map((p: any) => p.decision)).toEqual(["discarded", "confirmed"]);
+    expect(after[1].decidedAt).toBeTruthy();
+    expect((await (await get(open, "/admin/api/state")).json()).paymentsPending).toBe(0);
+    // a discarded payment keeps its receipt
+    expect(existsSync(join(open.dir, "receipts", payments[0].id + ".pdf"))).toBe(true);
     // admin-only, like resumes
     expect((await get(locked, "/admin/api/payments")).status).toBe(401);
     expect((await get(locked, "/admin/api/payments/" + payments[1].id + "/receipt")).status).toBe(401);
@@ -548,7 +564,7 @@ describe("admin", () => {
       expect(r.status).toBe(403);
       expect((await r.json()).error).toContain("Only the owner");
     }
-    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/delete"])
+    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide"])
       expect((await postJson(locked, path, { id }, { cookie: aide })).status).toBe(403);
     // the owner still gets them (the made-up id isn't there, so its file is a 404, not a 403)
     for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments"])
