@@ -15,9 +15,6 @@
   --accent-big: #c96442;
   --accent-ink: #b4532f;
   --accent-soft: rgba(217, 119, 87, 0.12);
-  --band: #262422;
-  --on-band: #f5f3ed;
-  --on-band2: rgba(245, 243, 237, 0.74);
   --shadow: 0 1px 2px rgba(31, 30, 29, 0.04), 0 16px 40px -12px rgba(31, 30, 29, 0.14);
   --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
 }
@@ -35,7 +32,6 @@
     --accent-big: #e08a6d;
     --accent-ink: #e89a7f;
     --accent-soft: rgba(224, 138, 109, 0.14);
-    --band: #2a2826;
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 20px 48px -12px rgba(0, 0, 0, 0.6);
   }
 }
@@ -106,7 +102,7 @@ h2 em {
   height: 1.5px;
   background: currentColor;
 }
-/* buttons: charcoal in light mode, paper in dark mode; the closing band's main button is orange */
+/* buttons: charcoal in light mode, paper in dark mode */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -148,18 +144,6 @@ h2 em {
 .btn.ghost:hover {
   border-color: var(--ink);
   box-shadow: none;
-}
-.btn.gold {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #1f1e1d;
-}
-.btn.ghost.light {
-  color: var(--on-band);
-  border-color: rgba(245, 243, 237, 0.28);
-}
-.btn.ghost.light:hover {
-  border-color: var(--on-band);
 }
 @media (prefers-reduced-motion: reduce) {
   .btn,
@@ -525,36 +509,9 @@ h2 {
   border-radius: 50%;
   background: var(--accent);
 }
-/* closing call to action */
-.final {
-  padding: 112px 0 104px;
-}
-.band {
-  position: relative;
-  overflow: hidden;
-  padding: 72px 64px;
-  border-radius: 24px;
-  background:
-    radial-gradient(480px 280px at 100% 0%, rgba(217, 119, 87, 0.28), transparent 70%),
-    var(--band);
-  color: var(--on-band);
-}
-.band .eyebrow {
-  color: #e89a7f;
-}
-.band h2 {
-  max-width: 700px;
-}
-.band p:not(.eyebrow) {
-  max-width: 560px;
-  margin: 20px 0 36px;
-  color: var(--on-band2);
-  font-size: 18px;
-}
-@media (prefers-color-scheme: dark) {
-  .band {
-    border: 1px solid var(--line);
-  }
+/* the tracks are the last section before the footer */
+.tracks {
+  padding-bottom: 112px;
 }
 /* footer */
 .foot {
@@ -647,6 +604,9 @@ h2 {
   .tracks {
     padding-top: 72px;
   }
+  .tracks {
+    padding-bottom: 72px;
+  }
   .steps li {
     padding: 22px;
   }
@@ -656,12 +616,5 @@ h2 {
   .chips li {
     padding: 8px 14px;
     font-size: 14.5px;
-  }
-  .final {
-    padding: 72px 0;
-  }
-  .band {
-    padding: 44px 24px;
-    border-radius: 20px;
   }
 }
