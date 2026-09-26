@@ -333,7 +333,7 @@ describe("payments", () => {
     if (file) f.set("receipt", new File([file.bytes], file.name));
     return f;
   };
-  const good = { email: "Kiran@Example.com", name: "Kiran Kumar", amount: "12,500" };
+  const good = { email: "Kiran@Example.com", name: "Kiran Kumar", installment: "advance", amount: "12,500" };
   const send = (f: FormData, ip = "10.1.0.1") => fetch(open.url + "/api/payment", { method: "POST", body: f, headers: { "x-real-ip": ip } });
 
   test("the page is served, kept out of search engines, and /pay redirects to it", async () => {
@@ -353,6 +353,12 @@ describe("payments", () => {
     expect((await send(form({ ...good, website: "spam.example" }, { bytes: PNG, name: "r.png" }))).status).toBe(200);
     expect((await send(form({ ...good, amount: "abc" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
     expect((await send(form({ ...good, amount: "0" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
+    // which installment it is: one of the four, and required
+    for (const installment of ["", "4", "toString"]) {
+      const r = await send(form({ ...good, installment }, { bytes: PNG, name: "r.png" }), "10.1.0.3");
+      expect(r.status).toBe(400);
+      expect(await r.json()).toEqual({ error: "Choose which installment this is.", field: "installment" });
+    }
     const notImage = await send(form(good, { bytes: new TextEncoder().encode("<svg></svg>"), name: "r.svg" }));
     expect(notImage.status).toBe(400);
     expect((await notImage.json()).error).toContain("image or a PDF");
@@ -362,11 +368,12 @@ describe("payments", () => {
     expect(tooBig.status).toBe(413);
     expect((await tooBig.json()).error).toBe("Your receipt is larger than 1 MB. Please upload a smaller file.");
     expect((await send(form(good, { bytes: PNG, name: "gpay.png" }), "10.1.0.2")).status).toBe(200);
-    expect((await send(form({ ...good, name: "Meena Iyer", amount: "999.50" }, { bytes: PDF, name: "bank.pdf" }), "10.1.0.2")).status).toBe(200);
+    expect((await send(form({ ...good, name: "Meena Iyer", installment: "2", amount: "999.50" }, { bytes: PDF, name: "bank.pdf" }), "10.1.0.2")).status).toBe(200);
     const { payments } = await (await get(open, "/admin/api/payments")).json();
     expect(payments.map((p: any) => p.name)).toEqual(["Meena Iyer", "Kiran Kumar"]);
     expect(payments[1]).toMatchObject({ email: "kiran@example.com", amount: 12500, receipt: { name: "gpay.png", type: "image/png", size: PNG.length } });
     expect(payments[0].amount).toBe(999.5);
+    expect(payments.map((p: any) => p.installment)).toEqual(["2", "advance"]);
     const file = await get(open, "/admin/api/payments/" + payments[1].id + "/receipt");
     expect(file.headers.get("content-type")).toBe("image/png");
     expect(file.headers.get("content-disposition")).toStartWith("inline;");
@@ -406,6 +413,7 @@ describe("payments: the amount on the receipt", () => {
     const d = new FormData();
     d.set("email", "asha@example.com");
     d.set("name", "Asha Rao");
+    d.set("installment", "1");
     d.set("amount", amount);
     d.set("receipt", new File([await receipt(file).arrayBuffer()], file));
     return fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": ip } });
@@ -423,6 +431,7 @@ describe("payments: the amount on the receipt", () => {
     const d = new FormData();
     d.set("email", "ravi@example.com");
     d.set("name", "Ravi Teja");
+    d.set("installment", "3");
     d.set("amount", "700");
     d.set("receipt", new File([PNG], "blurry.png"));
     expect((await fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": "10.1.8.2" } })).status).toBe(200);
@@ -438,6 +447,7 @@ describe("payments and the invite list", () => {
       const d = new FormData();
       d.set("email", email);
       d.set("name", "Someone Else");
+      d.set("installment", "advance");
       d.set("amount", "500");
       d.set("receipt", new File([PNG], "r.png"));
       return d;

@@ -89,6 +89,7 @@ const checks = [
     await p.goto(BASE + "/payment");
     await p.fill("#em", "kiran@example.com");
     await p.fill("#nm", "Kiran Kumar");
+    await p.selectOption("#in", "1");
     await p.fill("#am", "12,500");
     // a receipt over the size limit is refused in the browser, with a clear message
     await p.setInputFiles("#rc", { name: "big.png", mimeType: "image/png", buffer: Buffer.alloc(2 * 1024 * 1024, 1) });

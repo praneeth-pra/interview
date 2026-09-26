@@ -1109,6 +1109,16 @@ h2 {
 .paytbl td small + .pst {
   margin: 4px 0 0;
 }
+.paytbl td.pin {
+  color: var(--ink2);
+  white-space: nowrap;
+}
+.pinst {
+  margin: 2px 0 0;
+  color: var(--ink2);
+  font-weight: 600;
+  font-size: 14px;
+}
 .pdec {
   display: flex;
   gap: 6px;

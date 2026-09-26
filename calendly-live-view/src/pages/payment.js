@@ -1,4 +1,4 @@
-// The public payment form (/payment): email, full name, the amount paid in rupees and a receipt (an image or a PDF), sent
+// The public payment form (/payment): email, full name, which installment it is, the amount paid in rupees and a receipt (an image or a PDF), sent
 // as one multipart request to /api/payment, which also checks that the amount is the one on the receipt. The receipt's
 // size limit comes from the server (the boot block) and is only mentioned when a file is too big. The same rules are
 // checked again on the server.
@@ -11,6 +11,7 @@ var errorBox = document.getElementById("err");
 var fields = {
   email: document.getElementById("em"),
   name: document.getElementById("nm"),
+  installment: document.getElementById("in"),
   amount: document.getElementById("am"),
 };
 function amountValue() {
@@ -43,12 +44,14 @@ function showFile() {
 }
 fileInput.addEventListener("change", showFile);
 // a field someone is fixing stops showing as wrong
-form.addEventListener("input", function (event) {
+function fixing(event) {
   if (event.target.getAttribute("aria-invalid") === "true") {
     event.target.setAttribute("aria-invalid", "false");
     errorBox.textContent = "";
   }
-});
+}
+form.addEventListener("input", fixing);
+form.addEventListener("change", fixing);
 function check() {
   var problems = [];
   function need(input, ok, text) {
@@ -59,6 +62,7 @@ function check() {
   }
   need(fields.email, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.value.trim()), "Enter a valid email address.");
   need(fields.name, fields.name.value.trim().length >= 2, "Enter your full name.");
+  need(fields.installment, !!fields.installment.value, "Choose which installment this is.");
   var amount = amountValue();
   need(fields.amount, amount > 0 && amount <= 10000000, "Enter the amount you paid, in rupees.");
   var fileText = fileProblem(fileInput.files[0]);
@@ -105,7 +109,9 @@ form.addEventListener("submit", function (event) {
         fields.name.value.trim().split(/\s+/)[0] +
         ". We've received your payment of ₹" +
         amountValue().toLocaleString("en-IN") +
-        " and will check it soon.";
+        " (" +
+        fields.installment.options[fields.installment.selectedIndex].text +
+        ") and will check it soon.";
       document.getElementById("done").hidden = false;
       window.scrollTo(0, 0);
     })

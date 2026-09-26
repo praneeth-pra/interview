@@ -1818,6 +1818,13 @@ function checkBadge(item: any) {
     return null;
   }
 }
+// which part of the fee a payment is; older payments didn't ask, and show a dash
+function installmentText(item: any, short?: boolean) {
+  var names: Record<string, string> = short
+    ? { advance: "Advance", "1": "1st", "2": "2nd", "3": "3rd" }
+    : { advance: "Advance", "1": "1st installment", "2": "2nd installment", "3": "3rd installment" };
+  return names[item.installment] || "\u2014";
+}
 function statusBadge(item: any) {
   if (item.decision === "confirmed") {
     return el("span", { class: "pst ok", text: "Confirmed" });
@@ -2103,6 +2110,7 @@ function showPayments() {
             // filtered to one candidate, their name is in the summary above instead
             who ? null : el("th", { scope: "col", text: "Candidate" }),
             heading(paymentsSort, "date", "Date", false, setSort),
+            el("th", { scope: "col", text: "For" }),
             heading(paymentsSort, "amount", "Amount", true, setSort),
           ]),
         ]),
@@ -2113,6 +2121,7 @@ function showPayments() {
             return el("tr", null, [
               who ? null : el("td", { text: titleCase(item.name) }),
               el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short", year: "numeric" }, new Date(item.createdAt)) }),
+              el("td", { class: "pin", text: installmentText(item, true), title: installmentText(item) }),
               el("td", { class: "num" }, [rupees(item.amount), statusBadge(item)]),
             ]);
           }),
@@ -2120,7 +2129,7 @@ function showPayments() {
         who
           ? el("tfoot", null, [
               el("tr", null, [
-                el("th", { scope: "row", text: "Confirmed \u00B7 " + plural(who.count, "payment") }),
+                el("th", { scope: "row", colspan: "2", text: "Confirmed \u00B7 " + plural(who.count, "payment") }),
                 el("td", { class: "num", text: rupees(who.total) }),
               ]),
             ])
@@ -2191,6 +2200,7 @@ function showPayments() {
             el("small", { text: formatIst({ month: "short", day: "numeric", year: "numeric" }, when) + ", " + formatTime(when) }),
           ]),
           el("p", { class: "enqt payamt" }, [rupees(item.amount), statusBadge(item), item.decision ? null : checkBadge(item)]),
+          el("p", { class: "pinst", text: installmentText(item) }),
           el("p", { class: "enqc" }, [el("a", { href: "mailto:" + item.email, text: item.email })]),
           el("div", { class: "enqa" }, [
             el("div", { class: "enqr" }, [

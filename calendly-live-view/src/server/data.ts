@@ -140,11 +140,14 @@ export const enquiriesStore = fileStore<{ enquiries: Enquiry[]; seen: Record<str
 );
 // Payments from the public /payment page. The details are in payments.json; each receipt is a file in DATA_DIR/receipts
 // (kept in memory when there is no data folder).
+export const INSTALLMENTS = { advance: "Advance", "1": "1st installment", "2": "2nd installment", "3": "3rd installment" } as const;
+export type Installment = keyof typeof INSTALLMENTS;
 export type Payment = {
   id: string;
   name: string;
   email: string;
   amount: number; // in rupees
+  installment?: Installment; // which part of the fee it is; missing on payments from before it was asked
   // what the server read on the receipt: the typed amount is on it, or nothing readable (an admin checks it by eye)
   check?: "verified" | "unread";
   // the owner's decision, final once made: confirmed payments count in the totals, discarded ones are kept but set
