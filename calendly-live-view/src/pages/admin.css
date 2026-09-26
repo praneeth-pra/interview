@@ -2772,6 +2772,46 @@ button,
   background: var(--red-t);
   color: var(--red);
 }
+.bk-st.st-noshow,
+.bk-st.st-didnthappen {
+  background: var(--amber-t);
+  color: var(--amber);
+}
+/* "Didn't happen?" under the interview support choices: the question, then two buttons side by side */
+.bk-miss {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  align-items: center;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  font-size: 13px;
+  color: var(--ink2);
+}
+.bk-miss span {
+  grid-column: 1 / -1;
+}
+.bk-miss button {
+  height: auto;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+}
+.bk-undo {
+  margin-top: 10px;
+}
+/* interviews marked as not having taken place */
+.ev.missed b,
+.ag-i.missed .ag-m b {
+  text-decoration: line-through;
+}
 .bk-st.sm {
   align-self: center;
   padding: 3px 8px;

@@ -326,6 +326,39 @@ describe("admin", () => {
     expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(401);
   });
 
+  test("a started interview can be marked as a no-show or as not happened, and unmarked", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-missed-"));
+    const past = istMidnight() - 24 * HOUR + 10 * HOUR;
+    const done = { ...booking, id: "00000000-0000-0000-0000-000000000009", start: new Date(past).toISOString(), end: new Date(past + 30 * 60000).toISOString() };
+    const helped = { ...done, id: "00000000-0000-0000-0000-000000000008" };
+    writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, done, helped] }));
+    writeFileSync(join(dir, "interviewers.json"), JSON.stringify({ names: ["Praneeth"], assign: { [helped.id]: "Praneeth" } }));
+    const srv = await start(4316, {}, dir);
+    try {
+      const mark = (id: string, missed: string) => postJson(srv, "/admin/api/missed", { id, missed });
+      // not before it starts, not once support is recorded, and only known values
+      expect((await mark(booking.id, "noshow")).status).toBe(409);
+      expect((await mark(helped.id, "noshow")).status).toBe(409);
+      expect((await mark(done.id, "maybe")).status).toBe(400);
+      expect((await mark(done.id, "noshow")).status).toBe(200);
+      let state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === done.id).missed).toBe("noshow");
+      // no support can be recorded for it, and the download says what happened
+      const iv = await fetch(srv.url + "/admin/api/interviewers", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ set: { [done.id]: "Praneeth" } }) });
+      expect(iv.status).toBe(409);
+      expect(await (await get(srv, "/admin/export.csv")).text()).toContain("No-show");
+      expect((await mark(done.id, "other")).status).toBe(200);
+      expect(await (await get(srv, "/admin/export.csv")).text()).toContain("Didn't happen");
+      expect((await mark(done.id, "")).status).toBe(200);
+      state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === done.id).missed).toBe("");
+      expect(JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.find((b: any) => b.id === done.id).missed).toBeUndefined();
+    } finally {
+      srv.proc.kill();
+    }
+  });
+
   test("the service worker caches admin pages and assets only, and forgets them on sign-out", async () => {
     const sw = await get(open, "/sw.js");
     expect(sw.headers.get("cache-control")).toBe("no-cache");

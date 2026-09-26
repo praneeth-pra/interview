@@ -17,6 +17,8 @@ export type Booking = {
   rescheduledAt?: string;
   rescheduledBy?: string;
   prevStart?: string;
+  missed?: "noshow" | "other" | ""; // marked after the start time when the interview didn't take place
+  missedAt?: string;
 };
 // A cancellation or reschedule in the last 30 days.
 export type Change = Booking & { kind: "cancelled" | "rescheduled"; at: string };
