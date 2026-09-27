@@ -1,5 +1,6 @@
-// Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts, Enquiries and Payments) in the header and the
-// phone bottom bar, the phone section title, and the bottom-sheet panel, which can be swiped down to close.
+// Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts, Enquiries, Payments and Analytics) in the
+// header and the phone bottom bar, the phone section title, and the bottom-sheet panel, which can be swiped down to close.
+// Phones keep five buttons in the bottom bar, so Analytics opens from the ⋯ menu there.
 export function setupNav() {
   function byId(id: string) {
     return document.getElementById(id);
@@ -19,13 +20,15 @@ export function setupNav() {
       return "enq";
     } else if (!byId("viewPay").hidden) {
       return "pay";
+    } else if (!byId("viewRev").hidden) {
+      return "rev";
     } else if (!weekView) {
       return "ag";
     } else {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", ag: "Agenda", stats: "Contacts", enq: "Enquiries", pay: "Payments" };
+  var TITLES = { cal: "Calendar", ag: "Agenda", stats: "Contacts", enq: "Enquiries", pay: "Payments", rev: "Analytics" };
   // Switching sections is instant; only the bottom bar's highlight slides to the new tab.
   var pill = document.createElement("span");
   pill.className = "bnav-pill";
@@ -53,6 +56,7 @@ export function setupNav() {
     byId("tabStats").setAttribute("aria-selected", String(current === "stats"));
     byId("tabEnq").setAttribute("aria-selected", String(current === "enq"));
     byId("tabPay").setAttribute("aria-selected", String(current === "pay"));
+    byId("tabRev").setAttribute("aria-selected", String(current === "rev"));
     placePill();
   }
   // Each tab opens where you left it. The page is one long scroll, so remember its position per tab.
@@ -100,6 +104,7 @@ export function setupNav() {
     byId("viewCal").hidden = true;
     byId("viewEnq").hidden = true;
     byId("viewPay").hidden = true;
+    byId("viewRev").hidden = true;
     byId("viewStats").hidden = false;
     sync();
     arrive("stats");
@@ -117,6 +122,7 @@ export function setupNav() {
     byId("viewCal").hidden = true;
     byId("viewStats").hidden = true;
     byId("viewPay").hidden = true;
+    byId("viewRev").hidden = true;
     byId("viewEnq").hidden = false;
     sync();
     arrive("enq");
@@ -136,6 +142,7 @@ export function setupNav() {
     byId("viewCal").hidden = true;
     byId("viewStats").hidden = true;
     byId("viewEnq").hidden = true;
+    byId("viewRev").hidden = true;
     byId("viewPay").hidden = false;
     sync();
     arrive("pay");
@@ -144,10 +151,30 @@ export function setupNav() {
     }
   }
   byId("tabPay").onclick = showPay;
+  function showRev() {
+    // admins who aren't owners don't have this tab
+    if (byId("tabRev").hidden) {
+      return;
+    }
+    setUrl("/admin?view=revenue", "rev");
+    byId("viewCal").hidden = true;
+    byId("viewStats").hidden = true;
+    byId("viewEnq").hidden = true;
+    byId("viewPay").hidden = true;
+    byId("viewRev").hidden = false;
+    sync();
+    arrive("rev");
+    if (window.__rev) {
+      window.__rev();
+    }
+  }
+  byId("tabRev").onclick = showRev;
+  byId("mRev").onclick = showRev;
   function showCal(week: boolean) {
     byId("viewStats").hidden = true;
     byId("viewEnq").hidden = true;
     byId("viewPay").hidden = true;
+    byId("viewRev").hidden = true;
     view(week);
     try {
       var url = new URL(location.href);
@@ -204,6 +231,8 @@ export function setupNav() {
     setTimeout(showEnq, 0);
   } else if (startView === "payments") {
     setTimeout(showPay, 0);
+  } else if (startView === "revenue") {
+    setTimeout(showRev, 0);
   }
   setTimeout(function () {
     homeView = currentView();
@@ -274,6 +303,8 @@ export function setupNav() {
       showEnq();
     } else if (shown === "payments") {
       showPay();
+    } else if (shown === "revenue") {
+      showRev();
     } else {
       byId(shown === "agenda" ? "tabAg" : "tabCal").click();
     }

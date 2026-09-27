@@ -3529,3 +3529,237 @@ html {
   border-radius: 50%;
   background: var(--rc);
 }
+/* Analytics (owners only): tiles, month bars, meters and the top-candidates table. One accent colour throughout. */
+/* Phones keep five buttons in the bottom bar, so Analytics is in the ⋯ menu there; so it is on narrow windows, where the
+   header's tabs can scroll it out of sight. */
+#mRev {
+  display: none;
+}
+@media (max-width: 900px) {
+  .dlmenu #mRev:not([hidden]) {
+    display: block;
+  }
+}
+@media (min-width: 761px) and (max-width: 900px) {
+  .tabs button {
+    padding: 0 9px;
+  }
+}
+.rv-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+.rv-dl {
+  flex: none;
+  border: 1px solid var(--line);
+  background: var(--card);
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: 18px;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  color: var(--link);
+}
+.rv-tiles {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.rv-tile,
+.rv-sec {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  min-width: 0;
+}
+.rv-tile {
+  padding: 12px 14px;
+}
+.rv-k {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+}
+.rv-v {
+  font-size: 22px;
+  font-weight: 700;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rv-n {
+  font-size: 12px;
+  color: var(--ink2);
+  margin-top: 2px;
+}
+.rv-sec {
+  padding: 14px 16px 16px;
+  margin-bottom: 14px;
+}
+.rv-sec h3 {
+  margin: 0;
+  font-size: 16px;
+}
+.rv-sec > .sub {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+.rv-sec > h3 + *,
+.rv-sec > .sub + * {
+  margin-top: 14px;
+}
+.rv-bars {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 6px;
+  height: 180px;
+}
+.rv-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+}
+.rv-val {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--ink2);
+  height: 18px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rv-bar {
+  flex: 1;
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  border-bottom: 1px solid var(--line);
+}
+.rv-bar i {
+  display: block;
+  width: 100%;
+  max-width: 36px;
+  margin: 0 auto;
+  border-radius: 6px 6px 2px 2px;
+  background: var(--blue);
+}
+.rv-mo {
+  font-size: 11.5px;
+  color: var(--ink2);
+  margin-top: 4px;
+}
+.rv-row + .rv-row {
+  margin-top: 12px;
+}
+.rv-rl {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 14px;
+}
+.rv-rl b {
+  font-variant-numeric: tabular-nums;
+}
+.rv-meter {
+  height: 8px;
+  margin-top: 5px;
+  border-radius: 4px;
+  background: var(--tint);
+  overflow: hidden;
+}
+.rv-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+  background: var(--blue);
+}
+.rv-rn {
+  font-size: 12px;
+  color: var(--ink2);
+  margin-top: 3px;
+}
+.rv-tbl {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.rv-tbl th {
+  text-align: left;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--ink2);
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+.rv-tbl td {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.rv-tbl tr:last-child td {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.rv-tbl .num {
+  text-align: right;
+  padding-left: 12px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.rv-tbl td b,
+.rv-tbl td small {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.rv-tbl td small {
+  font-size: 12px;
+  color: var(--ink2);
+}
+.rv-more {
+  margin-top: 10px;
+}
+.rv-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 14px;
+}
+.rv-chip {
+  font-size: 13px;
+  padding: 4px 10px;
+  border-radius: 14px;
+  background: var(--sub);
+  color: var(--ink2);
+}
+.rv-chip b {
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+@media (max-width: 760px) {
+  .rv-tiles {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .rv-v {
+    font-size: 19px;
+  }
+  .rv-bars {
+    gap: 3px;
+    height: 160px;
+  }
+  /* rupee amounts stand on their side so twelve fit across a phone */
+  .rv-bars.money .rv-val {
+    writing-mode: vertical-rl;
+    transform: rotate(180deg);
+    height: 34px;
+    text-align: left;
+  }
+}

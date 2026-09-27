@@ -147,7 +147,7 @@ export async function cancelBooking(b: Booking, reason: string, by: "candidate" 
   }
   return json({ ok: true, emailed: !!RESEND_API_KEY });
 }
-const csvCell = (v: unknown) => {
+export const csvCell = (v: unknown) => {
   let s = String(v ?? "");
   if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; // stop spreadsheets treating text as formulas
   return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;

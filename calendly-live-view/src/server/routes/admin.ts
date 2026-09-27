@@ -1,3 +1,4 @@
+import { analyticsCsv, analyticsView } from "../analytics";
 import { adminsView, dropSessions, sessionOf } from "../auth";
 import { backupData } from "../backup";
 import { bookingsCsv, cancelBooking, commit, createBooking, moveBooking, saveFailed } from "../bookings";
@@ -23,7 +24,8 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   if (path === "/admin" || path.startsWith("/admin/")) {
     const me = LOGIN_ON ? sessionOf(req) : null;
     const authed = !LOGIN_ON || !!me;
-    // Enquiries and payments are for owners only; other admins don't see their tabs, and their APIs refuse them.
+    // Enquiries, payments and the revenue in Analytics are for owners only; other admins don't see their tabs, and their
+    // APIs refuse them.
     const owner = authed && isOwner(me?.email ?? "");
     if ((path === "/admin" || path === "/admin/allowlist") && method === "GET") {
       if (!authed) return sendShell(req, LOGIN);
@@ -32,8 +34,11 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     if (path === "/admin/analytics" && method === "GET")
       return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
     if (!authed) return json({ error: "Sign in again." }, 401);
-    if (!owner && /^\/admin\/api\/(enquiries|payments)(\/|$)/.test(path))
-      return json({ error: "Only the owner can see enquiries and payments." }, 403);
+    if (!owner && /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|$)/.test(path))
+      return json({ error: "Only the owner can see enquiries, payments and revenue." }, 403);
+    // the Analytics tab: revenue, bookings and enquiries in one summary, and the payments as a spreadsheet
+    if (path === "/admin/api/revenue" && method === "GET") return json(analyticsView());
+    if (path === "/admin/api/revenue.csv" && method === "GET") return analyticsCsv();
     // Enquiries from /enquiry, newest first; each resume downloads from its own link; an enquiry can be deleted.
     if (path === "/admin/api/enquiries" && method === "GET")
       return json({
