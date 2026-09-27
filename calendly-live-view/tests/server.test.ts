@@ -397,16 +397,18 @@ describe("payments", () => {
     expect((await get(locked, "/admin/api/payments/" + payments[1].id + "/receipt")).status).toBe(401);
   });
 
-  test("Analytics counts confirmed payments as revenue, keeps pending ones apart, narrows to a searched candidate, and exports CSV", async () => {
+  test("Revenue counts confirmed payments, keeps pending ones apart, suggests candidates, narrows to a search, and exports CSV", async () => {
     expect((await send(form({ ...good, installment: "1", amount: "5000" }, { bytes: PNG, name: "r.png" }), "10.1.0.4")).status).toBe(200);
     const v = await (await get(open, "/admin/api/revenue")).json();
     expect(v.months).toHaveLength(12);
     // Kiran's advance was confirmed; Meena's payment was discarded and doesn't count anywhere
     expect(v.revenue).toMatchObject({ total: 12500, count: 1, pending: 5000, pendingCount: 1, payers: 1 });
     expect(v.revenue.byMonth.at(-1)).toBe(12500);
+    expect(v.revenue.before).toBe(0);
     expect(v.found).toEqual([]);
-    expect(v.bookings.rounds).toHaveProperty("cleared");
-    expect(v.enquiries).toHaveProperty("booked");
+    // the suggestions: everyone with a payment that wasn't discarded, with what they've paid (confirmed only)
+    expect(v.candidates).toEqual([{ name: "Kiran Kumar", email: "kiran@example.com", total: 12500 }]);
+    expect(v).not.toHaveProperty("bookings");
     const csv = await get(open, "/admin/api/revenue.csv");
     expect(csv.headers.get("content-disposition")).toStartWith('attachment; filename="payments-');
     const lines = (await csv.text()).trim().split("\r\n");
@@ -422,7 +424,7 @@ describe("payments", () => {
     const nobody = await (await get(open, "/admin/api/revenue?q=zzz")).json();
     expect(nobody.found).toEqual([]);
     expect(nobody.revenue).toMatchObject({ total: 0, pending: 0, payers: 0 });
-    expect(nobody.bookings.rounds.upcoming + nobody.bookings.rounds.done).toBe(0);
+    expect(nobody.candidates).toHaveLength(1);
     expect((await (await get(open, "/admin/api/revenue.csv?q=meena")).text()).trim().split("\r\n")).toHaveLength(1);
     expect((await get(locked, "/admin/api/revenue")).status).toBe(401);
     expect((await get(locked, "/admin/api/revenue.csv")).status).toBe(401);

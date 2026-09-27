@@ -3529,8 +3529,8 @@ html {
   border-radius: 50%;
   background: var(--rc);
 }
-/* Analytics (owners only): a candidate search, tiles, month bars and meters. One accent colour throughout. */
-/* Phones keep five buttons in the bottom bar, so Analytics is in the ⋯ menu there; so it is on narrow windows, where the
+/* Revenue (owners only): a candidate search with suggestions, tiles and month bars. One accent colour throughout. */
+/* Phones keep five buttons in the bottom bar, so Revenue is in the ⋯ menu there; so it is on narrow windows, where the
    header's tabs can scroll it out of sight. */
 #mRev {
   display: none;
@@ -3657,35 +3657,39 @@ html {
   color: var(--ink2);
   margin-top: 4px;
 }
-.rv-row + .rv-row {
-  margin-top: 12px;
+/* the search and its suggestions, which open under the box */
+.rv-srch {
+  flex: 1 1 180px;
+  max-width: 340px;
 }
-.rv-rl {
+.rv-srch .paysearch {
+  width: 100%;
+  max-width: none;
+}
+.rv-srch .drop {
+  left: 0;
+  right: auto;
+  width: 100%;
+  min-width: 260px;
+}
+/* the chart's title, with the Cumulative / Monthly switch beside it */
+.rv-sh {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
-  gap: 12px;
-  font-size: 14px;
+  align-items: flex-start;
+  gap: 10px 16px;
 }
-.rv-rl b {
-  font-variant-numeric: tabular-nums;
+.rv-sh h3 {
+  margin: 0;
+  font-size: 16px;
 }
-.rv-meter {
-  height: 8px;
-  margin-top: 5px;
-  border-radius: 4px;
-  background: var(--tint);
-  overflow: hidden;
+.rv-sh .sub {
+  margin: 2px 0 0;
+  font-size: 13px;
 }
-.rv-meter i {
-  display: block;
-  height: 100%;
-  border-radius: 4px;
-  background: var(--blue);
-}
-.rv-rn {
-  font-size: 12px;
-  color: var(--ink2);
-  margin-top: 3px;
+.rv-sh + .rv-bars {
+  margin-top: 14px;
 }
 /* whose figures these are, after a search */
 .rv-who {
@@ -3696,23 +3700,6 @@ html {
 }
 .rv-who b {
   color: var(--ink);
-}
-.rv-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin-top: 14px;
-}
-.rv-chip {
-  font-size: 13px;
-  padding: 4px 10px;
-  border-radius: 14px;
-  background: var(--sub);
-  color: var(--ink2);
-}
-.rv-chip b {
-  color: var(--ink);
-  font-variant-numeric: tabular-nums;
 }
 @media (max-width: 760px) {
   .rv-tiles {
