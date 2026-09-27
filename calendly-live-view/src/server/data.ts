@@ -54,7 +54,7 @@ export const ivStore = fileStore<{ names: string[]; assign: Record<string, strin
 // Results the admin marks per candidate and company in Analytics ("Update results"), keyed by a normalised candidate name.
 type PersonResults = { results: Record<string, string>; updated: string };
 const RESULT_VALUES = new Set(["cleared", "notcleared", "hold", "offer", "withdrew"]);
-export function normResults(v: any): Record<string, string> {
+function normResults(v: any): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [c, r] of Object.entries(v ?? {})) if (c && c.length <= 120 && typeof r === "string" && RESULT_VALUES.has(r)) out[c] = r;
   return out;

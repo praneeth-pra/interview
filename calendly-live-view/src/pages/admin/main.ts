@@ -1,5 +1,5 @@
-// Admin calendar: week grid and agenda, booking panel, new booking/reschedule/cancel, candidate search,
-// allowlist tab and the live connection to /admin/stream.
+// Admin calendar: week grid and agenda, booking panel, reschedule/cancel, candidate search, the Candidates
+// allowlist panel and the live connection to /admin/stream.
 import { byId, el, onEnterOrSpace, setMessage, toast } from "./dom";
 import {
   addDays,
@@ -21,7 +21,7 @@ import { setupAlerts } from "./alerts";
 import { setupDownloadMenu } from "./download-menu";
 import { setupNav } from "./nav";
 import { setupStatsFrame } from "./stats-frame";
-import type { Allowlist, Booking, Change, State } from "./types";
+import type { Allowlist, Booking, State } from "./types";
 
 var boot = JSON.parse(document.getElementById("boot").textContent);
 var HOUR_PX = 64;
@@ -326,7 +326,7 @@ function renderWeek() {
       class: "corner",
     }),
   );
-  days.forEach(function (day, index) {
+  days.forEach(function (day) {
     grid.appendChild(
       el(
         "div",
@@ -446,77 +446,6 @@ function renderWeek() {
     week.scrollLeft = scrollX;
     week.scrollTop = scrollY;
   }
-}
-function renderChanges() {
-  var list = byId("changes");
-  if (!list) {
-    return;
-  }
-  list.textContent = "";
-  if (!state.changes.length) {
-    list.appendChild(
-      el("li", {
-        class: "empty",
-        text: "No cancellations or reschedules in the last 30 days.",
-      }),
-    );
-    return;
-  }
-  state.changes.forEach(function (change) {
-    var cancelled = change.kind === "cancelled";
-    var who = byWhom(cancelled ? change.cancelledBy : change.rescheduledBy);
-    var when = cancelled
-      ? formatRange(change)
-      : (change.prevStart ? shortDate(change.prevStart) + ", " + formatTime(new Date(change.prevStart)) + " → " : "") + formatRange(change);
-    function open() {
-      showBooking(change.id);
-    }
-    list.appendChild(
-      el(
-        "li",
-        {
-          tabindex: "0",
-          role: "button",
-          onclick: open,
-          onkeydown: onEnterOrSpace(open),
-        },
-        [
-          el("span", {
-            class: "tag " + (cancelled ? "x" : "r"),
-            text: cancelled ? "Cancelled" : "Moved",
-          }),
-          el(
-            "div",
-            {
-              class: "cmain",
-            },
-            [
-              el("div", null, [
-                el("b", {
-                  text: titleCase(change.name),
-                }),
-                who ? " " + who : "",
-              ]),
-              el("div", {
-                class: "m",
-                text: when,
-              }),
-              cancelled && change.cancelReason
-                ? el("div", {
-                    class: "why",
-                    text: change.cancelReason,
-                  })
-                : null,
-            ],
-          ),
-          el("span", {
-            class: "cwhen",
-            text: timeAgo(change.at),
-          }),
-        ],
-      ),
-    );
-  });
 }
 // The agenda: one day at a time, like a phone calendar's Day view. A week strip picks the day (the day on screen circled
 // in orange, dots for days with interviews), then an hour grid holds that day's interviews as blocks sized to their
@@ -690,7 +619,6 @@ function render() {
     renderAttention();
     renderLegend();
     renderWeek();
-    renderChanges();
     renderAgenda();
     if (refreshPanel && !byId("panel").hidden) {
       refreshPanel();
@@ -2549,7 +2477,7 @@ byId("impb").onclick = function () {
     });
 };
 byId("aq").oninput = renderAllow;
-// Candidates: who may book. Opens in the side panel like New booking and Interview supporters.
+// Candidates: who may book. Opens in the side panel like Interview supporters and Admins.
 function showCandidates() {
   refreshPanel = null;
   var body = openPanel("Candidates", "Emails allowed to book an interview.");
