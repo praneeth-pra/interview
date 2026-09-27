@@ -77,6 +77,44 @@ const checks = [
     await p.click("#cxgo");
     await expectText(/cancelled/i, "cancel didn't finish");
   }],
+  ["admin phone: swiping the agenda moves the day, not the week strip, and never leaves it stuck", async (p) => {
+    const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    try {
+      const m = await ctx.newPage();
+      const errors = [];
+      m.on("pageerror", (e) => errors.push(e.message));
+      await m.goto(BASE + "/admin?view=agenda");
+      await m.locator("#agenda .ag-grid").waitFor();
+      await m.waitForTimeout(600);
+      const cdp = await ctx.newCDPSession(m);
+      const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+      const shift = (sel) => m.evaluate((s) => getComputedStyle(document.querySelector(s)).transform, sel);
+      const y = (await m.locator("#agenda .ag-grid").boundingBox()).y + 120;
+      const before = Number(await m.locator("#agenda .ws-b.on b").textContent());
+      await touch("touchStart", 300, y);
+      for (let x = 290; x >= 150; x -= 20) await touch("touchMove", x, y);
+      if ((await shift("#agenda .ag-grid")) === "none") throw new Error("the day didn't follow the finger");
+      if ((await shift("#agenda .ws")) !== "none" || (await shift("#agenda")) !== "none") throw new Error("the week strip moved with the day");
+      await touch("touchEnd");
+      await m.waitForTimeout(700);
+      const after = Number(await m.locator("#agenda .ws-b.on b").textContent());
+      if (after !== before + 1 && after !== 1) throw new Error("a left swipe should pick the next day, got " + before + " → " + after);
+      // a redraw in the middle of a swipe (as a live update does) must not leave the day half moved
+      await touch("touchStart", 300, y);
+      for (let x = 290; x >= 200; x -= 15) await touch("touchMove", x, y);
+      await m.evaluate(() => {
+        const a = document.getElementById("agenda");
+        for (const c of Array.from(a.children)) a.replaceChild(c.cloneNode(true), c);
+      });
+      await touch("touchEnd");
+      await m.waitForTimeout(700);
+      for (const sel of ["#agenda", "#agenda .ws", "#agenda .ag-grid"])
+        if ((await shift(sel)) !== "none") throw new Error(sel + " was left shifted after a redraw mid-swipe");
+      if (errors.length) throw new Error(errors[0]);
+    } finally {
+      await ctx.close();
+    }
+  }],
   ["admin calendar", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#status.live").waitFor({ state: "attached" });
