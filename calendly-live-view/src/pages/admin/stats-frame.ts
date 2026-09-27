@@ -45,7 +45,7 @@ export function setupStatsFrame() {
   // Load it quietly once the admin has settled, so the first tap on Contacts shows it straight away.
   addEventListener("load", function () {
     setTimeout(function () {
-      if (document.visibilityState === "visible" && !(navigator as any).connection?.saveData) {
+      if (document.visibilityState === "visible" && !navigator.connection?.saveData) {
         load();
       }
     }, 2500);

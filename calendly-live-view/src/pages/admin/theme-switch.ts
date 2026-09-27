@@ -18,7 +18,7 @@ export function setupThemeSwitch() {
     const next = current() === "dark" ? "light" : "dark";
     switchTo!(next);
     const frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
-    const contacts = frame && (frame.contentWindow as any);
+    const contacts = frame && frame.contentWindow;
     if (contacts && contacts.__theme) {
       contacts.__theme(next);
     }

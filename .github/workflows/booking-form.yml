@@ -16,7 +16,7 @@ jobs:
       run:
         working-directory: calendly-live-view
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
@@ -24,13 +24,13 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Install the receipt readers the Docker image has (tesseract, pdftotext)
         run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends tesseract-ocr tesseract-ocr-eng poppler-utils
-      - name: Server and unit tests
-        run: bun test tests/
+      - name: Server and unit tests, with coverage of the in-process code (bunfig.toml sets the bar)
+        run: bun run test:coverage
       - name: Type check the server (strict) and the page modules
         run: bun run typecheck
       - name: Formatting (Prettier; `bun run format` fixes it)
         run: bun run format:check
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Install Chromium
@@ -48,13 +48,13 @@ jobs:
       run:
         working-directory: calendly-live-view
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: 1.3.11
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
       - name: Install Chromium
@@ -63,7 +63,7 @@ jobs:
         run: NODE_PATH=$(npm root -g) node tests/visual.cjs --base origin/${{ github.base_ref }} --out ${{ runner.temp }}/visual
       - name: Upload the differences
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: visual-differences
           path: ${{ runner.temp }}/visual

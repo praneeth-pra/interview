@@ -3,6 +3,7 @@ import { el, setMessage, toast } from "./dom";
 import { request } from "./api";
 import { boot } from "./state";
 import { openPanel, panel } from "./panel";
+import type { AdminsView } from "./types";
 
 // Who can sign in. Owners come from the server's ADMIN_EMAILS and can't be removed here; everyone else can be added or
 // removed, and removing someone signs them out on all their devices.
@@ -32,7 +33,7 @@ export function showAdmins() {
   let view = { owners: [] as string[], emails: [] as string[], me: "" };
   function save(emails: string[], done: string) {
     addButton.disabled = true;
-    return request("/admin/api/admins", { emails: emails })
+    return request<AdminsView>("/admin/api/admins", { emails: emails })
       .then(function (result) {
         view = result;
         draw();
@@ -116,7 +117,7 @@ export function showAdmins() {
     body.appendChild(el("div", { class: "admadd" }, [input, addButton]));
   }
   body.appendChild(msg);
-  request("/admin/api/admins")
+  request<AdminsView>("/admin/api/admins")
     .then(function (result) {
       view = result;
       draw();

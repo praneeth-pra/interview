@@ -4,15 +4,16 @@ import { plural } from "./labels";
 import { request } from "./api";
 import { state } from "./state";
 import { openPanel, panel } from "./panel";
-import type { Allowlist } from "./types";
+import type { AllowAdded, AllowAnswer, Allowlist } from "./types";
 
 let allow: Allowlist = {
   enabled: false,
   emails: [],
 };
 let allowLoaded = false;
-function updateAllow(change: Record<string, unknown>) {
-  return request("/admin/api/allowlist", change).then(function (result) {
+// T: what this action answers (adding emails also says how many were added, already there, or not emails)
+function updateAllow<T extends AllowAnswer = AllowAnswer>(change: Record<string, unknown>) {
+  return request<T>("/admin/api/allowlist", change).then(function (result) {
     allow = result.state;
     allowLoaded = true;
     renderAllow();
@@ -103,7 +104,7 @@ export function setupAllowlist() {
       return setMessage(byId("addm"), "Paste at least one email first.", true);
     }
     button.disabled = true;
-    updateAllow({
+    updateAllow<AllowAdded>({
       action: "add",
       text: text,
     })
@@ -128,7 +129,7 @@ export function setupAllowlist() {
   byId("impb").onclick = function () {
     const button = this as HTMLButtonElement;
     button.disabled = true;
-    updateAllow({
+    updateAllow<AllowAnswer & { added: number }>({
       action: "importBooked",
     })
       .then(function (result) {
@@ -155,7 +156,7 @@ export function showCandidates() {
   body.classList.add("grp");
   body.appendChild(section);
   section.hidden = false;
-  request("/admin/api/allowlist")
+  request<AllowAnswer>("/admin/api/allowlist")
     .then(function (result) {
       allow = result.state;
       renderAllow();
@@ -167,7 +168,7 @@ export function showCandidates() {
 // New live state: when the Candidates panel is open and the list changed elsewhere, fetch it again.
 export function syncAllow() {
   if (allowLoaded && !byId("viewAllow").hidden && (state.allow.count !== allow.emails.length || state.allow.enabled !== allow.enabled)) {
-    request("/admin/api/allowlist")
+    request<AllowAnswer>("/admin/api/allowlist")
       .then(function (result) {
         allow = result.state;
         renderAllow();

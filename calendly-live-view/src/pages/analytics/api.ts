@@ -48,7 +48,8 @@ function loadData(force?: boolean): Promise<Data> {
       );
     })
     .then(
-      function (json: any[]) {
+      // [the bookings answer, the live state answer]; {} for one that failed
+      function (json: { bookings?: Booking[]; iv?: Data["iv"] }[]) {
         dataCache = {
           bookings: json[0].bookings || [],
           iv: (json[1] && json[1].iv) || {

@@ -50,6 +50,7 @@ ADMIN_OPEN=1 PORT=3000 DATA_DIR=/tmp/bf bun run src/server.ts   # ADMIN_OPEN=1: 
 bun install && bun run typecheck                         # strict server check and the page modules (dev tools only)
 bun run format                                           # Prettier (140 columns) over src/ and scripts/; CI runs format:check
 bun test tests/                                          # server tests, ~0.5 s
+bun run test:coverage                                    # the same, with coverage of the in-process code (bar in bunfig.toml)
 NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs    # needs the playwright package
 NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origin/main; must match for refactors
 ```

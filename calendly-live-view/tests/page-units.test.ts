@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { layoutColumns, type Item } from "../src/pages/admin/layout";
 import { byWhom, plural, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
-import { addDays, dayKeyOf, formatRange, formatTime, hourLabel, minutesOfDay, weekStart } from "../src/pages/admin/time";
+import { addDays, dayKeyOf, formatDay, formatRange, formatTime, hourLabel, minutesOfDay, shortDate, timeAgo, weekStart } from "../src/pages/admin/time";
 import type { Booking } from "../src/pages/admin/types";
 import { api } from "../src/pages/analytics/api";
 import { sameCompany } from "../src/same-company";
@@ -34,6 +34,13 @@ describe("admin dates (always IST)", () => {
     expect(formatRange({ start: new Date(tenAm).toISOString(), end: new Date(tenAm + HOUR).toISOString() })).toBe(
       "Fri, Sep 25, 10:00am – 11:00am",
     );
+  });
+  test("day names, short dates and how long ago", () => {
+    expect(formatDay("2026-09-25", { weekday: "long" })).toBe("Friday");
+    expect(formatDay("2026-09-25", { day: "numeric", month: "short" })).toBe("Sep 25");
+    expect(shortDate(new Date(tenAm).toISOString())).toBe("Fri, Sep 25");
+    const ago = (ms: number) => timeAgo(new Date(Date.now() - ms).toISOString());
+    expect([ago(20000), ago(5 * 60000), ago(3 * HOUR), ago(2 * 24 * HOUR)]).toEqual(["just now", "5m ago", "3h ago", "2d ago"]);
   });
   test("adding days crosses months and years; weeks start on Monday", () => {
     expect(addDays("2026-09-29", 3)).toBe("2026-10-02");

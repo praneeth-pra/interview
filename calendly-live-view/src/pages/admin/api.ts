@@ -1,5 +1,5 @@
 // JSON requests to the admin API. A 401 reloads the page, which shows the sign-in form.
-function request(url: string, body?: unknown, method?: string): Promise<any> {
+function request<T>(url: string, body?: unknown, method?: string): Promise<T> {
   return fetch(
     url,
     body === undefined
