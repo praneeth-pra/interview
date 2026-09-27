@@ -32,6 +32,42 @@ const checks = [
     await p.locator("#card input").first().waitFor();
     if (!(await p.evaluate(() => document.fonts.check("600 16px Figtree")))) throw new Error("Figtree did not load");
   }],
+  ["booking page: book, book another, reschedule and cancel", async (p) => {
+    const card = () => p.locator("#card").textContent();
+    const expectText = async (re, what) => {
+      for (let i = 0; i < 40 && !re.test(await card()); i++) await p.waitForTimeout(50);
+      if (!re.test(await card())) throw new Error(what);
+    };
+    await p.goto(BASE + "/booking");
+    await p.locator("button.day.open").nth(2).click();
+    const booked = (await p.locator("button.t").first().textContent()).trim();
+    await p.locator("button.t").first().click();
+    await p.locator("#go").click();
+    await p.locator("#card input").first().waitFor();
+    for (const inp of await p.locator("#card input:visible").all()) {
+      const k = (await Promise.all(["id", "name", "autocomplete", "type"].map((a) => inp.getAttribute(a)))).join(" ");
+      const v = /mail/i.test(k) ? "smoke@example.com" : /comp|org/i.test(k) ? "Acme" : /round/i.test(k) ? "HR" : /name/i.test(k) ? "Smoke Test" : null;
+      if (v) await inp.fill(v);
+    }
+    await p.keyboard.press("Escape");
+    await p.click("#submitb");
+    await p.locator('a[href*="/b/"]').first().waitFor();
+    const manage = await p.locator('a[href*="/b/"]').first().getAttribute("href");
+    // booking another starts over, without the time just taken
+    await p.locator("button.pill").last().click();
+    await p.locator("button.day.open").nth(2).click();
+    await p.locator("button.t").first().waitFor();
+    if ((await p.locator("button.t").first().textContent()).trim() === booked) throw new Error("the booked time is still offered");
+    await p.goto(manage + "&a=reschedule");
+    await p.locator("button.day.open").nth(3).click();
+    await p.locator("button.t").nth(1).click();
+    await p.locator("#go").click();
+    await p.getByRole("button", { name: "Reschedule" }).click();
+    await expectText(/rescheduled/i, "reschedule didn't finish");
+    await p.goto(manage + "&a=cancel");
+    await p.click("#cxgo");
+    await expectText(/cancelled/i, "cancel didn't finish");
+  }],
   ["admin calendar", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#status.live").waitFor({ state: "attached" });
