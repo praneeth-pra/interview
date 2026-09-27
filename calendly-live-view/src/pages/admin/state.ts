@@ -2,7 +2,7 @@
 // this device between visits.
 import type { State } from "./types";
 
-export const boot = JSON.parse(document.getElementById("boot").textContent);
+export const boot = JSON.parse(document.getElementById("boot")!.textContent);
 export let state: State = {
   ready: false,
   events: [],

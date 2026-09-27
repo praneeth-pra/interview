@@ -72,7 +72,7 @@ export function showInterviewers() {
           to: "",
         });
         renderRows();
-        (rows.lastChild as HTMLElement).querySelector("input").focus();
+        (rows.lastChild as HTMLElement).querySelector("input")!.focus();
       },
     }),
   );

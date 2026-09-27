@@ -2,7 +2,7 @@
 // first, and a page per contact with their Activity (every interview, reschedule and cancellation) and About
 // (emails, bookings, interviews taken by each interviewer). Sections, in order: DOM and date helpers, the live state,
 // the contacts list, then the contact page.
-import { api } from "./api";
+import { api, type Analytics, type DashState, type IvInfo, type Person, type TimelineEvent } from "./api";
 
 function div(cls?: string | null, text?: string | null) {
   return el("div", cls, text);
@@ -10,7 +10,7 @@ function div(cls?: string | null, text?: string | null) {
 function span(cls?: string | null, text?: string | null) {
   return el("span", cls, text);
 }
-var state = {
+var state: DashState = {
   ready: false,
   events: [],
   tz: "Asia/Kolkata",
@@ -19,7 +19,7 @@ var state = {
   lastChecked: 0,
 };
 var live = false;
-var stream = null;
+var stream: EventSource | null = null;
 var lastSeen = 0;
 var merge = true;
 function mergeQuery() {
@@ -29,10 +29,10 @@ function mergeQuery() {
     return "";
   }
 }
-var ivMap = {};
-var ivNames = [];
+var ivMap: Record<string, string> = {};
+var ivNames: string[] = [];
 var ivSig = "";
-function ivSigOf(info) {
+function ivSigOf(info: IvInfo) {
   return JSON.stringify(info.assign || {}) + "|" + JSON.stringify(info.names || []) + "|" + (info.persistent !== false);
 }
 function loadIv() {
@@ -51,7 +51,7 @@ function loadIv() {
     })
     .catch(() => {});
 }
-function ivCls(name) {
+function ivCls(name: string) {
   var index = ivNames.indexOf(name);
   if (index < 0) {
     index = 0;
@@ -85,7 +85,7 @@ function fmt(options: Intl.DateTimeFormatOptions, date: Date | number) {
     ),
   ).format(date);
 }
-function ymd(date) {
+function ymd(date: Date | number) {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: state.tz,
     year: "numeric",
@@ -93,7 +93,7 @@ function ymd(date) {
     day: "2-digit",
   }).format(date);
 }
-function t12(date) {
+function t12(date: Date | number) {
   return fmt(
     {
       hour: "numeric",
@@ -105,9 +105,9 @@ function t12(date) {
     .replace(" AM", "am")
     .replace(" PM", "pm");
 }
-function niceName(name) {
+function niceName(name: string) {
   if (name === name.toLowerCase() && name !== name.toUpperCase()) {
-    return name.replace(/(^|[\s\-'])(\p{L})/gu, (match, before, letter) => before + letter.toUpperCase());
+    return name.replace(/(^|[\s\-'])(\p{L})/gu, (match: string, before: string, letter: string) => before + letter.toUpperCase());
   } else {
     return name;
   }
@@ -157,11 +157,12 @@ setInterval(() => {
   }
 }, 60000);
 loadIv();
-var people = [];
-var chosen = null;
+var people: Person[] = [];
+// the contact on screen; name and event come from the list, or from the page when it opened by itself
+var chosen: { name: string; event: string } | null = null;
 var peopleLoaded = false;
 var peopleKey = "";
-function words(text) {
+function words(text: string) {
   return text.toLowerCase().split(/\s+/).filter(Boolean);
 }
 function chosenName() {
@@ -191,7 +192,7 @@ function syncPeople() {
     loadPeople();
   }
 }
-function skelRows(count, label) {
+function skelRows(count: number, label: string) {
   var box = el("div");
   var msg = div("rempty");
   msg.appendChild(span("spin"));
@@ -215,12 +216,12 @@ try {
   sortMode = localStorage.getItem("ct.sort") || "recent";
 } catch (error) {}
 var homeScroll = 0;
-function initials(name) {
+function initials(name: string) {
   var parts = niceName(String(name || "?")).trim().split(/\s+/).filter(Boolean);
   return ((parts[0] || "?").charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : "")).toUpperCase();
 }
 // "Today at 3:00pm", "Thursday at 3:00pm", "Last Friday at 12:00pm", "Sep 12 at 11:00am"
-function meetingWhen(iso, now) {
+function meetingWhen(iso: string, now: number) {
   var date = new Date(iso);
   var days = dayNum(ymd(date)) - dayNum(ymd(new Date(now)));
   var label =
@@ -238,7 +239,7 @@ function meetingWhen(iso, now) {
   return label + " at " + t12(date);
 }
 // "now", "5h", "2d", "1w", "3mo"
-function agoShort(iso, now) {
+function agoShort(iso: string, now: number) {
   var minutes = Math.max(0, (now - Date.parse(iso)) / 60000);
   if (minutes < 60) {
     return "now";
@@ -253,7 +254,7 @@ function agoShort(iso, now) {
   }
 }
 var CAL_ICON = "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4";
-function svgIcon(path) {
+function svgIcon(path: string) {
   var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
@@ -262,7 +263,7 @@ function svgIcon(path) {
   svg.appendChild(line);
   return svg;
 }
-function sortedPeople(list) {
+function sortedPeople(list: Person[]) {
   var copy = list.slice();
   if (sortMode === "name") {
     copy.sort((first, second) => niceName(first.name).localeCompare(niceName(second.name)));
@@ -271,7 +272,10 @@ function sortedPeople(list) {
       if (!!first.next !== !!second.next) {
         return first.next ? -1 : 1;
       }
-      return first.next ? Date.parse(first.next) - Date.parse(second.next) : Date.parse(second.activity || 0) - Date.parse(first.activity || 0);
+      // no activity is "", which falls back to 0 as before
+      return first.next
+        ? Date.parse(first.next) - Date.parse(second.next)
+        : Date.parse((second.activity || 0) as string) - Date.parse((first.activity || 0) as string);
     });
   } else {
     copy.sort((first, second) => Date.parse(second.activity || second.last) - Date.parse(first.activity || first.last));
@@ -330,12 +334,12 @@ function renderPeople() {
     box.appendChild(row);
   });
 }
-function choose(person) {
+function choose(person: Person) {
   chosen = person;
   loadAnalytics(person.event);
 }
 // home ⇄ contact page
-function slide(el, name) {
+function slide(el: HTMLElement, name: string) {
   el.classList.remove("push-in", "pop-in");
   if (name) {
     void el.offsetWidth;
@@ -354,7 +358,7 @@ function showDetail() {
   tellAdmin(true);
 }
 // In the admin, the page around this frame keeps a history entry while a person is open, so the phone's Back returns here.
-function tellAdmin(open) {
+function tellAdmin(open: boolean) {
   var host = window.parent as any;
   if (host && host !== window && host.__contact) {
     host.__contact(open);
@@ -470,7 +474,7 @@ function showHome(swiped?: boolean) {
   renderPeople();
   window.scrollTo(0, homeScroll);
 }
-function setTab(name) {
+function setTab(name: string) {
   [
     ["tabAct", "tpAct", "act"],
     ["tabAbout", "tpAbout", "about"],
@@ -525,10 +529,10 @@ document.addEventListener("keydown", (event) => {
   }
 });
 var DAY = 86400000;
-function dayNum(day) {
+function dayNum(day: string) {
   return Date.parse(day + "T00:00:00Z") / DAY;
 }
-function evState(event, now) {
+function evState(event: TimelineEvent, now: number) {
   if (event.status === "canceled") {
     if (event.rescheduled) {
       return "rescheduled";
@@ -543,10 +547,10 @@ function evState(event, now) {
     return "done";
   }
 }
-var data = null;
+var data: Analytics | null = null;
 var loadSeq = 0;
 var renderedTz = "";
-function loadAnalytics(eventId) {
+function loadAnalytics(eventId: string) {
   var requestId = ++loadSeq;
   data = null;
   showDetail();
@@ -569,9 +573,9 @@ function loadAnalytics(eventId) {
         }
         data = reply.j;
         if (chosen) {
-          chosen.name ||= data.name;
+          chosen.name ||= data!.name;
         } else {
-          chosen = { name: data.name, event: eventId };
+          chosen = { name: data!.name, event: eventId };
         }
         renderAnalysis();
       }
@@ -588,7 +592,7 @@ function onIv() {
     renderAnalysis();
   }
 }
-function openBooking(id) {
+function openBooking(id: string) {
   var host = window.parent as any;
   if (host && host !== window && host.__openB) {
     host.__openB(id);
@@ -602,7 +606,7 @@ var canOpenBooking = (() => {
   }
 })();
 // ---- Activity: every interview, reschedule and cancellation, newest first, grouped by day ----
-function renderActivity(events, now) {
+function renderActivity(events: TimelineEvent[], now: number) {
   var box = byId("tpAct");
   box.textContent = "";
   var query = byId<HTMLInputElement>("asq").value.trim();
@@ -663,17 +667,17 @@ function renderActivity(events, now) {
   });
 }
 // ---- About: emails, first booking, totals, and combining people with the same name ----
-function renderAbout(events, now) {
+function renderAbout(events: TimelineEvent[], now: number) {
   var box = byId("tpAbout");
   box.textContent = "";
   var group = div("agroup");
-  function line(label, value) {
+  function line(label: string, value: string) {
     var row = div("arow");
     row.appendChild(span("alabel", label));
     row.appendChild(el("b", null, value));
     group.appendChild(row);
   }
-  (data.emailList || []).forEach((email, index) => {
+  (data!.emailList || []).forEach((email, index) => {
     line(index ? "Also" : "Email", email);
   });
   var created = events
@@ -687,7 +691,7 @@ function renderAbout(events, now) {
   line("Bookings", real.length + " (" + real.filter((event) => event.status === "canceled").length + " canceled)");
   box.appendChild(group);
   // how many of this candidate's interviews each interviewer took
-  var taken = {};
+  var taken: Record<string, number> = {};
   var notRecorded = 0;
   events.forEach((event) => {
     if (event.status === "active" && !event.noShow && Date.parse(event.end) <= now) {
@@ -718,18 +722,18 @@ function renderAbout(events, now) {
     }
     box.appendChild(ivGroup);
   }
-  if (data.emails > 1 || !merge) {
+  if (data!.emails > 1 || !merge) {
     var note = div("anote");
     note.appendChild(
       document.createTextNode(
-        data.emails > 1
-          ? "Bookings from " + data.emails + " email addresses with the same name are shown as one person. "
+        data!.emails > 1
+          ? "Bookings from " + data!.emails + " email addresses with the same name are shown as one person. "
           : "Showing this email address only. ",
       ),
     );
-    var button = el("button", "linkbtn", data.emails > 1 ? "Show separately" : "Combine again");
+    var button = el("button", "linkbtn", data!.emails > 1 ? "Show separately" : "Combine again");
     button.addEventListener("click", () => {
-      setMerge(!merge || data.emails <= 1);
+      setMerge(!merge || data!.emails <= 1);
     });
     note.appendChild(button);
     box.appendChild(note);
@@ -764,7 +768,7 @@ function render() {
   renderPeople();
   syncPeople();
 }
-function setMerge(on) {
+function setMerge(on: boolean) {
   merge = on;
   loadPeople();
   if (chosen) {
@@ -773,7 +777,7 @@ function setMerge(on) {
 }
 byId("acopy").onclick = () => {
   var email = data && data.emailList && data.emailList[0];
-  var label = byId("acopy").querySelector("span");
+  var label = byId("acopy").querySelector("span")!;
   if (email && navigator.clipboard) {
     navigator.clipboard.writeText(email).then(() => {
       label.textContent = "Copied";

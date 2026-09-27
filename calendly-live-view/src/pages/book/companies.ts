@@ -2,6 +2,8 @@
 // A known company and every name it goes by; `popularity` is how many candidates have booked with it.
 type Term = { raw: string; alias: boolean; key: string; words: string[] };
 type Company = { name: string; popularity: number; terms: Term[] };
+// as /api/companies sends it: the name, other names it goes by, and how many candidates booked with it
+type ApiCompany = { n: string; a?: string[]; f?: number };
 export type Match = { name: string; popularity: number; score: number; via: string | null };
 var companies: Company[] | null = null;
 var companiesLoading = false;
@@ -28,7 +30,7 @@ function loadCompanies(callback?: () => void) {
         return res.json();
       })
       .then(function (data) {
-        companies = (data.companies || []).map(function (company) {
+        companies = (data.companies || []).map(function (company: ApiCompany) {
           var names = [company.n].concat(company.a || []);
           return {
             name: company.n,

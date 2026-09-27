@@ -8,7 +8,7 @@ Read README.md first for layout, commands and deploy.
 - **No inline scripts or styles.** The CSP is `script-src 'self'; style-src 'self'`. Put code in `src/pages/*.js|css`, set styles through classes or `el.style.x = ...`, and pass per-request data through the `<script type="application/json" id="boot">` block. `bun test` fails if a page shell breaks this.
 - Page shells use `__HOST__`, `__EVENT__`, `__BOOT__`, `__PRELOAD__` placeholders, filled once at startup (per request only for `/b/<id>`).
 - Reference assets as `/assets/<file>` in HTML and CSS; `src/assets.ts` rewrites them to fingerprinted URLs. New files in `src/pages` or `src/fonts` are picked up automatically.
-- The booking, admin and analytics pages (`src/pages/book/`, `admin/`, `analytics/`) are typed TypeScript modules; `bun run typecheck` must pass. Sign-in is `src/pages/login.js`.
+- The booking, admin and analytics pages (`src/pages/book/`, `admin/`, `analytics/`) are typed TypeScript modules, checked in strict mode like the server; `bun run typecheck` must pass. Sign-in is `src/pages/login.js`.
 - Page scripts are readable sources; `src/assets.ts` bundles and minifies them at startup (`src/pages/<page>.js`, or `src/pages/<page>/main.ts` plus modules). Rename with a scope-aware tool (the editor's rename), never find-and-replace: the pages reuse short names like `row`, `box`, `event` in many scopes.
 - Names, companies and reasons are typed by candidates: build DOM with `textContent`, not `innerHTML` with user text.
 - Fonts: every page (booking, admin, Contacts, sign-in) uses self-hosted Figtree, close to the Calendly app's font. Keep text at 11.5px or larger and grey text at 4.5:1 contrast.

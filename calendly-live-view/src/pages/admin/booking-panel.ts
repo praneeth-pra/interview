@@ -30,7 +30,7 @@ function clashFor(booking: Booking, interviewer: string) {
   return "";
 }
 function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
-  var change = {};
+  var change: Record<string, string> = {};
   change[booking.id] = name;
   setMessage(msg, "Saving…");
   request(
@@ -460,7 +460,7 @@ export function timePicker(duration: number, day: string | null, ignoreId?: stri
           }
           timeSelect.textContent = "";
           timeSelect.disabled = false;
-          result.slots.forEach(function (startMs) {
+          result.slots.forEach(function (startMs: number) {
             timeSelect.appendChild(
               el("option", {
                 value: String(startMs),
@@ -580,7 +580,7 @@ export function showReschedule(booking: Booking) {
         .then(function () {
           closePanel();
           toast("Booking moved");
-          goToTime(choice.startMs);
+          goToTime(choice!.startMs);
         })
         .catch(function (error) {
           button.disabled = false;

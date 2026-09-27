@@ -1,7 +1,7 @@
 // The ⋯ menu in the header: New booking (Alerts on phones), candidates, interviewers, downloads and sign-out.
 export function setupDownloadMenu() {
-  var btn = document.getElementById("dlBtn");
-  var menu = document.getElementById("dlMenu");
+  var btn = document.getElementById("dlBtn")!;
+  var menu = document.getElementById("dlMenu")!;
   if (!btn || !menu) {
     return;
   }

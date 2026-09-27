@@ -5,7 +5,7 @@ export type Child = Node | string | null | undefined | false;
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
   attrs?: Attrs,
-  children?: Child[],
+  children?: Child[] | null,
 ): HTMLElementTagNameMap[K] {
   var node = document.createElement(tag);
   if (attrs) {

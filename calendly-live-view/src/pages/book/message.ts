@@ -4,7 +4,7 @@ import { ICONS } from "./icons";
 import { card, render, state } from "./app";
 
 export function renderMessage() {
-  var msg = state.msg;
+  var msg = state.msg!;
   var section = el("section", {
     class: "done",
   });
@@ -31,7 +31,7 @@ export function renderMessage() {
     msg.check ? null : [msg.title],
   );
   if (msg.check) {
-    heading.lastChild.textContent = msg.title;
+    heading.lastChild!.textContent = msg.title;
   }
   inner.appendChild(heading);
   inner.appendChild(el("p", null, [msg.body]));

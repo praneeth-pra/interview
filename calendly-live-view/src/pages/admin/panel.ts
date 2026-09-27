@@ -13,10 +13,10 @@ export function parkAllow() {
   var section = byId("viewAllow");
   if (section.parentElement !== document.querySelector("main")) {
     section.hidden = true;
-    document.querySelector("main").appendChild(section);
+    document.querySelector("main")!.appendChild(section);
   }
   // the Revenue sheet borrows the Revenue page's contents the same way
-  var revenue = byId("revBody").closest(".enqview");
+  var revenue = byId("revBody").closest(".enqview")!;
   if (revenue.parentElement !== byId("viewRev")) {
     byId("viewRev").appendChild(revenue);
   }
@@ -80,7 +80,7 @@ export function initials(name: string) {
 export function setPanelAvatar(name: string | null, interviewer?: string) {
   var avatar = document.getElementById("pav");
   if (!avatar) {
-    var head = document.querySelector(".phead");
+    var head = document.querySelector(".phead")!;
     avatar = el("span", { id: "pav", class: "pav", "aria-hidden": "true" });
     head.insertBefore(avatar, head.firstChild);
   }

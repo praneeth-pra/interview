@@ -33,7 +33,7 @@ var statusTimer = 0;
 function renderStatus() {
   var status = byId("status");
   var offline = navigator.onLine === false;
-  status.lastChild.textContent = live ? "Live" : offline ? "Offline" : "Reconnecting…";
+  status.lastChild!.textContent = live ? "Live" : offline ? "Offline" : "Reconnecting…";
   clearTimeout(statusTimer);
   if (live) {
     status.className = "status live";
@@ -191,7 +191,7 @@ function dayItems(day: string): Item[] {
 }
 // Overlapping bookings share the column width: each gets a col index within its group.
 function layoutColumns(items: Item[]) {
-  var group = null;
+  var group: Item["group"] | null = null;
   items.forEach(function (item) {
     if (!group || item.from >= group.end) {
       group = {
@@ -230,7 +230,7 @@ function renderWeek() {
   var now = Date.now();
   var nowMin = minutesOfDay(new Date());
   for (i = 0; i < 7; i++) {
-    days.push(addDays(view.week, i));
+    days.push(addDays(view.week!, i));
     itemsByDay.push(dayItems(days[i]));
   }
   itemsByDay.forEach(function (items) {
@@ -242,7 +242,7 @@ function renderWeek() {
   var firstHour = Math.floor(fromMin / 60);
   var lastHour = Math.min(24, Math.ceil(toMin / 60));
   var height = (lastHour - firstHour) * HOUR_PX;
-  byId("title").textContent = weekTitle(view.week);
+  byId("title").textContent = weekTitle(view.week!);
   byId<HTMLInputElement>("pick").value = view.day || today;
   var week = byId("week");
   var firstPaint = !week.firstChild;
@@ -306,7 +306,7 @@ function renderWeek() {
     itemsByDay[index].forEach(function (item) {
       var booking = item.booking;
       var interviewer = state.iv.assign[booking.id];
-      var cols = item.group.cols.length;
+      var cols = item.group!.cols.length;
       var isPast = Date.parse(booking.end) <= now;
       var started = Date.parse(booking.start) <= now;
       var boxHeight = Math.max(22, ((item.to - item.from) / 60) * HOUR_PX - 2);
@@ -352,7 +352,7 @@ function renderWeek() {
       );
       button.style.top = ((item.from - firstHour * 60) / 60) * HOUR_PX + 1 + "px";
       button.style.height = boxHeight + "px";
-      button.style.left = "calc(" + (item.col * 100) / cols + "% + 2px)";
+      button.style.left = "calc(" + (item.col! * 100) / cols + "% + 2px)";
       button.style.width = "calc(" + 100 / cols + "% - 4px)";
       column.appendChild(button);
     });
@@ -392,8 +392,8 @@ function agendaDay() {
     return today;
   }
   for (var i = 0; i < 7; i++) {
-    if (dayItems(addDays(view.week, i)).length) {
-      return addDays(view.week, i);
+    if (dayItems(addDays(view.week!, i)).length) {
+      return addDays(view.week!, i);
     }
   }
   return view.week;
@@ -418,7 +418,7 @@ function renderAgenda() {
     "aria-label": "Days",
   });
   for (var i = 0; i < 7; i++) {
-    let day = addDays(view.week, i);
+    let day = addDays(view.week!, i);
     var count = dayItems(day).length;
     var dots = el("span", {
       class: "ws-d",
@@ -453,12 +453,12 @@ function renderAgenda() {
     );
   }
   box.appendChild(strip);
-  var items = dayItems(shown);
+  var items = dayItems(shown!);
   layoutColumns(items);
   box.appendChild(
     el("div", { class: "ag-h" + (shown === today ? " today" : "") }, [
-      el("b", { text: formatDay(shown, { weekday: "long" }) + "," }),
-      el("span", { text: formatDay(shown, { day: "numeric", month: "short" }) }),
+      el("b", { text: formatDay(shown!, { weekday: "long" }) + "," }),
+      el("span", { text: formatDay(shown!, { day: "numeric", month: "short" }) }),
       el("em", { text: items.length ? items.length + (items.length === 1 ? " interview" : " interviews") : "No interviews" }),
     ]),
   );
@@ -489,7 +489,7 @@ function renderAgenda() {
     var interviewer = state.iv.assign[booking.id];
     var isPast = Date.parse(booking.end) <= now;
     var needsSupport = !interviewer && Date.parse(booking.start) <= now && !booking.missed;
-    var cols = item.group.cols.length;
+    var cols = item.group!.cols.length;
     var height = Math.max(26, ((item.to - item.from) / 60) * AGENDA_HOUR_PX - 2);
     var block = el(
       "button",
@@ -528,7 +528,7 @@ function renderAgenda() {
     );
     block.style.top = ((item.from - firstHour * 60) / 60) * AGENDA_HOUR_PX + 1 + "px";
     block.style.height = height + "px";
-    block.style.left = "calc(" + (item.col * 100) / cols + "% + 2px)";
+    block.style.left = "calc(" + (item.col! * 100) / cols + "% + 2px)";
     block.style.width = "calc(" + 100 / cols + "% - 4px)";
     lane.appendChild(block);
   });
@@ -649,7 +649,7 @@ searchBox.addEventListener("input", function () {
   loadAllBookings()
     .then(function (bookings) {
       if (searchBox.value.trim().toLowerCase() === query) {
-        matches = bookings
+        matches = bookings!
           .filter(function (booking) {
             return (booking.name + " " + booking.email + " " + booking.company).toLowerCase().indexOf(query) >= 0;
           })
@@ -672,7 +672,7 @@ searchBox.addEventListener("input", function () {
                 id: "qo" + index,
                 role: "option",
                 "aria-selected": "false",
-                onmousedown: function (event) {
+                onmousedown: function (event: MouseEvent) {
                   event.preventDefault();
                 },
                 onclick: function () {
@@ -739,7 +739,7 @@ function showRevenueSheet() {
   panel.refresh = null;
   var body = openPanel("Revenue", "Confirmed payments over the last 12 months.");
   body.classList.add("rv");
-  body.appendChild(byId("revBody").closest(".enqview"));
+  body.appendChild(byId("revBody").closest(".enqview")!);
   showRevenue();
 }
 byId("mRev").onclick = showRevenueSheet;
@@ -781,18 +781,18 @@ function connect() {
         }
       })
       .catch(function () {});
-    if (stream.readyState === 2) {
+    if (stream!.readyState === 2) {
       setTimeout(connect, 3000);
     }
   };
 }
 byId("prev").onclick = function () {
-  view.week = addDays(view.week, -7);
+  view.week = addDays(view.week!, -7);
   view.day = null;
   render();
 };
 byId("next").onclick = function () {
-  view.week = addDays(view.week, 7);
+  view.week = addDays(view.week!, 7);
   view.day = null;
   render();
 };
@@ -875,7 +875,7 @@ byId("next").onclick = function () {
     box.style.opacity = "0";
     setTimeout(function () {
       reset();
-      pickAgendaDay(addDays(agendaDay(), next ? 1 : -1));
+      pickAgendaDay(addDays(agendaDay()!, next ? 1 : -1));
       box.classList.remove("swipe-next", "swipe-prev");
       void box.offsetWidth;
       box.classList.add(next ? "swipe-next" : "swipe-prev");
@@ -905,7 +905,7 @@ byId("tabAg").addEventListener("click", function () {
   });
 });
 // The week grid only scrolls to today when drawn fresh while visible, so redraw it when the phone's Calendar tab shows it.
-document.querySelector(".bnav [data-go=cal]").addEventListener("click", function () {
+document.querySelector(".bnav [data-go=cal]")!.addEventListener("click", function () {
   setTimeout(function () {
     byId("week").textContent = "";
     render();

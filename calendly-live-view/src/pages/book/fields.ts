@@ -1,6 +1,6 @@
 // The details form's fields: plain text fields, the interview round and the company with its suggestions.
 import { el } from "./dom";
-import { companies, loadCompanies, suggestCompanies } from "./companies";
+import { companies, loadCompanies, suggestCompanies, type Match } from "./companies";
 import { state } from "./app";
 import { markPreviousCompany } from "./returning";
 import type { FieldOptions, State } from "./types";
@@ -108,7 +108,7 @@ export function roundField() {
 export function companyField() {
   var id = "fcompany";
   var listId = "fcompany-list";
-  var matches = [];
+  var matches: Match[] = [];
   var active = -1;
   var input = el("input", {
     id: id,
@@ -157,7 +157,7 @@ export function companyField() {
       });
     }
   }
-  function choose(index) {
+  function choose(index: number) {
     input.value = matches[index].name;
     state.form.company = matches[index].name;
     markPreviousCompany();

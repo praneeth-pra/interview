@@ -48,7 +48,7 @@ function drawCard() {
     list.scrollTop = scrollTop;
   }
   if (focusedId && document.getElementById(focusedId)) {
-    document.getElementById(focusedId).focus({
+    document.getElementById(focusedId)!.focus({
       preventScroll: true,
     });
   }

@@ -8,15 +8,16 @@ export function setupAlerts() {
   var ua = navigator.userAgent;
   var ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
   var standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  var reg = null;
-  var mine = null;
-  var info = {
+  var reg: ServiceWorkerRegistration | null = null;
+  var mine: PushSubscription | null = null;
+  // the server's key and the devices it sends alerts to (yours: this admin's own)
+  var info: { key: string; endpoints: string[]; yours?: string[] } = {
     key: "",
     endpoints: [],
     yours: [],
   };
   var busy = false;
-  var ready;
+  var ready: Promise<unknown> | undefined;
   var btn = document.createElement("button");
   btn.type = "button";
   btn.id = "pushBtn";
@@ -88,7 +89,7 @@ export function setupAlerts() {
   }
   function paint() {
     btn.classList.toggle("on", isOn());
-    btn.lastChild.textContent = isOn() ? "Alerts on" : "Alerts";
+    btn.lastChild!.textContent = isOn() ? "Alerts on" : "Alerts";
     var menuSub = document.getElementById("mAlertsSub");
     if (menuSub) {
       menuSub.textContent = isOn() ? "On for this device" : "Booking notifications on this device";
@@ -117,7 +118,7 @@ export function setupAlerts() {
     }
     pop.innerHTML = html;
     if (msg) {
-      pop.querySelector(".pp-msg").textContent = msg;
+      pop.querySelector(".pp-msg")!.textContent = msg;
     }
     pop.querySelectorAll("button").forEach(function (button) {
       button.disabled = busy;
@@ -233,10 +234,10 @@ export function setupAlerts() {
             if (!reg) {
               throw new Error("Couldn’t set up alerts on this device. Reload and try again.");
             }
-            return reg.pushManager.getSubscription().then(function (subscription) {
+            return reg.pushManager.getSubscription().then(function (subscription: PushSubscription | null) {
               return (
                 subscription ||
-                reg.pushManager.subscribe({
+                reg!.pushManager.subscribe({
                   userVisibleOnly: true,
                   applicationServerKey: keyBytes(info.key),
                 })
@@ -249,7 +250,7 @@ export function setupAlerts() {
             json.label = label();
             return api("/admin/api/push/subscribe", json);
           })
-          .then(function (result) {
+          .then(function (result: typeof info) {
             info = result;
             return "Alerts are on. Tap Send test to check.";
           }),
@@ -257,16 +258,16 @@ export function setupAlerts() {
     } else if (action === "test") {
       run(
         api("/admin/api/push/test", {
-          endpoint: mine.endpoint,
+          endpoint: mine!.endpoint,
         }).then(function (result) {
           info = result;
           return "Test sent. It should appear in a few seconds.";
         }),
       );
     } else if (action === "off") {
-      var endpoint = mine.endpoint;
+      var endpoint = mine!.endpoint;
       run(
-        mine
+        mine!
           .unsubscribe()
           .catch(function () {})
           .then(function () {
@@ -275,7 +276,7 @@ export function setupAlerts() {
               endpoint: endpoint,
             });
           })
-          .then(function (result) {
+          .then(function (result: typeof info) {
             info = result;
             return "Alerts are off for this device.";
           }),

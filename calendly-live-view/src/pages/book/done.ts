@@ -4,12 +4,13 @@ import { ICONS } from "./icons";
 import { formatRange } from "./time";
 import { card, eventName, hostName, setState, state } from "./app";
 import { loadDays } from "./slots";
+import type { Booking } from "./types";
 
-function icsLink(booking) {
-  function icsTime(iso) {
+function icsLink(booking: Booking) {
+  function icsTime(iso: string) {
     return iso.replace(/[-:]/g, "").replace(/\.\d{3}/, "");
   }
-  function icsText(text) {
+  function icsText(text: string) {
     return String(text)
       .replace(/[\\;,]/g, function (ch) {
         return "\\" + ch;
@@ -34,7 +35,7 @@ function icsLink(booking) {
   return "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
 }
 export function renderDone() {
-  var booking = state.booking;
+  var booking = state.booking!;
   var startMs = Date.parse(booking.start);
   var section = el("section", {
     class: "done",
@@ -75,7 +76,7 @@ export function renderDone() {
       class: highlight ? "hl" : null,
       html: icon + "<span></span>",
     });
-    li.lastChild.textContent = text;
+    li.lastChild!.textContent = text;
     return li;
   }
   meta.appendChild(item(ICONS.user, hostName));

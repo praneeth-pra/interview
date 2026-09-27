@@ -1,5 +1,6 @@
 // The free days and times: loaded from /api/days and /api/slots, cached per day and length.
 import { ignoreQuery, render, state } from "./app";
+import type { Day } from "./types";
 
 export function loadDays(keepView?: boolean) {
   var duration = state.dur;
@@ -10,7 +11,7 @@ export function loadDays(keepView?: boolean) {
     .then(function (data) {
       state.days = data.days;
       state.openSet = {};
-      data.days.forEach(function (day) {
+      data.days.forEach(function (day: Day) {
         if (day.open) {
           state.openSet[day.key] = 1;
         }
@@ -23,7 +24,7 @@ export function loadDays(keepView?: boolean) {
       });
       if (!keepView || !state.viewY) {
         var first =
-          data.days.filter(function (day) {
+          data.days.filter(function (day: Day) {
             return day.open;
           })[0] || data.days[0];
         if (first) {
@@ -44,8 +45,8 @@ export function loadDays(keepView?: boolean) {
       render();
     });
 }
-var slotCache = {};
-var slotRequests = {};
+var slotCache: Record<string, number[]> = {};
+var slotRequests: Record<string, Promise<number[] | null>> = {};
 export function fetchSlots(date: string, duration: number, refresh?: boolean): Promise<number[] | null> {
   var key = date + ":" + duration;
   if (refresh || !slotRequests[key]) {
@@ -105,7 +106,7 @@ export function showSlots(scroll?: boolean) {
   if (cached && scroll) {
     scrollToTimes();
   }
-  fetchSlots(state.date, state.dur, cached).then(function (slots) {
+  fetchSlots(state.date!, state.dur, cached).then(function (slots) {
     if (key === state.date + ":" + state.dur) {
       if (!slots) {
         if (!state.slots || state.stale) {

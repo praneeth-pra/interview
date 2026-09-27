@@ -8,6 +8,8 @@ export type Booking = {
   start: string;
   end: string;
   duration: number;
+  company?: string;
+  round?: string;
   manage?: string;
   emailed?: boolean;
 };
