@@ -1,7 +1,7 @@
 // Everything the app keeps: the types and the file store for each kind of data.
 import { DEFAULT_INTERVIEWERS, LOGIN_ON, OWNER_EMAILS } from "./config";
 import { fileStore, loadStore, type FileStore } from "./store";
-import { DAY_MS, EMAIL_RE, normEmail } from "./util";
+import { DAY_MS, EMAIL_RE, asFields, normEmail } from "./util";
 
 export type Booking = {
   id: string;
@@ -54,15 +54,15 @@ export const ivStore = fileStore<{ names: string[]; assign: Record<string, strin
 // Results the admin marks per candidate and company in Analytics ("Update results"), keyed by a normalised candidate name.
 type PersonResults = { results: Record<string, string>; updated: string };
 const RESULT_VALUES = new Set(["cleared", "notcleared", "hold", "offer", "withdrew"]);
-function normResults(v: any): Record<string, string> {
+function normResults(v: unknown): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [c, r] of Object.entries(v ?? {})) if (c && c.length <= 120 && typeof r === "string" && RESULT_VALUES.has(r)) out[c] = r;
+  for (const [c, r] of Object.entries(asFields(v))) if (c && c.length <= 120 && typeof r === "string" && RESULT_VALUES.has(r)) out[c] = r;
   return out;
 }
 // Company names an admin said are the same company (analytics "Same company as…"): lower-cased name → name it joins.
-function normJoins(v: any): Record<string, string> {
+function normJoins(v: unknown): Record<string, string> {
   const out: Record<string, string> = {};
-  for (const [from, to] of Object.entries(v ?? {})) {
+  for (const [from, to] of Object.entries(asFields(v))) {
     const f = from.trim().toLowerCase();
     const t = typeof to === "string" ? to.trim().toLowerCase() : "";
     if (f && t && f !== t && f.length <= 120 && t.length <= 120) out[f] = t;
@@ -76,8 +76,8 @@ export const resultsStore = fileStore<{ people: Record<string, PersonResults>; j
     const people: Record<string, PersonResults> = {};
     for (const [k, v] of Object.entries(x?.people ?? {})) {
       if (!k || k.length > 200) continue;
-      const results = normResults((v as any)?.results);
-      if (Object.keys(results).length) people[k] = { results, updated: String((v as any)?.updated ?? "") };
+      const results = normResults(asFields(v).results);
+      if (Object.keys(results).length) people[k] = { results, updated: String(asFields(v).updated ?? "") };
     }
     return { people, joins: normJoins(x?.joins) };
   },
@@ -107,7 +107,10 @@ export const sessionsStore = fileStore<{ sessions: Session[] }>(
   () => ({ sessions: [] }),
   (x) => ({
     sessions: Array.isArray(x?.sessions)
-      ? x.sessions.filter((v: any) => v && typeof v.id === "string" && typeof v.email === "string" && typeof v.seen === "string")
+      ? x.sessions.filter((v: unknown) => {
+          const s = asFields(v);
+          return typeof s.id === "string" && typeof s.email === "string" && typeof s.seen === "string";
+        })
       : [],
   }),
 );
@@ -134,7 +137,9 @@ export const enquiriesStore = fileStore<{ enquiries: Enquiry[]; seen: Record<str
   "enquiries.json",
   () => ({ enquiries: [], seen: {} }),
   (x) => ({
-    enquiries: Array.isArray(x?.enquiries) ? x.enquiries.filter((v: any) => v && typeof v.id === "string" && v.resume) : [],
+    enquiries: Array.isArray(x?.enquiries)
+      ? x.enquiries.filter((v: unknown) => typeof asFields(v).id === "string" && !!asFields(v).resume)
+      : [],
     seen: Object.fromEntries(Object.entries(x?.seen ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>,
   }),
 );
@@ -162,7 +167,9 @@ export const paymentsStore = fileStore<{ payments: Payment[] }>(
   "payments.json",
   () => ({ payments: [] }),
   (x) => ({
-    payments: Array.isArray(x?.payments) ? x.payments.filter((v: any) => v && typeof v.id === "string" && v.receipt) : [],
+    payments: Array.isArray(x?.payments)
+      ? x.payments.filter((v: unknown) => typeof asFields(v).id === "string" && !!asFields(v).receipt)
+      : [],
   }),
 );
 export const secretStore = fileStore<{ key: string }>(
@@ -182,7 +189,10 @@ export const pushStore = fileStore<{ pub: string; priv: string; subs: PushSub[] 
     pub: typeof x?.pub === "string" ? x.pub : "",
     priv: typeof x?.priv === "string" ? x.priv : "",
     subs: Array.isArray(x?.subs)
-      ? x.subs.filter((v: any) => v && typeof v.endpoint === "string" && typeof v.p256dh === "string" && typeof v.auth === "string")
+      ? x.subs.filter((v: unknown) => {
+          const s = asFields(v);
+          return typeof s.endpoint === "string" && typeof s.p256dh === "string" && typeof s.auth === "string";
+        })
       : [],
   }),
 );
@@ -196,7 +206,7 @@ export const backupStateStore = fileStore<{ saved: string; emailed: string }>(
 );
 // Loads every store except backup-state.json, which the backup job loads once the server is listening.
 export async function loadStores() {
-  const all: FileStore<any>[] = [
+  const all: FileStore<unknown>[] = [
     bookingsStore,
     ivStore,
     allowStore,

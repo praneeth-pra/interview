@@ -3,9 +3,10 @@
 // memory.
 import { DATA_DIR } from "./config";
 import { rename } from "node:fs/promises";
+import { type Fields, asFields } from "./util";
 
-export type FileStore<T> = { file: string; data: T; ok: boolean; chain: Promise<void>; norm: (x: any) => T };
-export function fileStore<T>(file: string, empty: () => T, norm: (x: any) => T): FileStore<T> {
+export type FileStore<T> = { file: string; data: T; ok: boolean; chain: Promise<void>; norm: (x: Fields) => T };
+export function fileStore<T>(file: string, empty: () => T, norm: (x: Fields) => T): FileStore<T> {
   return { file, data: empty(), ok: false, chain: Promise.resolve(), norm };
 }
 export async function loadStore<T>(s: FileStore<T>) {
@@ -16,10 +17,10 @@ export async function loadStore<T>(s: FileStore<T>) {
     const f = Bun.file(path);
     if (await f.exists()) {
       try {
-        s.data = s.norm(JSON.parse(await f.text()));
+        s.data = s.norm(asFields(JSON.parse(await f.text())));
       } catch {
         try {
-          s.data = s.norm(JSON.parse(await Bun.file(path + ".bak").text()));
+          s.data = s.norm(asFields(JSON.parse(await Bun.file(path + ".bak").text())));
         } catch {
           // Neither copy reads. Keep this store in memory only, so the next save can't replace the file with an empty one.
           return console.log("store unreadable, not saving until it is fixed: " + path);
