@@ -314,12 +314,17 @@ export function setupNav() {
         return;
       }
       dragBy = Math.max(0, event.touches[0].clientY - dragFrom);
+      if (dragBy > 0) {
+        // Stop iOS from also rubber-banding the sheet's scroll area, which pulls the content away from the
+        // header and leaves a blank gap while the sheet moves.
+        event.preventDefault();
+      }
       if (dragBy > 4) {
         panel.style.transition = "none";
         panel.style.transform = "translateY(" + dragBy + "px)";
       }
     },
-    { passive: true },
+    { passive: false },
   );
   panel.addEventListener("touchend", function () {
     if (!dragging) {

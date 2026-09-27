@@ -1768,6 +1768,7 @@ body.wkv .agenda {
     border-left: 0;
     box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
     animation: sheet 0.32s var(--ease);
+    transition: transform 0.2s var(--ease);
     padding-bottom: env(safe-area-inset-bottom);
   }
   @keyframes sheet {
@@ -1789,6 +1790,7 @@ body.wkv .agenda {
   }
   .pbody {
     padding: 14px 20px 28px;
+    overscroll-behavior-y: none;
   }
   body.sheet {
     overflow: hidden;
