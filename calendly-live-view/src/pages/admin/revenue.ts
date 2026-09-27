@@ -42,7 +42,11 @@ function monthName(key: string, withYear?: boolean) {
 }
 
 function tile(label: string, value: string, note: string) {
-  return el("div", { class: "rv-tile" }, [el("div", { class: "rv-k", text: label }), el("div", { class: "rv-v", text: value }), el("div", { class: "rv-n", text: note })]);
+  return el("div", { class: "rv-tile" }, [
+    el("div", { class: "rv-k", text: label }),
+    el("div", { class: "rv-v", text: value }),
+    el("div", { class: "rv-n", text: note }),
+  ]);
 }
 // twelve columns, one per month; the label above each bar is its value
 function monthBars(months: string[], values: number[], label: (v: number) => string, describe: (v: number) => string, money?: boolean) {
@@ -53,11 +57,20 @@ function monthBars(months: string[], values: number[], label: (v: number) => str
     var bar = el("i", { class: v ? "" : "zero" });
     bar.style.height = top ? Math.max(v ? 3 : 0, (v / top) * 100) + "%" : "0";
     chart.appendChild(
-      el("div", { class: "rv-col", role: "listitem", "aria-label": monthName(key, true) + ": " + describe(v), title: monthName(key, true) + ": " + describe(v) }, [
-        el("span", { class: "rv-val", text: v ? label(v) : "" }),
-        el("div", { class: "rv-bar" }, [bar]),
-        el("span", { class: "rv-mo", text: monthName(key) }),
-      ]),
+      el(
+        "div",
+        {
+          class: "rv-col",
+          role: "listitem",
+          "aria-label": monthName(key, true) + ": " + describe(v),
+          title: monthName(key, true) + ": " + describe(v),
+        },
+        [
+          el("span", { class: "rv-val", text: v ? label(v) : "" }),
+          el("div", { class: "rv-bar" }, [bar]),
+          el("span", { class: "rv-mo", text: monthName(key) }),
+        ],
+      ),
     );
   });
   return chart;
@@ -75,10 +88,16 @@ function draw(body: HTMLElement, data: Summary) {
       tile(
         "This month",
         rupees(thisMonth),
-        lastMonth ? (change >= 0 ? "+" : "−") + Math.abs(change) + "% on " + monthName(months[months.length - 2]) : "Nothing in " + monthName(months[months.length - 2]),
+        lastMonth
+          ? (change >= 0 ? "+" : "−") + Math.abs(change) + "% on " + monthName(months[months.length - 2])
+          : "Nothing in " + monthName(months[months.length - 2]),
       ),
       tile("Pending", rupees(rev.pending), rev.pendingCount ? plural(rev.pendingCount, "payment") + " to confirm" : "Nothing to confirm"),
-      tile("Paying candidates", String(rev.payers), rev.payers ? rupees(Math.round(rev.total / rev.payers)) + " each on average" : "No confirmed payments yet"),
+      tile(
+        "Paying candidates",
+        String(rev.payers),
+        rev.payers ? rupees(Math.round(rev.total / rev.payers)) + " each on average" : "No confirmed payments yet",
+      ),
     ]),
   );
 
@@ -116,7 +135,10 @@ function draw(body: HTMLElement, data: Summary) {
             text: running ? "All confirmed payments up to the end of each month." : "Confirmed payments, by the month they were sent.",
           }),
         ]),
-        el("div", { class: "paysw", role: "group", "aria-label": "Show revenue" }, [modeButton("total", "Cumulative"), modeButton("month", "Monthly")]),
+        el("div", { class: "paysw", role: "group", "aria-label": "Show revenue" }, [
+          modeButton("total", "Cumulative"),
+          modeButton("month", "Monthly"),
+        ]),
       ]),
       monthBars(
         months,

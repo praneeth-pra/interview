@@ -2,11 +2,7 @@
 // Attributes that are null/false are skipped, true means a bare attribute, on* keys add listeners, html sets innerHTML.
 export type Attrs = Record<string, any> | null;
 export type Child = Node | string | null | undefined | false;
-function el<K extends keyof HTMLElementTagNameMap>(
-  tag: K,
-  attrs?: Attrs,
-  children?: Child[] | null,
-): HTMLElementTagNameMap[K] {
+function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs?: Attrs, children?: Child[] | null): HTMLElementTagNameMap[K] {
   var node = document.createElement(tag);
   if (attrs) {
     for (var key in attrs) {

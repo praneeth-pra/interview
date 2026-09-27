@@ -38,7 +38,8 @@ function showFile() {
   var file = fileInput.files[0];
   var problem = file ? fileProblem(file) : "";
   document.getElementById("rcname").textContent = file ? file.name : "Attach your receipt";
-  document.getElementById("rchint").textContent = problem || (file ? sizeText(file.size) + " · tap to change" : "A photo, screenshot or PDF");
+  document.getElementById("rchint").textContent =
+    problem || (file ? sizeText(file.size) + " · tap to change" : "A photo, screenshot or PDF");
   document.getElementById("dropbox").classList.toggle("bad", !!problem);
   document.getElementById("dropbox").classList.toggle("has", !!file && !problem);
 }
@@ -120,7 +121,6 @@ form.addEventListener("submit", function (event) {
       button.disabled = false;
       button.classList.remove("busy");
       button.textContent = "Submit";
-      errorBox.textContent =
-        error instanceof TypeError ? "Couldn't reach the server. Check your connection and try again." : error.message;
+      errorBox.textContent = error instanceof TypeError ? "Couldn't reach the server. Check your connection and try again." : error.message;
     });
 });

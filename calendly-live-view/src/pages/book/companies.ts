@@ -104,9 +104,7 @@ function suggestCompanies(query: string): Match[] {
     }
   });
   matches.sort(function (x, y) {
-    return (
-      x.score - y.score || y.popularity - x.popularity || x.name.length - y.name.length || x.name.localeCompare(y.name)
-    );
+    return x.score - y.score || y.popularity - x.popularity || x.name.length - y.name.length || x.name.localeCompare(y.name);
   });
   return matches.slice(0, 8);
 }

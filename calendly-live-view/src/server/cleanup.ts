@@ -91,7 +91,11 @@ async function moveTriveni() {
   if (allow && allowStore.ok) await saveStore(allowStore);
   if (bookings.length || enquiries.length || allow)
     console.log(
-      "contacts cleanup: moved " + bookings.length + " booking(s) and " + enquiries.length + " enquiry(ies) to Triveni's email" +
+      "contacts cleanup: moved " +
+        bookings.length +
+        " booking(s) and " +
+        enquiries.length +
+        " enquiry(ies) to Triveni's email" +
         (allow ? ", added it to the allowlist" : ""),
     );
 }
@@ -114,5 +118,7 @@ export async function cleanupContacts() {
   for (const b of gone) delete ivStore.data.assign[b.id];
   await saveStore(bookingsStore);
   if (gone.length) await saveStore(ivStore);
-  console.log("contacts cleanup: removed " + gone.length + " test booking(s), merged " + merged + " booking(s) into " + MERGES.length + " people");
+  console.log(
+    "contacts cleanup: removed " + gone.length + " test booking(s), merged " + merged + " booking(s) into " + MERGES.length + " people",
+  );
 }

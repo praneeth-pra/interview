@@ -199,7 +199,7 @@ function layoutColumns(items: Item[]) {
         cols: [],
       };
     }
-    for (var col = 0; group.cols[col] !== undefined && group.cols[col] > item.from;) {
+    for (var col = 0; group.cols[col] !== undefined && group.cols[col] > item.from; ) {
       col++;
     }
     group.cols[col] = item.to;
@@ -325,7 +325,13 @@ function renderWeek() {
             titleCase(booking.name),
             booking.company,
             booking.round,
-            interviewer ? "Interview support: " + interviewer : booking.missed ? missedLabel(booking) : started ? "Interview support not recorded" : "",
+            interviewer
+              ? "Interview support: " + interviewer
+              : booking.missed
+                ? missedLabel(booking)
+                : started
+                  ? "Interview support not recorded"
+                  : "",
             booking.outcome ? statusPill(booking).text : "",
           ]
             .filter(Boolean)
@@ -448,7 +454,11 @@ function renderAgenda() {
             pickAgendaDay(day);
           },
         },
-        [el("span", { class: "ws-w", text: formatDay(day, { weekday: "short" }) }), el("b", { text: formatDay(day, { day: "numeric" }) }), dots],
+        [
+          el("span", { class: "ws-w", text: formatDay(day, { weekday: "short" }) }),
+          el("b", { text: formatDay(day, { day: "numeric" }) }),
+          dots,
+        ],
       ),
     );
   }
@@ -981,7 +991,10 @@ function checkForUpdate() {
     }
   } catch (e) {}
   updateWaiting = true;
-  var busy = !byId("panel").hidden || document.body.classList.contains("pp-open") || /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "");
+  var busy =
+    !byId("panel").hidden ||
+    document.body.classList.contains("pp-open") ||
+    /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "");
   if (document.visibilityState === "hidden" || !busy) {
     try {
       sessionStorage.setItem("adm.reloaded", state.build);

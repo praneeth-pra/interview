@@ -4,7 +4,7 @@ import type { Booking } from "./types";
 function titleCase(text: string | null | undefined): string {
   text = String(text || "");
   if (text === text.toLowerCase()) {
-    return text.replace(/(^|[\s\-'])(\p{L})/gu, function (match, before, letter) {
+    return text.replace(/(^|[\s\-'])(\p{L})/gu, function (_match, before, letter) {
       return before + letter.toUpperCase();
     });
   } else {
