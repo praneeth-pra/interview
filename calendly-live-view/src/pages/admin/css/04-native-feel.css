@@ -54,10 +54,10 @@ html {
     transform: translateY(8px);
   }
 }
-.agenda.swipe-next {
+.agenda.swipe-next :is(.ag-h, .ag-grid) {
   animation: swipeNext 0.28s var(--ease);
 }
-.agenda.swipe-prev {
+.agenda.swipe-prev :is(.ag-h, .ag-grid) {
   animation: swipePrev 0.28s var(--ease);
 }
 @keyframes swipeNext {

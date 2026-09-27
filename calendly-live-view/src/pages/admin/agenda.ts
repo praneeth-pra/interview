@@ -177,6 +177,18 @@ export function renderAgenda() {
 // edge are left to the browser's own swipe back.
 export function setupAgendaSwipe() {
   const box = byId("agenda");
+  // Only the day moves with the finger (its heading and hour grid); the week strip stays put and its orange highlight
+  // moves to the new day. Looked up each time: every redraw of the agenda replaces them.
+  function day() {
+    return Array.from(box.querySelectorAll<HTMLElement>(".ag-h, .ag-grid"));
+  }
+  function style(transition: string, transform: string, opacity: string) {
+    day().forEach(function (part) {
+      part.style.transition = transition;
+      part.style.transform = transform;
+      part.style.opacity = opacity;
+    });
+  }
   let startX = 0;
   let startY = 0;
   let dx = 0;
@@ -185,9 +197,7 @@ export function setupAgendaSwipe() {
   let lastT = 0;
   let speed = 0; // px per ms
   function reset() {
-    box.style.transition = "";
-    box.style.transform = "";
-    box.style.opacity = "";
+    style("", "", "");
   }
   box.addEventListener(
     "touchstart",
@@ -198,6 +208,10 @@ export function setupAgendaSwipe() {
       dx = 0;
       speed = 0;
       lock = innerWidth > 760 || startX < 24 ? -1 : 0;
+      // The end of the touch is heard on the element it started on: if a redraw removes that element mid-swipe, the
+      // event no longer reaches the agenda, and the day would be left half moved.
+      event.target!.addEventListener("touchend", end, { once: true });
+      event.target!.addEventListener("touchcancel", end, { once: true });
     },
     { passive: true },
   );
@@ -226,9 +240,7 @@ export function setupAgendaSwipe() {
       lastX = x;
       lastT = now;
       dx = mx;
-      box.style.transition = "none";
-      box.style.transform = "translateX(" + dx + "px)";
-      box.style.opacity = String(1 - Math.min(Math.abs(dx) / innerWidth, 0.6) * 0.6);
+      style("none", "translateX(" + dx + "px)", String(1 - Math.min(Math.abs(dx) / innerWidth, 0.6) * 0.6));
     },
     { passive: true },
   );
@@ -240,15 +252,11 @@ export function setupAgendaSwipe() {
     lock = 0;
     const flick = Math.abs(speed) > 0.45 && Math.abs(dx) > 24 && speed * dx > 0 && performance.now() - lastT < 120;
     if (Math.abs(dx) < 80 && !flick) {
-      box.style.transition = "transform 0.24s var(--ease), opacity 0.24s ease";
-      box.style.transform = "";
-      box.style.opacity = "";
+      style("transform 0.24s var(--ease), opacity 0.24s ease", "", "");
       return;
     }
     const next = dx < 0;
-    box.style.transition = "transform 0.13s ease-in, opacity 0.13s ease-in";
-    box.style.transform = "translateX(" + (next ? -1 : 1) * Math.round(innerWidth * 0.5) + "px)";
-    box.style.opacity = "0";
+    style("transform 0.13s ease-in, opacity 0.13s ease-in", "translateX(" + (next ? -1 : 1) * Math.round(innerWidth * 0.5) + "px)", "0");
     setTimeout(function () {
       reset();
       pickAgendaDay(addDays(agendaDay()!, next ? 1 : -1));
@@ -257,6 +265,4 @@ export function setupAgendaSwipe() {
       box.classList.add(next ? "swipe-next" : "swipe-prev");
     }, 130);
   }
-  box.addEventListener("touchend", end);
-  box.addEventListener("touchcancel", end);
 }
