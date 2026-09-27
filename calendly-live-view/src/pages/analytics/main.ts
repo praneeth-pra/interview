@@ -131,14 +131,6 @@ function paintBanner() {
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "visible") {
     loadIv();
-    api("/api/state")
-      .then((response) => response.json())
-      .then((fresh) => {
-        state = fresh;
-        lastSeen = Date.now();
-        render();
-      })
-      .catch(() => {});
     connect();
   }
 });
@@ -543,7 +535,6 @@ function evState(event: TimelineEvent, now: number) {
     return "done";
   }
 }
-const renderedTz = "";
 function loadAnalytics(eventId: string) {
   const requestId = ++loadSeq;
   data = null;
@@ -762,7 +753,8 @@ function renderAnalysis() {
 function render() {
   paintBanner();
   paintStatus();
-  if (data && renderedTz !== state.tz) {
+  // the open contact too: "Next meeting: Today at 3:00pm" and upcoming/done depend on the time now
+  if (data) {
     renderAnalysis();
   }
   renderPeople();
