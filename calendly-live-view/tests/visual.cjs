@@ -158,7 +158,9 @@ async function openAgendaPanel(p, s, index = 0) {
   await wait(p, 1200);
   await p.locator("#tabAg:visible, #vAg:visible, .bnav [data-go=ag]:visible").first().click();
   await wait(p, 400);
-  await p.locator("#agenda .ag-i").nth(index).click();
+  // The agenda shows today; on days when today has one interview, open that one.
+  const items = p.locator("#agenda .ag-i");
+  await items.nth(Math.min(index, Math.max(0, (await items.count()) - 1))).click();
   await wait(p, 1500);
 }
 const CASES = [
