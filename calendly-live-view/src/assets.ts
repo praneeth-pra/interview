@@ -145,15 +145,28 @@ export function themed(css: string): string {
     .join("");
   return out + ':root[data-theme="light"] {\n  color-scheme: light;\n}\n:root[data-theme="dark"] {\n  color-scheme: dark;\n}\n';
 }
-for (const f of readdirSync(PAGES, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
-  if (f.isDirectory() && existsSync(join(PAGES, f.name, "main.ts"))) add(f.name + ".js", Buffer.from(await bundle(join(PAGES, f.name, "main.ts"))));
-  else if (f.name.endsWith(".js")) add(f.name, Buffer.from(await bundle(join(PAGES, f.name))));
-  else if (f.name.endsWith(".css")) {
-    const source = readFileSync(join(PAGES, f.name), "utf8");
-    const css = THEMED.has(f.name) ? themed(source) : source;
-    const fonts = (FONT_OF_PAGE[f.name] ?? "").split(" ").filter(Boolean).map(fontCss).join("");
-    add(f.name, Buffer.from(linkAssets(fonts + css)));
-  }
+function addCss(name: string, source: string) {
+  const css = THEMED.has(name) ? themed(source) : source;
+  const fonts = (FONT_OF_PAGE[name] ?? "").split(" ").filter(Boolean).map(fontCss).join("");
+  add(name, Buffer.from(linkAssets(fonts + css)));
+}
+// A page's stylesheet is src/pages/<page>.css, or the files in src/pages/<page>/css/ joined in name order (01-…, 02-…),
+// which keeps the cascade in that order.
+const sorted = (dir: string) => readdirSync(dir, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name));
+for (const f of sorted(PAGES)) {
+  if (f.isDirectory()) {
+    if (existsSync(join(PAGES, f.name, "main.ts"))) add(f.name + ".js", Buffer.from(await bundle(join(PAGES, f.name, "main.ts"))));
+    const cssDir = join(PAGES, f.name, "css");
+    if (existsSync(cssDir))
+      addCss(
+        f.name + ".css",
+        sorted(cssDir)
+          .filter((c) => c.name.endsWith(".css"))
+          .map((c) => readFileSync(join(cssDir, c.name), "utf8"))
+          .join(""),
+      );
+  } else if (f.name.endsWith(".js")) add(f.name, Buffer.from(await bundle(join(PAGES, f.name))));
+  else if (f.name.endsWith(".css")) addCss(f.name, readFileSync(join(PAGES, f.name), "utf8"));
 }
 
 // A request for an older fingerprint (a tab opened before a deploy) gets the current file, without the long cache.

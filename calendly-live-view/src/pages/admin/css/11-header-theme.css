@@ -1,0 +1,65 @@
+/* Desktop header: the logo on the left, the bell and ⋯ on the right, and the tabs centred on the bar itself (the two
+   side columns share the leftover space equally). */
+@media (min-width: 901px) {
+  .top {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+  /* the logo link stays its own size, so the empty space beside it isn't a link */
+  .top .brand {
+    justify-self: start;
+  }
+  .top .tabs {
+    margin: 0;
+  }
+  .top .tr {
+    justify-self: end;
+  }
+}
+/* The light/dark switch in the header, on every screen size: a moon in light mode, a sun in dark mode. */
+#thBtn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink2);
+  cursor: pointer;
+}
+#thBtn svg {
+  width: 17px;
+  height: 17px;
+}
+#thBtn .th-sun {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  #thBtn .th-sun {
+    display: block;
+  }
+  #thBtn .th-moon {
+    display: none;
+  }
+}
+@media (hover: hover) {
+  #thBtn:hover {
+    color: var(--ink);
+    background: var(--sub);
+  }
+}
+@media (max-width: 760px) {
+  #thBtn {
+    width: 36px;
+    height: 36px;
+  }
+}
+/* Phones: sideways swipes on the agenda move the day under the finger; up and down still scrolls the page. */
+@media (max-width: 760px) {
+  .agenda {
+    touch-action: pan-y;
+  }
+}

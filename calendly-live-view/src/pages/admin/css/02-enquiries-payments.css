@@ -1,0 +1,353 @@
+/* The Enquiries tab */
+.enqview {
+  max-width: 760px;
+  margin: 0 auto;
+}
+.enqview .enqlist {
+  padding: 4px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+}
+/* the red count of new enquiries, on the tab and on the phone's bottom bar */
+.nbadge {
+  display: inline-grid;
+  place-items: center;
+  min-width: 19px;
+  height: 19px;
+  padding: 0 5px;
+  border-radius: 10px;
+  background: #e5372b;
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 1;
+}
+.bico {
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+.bico .nbadge {
+  position: absolute;
+  top: -6px;
+  left: 60%;
+  box-shadow: 0 0 0 2px var(--card);
+}
+/* Enquiries: the public link, then one block per response */
+.enqlink {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--sub);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.enqlink button {
+  flex: none;
+}
+.enq {
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+}
+.enq:first-child {
+  border-top: 0;
+}
+.enqh {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.enqh b {
+  font-size: 16px;
+}
+.enqh small {
+  flex: none;
+  color: var(--ink2);
+  font-size: 12.5px;
+}
+.enqt {
+  margin: 2px 0 0;
+  font-weight: 600;
+}
+.enqc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 4px 0 10px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.enqa {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.enqa .bk-act {
+  flex-direction: row;
+  min-height: 38px;
+  padding: 6px 14px;
+}
+.enqr {
+  display: flex;
+  gap: 8px;
+}
+.enqa .bk-act.dl {
+  width: 38px;
+  padding: 0;
+}
+.enqa .bk-act.dl svg {
+  width: 18px;
+  height: 18px;
+}
+/* Payments: the view switch and the candidate filter, above the payments */
+.paybar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0 0 12px;
+}
+.paybar[hidden] {
+  display: none;
+}
+.paybar .payfilter {
+  flex: 1 1 180px;
+  max-width: 280px;
+  height: 40px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14.5px;
+}
+/* the browser's own arrow sits on the pill's edge; draw one inside it instead */
+.paybar select.payfilter {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0 40px 0 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%238a8f98' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+}
+/* 16px, or iPhones zoom in while typing */
+.paybar .paysearch {
+  padding: 0 16px;
+  font-size: 16px;
+}
+/* one candidate's subtotal, above their payments */
+.paysum {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--line);
+}
+.paysum > div {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.paysum .num {
+  align-items: flex-end;
+}
+.paysum b {
+  font-size: 18px;
+}
+.paysum small {
+  color: var(--ink2);
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+.paysw {
+  display: inline-flex;
+  flex: none;
+  padding: 2px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: var(--sub);
+}
+.paysw button {
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 17px;
+  background: none;
+  color: var(--ink2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.paysw [aria-pressed="true"] {
+  background: var(--card);
+  color: var(--link);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+/* the table: candidate, date, amount, and a total row; narrow enough for a phone without scrolling sideways */
+.paytbl table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14.5px;
+}
+.paytbl th,
+.paytbl td {
+  padding: 11px 6px;
+  border-top: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.paytbl th:first-child,
+.paytbl td:first-child {
+  padding-left: 0;
+  overflow-wrap: anywhere;
+}
+.paytbl th:last-child,
+.paytbl td:last-child {
+  padding-right: 0;
+}
+.paytbl thead th {
+  border-top: 0;
+  color: var(--ink2);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.paytbl thead button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+.paytbl [aria-sort] button {
+  color: var(--link);
+}
+.paytbl td small {
+  display: block;
+  color: var(--ink2);
+  font-size: 12.5px;
+}
+.paytbl .pn {
+  font-weight: 600;
+}
+.paytbl tr.tap {
+  cursor: pointer;
+}
+@media (hover: hover) {
+  .paytbl tr.tap:hover td {
+    background: var(--sub);
+  }
+}
+.paysum + table thead th {
+  padding-top: 14px;
+}
+.paytbl .num {
+  text-align: right;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.paytbl .dt {
+  white-space: nowrap;
+  color: var(--ink2);
+}
+.paytbl tfoot th,
+.paytbl tfoot td {
+  border-top: 1.5px solid var(--ink2);
+  font-weight: 700;
+}
+.paytbl tfoot td:not(.num) {
+  color: var(--ink2);
+  font-weight: 500;
+}
+/* Verified / Needs check, from reading the receipt */
+.pchk,
+.pst {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 1px 8px;
+  border-radius: 10px;
+  font-size: 11.5px;
+  font-weight: 700;
+  line-height: 18px;
+  vertical-align: 2px;
+  white-space: nowrap;
+}
+.pchk.ok {
+  background: color-mix(in srgb, var(--green) 13%, transparent);
+  color: var(--green);
+}
+.pchk.warn {
+  background: var(--amber-t);
+  color: var(--amber);
+}
+/* a payment's state: Pending until an owner confirms or discards it */
+.pst.wait {
+  background: var(--amber-t);
+  color: var(--amber);
+}
+.pst.ok {
+  background: color-mix(in srgb, var(--green) 13%, transparent);
+  color: var(--green);
+}
+.pst.off {
+  background: var(--sub);
+  color: var(--ink2);
+}
+.paytbl .num .pchk,
+.paytbl .num .pst {
+  display: table;
+  margin: 3px 0 0 auto;
+}
+.paytbl td small + .pchk,
+.paytbl td small + .pst {
+  margin: 4px 0 0;
+}
+.paytbl td.pin {
+  color: var(--ink2);
+  white-space: nowrap;
+}
+.pinst {
+  margin: 2px 0 0;
+  color: var(--ink2);
+  font-weight: 600;
+  font-size: 14px;
+}
+.pdec {
+  display: flex;
+  gap: 6px;
+  flex: none;
+}
+.pdec .pri {
+  height: 32px;
+  padding: 0 14px;
+  font-size: 13.5px;
+}
+.pdone {
+  color: var(--ink2);
+  font-weight: 600;
+  white-space: nowrap;
+}
+.enq.off {
+  opacity: 0.7;
+}
+/* the payment an alert opened */
+.enq.hl {
+  margin: 0 -10px;
+  padding: 14px 10px;
+  border-radius: 10px;
+  background: var(--sub);
+}
+.payamt {
+  font-size: 17px;
+}

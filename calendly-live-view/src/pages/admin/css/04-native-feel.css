@@ -1,0 +1,337 @@
+/* ---- Native-app feel ----
+   No grey tap flash, no text selection on controls, a short fade when switching sections, the agenda slides when
+   swiped to another day. On phones: the header shows the section title, the interviewer legend is a swipeable chip
+   row, Alerts opens as a bottom sheet, and the Emails tab reads like a settings screen. */
+button,
+a,
+[role="button"],
+.ag-i,
+.ev {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+[role="button"] {
+  touch-action: manipulation;
+}
+.bnav,
+.seg,
+.top,
+.legend {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+/* On touch screens, holding a finger on something tappable doesn't select its words or pop up Copy / Look up, as in an app.
+   Text in sheets, forms and pages stays selectable. */
+@media (hover: none) {
+  button,
+  a,
+  [role="button"],
+  tr.tap,
+  label,
+  .drop li,
+  .items li {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}
+.sect {
+  display: none;
+}
+#viewAllow:not([hidden]) {
+  animation: viewIn 0.24s var(--ease) backwards;
+}
+/* Sections switch instantly: no fade or slide, so the page never moves when changing tabs. Room for the scrollbar is
+   kept even on sections too short to scroll, so a long section (the Agenda) and a short one line up exactly on
+   desktops with a visible scrollbar. */
+html {
+  scrollbar-gutter: stable;
+}
+@keyframes viewIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.agenda.swipe-next {
+  animation: swipeNext 0.28s var(--ease);
+}
+.agenda.swipe-prev {
+  animation: swipePrev 0.28s var(--ease);
+}
+@keyframes swipeNext {
+  from {
+    opacity: 0.2;
+    transform: translateX(48px);
+  }
+}
+@keyframes swipePrev {
+  from {
+    opacity: 0.2;
+    transform: translateX(-48px);
+  }
+}
+@media (max-width: 760px) {
+  .top {
+    gap: 10px;
+  }
+  .brand {
+    flex: none;
+  }
+  .brand .bn {
+    display: none;
+  }
+  .brand .mk {
+    width: 32px;
+    height: 32px;
+    font-size: 15px;
+  }
+  .sect {
+    display: block;
+    flex: 1;
+    min-width: 0;
+    font-size: 24px;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+  }
+  /* bottom bar: press feedback and a little pop on the active icon */
+  .bnav button:active:not(:disabled) {
+    transform: scale(0.92);
+  }
+  .bnav .on svg {
+    animation: navPop 0.32s var(--ease);
+  }
+  @keyframes navPop {
+    0% {
+      transform: scale(0.82);
+    }
+    60% {
+      transform: scale(1.08);
+    }
+  }
+  /* calendar: interviewer chips scroll sideways instead of wrapping */
+  #legend.legend {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    margin: 0 -16px 14px;
+    padding: 2px 16px;
+    gap: 8px;
+    font-size: 13px;
+  }
+  #legend.legend::-webkit-scrollbar {
+    display: none;
+  }
+  .legend .lg {
+    flex: none;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--card);
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  .legend .linkbtn {
+    flex: none;
+    margin-left: 0;
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--tint);
+    text-decoration: none;
+    white-space: nowrap;
+  }
+  .grab {
+    width: 42px;
+    margin-top: 10px;
+  }
+  /* Alerts: a bottom sheet with a dimmed backdrop */
+  body.pp-open {
+    overflow: hidden;
+  }
+  body.pp-open:after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.32);
+    animation: fade 0.2s ease;
+  }
+  body.pp-open .bnav {
+    transform: translateY(140%);
+    opacity: 0;
+  }
+  .pushpop {
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    top: auto !important;
+    width: auto !important;
+    border-width: 1px 0 0;
+    border-radius: 22px 22px 0 0;
+    padding: 28px 20px calc(22px + env(safe-area-inset-bottom));
+    font-size: 15px;
+    animation: sheet 0.32s var(--ease);
+  }
+  .pushpop:before {
+    content: "";
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    width: 42px;
+    height: 5px;
+    margin-left: -21px;
+    border-radius: 3px;
+    background: var(--field);
+    opacity: 0.7;
+  }
+  .pushpop h3 {
+    font-size: 19px;
+    margin-bottom: 8px;
+  }
+  .pp-row {
+    flex-direction: column;
+  }
+  .pp-btn {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+    font-size: 15px;
+  }
+  /* Emails: grouped settings-style cards */
+  #viewAllow .sec {
+    border-radius: 18px;
+    margin-bottom: 12px;
+  }
+  #viewAllow .spread {
+    flex-wrap: nowrap;
+  }
+  #viewAllow h2 {
+    font-size: 17px;
+  }
+  #viewAllow .sw {
+    width: 52px;
+    height: 32px;
+    border-radius: 16px;
+  }
+  #viewAllow .sw:after {
+    width: 26px;
+    height: 26px;
+  }
+  #viewAllow textarea {
+    border-radius: 14px;
+    min-height: 96px;
+    font-size: 16px;
+  }
+  #viewAllow .row.mt {
+    display: grid;
+    gap: 10px;
+  }
+  #viewAllow .row.mt button {
+    width: 100%;
+    height: 48px;
+    border-radius: 14px;
+  }
+  #aq {
+    flex: 1;
+    min-width: 0;
+    height: 40px;
+    border-radius: 20px;
+    font-size: 16px;
+  }
+  .al li {
+    padding: 12px 0;
+    font-size: 15px;
+  }
+  .rm {
+    padding: 6px 12px;
+    border-radius: 999px;
+    background: var(--red-t);
+  }
+}
+/* Times and counts line up in columns */
+.ag-t,
+.axis,
+.gh,
+.ev,
+.card .v,
+#title {
+  font-variant-numeric: tabular-nums;
+}
+/* Loading placeholders, shown until the first bookings arrive */
+.skel-list {
+  display: grid;
+  gap: 10px;
+}
+.skel-list i {
+  display: block;
+  height: 64px;
+  border-radius: 16px;
+  background: linear-gradient(90deg, var(--card) 30%, var(--sub) 50%, var(--card) 70%) 0 0 / 300% 100%;
+  border: 1px solid var(--line);
+  animation: skel 1.3s ease-in-out infinite;
+}
+.skel-list i:first-child {
+  height: 22px;
+  width: 40%;
+  border: 0;
+  background-color: transparent;
+}
+@keyframes skel {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: 0 0;
+  }
+}
+/* Phone header search button (Contacts only; phones have no candidate search on Calendar) and no New booking button */
+.tbtn {
+  display: none;
+}
+@media (max-width: 760px) {
+  .tbtn {
+    display: grid;
+    place-items: center;
+    flex: none;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1px solid var(--line);
+    background: var(--card);
+    color: var(--ink);
+  }
+  .tbtn svg {
+    width: 18px;
+    height: 18px;
+  }
+  body:not(.on-cal):not(.la-on) .tbtn,
+  body.on-cal #qbtn {
+    display: none;
+  }
+  body.la-on.cq-open #qbtn {
+    background: var(--tint);
+    color: var(--link);
+    border-color: transparent;
+  }
+}
+/* 30-minute boxes: name plus one line of company · round */
+.ev.short {
+  padding-top: 1px;
+  padding-bottom: 1px;
+  line-height: 1.15;
+}
+.ev.short span {
+  font-size: 11.5px;
+}

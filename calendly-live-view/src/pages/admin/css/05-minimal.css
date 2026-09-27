@@ -1,0 +1,265 @@
+/* ---- Minimal ----
+   Only what's needed right now: the connection shows only when it's down, New booking, interviewers (with the colour
+   key), downloads and sign-out live in the ⋯ menu, Week/Agenda sits on the date row, and bookings without an
+   interviewer get an amber dot plus one line above the calendar instead of a label on every row. */
+.status:not(.bad) {
+  display: none !important;
+}
+.status.bad {
+  display: inline-flex !important;
+  color: var(--amber);
+  background: var(--amber-t);
+  border: 0;
+  border-radius: 999px;
+  padding: 0 10px;
+  height: 30px;
+  font-size: 12.5px;
+  font-weight: 600;
+}
+.status.bad i {
+  background: var(--amber);
+  animation: none;
+}
+.tr {
+  gap: 6px;
+}
+.tbtn.more,
+#pushBtn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink2);
+  cursor: pointer;
+}
+.tbtn.more[aria-expanded="true"] {
+  color: var(--ink);
+  background: var(--sub);
+}
+@media (hover: hover) {
+  .tbtn.more:hover,
+  #pushBtn:hover {
+    color: var(--ink);
+    background: var(--sub);
+  }
+}
+.tbtn.more svg {
+  width: 18px;
+  height: 18px;
+}
+/* the old #dlBtn rule (inline-flex, 14px icon) outranks .tbtn.more, which left the dots small and off to the left */
+#dlBtn.more {
+  justify-content: center;
+}
+#dlBtn.more svg {
+  width: 18px;
+  height: 18px;
+}
+#pushBtn svg {
+  width: 16px;
+  height: 16px;
+}
+#pushBtn span {
+  display: none;
+}
+#pushBtn.on {
+  color: var(--green);
+}
+.dlmenu {
+  min-width: 280px;
+}
+.dlmenu button {
+  display: block;
+  width: 100%;
+  height: auto;
+  min-height: 0;
+  padding: 9px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+.dlmenu button:focus-visible {
+  background: var(--sub);
+  outline: none;
+}
+@media (hover: hover) {
+  .dlmenu button:hover {
+    background: var(--sub);
+    outline: none;
+  }
+}
+#mOut {
+  color: var(--red);
+}
+.dlmenu #mOut:not([hidden]) {
+  margin-top: 4px;
+  border-top: 1px solid var(--line);
+  border-radius: 0 0 8px 8px;
+}
+.dlmenu #legend.legend {
+  display: flex !important;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 3px 0 0;
+  padding: 0;
+  overflow: visible;
+  font-size: 12px;
+  font-weight: 400;
+  color: var(--ink2);
+}
+.dlmenu #legend .lg {
+  padding: 0;
+  border: 0;
+  background: none;
+  gap: 5px;
+}
+.gh span {
+  display: none;
+}
+/* bookings with no interviewer after they started */
+.attn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: auto;
+  height: auto;
+  /* 24 px tap target; the smaller margin keeps the old spacing */
+  min-height: 24px;
+  margin: 0 0 10.25px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--amber);
+  font: inherit;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.attn[hidden] {
+  display: none;
+}
+.attn:before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex: none;
+}
+.attn:after {
+  content: "Review ›";
+  color: var(--link);
+  font-weight: 600;
+}
+@media (hover: hover) {
+  .attn:hover:after {
+    text-decoration: underline;
+  }
+}
+.need-dot {
+  display: block;
+  align-self: center;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--amber);
+  flex: none;
+}
+.ev.need {
+  box-shadow: none;
+}
+.ev.need:after {
+  content: "";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--amber);
+}
+@media (hover: hover) {
+  .ev.need:hover {
+    box-shadow: 0 0 0 2px var(--c);
+  }
+}
+@media (max-width: 760px) {
+  .hdl {
+    display: block !important;
+  }
+  .tbtn.more,
+  body:not(.on-cal) .tbtn.more {
+    display: grid !important;
+    width: 36px;
+    height: 36px;
+  }
+  #pushBtn {
+    display: none !important;
+  }
+  /* The ⋯ menu: a bottom sheet over a dimmed page, like Alerts and the booking sheet. */
+  .dlmenu {
+    position: fixed;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    min-width: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-width: 1px 0 0;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
+    padding: 26px 10px calc(10px + env(safe-area-inset-bottom));
+    animation: sheet 0.32s var(--ease);
+  }
+  .dlmenu:before {
+    content: "";
+    position: absolute;
+    top: 9px;
+    left: 50%;
+    width: 38px;
+    height: 5px;
+    margin-left: -19px;
+    border-radius: 3px;
+    background: var(--field);
+    opacity: 0.7;
+  }
+  .dlmenu a,
+  .dlmenu button {
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+  body.dm-open {
+    overflow: hidden;
+  }
+  body.dm-open:after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.32);
+    animation: fade 0.2s ease;
+  }
+  body.dm-open .bnav {
+    transform: translateY(140%);
+    opacity: 0;
+  }
+  .status.bad {
+    height: 28px;
+  }
+  .attn {
+    margin: -2px 2px 8.25px;
+  }
+}
