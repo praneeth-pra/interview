@@ -813,13 +813,6 @@ h2 {
   max-width: 760px;
   margin: 0 auto;
 }
-.enqtop h2 {
-  margin: 0;
-  font-size: 22px;
-}
-.enqtop .sub {
-  margin: 2px 0 14px;
-}
 .enqview .enqlist {
   padding: 4px 16px;
   border: 1px solid var(--line);
@@ -3669,11 +3662,11 @@ html {
     padding: 0 9px;
   }
 }
+/* the page title is in the header, so only the download button sits above the revenue */
 .rv-head {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 12px;
+  justify-content: flex-end;
+  margin-bottom: 14px;
 }
 .rv-dl {
   flex: none;
