@@ -24,16 +24,26 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   if (path === "/manifest.webmanifest")
     return new Response(
       JSON.stringify({
+        id: "/admin",
         name: HOST_NAME + " Admin",
         short_name: HOST_NAME,
         start_url: "/admin",
         scope: "/",
         display: "standalone",
-        background_color: "#161513",
-        theme_color: "#161513",
+        // Android draws its launch screen in these colours; the page's own theme-color takes over once it has loaded.
+        // A manifest can't follow light or dark mode, so it matches the light admin, the default.
+        background_color: "#f4f2ec",
+        theme_color: "#f4f2ec",
+        // The drawing sits inside the middle 80% of the tile, so Android can cut it to a circle or squircle.
         icons: [
           { src: "/icon.png?v=3", sizes: "512x512", type: "image/png", purpose: "any" },
-          { src: "/icon.png?v=3", sizes: "192x192", type: "image/png", purpose: "any" },
+          { src: "/icon.png?v=3", sizes: "512x512", type: "image/png", purpose: "maskable" },
+        ],
+        // Long-press the home-screen icon on Android. Admins who aren't owners land on the Calendar for the last two.
+        shortcuts: [
+          { name: "Agenda", url: "/admin?view=agenda", icons: [{ src: "/icon.png?v=3", sizes: "512x512" }] },
+          { name: "Enquiries", url: "/admin?view=enquiries", icons: [{ src: "/icon.png?v=3", sizes: "512x512" }] },
+          { name: "Payments", url: "/admin?view=payments", icons: [{ src: "/icon.png?v=3", sizes: "512x512" }] },
         ],
       }),
       { headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },

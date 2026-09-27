@@ -127,9 +127,11 @@ a {
   text-decoration: none;
   white-space: nowrap;
 }
-.tabs button:hover {
-  background: var(--tint);
-  color: var(--ink);
+@media (hover: hover) {
+  .tabs button:hover {
+    background: var(--tint);
+    color: var(--ink);
+  }
 }
 .tabs [aria-selected="true"] {
   background: var(--tint);
@@ -150,8 +152,10 @@ a {
   color: var(--ink2);
   white-space: nowrap;
 }
-.chip:hover {
-  border-color: var(--ink3);
+@media (hover: hover) {
+  .chip:hover {
+    border-color: var(--ink3);
+  }
 }
 .chip.warn {
   background: var(--amber-t);
@@ -217,8 +221,10 @@ h1 {
   line-height: 1;
   flex: none;
 }
-.icon:hover {
-  background: var(--tint);
+@media (hover: hover) {
+  .icon:hover {
+    background: var(--tint);
+  }
 }
 .ghost,
 .pri,
@@ -239,24 +245,30 @@ h1 {
   background: var(--card);
   color: var(--ink);
 }
-.ghost:hover {
-  border-color: var(--ink2);
+@media (hover: hover) {
+  .ghost:hover {
+    border-color: var(--ink2);
+  }
 }
 .pri {
   border: 0;
   background: var(--blue);
   color: #fff;
 }
-.pri:hover:not(:disabled) {
-  background: var(--blue-d);
+@media (hover: hover) {
+  .pri:hover:not(:disabled) {
+    background: var(--blue-d);
+  }
 }
 .danger {
   border: 0;
   background: #c8372d;
   color: #fff;
 }
-.danger:hover:not(:disabled) {
-  background: #a82b22;
+@media (hover: hover) {
+  .danger:hover:not(:disabled) {
+    background: #a82b22;
+  }
 }
 .pri:disabled,
 .danger:disabled {
@@ -316,9 +328,13 @@ textarea:focus {
   border-radius: 6px;
   cursor: pointer;
 }
-.drop li:hover,
 .drop li[aria-selected="true"] {
   background: var(--tint);
+}
+@media (hover: hover) {
+  .drop li:hover {
+    background: var(--tint);
+  }
 }
 .m {
   font-size: 13px;
@@ -347,8 +363,10 @@ textarea:focus {
   box-shadow: var(--shadow);
   min-width: 0;
 }
-button.card:hover {
-  border-color: var(--ink3);
+@media (hover: hover) {
+  button.card:hover {
+    border-color: var(--ink3);
+  }
 }
 .card .k {
   font-size: 13px;
@@ -407,8 +425,10 @@ button.card:hover {
   padding: 2px 4px;
   font-size: 13px;
 }
-.linkbtn:hover {
-  text-decoration: underline;
+@media (hover: hover) {
+  .linkbtn:hover {
+    text-decoration: underline;
+  }
 }
 .week {
   background: var(--card);
@@ -504,8 +524,10 @@ button.card:hover {
   display: block;
   color: var(--ink2);
 }
-.ev:hover {
-  box-shadow: 0 0 0 2px var(--c);
+@media (hover: hover) {
+  .ev:hover {
+    box-shadow: 0 0 0 2px var(--c);
+  }
 }
 .ev.past {
   opacity: 0.6;
@@ -685,8 +707,10 @@ h2 {
 .items li:first-child {
   border-top: 0;
 }
-.items li:hover {
-  background: var(--sub);
+@media (hover: hover) {
+  .items li:hover {
+    background: var(--sub);
+  }
 }
 .toast {
   position: fixed;
@@ -779,8 +803,10 @@ h2 {
   border-radius: 6px;
   flex: none;
 }
-.rm:hover {
-  background: var(--red-t);
+@media (hover: hover) {
+  .rm:hover {
+    background: var(--red-t);
+  }
 }
 /* The Enquiries tab */
 .enqview {
@@ -1035,8 +1061,10 @@ h2 {
 .paytbl tr.tap {
   cursor: pointer;
 }
-.paytbl tr.tap:hover td {
-  background: var(--sub);
+@media (hover: hover) {
+  .paytbl tr.tap:hover td {
+    background: var(--sub);
+  }
 }
 .paysum + table thead th {
   padding-top: 14px;
@@ -1311,14 +1339,21 @@ a.ghost:active {
   align-items: center;
   gap: 6px;
 }
-.tabs button:hover {
-  background: var(--sub);
-  color: var(--ink);
+@media (hover: hover) {
+  .tabs button:hover {
+    background: var(--sub);
+    color: var(--ink);
+  }
 }
-.tabs [aria-selected="true"],
-.tabs [aria-selected="true"]:hover {
+.tabs [aria-selected="true"] {
   background: var(--tint);
   color: var(--tab-on);
+}
+@media (hover: hover) {
+  .tabs [aria-selected="true"]:hover {
+    background: var(--tint);
+    color: var(--tab-on);
+  }
 }
 .tr {
   gap: 8px;
@@ -1336,9 +1371,11 @@ a.ghost:active {
   font-size: 13px;
   font-weight: 600;
 }
-.chip:hover {
-  border-color: var(--field);
-  color: var(--ink);
+@media (hover: hover) {
+  .chip:hover {
+    border-color: var(--field);
+    color: var(--ink);
+  }
 }
 .chip.warn {
   background: var(--amber-t);
@@ -1418,10 +1455,12 @@ main {
   padding: 0 12px;
   color: var(--ink);
 }
-.seg .icon:hover,
-.seg .ghost:hover {
-  background: var(--sub);
-  color: var(--ink);
+@media (hover: hover) {
+  .seg .icon:hover,
+  .seg .ghost:hover {
+    background: var(--sub);
+    color: var(--ink);
+  }
 }
 #pick {
   height: 38px;
@@ -1450,9 +1489,11 @@ main {
 .ghost {
   border-color: var(--line);
 }
-.ghost:hover {
-  border-color: var(--field);
-  background: var(--sub);
+@media (hover: hover) {
+  .ghost:hover {
+    border-color: var(--field);
+    background: var(--sub);
+  }
 }
 input[type="search"],
 input[type="text"],
@@ -1483,8 +1524,10 @@ textarea:focus {
   box-shadow: none;
   border-color: var(--line);
 }
-button.card:hover {
-  border-color: var(--field);
+@media (hover: hover) {
+  button.card:hover {
+    border-color: var(--field);
+  }
 }
 .card .k {
   font-size: 13px;
@@ -2088,10 +2131,15 @@ body.la-on main {
   font-size: 14px;
   font-weight: 600;
 }
-.dlmenu a:hover,
 .dlmenu a:focus-visible {
   background: var(--sub);
   outline: none;
+}
+@media (hover: hover) {
+  .dlmenu a:hover {
+    background: var(--sub);
+    outline: none;
+  }
 }
 .dlmenu small {
   display: block;
@@ -2127,6 +2175,21 @@ button,
   -webkit-user-select: none;
   user-select: none;
   -webkit-touch-callout: none;
+}
+/* On touch screens, holding a finger on something tappable doesn't select its words or pop up Copy / Look up, as in an app.
+   Text in sheets, forms and pages stays selectable. */
+@media (hover: none) {
+  button,
+  a,
+  [role="button"],
+  tr.tap,
+  label,
+  .drop li,
+  .items li {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
 }
 .sect {
   display: none;
@@ -2466,11 +2529,16 @@ html {
   color: var(--ink2);
   cursor: pointer;
 }
-.tbtn.more:hover,
-#pushBtn:hover,
 .tbtn.more[aria-expanded="true"] {
   color: var(--ink);
   background: var(--sub);
+}
+@media (hover: hover) {
+  .tbtn.more:hover,
+  #pushBtn:hover {
+    color: var(--ink);
+    background: var(--sub);
+  }
 }
 .tbtn.more svg {
   width: 18px;
@@ -2513,10 +2581,15 @@ html {
   text-align: left;
   cursor: pointer;
 }
-.dlmenu button:hover,
 .dlmenu button:focus-visible {
   background: var(--sub);
   outline: none;
+}
+@media (hover: hover) {
+  .dlmenu button:hover {
+    background: var(--sub);
+    outline: none;
+  }
 }
 #mOut {
   color: var(--red);
@@ -2581,8 +2654,10 @@ html {
   color: var(--link);
   font-weight: 600;
 }
-.attn:hover:after {
-  text-decoration: underline;
+@media (hover: hover) {
+  .attn:hover:after {
+    text-decoration: underline;
+  }
 }
 .need-dot {
   display: block;
@@ -2606,8 +2681,10 @@ html {
   border-radius: 50%;
   background: var(--amber);
 }
-.ev.need:hover {
-  box-shadow: 0 0 0 2px var(--c);
+@media (hover: hover) {
+  .ev.need:hover {
+    box-shadow: 0 0 0 2px var(--c);
+  }
 }
 @media (max-width: 760px) {
   .hdl {
@@ -2622,13 +2699,54 @@ html {
   #pushBtn {
     display: none !important;
   }
+  /* The ⋯ menu: a bottom sheet over a dimmed page, like Alerts and the booking sheet. */
   .dlmenu {
     position: fixed;
-    top: calc(env(safe-area-inset-top) + 56px);
-    right: 12px;
-    left: auto;
-    max-width: calc(100vw - 24px);
-    border-radius: 16px;
+    top: auto;
+    right: 0;
+    bottom: 0;
+    left: 0;
+    min-width: 0;
+    max-height: 85vh;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    border-width: 1px 0 0;
+    border-radius: 22px 22px 0 0;
+    box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.18);
+    padding: 26px 10px calc(10px + env(safe-area-inset-bottom));
+    animation: sheet 0.32s var(--ease);
+  }
+  .dlmenu:before {
+    content: "";
+    position: absolute;
+    top: 9px;
+    left: 50%;
+    width: 38px;
+    height: 5px;
+    margin-left: -19px;
+    border-radius: 3px;
+    background: var(--field);
+    opacity: 0.7;
+  }
+  .dlmenu a,
+  .dlmenu button {
+    padding: 12px 14px;
+    font-size: 15px;
+  }
+  body.dm-open {
+    overflow: hidden;
+  }
+  body.dm-open:after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 55;
+    background: rgba(0, 0, 0, 0.32);
+    animation: fade 0.2s ease;
+  }
+  body.dm-open .bnav {
+    transform: translateY(140%);
+    opacity: 0;
   }
   .status.bad {
     height: 28px;
@@ -2777,8 +2895,10 @@ html {
     background-color 0.15s,
     transform 0.12s var(--ease);
 }
-.bk-act:hover {
-  background: var(--tint);
+@media (hover: hover) {
+  .bk-act:hover {
+    background: var(--tint);
+  }
 }
 .bk-act:active {
   transform: scale(0.97);
@@ -2862,8 +2982,10 @@ html {
     border-color 0.15s,
     background-color 0.15s;
 }
-.ivc button:hover:not(:disabled) {
-  border-color: var(--c);
+@media (hover: hover) {
+  .ivc button:hover:not(:disabled) {
+    border-color: var(--c);
+  }
 }
 .ivc button[aria-pressed="true"] {
   border-color: var(--c);
@@ -2935,8 +3057,10 @@ html {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.bk-h:hover .bk-hm {
-  color: var(--link);
+@media (hover: hover) {
+  .bk-h:hover .bk-hm {
+    color: var(--link);
+  }
 }
 .bk-foot {
   display: grid;

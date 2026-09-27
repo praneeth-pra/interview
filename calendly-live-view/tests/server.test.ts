@@ -772,7 +772,7 @@ describe("admin", () => {
 
   test("the admin page has the logo link and the frame points at /admin/analytics", async () => {
     const html = await (await get(open, "/admin")).text();
-    expect(html).toContain('<a class="brand" href="/booking" title="Open the booking page">');
+    expect(html).toContain('<a class="brand" href="/booking" target="_blank" rel="noopener" title="Open the booking page">');
     const js = await (await get(open, assetsIn(html).find((u) => u.endsWith(".js"))!)).text();
     expect(js).toMatch(/\.src="\/admin\/analytics"/);
     expect(js).not.toContain("srcdoc");

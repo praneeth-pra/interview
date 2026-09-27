@@ -5,9 +5,20 @@ export function setupDownloadMenu() {
   if (!btn || !menu) {
     return;
   }
+  var home = menu.parentElement;
+  var phone = matchMedia("(max-width:760px)");
   function setOpen(open: boolean) {
+    // On phones the menu is a bottom sheet over a dimmed page. The header's frosted glass would hold a fixed menu
+    // inside the header, so the sheet moves to the page body while it's open, and back beside the button on computers.
+    if (open) {
+      var parent = phone.matches ? document.body : home;
+      if (parent && menu.parentElement !== parent) {
+        parent.appendChild(menu);
+      }
+    }
     menu.hidden = !open;
     btn.setAttribute("aria-expanded", String(open));
+    document.body.classList.toggle("dm-open", open && phone.matches);
   }
   btn.addEventListener("click", function (e) {
     e.stopPropagation();

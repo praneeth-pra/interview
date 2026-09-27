@@ -128,9 +128,11 @@ button {
     border-color 0.15s,
     background 0.15s;
 }
-.btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 10px 24px -8px rgba(31, 30, 29, 0.35);
+@media (hover: hover) {
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 10px 24px -8px rgba(31, 30, 29, 0.35);
+  }
 }
 .btn svg {
   width: 17px;
@@ -138,26 +140,32 @@ button {
   flex: none;
   transition: transform 0.15s;
 }
-.btn:hover svg:last-child:not(:first-child) {
-  transform: translateX(2px);
+@media (hover: hover) {
+  .btn:hover svg:last-child:not(:first-child) {
+    transform: translateX(2px);
+  }
 }
 .btn.ghost {
   background: transparent;
   color: var(--ink);
   border-color: var(--line2);
 }
-.btn.ghost:hover {
-  border-color: var(--ink);
-  box-shadow: none;
+@media (hover: hover) {
+  .btn.ghost:hover {
+    border-color: var(--ink);
+    box-shadow: none;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .btn,
   .btn svg {
     transition: none;
   }
-  .btn:hover,
-  .btn:hover svg:last-child:not(:first-child) {
-    transform: none;
+  @media (hover: hover) {
+    .btn:hover,
+    .btn:hover svg:last-child:not(:first-child) {
+      transform: none;
+    }
   }
 }
 :focus-visible {
@@ -233,9 +241,11 @@ button {
     color 0.15s,
     background 0.15s;
 }
-.links a:hover {
-  background: var(--bg2);
-  color: var(--ink);
+@media (hover: hover) {
+  .links a:hover {
+    background: var(--bg2);
+    color: var(--ink);
+  }
 }
 /* hero: a faint grid that fades out, and one soft orange glow */
 .hero {
@@ -458,9 +468,11 @@ h2 {
     border-color 0.2s,
     box-shadow 0.2s;
 }
-.steps li:hover {
-  border-color: var(--line2);
-  box-shadow: var(--shadow);
+@media (hover: hover) {
+  .steps li:hover {
+    border-color: var(--line2);
+    box-shadow: var(--shadow);
+  }
 }
 .num {
   display: grid;
@@ -504,8 +516,10 @@ h2 {
   font-size: 15.5px;
   transition: border-color 0.15s;
 }
-.chips li:hover {
-  border-color: var(--line2);
+@media (hover: hover) {
+  .chips li:hover {
+    border-color: var(--line2);
+  }
 }
 .chips li:before {
   content: "";
