@@ -19,6 +19,7 @@ src/server/          the server, one module per feature:
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
 src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|js   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
+src/pages/admin/css/ the admin page's styles, joined in file-name order into admin.css (later files override earlier ones)
 src/pages/book/      the booking page as TypeScript modules: main.ts (which step to draw, and starting up), app.ts (boot data,
                      state and render()), slots.ts (free days and times), info.ts, calendar.ts, fields.ts, details.ts,
                      returning.ts (returning candidates), done.ts, manage.ts (manage links), message.ts, and helpers
