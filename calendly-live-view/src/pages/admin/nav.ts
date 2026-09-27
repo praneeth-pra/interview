@@ -6,6 +6,11 @@ export function setupNav() {
   }
   var body = document.body;
   var nav = document.querySelector(".bnav");
+  // Phones with little memory (Chrome on Android says how much) scroll more smoothly without the frosted-glass bars.
+  var memory = (navigator as any).deviceMemory;
+  if (memory && memory <= 4) {
+    document.documentElement.classList.add("lite");
+  }
   var weekView = new URLSearchParams(location.search).get("view") !== "agenda";
   function currentView() {
     if (!byId("viewStats").hidden) {
@@ -50,16 +55,54 @@ export function setupNav() {
     byId("tabPay").setAttribute("aria-selected", String(current === "pay"));
     placePill();
   }
-  function showStats() {
+  // Each tab opens where you left it. The page is one long scroll, so remember its position per tab.
+  var scrolls: { [view: string]: number } = {};
+  addEventListener(
+    "scroll",
+    function () {
+      scrolls[currentView()] = window.scrollY;
+    },
+    { passive: true },
+  );
+  function arrive(key: string) {
+    var top = scrolls[key] || 0;
+    window.scrollTo(0, top);
+    // a tab that redraws on arrival can be shorter for a frame, so try again once it has drawn
+    requestAnimationFrame(function () {
+      if (currentView() === key && window.scrollY !== top) {
+        window.scrollTo(0, top);
+      }
+    });
+  }
+  // Phone Back (or iPhone's swipe back) closes an open sheet first, then returns to the tab the admin opened on, and only
+  // then leaves. Leaving that tab adds one history entry; later switches replace it, so Back never walks through every tab.
+  var homeView = "";
+  var onTab = false;
+  var restoring = false;
+  function setUrl(url: string, key: string) {
+    if (restoring) {
+      return;
+    }
     try {
-      history.replaceState(null, "", "/admin?view=analytics");
+      if (homeView && key === homeView && onTab) {
+        onTab = false;
+        history.back();
+      } else if (homeView && key !== homeView && !onTab) {
+        onTab = true;
+        history.pushState({ tab: 1 }, "", url);
+      } else {
+        history.replaceState(history.state, "", url);
+      }
     } catch (e) {}
+  }
+  function showStats() {
+    setUrl("/admin?view=analytics", "stats");
     byId("viewCal").hidden = true;
     byId("viewEnq").hidden = true;
     byId("viewPay").hidden = true;
     byId("viewStats").hidden = false;
     sync();
-    window.scrollTo(0, 0);
+    arrive("stats");
     if (window.__stats) {
       window.__stats();
     }
@@ -70,15 +113,13 @@ export function setupNav() {
     if (byId("tabEnq").hidden) {
       return;
     }
-    try {
-      history.replaceState(null, "", "/admin?view=enquiries");
-    } catch (e) {}
+    setUrl("/admin?view=enquiries", "enq");
     byId("viewCal").hidden = true;
     byId("viewStats").hidden = true;
     byId("viewPay").hidden = true;
     byId("viewEnq").hidden = false;
     sync();
-    window.scrollTo(0, 0);
+    arrive("enq");
     if (window.__enq) {
       window.__enq();
     }
@@ -89,17 +130,15 @@ export function setupNav() {
     if (byId("tabPay").hidden) {
       return;
     }
-    try {
-      // keep ?pay= from a payment alert, so the tab can open that payment
-      var pay = new URLSearchParams(location.search).get("pay");
-      history.replaceState(null, "", "/admin?view=payments" + (pay ? "&pay=" + encodeURIComponent(pay) : ""));
-    } catch (e) {}
+    // keep ?pay= from a payment alert, so the tab can open that payment
+    var pay = new URLSearchParams(location.search).get("pay");
+    setUrl("/admin?view=payments" + (pay ? "&pay=" + encodeURIComponent(pay) : ""), "pay");
     byId("viewCal").hidden = true;
     byId("viewStats").hidden = true;
     byId("viewEnq").hidden = true;
     byId("viewPay").hidden = false;
     sync();
-    window.scrollTo(0, 0);
+    arrive("pay");
     if (window.__pay) {
       window.__pay();
     }
@@ -117,15 +156,20 @@ export function setupNav() {
       } else {
         url.searchParams.set("view", "agenda");
       }
-      history.replaceState(null, "", url.pathname + url.search);
+      setUrl(url.pathname + url.search, week ? "cal" : "ag");
     } catch (e) {}
     sync();
+    arrive(week ? "cal" : "ag");
   }
   byId("tabCal").addEventListener("click", function () {
     showCal(true);
   });
   byId("tabAg").onclick = function () {
+    // the Calendar click only shows the calendar section; the Agenda is the one to remember in history
+    var was = restoring;
+    restoring = true;
     byId("tabCal").click();
+    restoring = was;
     showCal(false);
   };
   nav.addEventListener("click", function (e) {
@@ -134,6 +178,11 @@ export function setupNav() {
       return;
     }
     var target = button.getAttribute("data-go");
+    // tapping the tab you're already on scrolls it back to the top, like a native tab bar
+    if (target === currentView()) {
+      window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
+      return;
+    }
     if (target === "stats") {
       showStats();
       return;
@@ -147,7 +196,6 @@ export function setupNav() {
       return;
     }
     byId(target === "ag" ? "tabAg" : "tabCal").click();
-    window.scrollTo(0, 0);
   });
   var startView = new URLSearchParams(location.search).get("view");
   if (startView === "analytics") {
@@ -157,6 +205,9 @@ export function setupNav() {
   } else if (startView === "payments") {
     setTimeout(showPay, 0);
   }
+  setTimeout(function () {
+    homeView = currentView();
+  }, 0);
   function view(week: boolean) {
     weekView = week;
     body.classList.toggle("wkv", week);
@@ -185,6 +236,49 @@ export function setupNav() {
     requestAnimationFrame(function () {
       nav.classList.add("ready");
     });
+  });
+  var sheet = byId("panel");
+  var sheetEntry = false;
+  var skipPop = false;
+  new MutationObserver(function () {
+    if (!sheet.hidden && !sheetEntry) {
+      sheetEntry = true;
+      try {
+        history.pushState({ sheet: 1 }, "", location.href);
+      } catch (e) {}
+    } else if (sheet.hidden && sheetEntry) {
+      // closed by its button, the backdrop or a swipe: drop the entry Back would otherwise spend on it
+      sheetEntry = false;
+      skipPop = true;
+      history.back();
+    }
+  }).observe(sheet, {
+    attributes: true,
+    attributeFilter: ["hidden"],
+  });
+  addEventListener("popstate", function () {
+    if (skipPop) {
+      skipPop = false;
+      return;
+    }
+    if (sheetEntry) {
+      sheetEntry = false;
+      byId("pclose").click();
+      return;
+    }
+    var shown = new URLSearchParams(location.search).get("view");
+    restoring = true;
+    if (shown === "analytics") {
+      showStats();
+    } else if (shown === "enquiries") {
+      showEnq();
+    } else if (shown === "payments") {
+      showPay();
+    } else {
+      byId(shown === "agenda" ? "tabAg" : "tabCal").click();
+    }
+    restoring = false;
+    onTab = !!homeView && currentView() !== homeView;
   });
   var panel = byId("panel");
   new MutationObserver(function () {

@@ -71,6 +71,7 @@ html {
 body {
   margin: 0;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg);
   color: var(--ink);
   font:
@@ -95,6 +96,17 @@ button {
 }
 button:disabled {
   cursor: default;
+}
+/* Taps respond the moment a finger lands: no grey flash, no double-tap zoom wait, a slight press-in. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+button:active:not(:disabled) {
+  scale: 0.97;
 }
 :focus-visible {
   outline: 2px solid var(--blue);
@@ -774,6 +786,7 @@ textarea:focus {
     border-radius: 0;
     box-shadow: none;
     min-height: 100vh;
+    min-height: 100dvh;
   }
   .info {
     flex: none;

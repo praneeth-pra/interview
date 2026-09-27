@@ -103,6 +103,11 @@ h2 em {
   background: currentColor;
 }
 /* buttons: charcoal in light mode, paper in dark mode */
+a,
+button {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
 .btn {
   display: inline-flex;
   align-items: center;
