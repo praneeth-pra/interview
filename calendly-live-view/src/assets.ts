@@ -78,11 +78,79 @@ async function bundle(entry: string) {
   if (!out.success) throw new AggregateError(out.logs, "could not build " + entry);
   return out.outputs[0].text();
 }
+// The admin, Contacts and sign-in pages have a light/dark switch (theme.js sets <html data-theme>). Their stylesheets keep
+// writing dark styles as @media (prefers-color-scheme: dark); here each such block is scoped to "no light choice", and a
+// copy without the colour-scheme condition is scoped to "dark chosen". :where() adds no specificity, so the cascade is
+// the same as before.
+const THEMED = new Set(["admin.css", "analytics.css", "login.css"]);
+const AUTO = ':not([data-theme="light"])';
+const DARK = '[data-theme="dark"]';
+function blocks(css: string) {
+  const out: { pre: string; body: string | null }[] = [];
+  let start = 0;
+  for (let i = 0; i < css.length; i++) {
+    if (css.startsWith("/*", i)) {
+      i = css.indexOf("*/", i + 2) + 1;
+      continue;
+    }
+    if (css[i] !== "{") continue;
+    let depth = 1;
+    let j = i + 1;
+    for (; depth; j++) {
+      if (css.startsWith("/*", j)) j = css.indexOf("*/", j + 2) + 1;
+      else if (css[j] === "{") depth++;
+      else if (css[j] === "}") depth--;
+    }
+    out.push({ pre: css.slice(start, i), body: css.slice(i + 1, j - 1) });
+    start = i = j;
+    i--;
+  }
+  out.push({ pre: css.slice(start), body: null });
+  return out;
+}
+function scope(css: string, when: string): string {
+  return blocks(css)
+    .map(({ pre, body }) => {
+      if (body === null) return pre;
+      const sel = pre.trim();
+      if (sel.startsWith("@keyframes")) return pre + "{" + body + "}";
+      if (sel.startsWith("@")) return pre + "{" + scope(body, when) + "}";
+      const scoped = sel
+        .split(",")
+        .map((part) => {
+          const p = part.trim();
+          const m = p.match(/^(:root|html)(.*)$/s);
+          return m ? m[1] + ":where(" + when + ")" + m[2] : ":where(:root" + when + ") " + p;
+        })
+        .join(",\n");
+      return pre.slice(0, pre.length - pre.trimStart().length) + scoped + " {" + body + "}";
+    })
+    .join("");
+}
+export function themed(css: string): string {
+  const out = blocks(css)
+    .map(({ pre, body }) => {
+      if (body === null) return pre;
+      const q = pre.trim();
+      if (!/^@media\b.*\(prefers-color-scheme:\s*dark\)/.test(q)) return pre + "{" + body + "}";
+      const rest = q
+        .replace(/^@media\s*/, "")
+        .replace(/\(prefers-color-scheme:\s*dark\)/, "")
+        .replace(/^\s*and\s+|\s+and\s*$/g, "")
+        .replace(/\s+and\s+and\s+/, " and ")
+        .trim();
+      const forced = scope(body, DARK);
+      return pre + "{" + scope(body, AUTO) + "}\n" + (rest ? "@media " + rest + " {" + forced + "}" : forced);
+    })
+    .join("");
+  return out + ':root[data-theme="light"] {\n  color-scheme: light;\n}\n:root[data-theme="dark"] {\n  color-scheme: dark;\n}\n';
+}
 for (const f of readdirSync(PAGES, { withFileTypes: true }).sort((a, b) => a.name.localeCompare(b.name))) {
   if (f.isDirectory() && existsSync(join(PAGES, f.name, "main.ts"))) add(f.name + ".js", Buffer.from(await bundle(join(PAGES, f.name, "main.ts"))));
   else if (f.name.endsWith(".js")) add(f.name, Buffer.from(await bundle(join(PAGES, f.name))));
   else if (f.name.endsWith(".css")) {
-    const css = readFileSync(join(PAGES, f.name), "utf8");
+    const source = readFileSync(join(PAGES, f.name), "utf8");
+    const css = THEMED.has(f.name) ? themed(source) : source;
     const fonts = (FONT_OF_PAGE[f.name] ?? "").split(" ").filter(Boolean).map(fontCss).join("");
     add(f.name, Buffer.from(linkAssets(fonts + css)));
   }
