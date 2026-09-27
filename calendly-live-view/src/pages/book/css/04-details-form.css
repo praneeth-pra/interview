@@ -168,7 +168,8 @@ input[aria-invalid="true"] {
   }
 }
 .submit.danger {
-  background: var(--red);
+  /* the solid red in both themes: dark mode's brighter --red is for text, and white on it is too faint */
+  background: #c8372d;
 }
 @media (hover: hover) {
   .submit.danger:hover:not(:disabled) {

@@ -176,9 +176,11 @@ export function renderCalendar() {
       } else {
         grid.appendChild(
           el(
-            "div",
+            "button",
             {
+              type: "button",
               class: className,
+              disabled: true,
               "aria-label": label + ", no times available",
             },
             [String(day)],
