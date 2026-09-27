@@ -24,13 +24,13 @@ src/pages/book/      the booking page as TypeScript modules: main.ts (which step
                      state and render()), slots.ts (free days and times), info.ts, calendar.ts, fields.ts, details.ts,
                      returning.ts (returning candidates), done.ts, manage.ts (manage links), message.ts, and helpers
                      time.ts, companies.ts, dom.ts, icons.ts, types.ts
-src/pages/admin/     the admin page: main.ts (start-up, tabs, live updates), week.ts, agenda.ts, summary.ts (the calendar),
-                     search.ts, state.ts (boot data, the live state,
-                     the week on screen and render()), panel.ts (the side panel), booking-panel.ts (one booking: details,
-                     supporter, round status, cancel, reschedule; lists of bookings), bookings.ts (every booking, for search), interviewers.ts,
-                     admins.ts, allowlist.ts (Candidates),
-                     enquiries.ts, payments.ts, revenue.ts (owners' tabs), alerts.ts, nav.ts, stats-frame.ts, download-menu.ts,
-                     theme-switch.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
+src/pages/admin/     the admin page: main.ts (start-up, tabs, live updates, reload after a deploy); the calendar in
+                     week.ts, agenda.ts and summary.ts; search.ts; state.ts (boot data, live state, the week on screen,
+                     render()); panel.ts (the side panel) and booking-panel.ts (one booking: details, supporter, round
+                     status, cancel, reschedule; lists of bookings); bookings.ts (every booking, for search); the ⋯ menu's
+                     interviewers.ts, admins.ts, allowlist.ts (Candidates); the owners' enquiries.ts, payments.ts,
+                     revenue.ts; alerts.ts, nav.ts, stats-frame.ts, download-menu.ts, theme-switch.ts; and helpers
+                     time.ts, dom.ts, api.ts, labels.ts, types.ts
 src/pages/analytics/ the Analytics tab (framed in admin): main.ts (people picker, company progress, timeline, insights),
                      api.ts (answers the page's old dashboard API in the browser from /admin/api/*)
 src/fonts/           Figtree and Instrument Serif (open source, SIL OFL), self-hosted
