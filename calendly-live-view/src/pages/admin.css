@@ -3862,3 +3862,44 @@ html {
     justify-self: end;
   }
 }
+/* The light/dark switch in the header, on every screen size: a moon in light mode, a sun in dark mode. */
+#thBtn {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--ink2);
+  cursor: pointer;
+}
+#thBtn svg {
+  width: 17px;
+  height: 17px;
+}
+#thBtn .th-sun {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  #thBtn .th-sun {
+    display: block;
+  }
+  #thBtn .th-moon {
+    display: none;
+  }
+}
+@media (hover: hover) {
+  #thBtn:hover {
+    color: var(--ink);
+    background: var(--sub);
+  }
+}
+@media (max-width: 760px) {
+  #thBtn {
+    width: 36px;
+    height: 36px;
+  }
+}

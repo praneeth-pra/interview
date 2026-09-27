@@ -18,6 +18,7 @@ import { ROUND_STATUSES, byWhom, missedLabel, plural, roundStatus, statusOf, sta
 import { request } from "./api";
 import { sameCompany } from "../../same-company";
 import { setupAlerts } from "./alerts";
+import { setupThemeSwitch } from "./theme-switch";
 import { setupDownloadMenu } from "./download-menu";
 import { setupNav } from "./nav";
 import { showRevenue } from "./revenue";
@@ -2737,3 +2738,4 @@ setupAlerts();
 setupNav();
 setupStatsFrame();
 setupDownloadMenu();
+setupThemeSwitch();
