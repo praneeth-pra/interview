@@ -5,7 +5,7 @@ import { state } from "./app";
 import type { Me } from "./types";
 
 var ME_KEY = "bk.me";
-var nameCache = {};
+var nameCache: Record<string, string> = {};
 export const WELCOME_BACK = "Welcome back. We filled in the name from your earlier booking.";
 export function readMe(): Me | null {
   try {
@@ -98,13 +98,13 @@ export function showPreviousCompanies() {
     box.hidden = !sameEmail(me.email, state.form.email);
   }
 }
-export function setNameHint(text) {
+export function setNameHint(text: string) {
   var hint = document.getElementById("fnameh");
   if (hint) {
     hint.textContent = text;
   }
 }
-function lookupName(email, callback) {
+function lookupName(email: string, callback: (name: string) => void) {
   var key = email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) {
     return callback("");
@@ -130,7 +130,7 @@ function lookupName(email, callback) {
       callback("");
     });
 }
-export function prefillName(email) {
+export function prefillName(email: string) {
   lookupName(email, function (name) {
     if (state.step === "details" && state.form.email.trim().toLowerCase() === email.trim().toLowerCase()) {
       var input = document.getElementById("fname") as HTMLInputElement;

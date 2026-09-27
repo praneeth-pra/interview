@@ -2,7 +2,7 @@
 // this device between visits.
 import type { State } from "./types";
 
-export const boot = JSON.parse(document.getElementById("boot").textContent);
+export const boot = JSON.parse(document.getElementById("boot")!.textContent);
 export let state: State = {
   ready: false,
   events: [],
@@ -58,4 +58,14 @@ export function colorClass(name: string) {
 // The live state replaced by a newer one from /admin/stream or /admin/api/state.
 export function setState(next: State) {
   state = next;
+}
+// The calendar on screen: the day picked in the date box (or null) and the Monday of the week shown.
+export const view: { day: string | null; week: string | null } = { day: null, week: null };
+// Draws the calendar, agenda and open panel again from state; main.ts says how.
+var draw = function () {};
+export function render() {
+  draw();
+}
+export function setRender(fn: () => void) {
+  draw = fn;
 }

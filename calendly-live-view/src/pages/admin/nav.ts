@@ -1,12 +1,11 @@
 // Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts, Enquiries, Payments and Revenue) in the
 // header and the phone bottom bar, the phone section title, and the bottom-sheet panel, which can be swiped down to close.
 // Phones keep five buttons in the bottom bar, so Revenue opens from the ⋯ menu there, in the bottom sheet (main.ts).
+import { byId } from "./dom";
+
 export function setupNav() {
-  function byId(id: string) {
-    return document.getElementById(id);
-  }
   var body = document.body;
-  var nav = document.querySelector(".bnav");
+  var nav = document.querySelector<HTMLElement>(".bnav")!;
   // Phones with little memory (Chrome on Android says how much) scroll more smoothly without the frosted-glass bars.
   var memory = (navigator as any).deviceMemory;
   if (memory && memory <= 4) {
@@ -28,7 +27,14 @@ export function setupNav() {
       return "cal";
     }
   }
-  var TITLES = { cal: "Calendar", ag: "Agenda", stats: "Contacts", enq: "Enquiries", pay: "Payments", rev: "Revenue" };
+  var TITLES: Record<string, string> = {
+    cal: "Calendar",
+    ag: "Agenda",
+    stats: "Contacts",
+    enq: "Enquiries",
+    pay: "Payments",
+    rev: "Revenue",
+  };
   // Switching sections is instant; only the bottom bar's highlight slides to the new tab.
   var pill = document.createElement("span");
   pill.className = "bnav-pill";

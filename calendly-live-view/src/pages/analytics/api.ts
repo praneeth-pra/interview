@@ -1,10 +1,12 @@
 // The Contacts page asks for /api/state, /api/people, /api/analytics (one person's bookings) and /api/interviewers.
 // api() answers those URLs in the browser from /admin/api/bookings and /admin/api/state.
 // With merge=1, bookings under different emails whose names look alike count as one person.
+import type { Booking } from "../admin/types";
+
 var TIME_ZONE = "Asia/Kolkata";
 // Everything the answers are built from, fetched together and kept for 15 seconds.
 type Data = {
-  bookings: any[]; // all bookings, as /admin/api/bookings sends them
+  bookings: Booking[]; // all bookings, as /admin/api/bookings sends them
   iv: { names: string[]; assign: Record<string, string> };
 };
 var dataCache: Data | null = null;
@@ -65,7 +67,57 @@ function loadData(force?: boolean): Promise<Data> {
     );
   return dataLoading;
 }
-function normalizeName(name) {
+// One contact while the list is built: their emails, and the companies they named (by lower-case name).
+type Contact = {
+  name: string;
+  count: number;
+  last: number;
+  event: string;
+  emails: Record<string, number>;
+  companies: Record<string, { c: string; t: number }>;
+  activity: number;
+  next: number;
+  past: number;
+};
+// What the Contacts page gets back. /api/state: the live bookings.
+export type StateEvent = { id: string; name: string; start: string; end: string; invitee: string; company: string; round: string };
+export type DashState = { ready: boolean; tz: string; host: string; error: string; lastChecked: number; events: StateEvent[] };
+// /api/people: one row per contact (times as ISO strings, "" when there is none)
+export type Person = {
+  name: string;
+  count: number;
+  event: string;
+  company: string;
+  companies_: string;
+  last: string;
+  emails: number;
+  activity: string;
+  next: string;
+  past: string;
+};
+// /api/analytics: one contact's page
+export type Analytics = { name: string; emails: number; emailList: string[]; events: TimelineEvent[] };
+// /api/interviewers
+export type IvInfo = { names: string[]; assign: Record<string, string>; persistent: boolean; locked: boolean; canUnlock: boolean };
+// A booking as the Contacts timeline shows it; a reschedule adds a cancelled entry at the old time.
+export type TimelineEvent = {
+  id: string;
+  start: string;
+  end: string;
+  status: string;
+  rescheduled: boolean;
+  cancelReason: string;
+  canceledBy: string;
+  name: string;
+  created: string;
+  noShow: boolean;
+  missed: string;
+  company: string;
+  round: string;
+};
+// an HTTP status and the JSON body
+type Answer = [number, unknown];
+function normalizeName(name: string) {
   return String(name || "")
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -73,7 +125,7 @@ function normalizeName(name) {
     .replace(/[^\p{L}\p{N}]+/gu, " ")
     .trim();
 }
-function nameDistance(first, second) {
+function nameDistance(first: string, second: string) {
   var rows = first.length;
   var cols = second.length;
   var table = [];
@@ -95,7 +147,7 @@ function nameDistance(first, second) {
   }
   return table[rows][cols];
 }
-function sameName(first, second) {
+function sameName(first: string, second: string) {
   var firstKey = normalizeName(first);
   var secondKey = normalizeName(second);
   if (!firstKey || !secondKey || firstKey === "guest" || secondKey === "guest") {
@@ -119,18 +171,18 @@ function sameName(first, second) {
     nameDistance(firstKey, secondKey) <= 1
   );
 }
-function lower(text) {
+function lower(text: string | undefined) {
   return String(text || "")
     .trim()
     .toLowerCase();
 }
-function findBooking(data: Data, id) {
+function findBooking(data: Data, id: string) {
   return data.bookings.filter(function (booking) {
     return booking.id === id;
   })[0];
 }
-function personGroup(data: Data, booking, merge) {
-  var emails = {};
+function personGroup(data: Data, booking: Booking, merge: boolean) {
+  var emails: Record<string, number> = {};
   var names = [booking.name];
   emails[lower(booking.email)] = 1;
   if (merge) {
@@ -185,24 +237,24 @@ function dashboardState(data: Data) {
       }),
   };
 }
-function peopleList(data: Data, merge) {
+function peopleList(data: Data, merge: boolean) {
   var act = data.bookings.filter(function (booking) {
     return !booking.cancelled && booking.email;
   });
-  var byKey = {};
-  var root = {};
+  var byKey: Record<string, Contact> = {};
+  var root: Record<string, string> = {};
   if (merge) {
-    var names = [];
+    var names: string[] = [];
     act.forEach(function (booking) {
       if (names.indexOf(booking.name) < 0) {
         names.push(booking.name);
       }
     });
-    var par = {};
+    var par: Record<string, string> = {};
     names.forEach(function (name) {
       par[name] = name;
     });
-    function rootOf(name) {
+    function rootOf(name: string) {
       while (par[name] !== name) {
         name = par[name];
       }
@@ -250,7 +302,7 @@ function peopleList(data: Data, merge) {
     person.activity = Math.max(
       person.activity,
       Date.parse(booking.createdAt) || 0,
-      Date.parse(booking.rescheduledAt) || 0,
+      Date.parse(booking.rescheduledAt!) || 0,
       start <= now ? start : 0,
     );
     if (Date.parse(booking.end) > now) {
@@ -309,7 +361,7 @@ function peopleList(data: Data, merge) {
       };
     });
 }
-function analyticsFor(data: Data, id, merge) {
+function analyticsFor(data: Data, id: string, merge: boolean): Answer {
   var booking = findBooking(data, id);
   if (!booking) {
     return [
@@ -328,8 +380,8 @@ function analyticsFor(data: Data, id, merge) {
     ];
   }
   var group = personGroup(data, booking, merge);
-  var set = {};
-  var events = [];
+  var set: Record<string, number> = {};
+  var events: TimelineEvent[] = [];
   group.emails.forEach(function (email) {
     set[email] = 1;
   });
@@ -396,7 +448,7 @@ function api(url: string): Promise<Response> {
   var combine = parsed.searchParams.get("merge") === "1";
   var eventId = parsed.searchParams.get("event") || "";
   return loadData(path === "/api/state").then(function (data) {
-    var answer;
+    var answer: Answer;
     if (path === "/api/state") {
       answer = [200, dashboardState(data)];
     } else if (path === "/api/interviewers") {

@@ -24,7 +24,7 @@ export function renderInfo() {
         "aria-label": backTo === "pick" ? "Back to times" : "Back to your interview",
         html: ICONS.left,
         onclick: function () {
-          state.step = backTo;
+          state.step = backTo!;
           state.err = "";
           render();
           if (backTo === "pick" && !state.days.length) {
@@ -124,7 +124,7 @@ export function renderInfo() {
         html: ICONS.cal + "<span></span>",
       }),
     );
-    meta.lastChild.lastChild.textContent = formatRange(state.slot, state.dur);
+    meta.lastChild!.lastChild!.textContent = formatRange(state.slot!, state.dur);
     meta.appendChild(
       el("li", {
         html: ICONS.globe + "<span>India Standard Time</span>",
@@ -142,7 +142,7 @@ export function renderInfo() {
         html: ICONS.cal + "<span></span>",
       }),
     );
-    meta.lastChild.lastChild.textContent = formatRange(Date.parse(manage.start), manage.duration);
+    meta.lastChild!.lastChild!.textContent = formatRange(Date.parse(manage.start), manage.duration);
     meta.appendChild(
       el("li", {
         html: ICONS.globe + "<span>India Standard Time</span>",
@@ -155,7 +155,7 @@ export function renderInfo() {
         html: ICONS.pin + "<span></span>",
       }),
     );
-    meta.lastChild.lastChild.textContent = info.loc;
+    meta.lastChild!.lastChild!.textContent = info.loc;
   }
   section.appendChild(meta);
   if (info.desc) {
@@ -163,7 +163,7 @@ export function renderInfo() {
       class: "desc",
       html: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v4.6M10 6.4v.1" stroke-linecap="round"/></svg><span></span>',
     });
-    desc.lastChild.textContent = info.desc;
+    desc.lastChild!.textContent = info.desc;
     section.appendChild(desc);
   }
   return section;

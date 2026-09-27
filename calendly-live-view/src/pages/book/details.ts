@@ -6,14 +6,14 @@ import { clearSlots, loadDays, showSlots } from "./slots";
 import { companyField, roundField, textField } from "./fields";
 import { WELCOME_BACK, prefillName, previousCompanies, rememberBooking, setNameHint, showPreviousCompanies } from "./returning";
 
-var lookupTimer = null;
+var lookupTimer: ReturnType<typeof setTimeout> | null = null; // clearTimeout(null) does nothing, so the calls below pass it as is
 export function renderDetails() {
   loadCompanies();
   var form = el("form", {
     class: "form",
     novalidate: true,
     "aria-labelledby": "formh",
-    onsubmit: function (event) {
+    onsubmit: function (event: SubmitEvent) {
       event.preventDefault();
       submitBooking();
     },
@@ -59,17 +59,17 @@ export function renderDetails() {
       [state.nameAuto ? WELCOME_BACK : ""],
     ),
   );
-  var emailInput = emailField.querySelector("input");
-  var nameInput = nameField.querySelector("input");
+  var emailInput = emailField.querySelector("input")!;
+  var nameInput = nameField.querySelector("input")!;
   emailInput.addEventListener("input", function () {
     showPreviousCompanies();
-    clearTimeout(lookupTimer);
+    clearTimeout(lookupTimer!);
     lookupTimer = setTimeout(function () {
       prefillName(emailInput.value);
     }, 350);
   });
   emailInput.addEventListener("change", function () {
-    clearTimeout(lookupTimer);
+    clearTimeout(lookupTimer!);
     prefillName(emailInput.value);
   });
   nameInput.addEventListener("input", function () {
@@ -163,7 +163,7 @@ function submitBooking() {
       if (result.ok) {
         rememberBooking(form.name.trim(), form.email.trim(), String(result.j.booking.company || form.company).trim());
         state.booking = result.j.booking;
-        state.booking.emailed = !!result.j.emailed;
+        state.booking!.emailed = !!result.j.emailed;
         state.step = "done";
         render();
         window.scrollTo(0, 0);

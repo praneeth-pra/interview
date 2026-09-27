@@ -5,10 +5,7 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true,
-    // strict, except two checks the page code doesn't pass yet (about 230 and 300 errors); turn them on as files are fixed
     "strict": true,
-    "noImplicitAny": false,
-    "strictNullChecks": false,
     "skipLibCheck": true
   },
   "include": ["*/**/*.ts"]

@@ -5,7 +5,8 @@ import { formatRange } from "./time";
 import { eventName, hostName, manage, render, state } from "./app";
 import { clearSlots, loadDays, showSlots } from "./slots";
 
-function postChange(url, payload, onSuccess) {
+// result: the server's JSON answer
+function postChange(url: string, payload: Record<string, unknown>, onSuccess: (result: any) => void) {
   fetch(url, {
     method: "POST",
     headers: {
@@ -83,10 +84,10 @@ export function renderManage() {
       {
         class: "lead",
       },
-      ["Booked for " + manage.name + " (" + manage.email + ")."],
+      ["Booked for " + manage!.name + " (" + manage!.email + ")."],
     ),
   );
-  if (manage.past) {
+  if (manage!.past) {
     section.appendChild(
       el(
         "p",
@@ -152,7 +153,7 @@ export function renderCancel() {
     class: "form",
     novalidate: true,
     "aria-labelledby": "ch",
-    onsubmit: function (event) {
+    onsubmit: function (event: SubmitEvent) {
       event.preventDefault();
       if (!state.busy) {
         state.busy = true;
@@ -161,12 +162,12 @@ export function renderCancel() {
         postChange(
           "/api/manage/cancel",
           {
-            id: manage.id,
-            t: manage.t,
+            id: manage!.id,
+            t: manage!.t,
             reason: (state.reason || "").trim(),
           },
           function (result) {
-            manage.cancelled = true;
+            manage!.cancelled = true;
             state.step = "msg";
             state.msg = {
               title: "Interview cancelled",
@@ -174,7 +175,7 @@ export function renderCancel() {
                 "Your " +
                 eventName.toLowerCase() +
                 " on " +
-                formatRange(Date.parse(manage.start), manage.duration) +
+                formatRange(Date.parse(manage!.start), manage!.duration) +
                 " is cancelled." +
                 (result.emailed ? " We've emailed you a confirmation." : ""),
               again: true,
@@ -284,17 +285,17 @@ export function renderConfirm() {
   var meta = el("ul", {
     class: "meta chg",
   });
-  function timeItem(cls, label, text) {
+  function timeItem(cls: string, label: string, text: string) {
     var li = el("li", {
       class: cls,
       html: ICONS.cal + "<span></span>",
     });
-    li.lastChild.textContent = text;
+    li.lastChild!.textContent = text;
     li.setAttribute("aria-label", label + ": " + text);
     return li;
   }
-  meta.appendChild(timeItem("old", "Current time", formatRange(Date.parse(manage.start), manage.duration)));
-  meta.appendChild(timeItem("hl", "New time", formatRange(state.slot, state.dur)));
+  meta.appendChild(timeItem("old", "Current time", formatRange(Date.parse(manage!.start), manage!.duration)));
+  meta.appendChild(timeItem("hl", "New time", formatRange(state.slot!, state.dur)));
   section.appendChild(meta);
   section.appendChild(
     el(
@@ -312,16 +313,16 @@ export function renderConfirm() {
             postChange(
               "/api/manage/reschedule",
               {
-                id: manage.id,
-                t: manage.t,
+                id: manage!.id,
+                t: manage!.t,
                 startMs: state.slot,
                 duration: state.dur,
               },
               function (result) {
-                manage.start = result.booking.start;
-                manage.end = result.booking.end;
-                manage.duration = result.booking.duration;
-                state.dur = manage.duration;
+                manage!.start = result.booking.start;
+                manage!.end = result.booking.end;
+                manage!.duration = result.booking.duration;
+                state.dur = manage!.duration;
                 state.days = [];
                 state.date = null;
                 state.slot = null;
@@ -334,7 +335,7 @@ export function renderConfirm() {
                     "Your " +
                     eventName.toLowerCase() +
                     " is now " +
-                    formatRange(Date.parse(manage.start), manage.duration) +
+                    formatRange(Date.parse(manage!.start), manage!.duration) +
                     "." +
                     (result.emailed ? " We've emailed you an updated invite." : ""),
                   manage: true,

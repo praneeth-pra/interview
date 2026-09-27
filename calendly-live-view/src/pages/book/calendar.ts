@@ -55,7 +55,7 @@ export function renderCalendar() {
   }
   var firstKey = state.days.length ? state.days[0].key : "";
   var lastKey = state.days.length ? state.days[state.days.length - 1].key : "";
-  function monthKey(y, m) {
+  function monthKey(y: number, m: number) {
     return y + "-" + String(m).padStart(2, "0");
   }
   var canPrev = firstKey && firstKey.slice(0, 7) < monthKey(year, month);
@@ -195,7 +195,7 @@ export function renderCalendar() {
   var tz = el("span", {
     html: ICONS.globe + "<span></span>",
   });
-  tz.lastChild.textContent = "India Standard Time (" + formatTime(Date.now()) + ")";
+  tz.lastChild!.textContent = "India Standard Time (" + formatTime(Date.now()) + ")";
   section.appendChild(
     el(
       "div",
@@ -219,7 +219,7 @@ export function renderTimes() {
         id: "timesh",
       },
       [
-        formatIst(middayOf(state.date), {
+        formatIst(middayOf(state.date!), {
           weekday: "long",
           month: "long",
           day: "numeric",
@@ -279,7 +279,7 @@ export function renderTimes() {
   section.appendChild(list);
   return section;
 }
-function nextButton(ms) {
+function nextButton(ms: number) {
   return el(
     "button",
     {
@@ -315,13 +315,13 @@ function nextButton(ms) {
     ["Next"],
   );
 }
-function toggleSlot(ms) {
+function toggleSlot(ms: number) {
   var previous = card.querySelector<HTMLElement>(".slot.sel");
   if (previous) {
     previous.classList.remove("sel");
     (previous.firstChild as HTMLElement).setAttribute("aria-pressed", "false");
     if ((previous.lastChild as HTMLElement).className === "go") {
-      previous.removeChild(previous.lastChild);
+      previous.removeChild(previous.lastChild!);
     }
   }
   if (state.slot === ms) {
@@ -336,7 +336,7 @@ function toggleSlot(ms) {
   (button.parentNode as HTMLElement).classList.add("sel");
   button.setAttribute("aria-pressed", "true");
   var next = nextButton(ms);
-  button.parentNode.appendChild(next);
+  button.parentNode!.appendChild(next);
   next.focus({
     preventScroll: true,
   });
