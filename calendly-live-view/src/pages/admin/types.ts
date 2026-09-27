@@ -39,6 +39,37 @@ export type State = {
   email: boolean;
 };
 export type Allowlist = { enabled: boolean; emails: string[] };
+// What the Candidates list API answers; adding also says how many were added, already there, or not emails.
+export type AllowAnswer = { state: Allowlist; added?: number; existing?: number; invalid?: string[] };
+export type AllowAdded = AllowAnswer & { added: number; existing: number; invalid: string[] };
+// Who can sign in (/admin/api/admins): the owners from ADMIN_EMAILS, the admins they added, and who is asking.
+export type AdminsView = { owners: string[]; emails: string[]; me: string };
+// Browser alerts (/admin/api/push): the server's key, every device's endpoint, and this admin's own devices.
+export type PushInfo = { key: string; endpoints: string[]; yours?: string[] };
+// A payment as /admin/api/payments sends it (paymentView() in src/server/payments.ts); "" where not set.
+export type Payment = {
+  id: string;
+  name: string;
+  email: string;
+  amount: number;
+  installment: "" | "advance" | "1" | "2" | "3";
+  check: "" | "verified" | "unread";
+  decision: "" | "confirmed" | "discarded";
+  decidedAt: string;
+  createdAt: string;
+  receipt: { name: string; type: string; size: number };
+};
+// An enquiry as /admin/api/enquiries sends it (enquiryView() in src/server/enquiries.ts).
+export type Enquiry = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  tech: string;
+  experience: string;
+  createdAt: string;
+  resume: { name: string; size: number };
+};
 
 declare global {
   interface Window {
@@ -51,8 +82,11 @@ declare global {
     __contact?: (open: boolean) => void; // Contacts opened a person (true) or went back to its list (false)
     __contactBack?: () => void; // in the Contacts frame: show the list again
     __theme?: (theme: string) => void; // theme.ts: switch to "light" or "dark" ("" follows the phone)
+    __contactSearch?: () => boolean; // in the Contacts frame: show or hide its search field; true when shown
   }
   interface Navigator {
     standalone?: boolean;
+    deviceMemory?: number; // Chrome: the phone's memory in GB
+    connection?: { saveData?: boolean }; // Chrome: Data Saver
   }
 }

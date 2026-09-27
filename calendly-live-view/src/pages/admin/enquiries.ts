@@ -5,6 +5,7 @@ import { titleCase } from "./labels";
 import { request } from "./api";
 import { SEEN_KEY, boot, state } from "./state";
 import { icon } from "./panel";
+import type { Enquiry } from "./types";
 
 // The Enquiries tab: responses from the public /enquiry page, newest first, with contact details, technology,
 // experience and the resume. Opening it marks them as seen, which clears the red count.
@@ -36,7 +37,7 @@ export function showEnquiries() {
   const list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
   body.appendChild(list);
   body.appendChild(msg);
-  function draw(enquiries: any[]) {
+  function draw(enquiries: Enquiry[]) {
     list.textContent = "";
     if (!enquiries.length) {
       list.appendChild(el("p", { class: "sub", text: "No enquiries yet. Share the link above." }));
@@ -102,7 +103,7 @@ export function showEnquiries() {
     });
   }
   function load() {
-    request("/admin/api/enquiries")
+    request<{ enquiries: Enquiry[] }>("/admin/api/enquiries")
       .then(function (result) {
         draw(result.enquiries || []);
         markEnquiriesSeen();
@@ -144,12 +145,11 @@ export function renderEnquiryBadge() {
     badge.textContent = count > 99 ? "99+" : String(count);
   });
   byId("tabEnq").setAttribute("aria-label", count ? "Enquiries, " + count + " new" : "Enquiries");
-  const nav = navigator as any;
   try {
-    if (count && nav.setAppBadge) {
-      nav.setAppBadge(count).catch(function () {});
-    } else if (!count && nav.clearAppBadge) {
-      nav.clearAppBadge().catch(function () {});
+    if (count && navigator.setAppBadge) {
+      navigator.setAppBadge(count).catch(function () {});
+    } else if (!count && navigator.clearAppBadge) {
+      navigator.clearAppBadge().catch(function () {});
     }
   } catch (e) {}
   // a new enquiry while the tab is open shows up straight away
@@ -160,7 +160,7 @@ export function renderEnquiryBadge() {
   enquiriesShown = total;
 }
 export function markEnquiriesSeen() {
-  request("/admin/api/enquiries/seen", {})
+  request<{ seenAt: string }>("/admin/api/enquiries/seen", {})
     .then(function (result) {
       setEnquiriesSeen(result.seenAt || "");
     })
@@ -169,7 +169,7 @@ export function markEnquiriesSeen() {
 // only owners have Enquiries
 export function setupEnquiries() {
   if (boot.owner) {
-    request("/admin/api/enquiries/seen")
+    request<{ seenAt: string }>("/admin/api/enquiries/seen")
       .then(function (result) {
         setEnquiriesSeen(result.seenAt || "");
       })

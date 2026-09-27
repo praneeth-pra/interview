@@ -22,6 +22,7 @@ import { renderWeek } from "./week";
 import { renderAgenda, setupAgendaSwipe } from "./agenda";
 import { renderAttention, renderCards, renderLegend } from "./summary";
 import { setupSearch } from "./search";
+import type { State } from "./types";
 
 let live = false; // connected to /admin/stream
 let stream: EventSource | null = null;
@@ -194,7 +195,7 @@ document.addEventListener("keydown", function (event) {
 });
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible") {
-    request("/admin/api/state")
+    request<State>("/admin/api/state")
       .then(function (fresh) {
         setState(fresh);
         remember(JSON.stringify(fresh));

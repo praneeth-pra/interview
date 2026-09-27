@@ -347,12 +347,12 @@ function showDetail() {
 }
 // In the admin, the page around this frame keeps a history entry while a person is open, so the phone's Back returns here.
 function tellAdmin(open: boolean) {
-  const host = window.parent as any;
+  const host = window.parent;
   if (host && host !== window && host.__contact) {
     host.__contact(open);
   }
 }
-(window as any).__contactBack = () => {
+window.__contactBack = () => {
   if (!byId("an").hidden) {
     showHome();
   }
@@ -361,7 +361,7 @@ function tellAdmin(open: boolean) {
 // it to the right, showing the list underneath, and lets go to go back (or springs back if it didn't go far). Safari and
 // Android have their own edge swipe for Back, which already returns to the list.
 (() => {
-  if ((navigator as any).standalone !== true) {
+  if (navigator.standalone !== true) {
     return;
   }
   const page = byId("an");
@@ -484,7 +484,7 @@ byId<HTMLInputElement>("asq").addEventListener("input", () => {
 });
 // On phones the search field is hidden until the search button in the admin header asks for it; returns whether
 // it is now shown.
-(window as any).__contactSearch = () => {
+window.__contactSearch = () => {
   const field = byId<HTMLInputElement>("pq");
   const show = !document.body.classList.contains("cq") || !byId("an").hidden;
   document.body.classList.toggle("cq", show);
@@ -578,14 +578,14 @@ function onIv() {
   }
 }
 function openBooking(id: string) {
-  const host = window.parent as any;
+  const host = window.parent;
   if (host && host !== window && host.__openB) {
     host.__openB(id);
   }
 }
 const canOpenBooking = (() => {
   try {
-    return window.parent !== window && !!(window.parent as any).__openB;
+    return window.parent !== window && !!window.parent.__openB;
   } catch (error) {
     return false;
   }

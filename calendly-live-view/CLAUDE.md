@@ -24,7 +24,7 @@ Read README.md first for layout, commands and deploy.
 ## Before pushing
 
 0. `bun run format` (Prettier, 140 columns; CI fails on unformatted code) and `bun run typecheck` (strict, no unused names)
-1. `bun test tests/`
+1. `bun test tests/` (CI runs `bun run test:coverage`: each file the unit tests load needs 85% of its functions covered, see `bunfig.toml`)
 2. `NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs`
 3. Refactors must not change any pixel: `NODE_PATH=$(npm root -g) node tests/visual.cjs` compares every screen with `origin/main` (about 2 minutes). CI runs it on every PR unless the PR has the `ui-change` label.
 4. For intentional visual changes, look at the page in a real browser at desktop and 390 px phone width, light and dark.

@@ -1,4 +1,5 @@
 // The Alerts button in the top bar: turns booking push notifications on or off for this device.
+import type { PushInfo } from "./types";
 export function setupAlerts() {
   const topRight = document.querySelector(".top .tr");
   if (!topRight) {
@@ -11,7 +12,7 @@ export function setupAlerts() {
   let reg: ServiceWorkerRegistration | null = null;
   let mine: PushSubscription | null = null;
   // the server's key and the devices it sends alerts to (yours: this admin's own)
-  let info: { key: string; endpoints: string[]; yours?: string[] } = {
+  let info: PushInfo = {
     key: "",
     endpoints: [],
     yours: [],
@@ -34,7 +35,7 @@ export function setupAlerts() {
   pop.setAttribute("role", "dialog");
   pop.setAttribute("aria-label", "Booking notifications");
   document.body.appendChild(pop);
-  function api(url: string, body?: unknown): Promise<any> {
+  function api<T>(url: string, body?: unknown): Promise<T> {
     return fetch(
       url,
       body
@@ -129,7 +130,7 @@ export function setupAlerts() {
     paint();
   }
   ready = Promise.all([
-    api("/admin/api/push").then(function (result) {
+    api<PushInfo>("/admin/api/push").then(function (result) {
       info = result;
     }),
     supported
@@ -150,7 +151,7 @@ export function setupAlerts() {
             ) {
               const json: PushSubscriptionJSON & { label?: string } = subscription.toJSON();
               json.label = label();
-              return api("/admin/api/push/subscribe", json).then(function (result) {
+              return api<PushInfo>("/admin/api/push/subscribe", json).then(function (result) {
                 info = result;
               });
             }
@@ -256,7 +257,7 @@ export function setupAlerts() {
             mine = subscription;
             const json: PushSubscriptionJSON & { label?: string } = subscription.toJSON();
             json.label = label();
-            return api("/admin/api/push/subscribe", json);
+            return api<PushInfo>("/admin/api/push/subscribe", json);
           })
           .then(function (result: typeof info) {
             info = result;
@@ -265,7 +266,7 @@ export function setupAlerts() {
       );
     } else if (action === "test") {
       run(
-        api("/admin/api/push/test", {
+        api<PushInfo>("/admin/api/push/test", {
           endpoint: mine!.endpoint,
         }).then(function (result) {
           info = result;
@@ -280,7 +281,7 @@ export function setupAlerts() {
           .catch(function () {})
           .then(function () {
             mine = null;
-            return api("/admin/api/push/unsubscribe", {
+            return api<PushInfo>("/admin/api/push/unsubscribe", {
               endpoint: endpoint,
             });
           })

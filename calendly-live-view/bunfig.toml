@@ -1,0 +1,8 @@
+# Coverage (bun run test:coverage; CI runs it). Only code loaded in the test process is measured: the page logic and
+# shared modules. The server is tested end to end in child processes (tests/server.test.ts), which Bun cannot measure.
+# The bar: every measured file has at least 85% of its functions run by the tests. Line numbers are reported but not
+# gated, because Bun misplaces lines in files that start with long type declarations (analytics/api.ts shows code the
+# tests run as uncovered).
+[test]
+coverageThreshold = { functions = 0.85, lines = 0.0 }
+coverageSkipTestFiles = true

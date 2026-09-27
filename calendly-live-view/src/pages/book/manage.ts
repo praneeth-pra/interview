@@ -6,7 +6,9 @@ import { eventName, hostName, manage, render, state } from "./app";
 import { clearSlots, loadDays, showSlots } from "./slots";
 
 // result: the server's JSON answer
-function postChange(url: string, payload: Record<string, unknown>, onSuccess: (result: any) => void) {
+// the server's answer: emailed says whether an email went out; a reschedule also sends the booking's new time
+type ChangeResult = { emailed?: boolean; booking?: { start: string; end: string; duration: number } };
+function postChange(url: string, payload: Record<string, unknown>, onSuccess: (result: ChangeResult) => void) {
   fetch(url, {
     method: "POST",
     headers: {
@@ -319,9 +321,9 @@ export function renderConfirm() {
                 duration: state.dur,
               },
               function (result) {
-                manage!.start = result.booking.start;
-                manage!.end = result.booking.end;
-                manage!.duration = result.booking.duration;
+                manage!.start = result.booking!.start; // a reschedule's answer always has it
+                manage!.end = result.booking!.end;
+                manage!.duration = result.booking!.duration;
                 state.dur = manage!.duration;
                 state.days = [];
                 state.date = null;

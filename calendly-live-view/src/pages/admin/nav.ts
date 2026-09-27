@@ -10,7 +10,7 @@ export function setupNav() {
   let afterPop: (() => void) | null = null;
   const nav = document.querySelector<HTMLElement>(".bnav")!;
   // Phones with little memory (Chrome on Android says how much) scroll more smoothly without the frosted-glass bars.
-  const memory = (navigator as any).deviceMemory;
+  const memory = navigator.deviceMemory;
   if (memory && memory <= 4) {
     document.documentElement.classList.add("lite");
   }
@@ -305,7 +305,7 @@ export function setupNav() {
       return;
     }
     const frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
-    const toggle = frame && (frame.contentWindow as any).__contactSearch;
+    const toggle = frame && frame.contentWindow?.__contactSearch;
     if (toggle) {
       const shown = !!toggle();
       body.classList.toggle("cq-open", shown);

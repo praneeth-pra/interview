@@ -6,7 +6,10 @@ import { request } from "./api";
 import { revenueShown, showRevenue } from "./revenue";
 import { state } from "./state";
 import { icon } from "./panel";
+import type { Payment } from "./types";
 
+// One candidate in By candidate: confirmed payments added up, pending ones counted, the latest date.
+type PayPerson = { email: string; name: string; count: number; total: number; last: string; pending: number };
 // The Payments tab: what people sent from the public /payment page, newest first. Each receipt opens in a new tab; the
 // icon beside it saves it, named after the payer. A new payment is Pending until an owner confirms or discards it, and
 // that's final. Totals count confirmed payments only; discarded ones are kept but hidden unless the status filter asks.
@@ -16,7 +19,7 @@ function rupees(amount: number) {
 let paymentsShown = -1;
 // Verified: the server read the typed amount on the receipt. Needs check: it couldn't read an amount (a blurry photo,
 // a HEIC photo), so look at the receipt. Payments from before the check have no badge.
-function checkBadge(item: any) {
+function checkBadge(item: Payment) {
   if (item.check === "verified") {
     return el("span", { class: "pchk ok", text: "Verified", title: "The amount on the receipt matches" });
   } else if (item.check === "unread") {
@@ -26,13 +29,13 @@ function checkBadge(item: any) {
   }
 }
 // which part of the fee a payment is; older payments didn't ask, and show a dash
-function installmentText(item: any, short?: boolean) {
+function installmentText(item: Payment, short?: boolean) {
   const names: Record<string, string> = short
     ? { advance: "Advance", "1": "1st", "2": "2nd", "3": "3rd" }
     : { advance: "Advance", "1": "1st installment", "2": "2nd installment", "3": "3rd installment" };
   return names[item.installment] || "\u2014";
 }
-function statusBadge(item: any) {
+function statusBadge(item: Payment) {
   if (item.decision === "confirmed") {
     return el("span", { class: "pst ok", text: "Confirmed" });
   } else if (item.decision === "discarded") {
@@ -88,7 +91,7 @@ export function showPayments() {
   body.appendChild(bar);
   body.appendChild(list);
   body.appendChild(msg);
-  let payments: any[] = [];
+  let payments: Payment[] = [];
   // redrawing keeps this same box, so typing isn't interrupted
   const search = el("input", {
     type: "search",
@@ -104,8 +107,8 @@ export function showPayments() {
   search.value = paymentsQuery;
   // one entry per candidate email, with the name from their latest payment (payments come newest first)
   function people() {
-    const byEmail: Record<string, any> = {};
-    const out: any[] = [];
+    const byEmail: Record<string, PayPerson> = {};
+    const out: PayPerson[] = [];
     payments.forEach(function (item) {
       if (item.decision === "discarded") {
         return;
@@ -184,7 +187,7 @@ export function showPayments() {
       }
     });
     const query = paymentsQuery.trim().toLowerCase();
-    function matches(p: any) {
+    function matches(p: PayPerson) {
       return !query || p.name.toLowerCase().indexOf(query) >= 0 || p.email.indexOf(query) >= 0;
     }
     const found = all.filter(matches);
@@ -269,7 +272,7 @@ export function showPayments() {
     }
   }
   // one row per candidate; tapping one shows their payments
-  function drawPeople(all: any[]) {
+  function drawPeople(all: PayPerson[]) {
     list.className = "enqlist paytbl";
     const rows = all.slice().sort(function (a, b) {
       const diff =
@@ -323,7 +326,7 @@ export function showPayments() {
   }
   // Candidate, date and amount; Date and Amount sort when their heading is tapped (again to reverse). Filtered to one
   // candidate, the last row is their total.
-  function drawTable(filtered: any[], who: any) {
+  function drawTable(filtered: Payment[], who: PayPerson | null) {
     list.className = "enqlist paytbl";
     const rows = filtered.slice().sort(function (a, b) {
       const diff = paymentsSort.key === "amount" ? a.amount - b.amount : Date.parse(a.createdAt) - Date.parse(b.createdAt);
@@ -367,7 +370,7 @@ export function showPayments() {
     );
   }
   // Pending: Confirm and Discard, each asked once. Decided: when, and nothing to press; the server refuses a change too.
-  function decided(item: any) {
+  function decided(item: Payment) {
     if (item.decision) {
       const at = new Date(item.decidedAt || item.createdAt);
       return el("small", {
@@ -388,7 +391,7 @@ export function showPayments() {
       if (!confirm(question)) {
         return;
       }
-      request("/admin/api/payments/decide", { id: item.id, decision: decision })
+      request<{ ok: boolean; payment: Payment }>("/admin/api/payments/decide", { id: item.id, decision: decision })
         .then(function (result) {
           toast(decision === "confirm" ? "Payment confirmed" : "Payment discarded");
           payments = payments.map(function (p) {
@@ -422,7 +425,7 @@ export function showPayments() {
       }),
     ]);
   }
-  function drawList(rows: any[]) {
+  function drawList(rows: Payment[]) {
     rows.forEach(function (item) {
       const when = new Date(item.createdAt);
       const kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
@@ -467,7 +470,7 @@ export function showPayments() {
     });
   }
   function load() {
-    request("/admin/api/payments")
+    request<{ payments: Payment[] }>("/admin/api/payments")
       .then(function (result) {
         payments = result.payments || [];
         const opening = openFromAlert();

@@ -452,7 +452,9 @@ export function timePicker(duration: number, day: string | null, ignoreId?: stri
     if (!day) {
       return placeholder("Pick a date");
     }
-    request("/admin/api/slots?date=" + day + "&duration=" + durationSelect.value + (ignoreId ? "&ignore=" + ignoreId : ""))
+    request<{ slots: number[] }>(
+      "/admin/api/slots?date=" + day + "&duration=" + durationSelect.value + (ignoreId ? "&ignore=" + ignoreId : ""),
+    )
       .then(function (result) {
         if (day === dateInput.value) {
           if (!result.slots.length) {

@@ -18,7 +18,7 @@ export function loadAllBookings() {
   if (allBookings && Date.now() - allBookingsAt < 30000) {
     return Promise.resolve(allBookings);
   } else {
-    return request("/admin/api/bookings").then(function (result) {
+    return request<{ bookings: Booking[] }>("/admin/api/bookings").then(function (result) {
       allBookings = result.bookings;
       allBookingsAt = Date.now();
       return allBookings;
