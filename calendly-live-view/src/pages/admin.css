@@ -2544,9 +2544,9 @@ html {
   gap: 8px;
   width: auto;
   height: auto;
-  /* 24 px tap target; the negative margin keeps the old spacing */
+  /* 24 px tap target; the smaller margin keeps the old spacing */
   min-height: 24px;
-  margin: -2px 0 12px;
+  margin: 0 0 10.25px;
   padding: 0;
   border: 0;
   background: none;
