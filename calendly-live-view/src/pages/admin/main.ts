@@ -572,7 +572,7 @@ function renderAgenda() {
           (interviewer ? colorClass(interviewer) : "cn") +
           (isPast ? " past" : "") +
           (booking.missed ? " missed" : "") +
-          (height < 40 ? " short" : height < 66 ? " mid" : "") +
+          (height < 34 ? " tiny" : height < 56 ? " short" : height < 66 ? " mid" : "") +
           (booking.outcome || booking.missed ? " has-rs" : ""),
         onclick: function () {
           showBooking(booking.id);
