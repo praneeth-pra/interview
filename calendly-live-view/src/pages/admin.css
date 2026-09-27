@@ -3508,16 +3508,54 @@ html {
   color: var(--ink);
   font-weight: 500;
 }
-/* short interviews: name and time on one line; middling ones leave out the company and round */
-.ag-i.short {
+/* the shortest (15-minute) interviews: name, time, then company and round, all on one line */
+.ag-i.tiny {
   flex-direction: row;
   align-items: baseline;
   gap: 8px;
   padding-top: 3px;
 }
-.ag-i.short .ag-s,
-.ag-i.mid .ag-s {
-  display: none;
+.ag-i.tiny b,
+.ag-i.tiny .ag-t {
+  flex-shrink: 0;
+  max-width: 60%;
+}
+.ag-i.tiny .ag-s {
+  order: 1;
+  min-width: 0;
+}
+/* half-hour interviews: name and time on the first line, company and round under them */
+.ag-i.short {
+  display: grid;
+  grid-template-columns: minmax(0, max-content) minmax(0, 1fr);
+  grid-template-rows: auto auto;
+  align-content: start;
+  align-items: baseline;
+  column-gap: 8px;
+  row-gap: 0;
+  padding-top: 2px;
+  padding-bottom: 0;
+}
+.ag-i.short b {
+  grid-area: 1 / 1;
+  line-height: 1.2;
+}
+.ag-i.short .ag-t {
+  grid-area: 1 / 2;
+}
+.ag-i.short .ag-s {
+  grid-area: 2 / 1 / 3 / 3;
+  font-size: 11.5px;
+  line-height: 1.25;
+}
+.ag-i.short .ag-rs {
+  top: 3px;
+}
+/* 45-minute ones: name, company and round, time, a little tighter */
+.ag-i.mid {
+  gap: 0;
+  padding-top: 3px;
+  padding-bottom: 2px;
 }
 .ag-rs {
   position: absolute;
@@ -3536,6 +3574,10 @@ html {
 .ag-i .need-dot {
   width: 8px;
   height: 8px;
+}
+/* keep text clear of the support dot in the corner */
+.ag-i:not(.has-rs):has(.need-dot) {
+  padding-right: 22px;
 }
 .ag-i.past {
   opacity: 0.72;
