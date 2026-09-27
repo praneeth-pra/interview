@@ -3,7 +3,7 @@
 // server. When neither is available, or the receipt has no readable amount, the payment is kept as "unread" so an admin
 // checks it by eye, rather than refusing an honest payer with a blurry screenshot.
 
-export type ReceiptCheck = { status: "verified" } | { status: "mismatch"; read: number[] } | { status: "unread" };
+type ReceiptCheck = { status: "verified" } | { status: "mismatch"; read: number[] } | { status: "unread" };
 
 const READ_TIMEOUT_MS = 20000;
 
@@ -21,7 +21,7 @@ async function run(cmd: string[], input: Uint8Array): Promise<string> {
 // psm 11 (scattered text) reads app screenshots best; psm 6 (one block) reads tilted photos and tables that 11 gets
 // wrong, so it is the second pass when the first doesn't find the typed amount.
 const OCR_PASSES = ["11", "6"];
-export async function receiptText(bytes: Uint8Array, type: string, pass = 0): Promise<string> {
+async function receiptText(bytes: Uint8Array, type: string, pass = 0): Promise<string> {
   if (type === "application/pdf") return pass ? "" : run(["pdftotext", "-l", "3", "-layout", "-", "-"], bytes);
   // HEIC photos can't be read by tesseract; they are left for an admin
   if (type === "image/heic" || pass >= OCR_PASSES.length) return "";

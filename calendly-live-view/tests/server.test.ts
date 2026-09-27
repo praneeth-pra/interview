@@ -234,16 +234,6 @@ describe("booking flow", () => {
     expect((await book("typo@example.com", "Infosys", 7)).company).toBe("Infosys"); // a known name is never replaced by a typo
   });
 
-  test("company joins are saved with the results, and loops are refused quietly", async () => {
-    const post = (body: unknown) => fetch(open.url + "/admin/api/company-joins", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    expect((await (await post({ from: "Apple via Infosys", to: "Infosys" })).json()).joins).toEqual({ "apple via infosys": "infosys" });
-    expect((await (await post({ from: "infosys", to: "apple via infosys" })).json()).joins).toEqual({ "apple via infosys": "infosys" });
-    expect((await post({ from: "", to: "x" })).status).toBe(400);
-    expect((await (await get(open, "/admin/api/results")).json()).joins).toEqual({ "apple via infosys": "infosys" });
-    expect(JSON.parse(readFileSync(join(open.dir, "results.json"), "utf8")).joins).toEqual({ "apple via infosys": "infosys" });
-    expect((await (await post({ from: "apple via infosys", to: "" })).json()).joins).toEqual({});
-  });
-
   test("large API answers are compressed", async () => {
     const r = await get(open, "/admin/api/bookings", { "accept-encoding": "gzip" });
     expect(r.headers.get("content-encoding")).toBe("gzip");
@@ -657,7 +647,7 @@ describe("admin", () => {
     expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(401);
   });
 
-  test("a started interview can be marked as a no-show or as not happened, and unmarked", async () => {
+  test("a started interview can be marked as a no-show or as not happened through its round status, and unmarked", async () => {
     const dir = mkdtempSync(join(tmpdir(), "booking-form-missed-"));
     const past = istMidnight() - 24 * HOUR + 10 * HOUR;
     const done = { ...booking, id: "00000000-0000-0000-0000-000000000009", start: new Date(past).toISOString(), end: new Date(past + 30 * 60000).toISOString() };
@@ -667,7 +657,7 @@ describe("admin", () => {
     writeFileSync(join(dir, "interviewers.json"), JSON.stringify({ names: ["Praneeth"], assign: { [helped.id]: "Praneeth" } }));
     const srv = await start(4316, {}, dir);
     try {
-      const mark = (id: string, missed: string) => postJson(srv, "/admin/api/missed", { id, missed });
+      const mark = (id: string, status: string) => postJson(srv, "/admin/api/round-status", { id, status });
       // not before it starts, not once support is recorded, and only known values
       expect((await mark(booking.id, "noshow")).status).toBe(409);
       expect((await mark(helped.id, "noshow")).status).toBe(409);

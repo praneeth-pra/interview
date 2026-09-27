@@ -11,7 +11,7 @@ import { mkdir, rm } from "node:fs/promises";
 
 // the form doesn't mention this limit; a bigger file gets RECEIPT_TOO_BIG, in the browser and here
 const mb = (n: number) => String(Math.round((n / 1048576) * 10) / 10);
-export const RECEIPT_TOO_BIG = "Your receipt is larger than " + mb(RECEIPT_MAX) + " MB. Please upload a smaller file.";
+const RECEIPT_TOO_BIG = "Your receipt is larger than " + mb(RECEIPT_MAX) + " MB. Please upload a smaller file.";
 const PAYMENTS_PER_DAY = 100;
 const rupees = (n: number) => "\u20B9" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const AMOUNT_MAX = 10000000;
@@ -34,7 +34,7 @@ export async function readReceipt(file: string): Promise<Uint8Array | null> {
   const f = Bun.file(DATA_DIR + "/receipts/" + file);
   return (await f.exists()) ? new Uint8Array(await f.arrayBuffer()) : null;
 }
-export async function removeReceipt(file: string) {
+async function removeReceipt(file: string) {
   if (!DATA_DIR) return void receiptsInMemory.delete(file);
   await rm(DATA_DIR + "/receipts/" + file, { force: true });
 }

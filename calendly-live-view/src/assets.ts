@@ -27,7 +27,7 @@ const FONT_OF_PAGE: Record<string, string> = {
   "home.css": "figtree.css serif.css",
 };
 
-export type Encoded = { raw: Buffer; br?: Buffer; gz?: Buffer; etag: string; type: string };
+type Encoded = { raw: Buffer; br?: Buffer; gz?: Buffer; etag: string; type: string };
 
 export function encode(data: string | Buffer, type: string, fast = false): Encoded {
   const raw = typeof data === "string" ? Buffer.from(data) : data;

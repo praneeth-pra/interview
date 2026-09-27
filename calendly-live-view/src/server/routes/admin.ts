@@ -2,7 +2,7 @@ import { adminsView, dropSessions, sessionOf } from "../auth";
 import { backupData } from "../backup";
 import { bookingsCsv, cancelBooking, commit, createBooking, moveBooking, saveFailed } from "../bookings";
 import { DURATIONS, LOGIN_ON, OWNER_EMAILS } from "../config";
-import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, isOwner, ivStore, normResults, paymentsStore, pushStore, resultsStore } from "../data";
+import { adminsStore, allowStore, bookingsStore, enquiriesStore, isAdmin, isOwner, ivStore, paymentsStore, pushStore } from "../data";
 import { enquiryView, readResume, removeResume } from "../enquiries";
 import { paymentView, readReceipt } from "../payments";
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
@@ -212,69 +212,6 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     }
     if (path === "/admin/api/bookings" && method === "GET")
       return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
-    if (path === "/admin/api/results") {
-      if (method === "GET") return json({ people: resultsStore.data.people, joins: resultsStore.data.joins, persistent: resultsStore.ok });
-      if (method !== "POST") return json({ error: "Method not allowed." }, 405);
-      const body = await readJson(req, 60000);
-      if (body instanceof Response) return body;
-      const entries = body?.entries;
-      if (!entries || typeof entries !== "object" || Array.isArray(entries) || Object.keys(entries).length > 20)
-        return json({ error: "Bad request." }, 400);
-      const prev = JSON.stringify(resultsStore.data);
-      const now = new Date().toISOString();
-      for (const [k, v] of Object.entries(entries)) {
-        if (!k || k.length > 200) return json({ error: "Bad request." }, 400);
-        const raw = (v as any)?.results;
-        if (v !== null && (!raw || typeof raw !== "object")) return json({ error: "Bad request." }, 400);
-        const results = v === null ? {} : normResults(raw);
-        if (v !== null && Object.keys(results).length !== Object.keys(raw).length) return json({ error: "Bad request." }, 400);
-        if (Object.keys(results).length > 150) return json({ error: "Too many companies saved for one person." }, 400);
-        if (Object.keys(results).length) resultsStore.data.people[k] = { results, updated: now };
-        else delete resultsStore.data.people[k];
-      }
-      if (Object.keys(resultsStore.data.people).length > 10000) {
-        resultsStore.data = JSON.parse(prev);
-        return json({ error: "Too many candidates saved." }, 400);
-      }
-      try {
-        await saveStore(resultsStore);
-      } catch {
-        resultsStore.data = JSON.parse(prev);
-        return json({ error: "Couldn't save the change. Try again." }, 500);
-      }
-      return json({ people: resultsStore.data.people, joins: resultsStore.data.joins, persistent: resultsStore.ok });
-    }
-    // Join one company name to another (to: "" separates it again). Names are compared lower-cased.
-    if (path === "/admin/api/company-joins" && method === "POST") {
-      const body = await readJson(req, 4000);
-      if (body instanceof Response) return body;
-      const from = String(body?.from ?? "")
-        .trim()
-        .toLowerCase();
-      const to = String(body?.to ?? "")
-        .trim()
-        .toLowerCase();
-      if (!from || from === to || from.length > 120 || to.length > 120) return json({ error: "Bad request." }, 400);
-      const joins = resultsStore.data.joins;
-      const prev = JSON.stringify(joins);
-      if (to) {
-        // joining A to B when B already leads back to A would make a loop: they're combined already
-        for (let k = to, hops = 0; joins[k] && hops < 50; hops++)
-          if ((k = joins[k]) === from) return json({ joins, persistent: resultsStore.ok });
-        joins[from] = to;
-      } else delete joins[from];
-      if (Object.keys(joins).length > 5000) {
-        resultsStore.data.joins = JSON.parse(prev);
-        return json({ error: "Too many combined companies." }, 400);
-      }
-      try {
-        await saveStore(resultsStore);
-      } catch {
-        resultsStore.data.joins = JSON.parse(prev);
-        return json({ error: "Couldn't save the change. Try again." }, 500);
-      }
-      return json({ joins: resultsStore.data.joins, persistent: resultsStore.ok });
-    }
     if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
     if (path === "/admin/backup.json" && method === "GET")
       return new Response(JSON.stringify(backupData(false, owner), null, 1), {
@@ -389,31 +326,6 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
           "X-Accel-Buffering": "no",
         },
       });
-    }
-    // Mark a started interview as a no-show or as not happened for another reason, or undo it ("").
-    if (path === "/admin/api/missed" && method === "POST") {
-      const body = await readJson(req, 1000);
-      if (body instanceof Response) return body;
-      const b = bookingsStore.data.bookings.find((x) => x.id === String(body?.id ?? ""));
-      const missed = body?.missed;
-      if (!b || (missed !== "noshow" && missed !== "other" && missed !== "")) return json({ error: "Bad request." }, 400);
-      if (b.cancelled) return json({ error: "This interview was cancelled." }, 409);
-      if (missed && Date.parse(b.start) > Date.now() + 60000)
-        return json({ error: "You can mark this once the interview's start time has passed." }, 409);
-      if (missed && ivStore.data.assign[b.id])
-        return json({ error: "Interview support is already recorded for this interview, so it happened." }, 409);
-      const prev = { ...b };
-      if (missed) {
-        Object.assign(b, { missed, missedAt: new Date().toISOString() });
-        delete b.outcome;
-        delete b.outcomeAt;
-      } else {
-        delete b.missed;
-        delete b.missedAt;
-      }
-      if (!(await commit(b, prev))) return saveFailed();
-      broadcastState();
-      return json({ ok: true });
     }
     // The round's result from the booking panel, once the interview has started: "cleared", "rejected", "hold",
     // "noshow" or "other" (didn't happen), or "" to clear it. No-show and didn't happen reuse the missed mark.
