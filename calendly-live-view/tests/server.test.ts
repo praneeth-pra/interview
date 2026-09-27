@@ -548,9 +548,9 @@ describe("admin", () => {
     const stored = readFileSync(join(locked.dir, "sessions.json"), "utf8");
     expect(stored).toContain("helper@example.com");
     expect(stored).not.toContain(helper.split("=")[1]);
-    // a helper can't take themselves off the list
+    // a helper can't change the list at all, themselves included
     const self = await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie: helper });
-    expect(self.status).toBe(400);
+    expect(self.status).toBe(403);
     expect((await postJson(locked, "/admin/api/admins", { emails: ["bad"] }, { cookie })).status).toBe(400);
     // their live updates stop too
     const live = await get(locked, "/admin/stream", { cookie: helper });
@@ -628,18 +628,24 @@ describe("admin", () => {
     expect((await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie })).status).toBe(200);
   });
 
-  test("an admin who isn't an owner can't change or remove the owners", async () => {
+  test("only owners add and remove admins; other admins see the list but can't change it or the owners", async () => {
     const cookie = ownerCookie;
-    await postJson(locked, "/admin/api/admins", { emails: ["aide2@example.com"] }, { cookie });
+    await postJson(locked, "/admin/api/admins", { emails: ["aide2@example.com", "aide3@example.com"] }, { cookie });
     const aide = await signIn(locked, "aide2@example.com");
     const owners = ["boss@example.com", "chief@example.com", OWNER];
-    // owners come from ADMIN_EMAILS; sending a list without them, or with them, leaves them as they are
-    const r = await postJson(locked, "/admin/api/admins", { emails: ["aide2@example.com"] }, { cookie: aide });
-    expect((await r.json()).owners).toEqual(owners);
-    const again = await postJson(locked, "/admin/api/admins", { emails: ["aide2@example.com", "boss@example.com"] }, { cookie: aide });
-    expect(await again.json()).toMatchObject({ owners, emails: ["aide2@example.com"] });
-    expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(200);
-    expect((await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie })).status).toBe(200);
+    const before = { owners, emails: ["aide2@example.com", "aide3@example.com"] };
+    expect(await (await get(locked, "/admin/api/admins", { cookie: aide })).json()).toMatchObject(before);
+    // adding, removing another admin, or trying to change the owners are all refused
+    for (const emails of [["aide2@example.com", "aide3@example.com", "new@example.com"], ["aide2@example.com"], ["aide2@example.com", "aide3@example.com", "boss@example.com"], []]) {
+      const r = await postJson(locked, "/admin/api/admins", { emails }, { cookie: aide });
+      expect(r.status).toBe(403);
+      expect((await r.json()).error).toBe("Only the owner can add or remove admins.");
+    }
+    expect(await (await get(locked, "/admin/api/admins", { cookie })).json()).toMatchObject(before);
+    expect(JSON.parse(readFileSync(join(locked.dir, "admins.json"), "utf8")).emails).toEqual(["aide2@example.com", "aide3@example.com"]);
+    // the owner still can
+    expect(await (await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie })).json()).toMatchObject({ owners, emails: [] });
+    expect((await get(locked, "/admin/api/state", { cookie: aide })).status).toBe(401);
   });
 
   test("signing out ends the session on the server too", async () => {

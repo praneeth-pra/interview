@@ -1537,7 +1537,11 @@ function showInterviewers() {
 // removed, and removing someone signs them out on all their devices.
 function showAdmins() {
   refreshPanel = null;
-  var body = openPanel("Admins", "People on this list sign in with a code sent to their email.");
+  // only owners add and remove admins; everyone else sees the list
+  var body = openPanel(
+    "Admins",
+    boot.owner ? "People on this list sign in with a code sent to their email." : "Only the owner can add or remove admins.",
+  );
   var msg = el("p", {
     class: "msg",
     role: "status",
@@ -1580,6 +1584,10 @@ function showAdmins() {
       rows.appendChild(el("div", { class: "admrow" }, [el("span", { class: "admail", text: email }), el("span", { class: "tag r", text: "Owner" })]));
     });
     view.emails.forEach(function (email) {
+      if (!boot.owner) {
+        rows.appendChild(el("div", { class: "admrow" }, [el("span", { class: "admail", text: email })]));
+        return;
+      }
       rows.appendChild(
         el("div", { class: "admrow" }, [
           el("span", { class: "admail", text: email }),
@@ -1631,7 +1639,9 @@ function showAdmins() {
   });
   body.appendChild(me);
   body.appendChild(rows);
-  body.appendChild(el("div", { class: "admadd" }, [input, addButton]));
+  if (boot.owner) {
+    body.appendChild(el("div", { class: "admadd" }, [input, addButton]));
+  }
   body.appendChild(msg);
   request("/admin/api/admins")
     .then(function (result) {
