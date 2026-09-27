@@ -3529,7 +3529,7 @@ html {
   border-radius: 50%;
   background: var(--rc);
 }
-/* Analytics (owners only): tiles, month bars, meters and the top-candidates table. One accent colour throughout. */
+/* Analytics (owners only): a candidate search, tiles, month bars and meters. One accent colour throughout. */
 /* Phones keep five buttons in the bottom bar, so Analytics is in the ⋯ menu there; so it is on narrow windows, where the
    header's tabs can scroll it out of sight. */
 #mRev {
@@ -3687,45 +3687,15 @@ html {
   color: var(--ink2);
   margin-top: 3px;
 }
-.rv-tbl {
-  width: 100%;
-  border-collapse: collapse;
+/* whose figures these are, after a search */
+.rv-who {
+  margin: 0 0 12px;
   font-size: 14px;
-}
-.rv-tbl th {
-  text-align: left;
-  font-size: 12px;
-  font-weight: 600;
   color: var(--ink2);
-  padding: 0 0 6px;
-  border-bottom: 1px solid var(--line);
-}
-.rv-tbl td {
-  padding: 9px 0;
-  border-bottom: 1px solid var(--line);
-  vertical-align: top;
-}
-.rv-tbl tr:last-child td {
-  border-bottom: 0;
-  padding-bottom: 0;
-}
-.rv-tbl .num {
-  text-align: right;
-  padding-left: 12px;
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-.rv-tbl td b,
-.rv-tbl td small {
-  display: block;
   overflow-wrap: anywhere;
 }
-.rv-tbl td small {
-  font-size: 12px;
-  color: var(--ink2);
-}
-.rv-more {
-  margin-top: 10px;
+.rv-who b {
+  color: var(--ink);
 }
 .rv-chips {
   display: flex;

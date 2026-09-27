@@ -1,5 +1,7 @@
 // The Analytics tab (owners only): revenue from confirmed payments, bookings and their rounds, and how enquiries turn
-// into candidates, from /admin/api/revenue. Months are India months; the charts are plain bars, one accent colour.
+// into candidates, from /admin/api/revenue. The search box narrows every figure to the candidates whose name or email
+// contains what's typed, like the Payments tab's search. Months are India months; the charts are plain bars, one accent
+// colour.
 import { request } from "./api";
 import { byId, el, type Child } from "./dom";
 import { plural, titleCase } from "./labels";
@@ -7,8 +9,7 @@ import { plural, titleCase } from "./labels";
 type Summary = {
   months: string[];
   revenue: { total: number; count: number; pending: number; pendingCount: number; payers: number; byMonth: number[]; paidByMonth: number[] };
-  installments: { key: string; total: number; count: number }[];
-  candidates: { name: string; email: string; total: number; count: number; last: string }[];
+  found: { name: string; email: string }[]; // who the search found (empty without a search)
   bookings: {
     byMonth: number[];
     candidates: number;
@@ -18,13 +19,6 @@ type Summary = {
 };
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const INSTALLMENT_NAMES: Record<string, string> = {
-  advance: "Advance",
-  "1": "1st installment",
-  "2": "2nd installment",
-  "3": "3rd installment",
-  "": "Not asked (older payments)",
-};
 function rupees(amount: number) {
   return "₹" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
@@ -114,65 +108,6 @@ function draw(body: HTMLElement, data: Summary) {
     ]),
   );
 
-  var parts = data.installments.filter(function (p) {
-    return p.key || p.count;
-  });
-  var topPart = Math.max.apply(
-    null,
-    parts.map(function (p) {
-      return p.total;
-    }),
-  );
-  body.appendChild(
-    section(
-      "By installment",
-      "",
-      parts.map(function (p) {
-        return meterRow(INSTALLMENT_NAMES[p.key] || p.key, rupees(p.total), topPart ? p.total / topPart : 0, plural(p.count, "payment") + (rev.total ? " · " + percent(p.total, rev.total) + " of revenue" : ""));
-      }),
-    ),
-  );
-
-  // top candidates by what they paid; the rest behind a button
-  var table = el("table", { class: "rv-tbl" }, [
-    el("thead", null, [el("tr", null, [el("th", { text: "Candidate" }), el("th", { class: "num", text: "Payments" }), el("th", { class: "num", text: "Paid" })])]),
-  ]);
-  var rows = el("tbody");
-  table.appendChild(rows);
-  var shown = 0;
-  function more(upTo: number) {
-    data.candidates.slice(shown, upTo).forEach(function (p) {
-      rows.appendChild(
-        el("tr", null, [
-          el("td", null, [el("b", { text: titleCase(p.name) }), el("small", { text: p.email })]),
-          el("td", { class: "num", text: String(p.count) }),
-          el("td", { class: "num", text: rupees(p.total) }),
-        ]),
-      );
-    });
-    shown = Math.min(upTo, data.candidates.length);
-  }
-  more(8);
-  var showAll =
-    data.candidates.length > shown
-      ? el("button", {
-          type: "button",
-          class: "ghost rv-more",
-          text: "Show all " + data.candidates.length,
-          onclick: function () {
-            more(data.candidates.length);
-            showAll.remove();
-          },
-        })
-      : null;
-  body.appendChild(
-    section(
-      "Top candidates",
-      data.candidates.length ? "By what they've paid, confirmed payments only." : "",
-      data.candidates.length ? [el("div", { class: "rv-card" }, [table]), showAll] : [el("p", { class: "sub", text: "No confirmed payments yet." })],
-    ),
-  );
-
   var r = data.bookings.rounds;
   var booked = data.bookings.byMonth.reduce(function (a, b) {
     return a + b;
@@ -216,27 +151,70 @@ function draw(body: HTMLElement, data: Summary) {
   );
 }
 
+// what's typed in the search box: part of a candidate's name or email
+var revenueQuery = "";
 var loading = 0;
+var searchTimer: ReturnType<typeof setTimeout> | undefined;
 function showRevenue() {
   var body = byId("revBody");
-  var ask = ++loading;
-  if (!body.firstChild) {
-    body.appendChild(el("p", { class: "sub", text: "Loading…" }));
+  var figures = byId("revFigures");
+  if (!figures) {
+    // built once, so typing never loses the box's focus; only the figures below it redraw
+    var search = el("input", {
+      type: "search",
+      class: "payfilter paysearch",
+      placeholder: "Search a candidate",
+      "aria-label": "Show the figures for candidates whose name or email contains",
+      autocomplete: "off",
+      oninput: function () {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(function () {
+          revenueQuery = search.value;
+          showRevenue();
+        }, 200);
+      },
+    });
+    figures = el("div", { id: "revFigures" }, [el("p", { class: "sub", text: "Loading\u2026" })]);
+    body.appendChild(el("div", { class: "paybar" }, [search]));
+    body.appendChild(figures);
   }
-  request("/admin/api/revenue")
+  var query = revenueQuery.trim();
+  var ask = ++loading;
+  // the CSV narrows to the same candidates
+  byId<HTMLAnchorElement>("revDl").href = "/admin/api/revenue.csv" + (query ? "?q=" + encodeURIComponent(query) : "");
+  request("/admin/api/revenue" + (query ? "?q=" + encodeURIComponent(query) : ""))
     .then(function (data: Summary) {
       if (ask !== loading) {
         return;
       }
-      body.textContent = "";
-      draw(body, data);
+      figures.textContent = "";
+      if (query && !data.found.length) {
+        figures.appendChild(el("p", { class: "sub", text: "No candidate matches \u201C" + query + "\u201D." }));
+        return;
+      }
+      if (query) {
+        var names = data.found.map(function (p) {
+          return titleCase(p.name);
+        });
+        figures.appendChild(
+          el("p", { class: "rv-who" }, [
+            data.found.length === 1
+              ? el("b", { text: names[0] })
+              : el("b", { text: plural(data.found.length, "candidate") + " match \u201C" + query + "\u201D" }),
+            data.found.length === 1
+              ? " \u00B7 " + data.found[0].email
+              : ": " + names.slice(0, 4).join(", ") + (names.length > 4 ? " and " + (names.length - 4) + " more" : ""),
+          ]),
+        );
+      }
+      draw(figures, data);
     })
     .catch(function (error) {
       if (ask !== loading) {
         return;
       }
-      body.textContent = "";
-      body.appendChild(el("p", { class: "msg err", role: "status", text: error.message }));
+      figures.textContent = "";
+      figures.appendChild(el("p", { class: "msg err", role: "status", text: error.message }));
     });
 }
 

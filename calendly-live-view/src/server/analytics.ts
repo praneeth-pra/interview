@@ -1,4 +1,5 @@
-// The owners' Analytics tab: revenue from payments, bookings and their rounds, and how enquiries turn into candidates.
+// The owners' Analytics tab: revenue from payments, bookings and their rounds, and how enquiries turn into candidates,
+// for everyone or for the candidates whose name or email contains what was typed in its search box.
 // Revenue counts confirmed payments only, like the Payments tab's totals; pending ones are shown apart, discarded ones
 // not at all. Months are India months, and a payment counts in the month it was sent.
 import { BASE_HEADERS } from "./http";
@@ -8,8 +9,6 @@ import { istDate, istParts } from "./time";
 import { normEmail, pad } from "./util";
 
 const MONTHS = 12;
-// "" is a payment from before the form asked which installment it was
-const PARTS = ["advance", "1", "2", "3", ""];
 const monthKey = (iso: string) => {
   const p = istParts(Date.parse(iso));
   return p.y + "-" + pad(p.mo);
@@ -25,7 +24,18 @@ function lastMonths(now: number) {
   return out;
 }
 
-export function analyticsView(now = Date.now()) {
+// the search box's rule, as in the Payments tab: the name or email contains what was typed
+function matcher(query: string) {
+  const q = query.trim().toLowerCase();
+  return (v: { name: string; email: string }) => !q || v.name.toLowerCase().includes(q) || normEmail(v.email).includes(q);
+}
+
+export function analyticsView(query = "", now = Date.now()) {
+  const q = query.trim();
+  const mine = matcher(query);
+  // everyone the search finds, by email (latest name), so the page can say whose figures it shows
+  const found = new Map<string, string>();
+  const note = (v: { name: string; email: string }) => q && found.set(normEmail(v.email), v.name);
   const months = lastMonths(now);
   const month = (key: string) => months.indexOf(key);
   const revenue = months.map(() => 0);
@@ -33,15 +43,14 @@ export function analyticsView(now = Date.now()) {
   const booked = months.map(() => 0);
   const enquired = months.map(() => 0);
 
-  const installments: Record<string, { total: number; count: number }> = {};
-  for (const k of PARTS) installments[k] = { total: 0, count: 0 };
-  const people: Record<string, { name: string; email: string; total: number; count: number; last: string }> = {};
+  const payers = new Set<string>();
   let total = 0;
   let count = 0;
   let pending = 0;
   let pendingCount = 0;
   for (const v of paymentsStore.data.payments) {
-    if (v.decision === "discarded") continue;
+    if (v.decision === "discarded" || !mine(v)) continue;
+    note(v);
     if (v.decision !== "confirmed") {
       pending += v.amount;
       pendingCount++;
@@ -54,23 +63,15 @@ export function analyticsView(now = Date.now()) {
       revenue[i] += v.amount;
       paid[i]++;
     }
-    const part = installments[v.installment ?? ""] ?? installments[""];
-    part.total += v.amount;
-    part.count++;
-    const email = normEmail(v.email);
-    const p = (people[email] ??= { name: v.name, email, total: 0, count: 0, last: v.createdAt });
-    p.total += v.amount;
-    p.count++;
-    if (v.createdAt >= p.last) {
-      p.last = v.createdAt;
-      p.name = v.name;
-    }
+    payers.add(normEmail(v.email));
   }
 
   // Rounds: each booking that wasn't cancelled, by what became of it.
   const rounds = { upcoming: 0, done: 0, cleared: 0, rejected: 0, hold: 0, missed: 0, cancelled: 0 };
   const bookers = new Set<string>();
   for (const b of bookingsStore.data.bookings) {
+    if (!mine(b)) continue;
+    note(b);
     if (b.cancelled) {
       rounds.cancelled++;
       continue;
@@ -86,12 +87,15 @@ export function analyticsView(now = Date.now()) {
 
   // Enquiries: people (by email) who sent one, and how many of them went on to book and to pay.
   const enquirers = new Set<string>();
+  let enquiries = 0;
   for (const v of enquiriesStore.data.enquiries) {
+    if (!mine(v)) continue;
+    note(v);
+    enquiries++;
     enquirers.add(normEmail(v.email));
     const i = month(monthKey(v.createdAt));
     if (i >= 0) enquired[i]++;
   }
-  const payers = new Set(Object.keys(people));
   let enquiryBooked = 0;
   let enquiryPaid = 0;
   for (const email of enquirers) {
@@ -102,20 +106,20 @@ export function analyticsView(now = Date.now()) {
   return {
     months,
     revenue: { total, count, pending, pendingCount, payers: payers.size, byMonth: revenue, paidByMonth: paid },
-    // in the fee's order (an object would list "1", "2", "3" before "advance")
-    installments: PARTS.map((key) => ({ key, ...installments[key] })),
-    candidates: Object.values(people).sort((a, b) => b.total - a.total || b.last.localeCompare(a.last)),
+    found: [...found].map(([email, name]) => ({ name, email })).sort((a, b) => a.name.localeCompare(b.name)),
     bookings: { byMonth: booked, rounds, candidates: bookers.size },
-    enquiries: { total: enquiriesStore.data.enquiries.length, people: enquirers.size, booked: enquiryBooked, paid: enquiryPaid, byMonth: enquired },
+    enquiries: { total: enquiries, people: enquirers.size, booked: enquiryBooked, paid: enquiryPaid, byMonth: enquired },
   };
 }
 
-// One row per payment that isn't discarded, for a spreadsheet or Power BI.
-export function analyticsCsv() {
+// One row per payment that isn't discarded (for the searched candidates only, after a search), for a spreadsheet.
+export function analyticsCsv(query = "") {
+  const mine = matcher(query);
   const status = (d?: string) => (d === "confirmed" ? "Confirmed" : "Pending");
   const rows = [["Date", "Month", "Name", "Email", "Installment", "Amount (INR)", "Status", "Confirmed on"]];
   for (const v of [...paymentsStore.data.payments].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
     if (v.decision === "discarded") continue;
+    if (!mine(v)) continue;
     rows.push([
       istDate(v.createdAt),
       monthKey(v.createdAt),
