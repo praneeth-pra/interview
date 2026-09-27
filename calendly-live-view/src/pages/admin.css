@@ -1818,6 +1818,17 @@ body.wkv .agenda {
       transform 0.3s var(--ease),
       opacity 0.2s;
   }
+  /* low-memory phones: solid bars, since live blur costs frames while long lists scroll */
+  .lite .top {
+    background: var(--bg);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+  .lite .bnav {
+    background: var(--card);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
   /* admins who aren't owners have no Enquiries or Payments */
   .bnav.b3 {
     grid-template-columns: repeat(3, 1fr);

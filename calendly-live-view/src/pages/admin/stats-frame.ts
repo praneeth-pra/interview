@@ -1,4 +1,5 @@
-// The Contacts tab loads /admin/analytics in a frame the first time it is opened, sized to the window.
+// The Contacts tab is /admin/analytics in a frame, loaded in the background soon after the admin opens (or on the first
+// visit to the tab, if that comes first) and sized to the window.
 export function setupStatsFrame() {
   var box = document.getElementById("viewStats");
   if (!box) {
@@ -27,7 +28,7 @@ export function setupStatsFrame() {
     attributeFilter: ["hidden"],
   });
   addEventListener("resize", fit);
-  window.__stats = function () {
+  function load() {
     if (!frame) {
       frame = document.createElement("iframe");
       frame.className = "la-frame";
@@ -39,6 +40,19 @@ export function setupStatsFrame() {
         frame.style.visibility = "";
       });
       box.appendChild(frame);
+    }
+  }
+  // Load it quietly once the admin has settled, so the first tap on Contacts shows it straight away.
+  addEventListener("load", function () {
+    setTimeout(function () {
+      if (document.visibilityState === "visible" && !(navigator as any).connection?.saveData) {
+        load();
+      }
+    }, 2500);
+  });
+  window.__stats = function () {
+    if (!frame) {
+      load();
     } else if (window.__statsEvent) {
       frame.src = "/admin/analytics?event=" + encodeURIComponent(window.__statsEvent);
     }

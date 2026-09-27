@@ -82,6 +82,7 @@ form.addEventListener("submit", function (event) {
     return;
   }
   button.disabled = true;
+  button.classList.add("busy");
   button.textContent = "Checking your receipt…";
   fetch("/api/payment", { method: "POST", body: new FormData(form) })
     .then(function (response) {
@@ -117,6 +118,7 @@ form.addEventListener("submit", function (event) {
     })
     .catch(function (error) {
       button.disabled = false;
+      button.classList.remove("busy");
       button.textContent = "Submit";
       errorBox.textContent =
         error instanceof TypeError ? "Couldn't reach the server. Check your connection and try again." : error.message;
