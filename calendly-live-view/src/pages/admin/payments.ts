@@ -509,7 +509,7 @@ export function showPayments() {
 var paymentsKey = "";
 export function refreshPayments() {
   var pending = state.paymentsPending || 0;
-  document.querySelectorAll(".pbadge").forEach(function (badge: HTMLElement) {
+  document.querySelectorAll<HTMLElement>(".pbadge").forEach(function (badge: HTMLElement) {
     badge.hidden = !pending;
     badge.textContent = pending > 99 ? "99+" : String(pending);
   });

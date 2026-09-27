@@ -139,7 +139,7 @@ function unreadEnquiries() {
 }
 export function renderEnquiryBadge() {
   var count = byId("viewEnq").hidden ? unreadEnquiries() : 0;
-  document.querySelectorAll(".nbadge:not(.pbadge)").forEach(function (badge: HTMLElement) {
+  document.querySelectorAll<HTMLElement>(".nbadge:not(.pbadge)").forEach(function (badge: HTMLElement) {
     badge.hidden = !count;
     badge.textContent = count > 99 ? "99+" : String(count);
   });

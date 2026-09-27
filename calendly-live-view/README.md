@@ -77,7 +77,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 | `RESEND_API_KEY`, `EMAIL_FROM`, `HOST_EMAIL` | Confirmation emails and host copies |
 | `HOST_NAME`, `EVENT_NAME`, `EVENT_LOCATION`, `EVENT_DESCRIPTION`, `MEETING_LINK` | Text shown on pages, emails and invites |
 | `DAY_START_HOUR`, `DAY_END_HOUR`, `BOOKING_DAYS` | Booking window (default 9-21 IST, 7 days) |
-| `PUBLIC_URL` | Base URL for links in emails (defaults to the request host) |
+| `PUBLIC_URL` | Base URL for links in emails. Set it on Railway (`https://hi-techie.dev`): without it, links come from the request's host headers, which a visitor can set, and the server logs a warning at startup |
 | `REMOVE_BOOKINGS` | One-time cleanup on start: `Name@YYYY-MM-DD`, comma separated |
 | `BACKUP_EMAIL` | Where the daily backup email goes (comma separated; falls back to `HOST_EMAIL`) |
 | `BACKUP_HOUR` | Hour (IST) after which the daily backup runs, default `2` |
