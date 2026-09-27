@@ -1013,6 +1013,17 @@ describe("data safety", () => {
     expect(saved.emails).not.toContain("new1@example.com");
   });
 
+  test("JSON bodies that aren't objects are refused cleanly, not crashed on", async () => {
+    for (const body of ["null", "[]", '"text"', "42"]) {
+      const send = (path: string) =>
+        fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/json", "x-real-ip": "10.7.1.1" }, body });
+      expect((await send("/api/book")).status).toBe(400);
+      expect((await send("/api/manage/cancel")).status).toBe(403);
+      expect((await send("/admin/api/allowlist")).status).toBe(400);
+      expect((await send("/admin/api/round-status")).status).toBe(400);
+    }
+  });
+
   test("one network can make at most 20 bookings an hour", async () => {
     const codes: number[] = [];
     for (let i = 0; i < 21; i++) codes.push((await postJson(s, "/api/book", {}, { "x-real-ip": "10.7.0.1" })).status);

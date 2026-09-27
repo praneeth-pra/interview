@@ -1,12 +1,12 @@
 // Picking a time: the month calendar, the day's times and the Next button.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { ICONS } from "./icons";
 import { formatIst, formatRange, formatTime, middayOf, todayKey } from "./time";
 import { card, manage, render, state } from "./app";
 import { fetchSlots, showSlots } from "./slots";
 
 export function renderCalendar() {
-  var section = el("section", {
+  const section = el("section", {
     class: "pick",
     "aria-labelledby": "pickh",
   });
@@ -42,8 +42,8 @@ export function renderCalendar() {
       ),
     );
   }
-  var year = state.viewY;
-  var month = state.viewM;
+  const year = state.viewY;
+  const month = state.viewM;
   if (!year) {
     section.appendChild(
       el("div", {
@@ -53,14 +53,14 @@ export function renderCalendar() {
     );
     return section;
   }
-  var firstKey = state.days.length ? state.days[0].key : "";
-  var lastKey = state.days.length ? state.days[state.days.length - 1].key : "";
+  const firstKey = state.days.length ? state.days[0].key : "";
+  const lastKey = state.days.length ? state.days[state.days.length - 1].key : "";
   function monthKey(y: number, m: number) {
     return y + "-" + String(m).padStart(2, "0");
   }
-  var canPrev = firstKey && firstKey.slice(0, 7) < monthKey(year, month);
-  var canNext = lastKey && lastKey.slice(0, 7) > monthKey(year, month);
-  var monthLabel = new Intl.DateTimeFormat("en-US", {
+  const canPrev = firstKey && firstKey.slice(0, 7) < monthKey(year, month);
+  const canNext = lastKey && lastKey.slice(0, 7) > monthKey(year, month);
+  const monthLabel = new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
     month: "long",
     year: "numeric",
@@ -115,7 +115,7 @@ export function renderCalendar() {
       ],
     ),
   );
-  var grid = el("div", {
+  const grid = el("div", {
     class: "grid",
     role: "group",
     "aria-label": monthLabel,
@@ -132,22 +132,18 @@ export function renderCalendar() {
       ),
     );
   });
-  for (
-    var leadingBlanks = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7,
-      daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate(),
-      today = todayKey(),
-      blank = 0;
-    blank < leadingBlanks;
-    blank++
-  ) {
+  const leadingBlanks = (new Date(Date.UTC(year, month - 1, 1)).getUTCDay() + 6) % 7;
+  const daysInMonth = new Date(Date.UTC(year, month, 0)).getUTCDate();
+  const today = todayKey();
+  for (let blank = 0; blank < leadingBlanks; blank++) {
     grid.appendChild(el("div"));
   }
-  for (var dayOfMonth = 1; dayOfMonth <= daysInMonth; dayOfMonth++) {
+  for (let dayOfMonth = 1; dayOfMonth <= daysInMonth; dayOfMonth++) {
     (function (day) {
-      var key = monthKey(year, month) + "-" + String(day).padStart(2, "0");
-      var isOpen = !!state.openSet[key];
-      var className = "day" + (isOpen ? " open" : "") + (key === today ? " today" : "");
-      var label = new Intl.DateTimeFormat("en-US", {
+      const key = monthKey(year, month) + "-" + String(day).padStart(2, "0");
+      const isOpen = !!state.openSet[key];
+      const className = "day" + (isOpen ? " open" : "") + (key === today ? " today" : "");
+      const label = new Intl.DateTimeFormat("en-US", {
         timeZone: "UTC",
         weekday: "long",
         month: "long",
@@ -192,7 +188,7 @@ export function renderCalendar() {
     })(dayOfMonth);
   }
   section.appendChild(grid);
-  var tz = el("span", {
+  const tz = el("span", {
     html: ICONS.globe + "<span></span>",
   });
   tz.lastChild!.textContent = "India Standard Time (" + formatTime(Date.now()) + ")";
@@ -208,7 +204,7 @@ export function renderCalendar() {
   return section;
 }
 export function renderTimes() {
-  var section = el("section", {
+  const section = el("section", {
     class: "times",
     "aria-labelledby": "timesh",
   });
@@ -227,7 +223,7 @@ export function renderTimes() {
       ],
     ),
   );
-  var list = el("div", {
+  const list = el("div", {
     class: "tlist" + (state.stale ? " stale" : ""),
     "aria-busy": state.stale ? "true" : null,
   });
@@ -240,8 +236,8 @@ export function renderTimes() {
     );
   } else if (state.slots.length) {
     state.slots.forEach(function (ms) {
-      var selected = state.slot === ms;
-      var row = el("div", {
+      const selected = state.slot === ms;
+      const row = el("div", {
         class: "slot" + (selected ? " sel" : ""),
       });
       row.appendChild(
@@ -292,7 +288,7 @@ function nextButton(ms: number) {
         if (manage) {
           state.step = "confirm";
           render();
-          var confirmButton = document.getElementById("rsgo");
+          const confirmButton = document.getElementById("rsgo");
           if (confirmButton) {
             confirmButton.focus();
           }
@@ -306,7 +302,7 @@ function nextButton(ms: number) {
           window.scrollTo(0, 0);
           return;
         }
-        var firstField = document.getElementById(state.form.email ? "fname" : "femail");
+        const firstField = document.getElementById(state.form.email ? "fname" : "femail");
         if (firstField) {
           firstField.focus();
         }
@@ -316,7 +312,7 @@ function nextButton(ms: number) {
   );
 }
 function toggleSlot(ms: number) {
-  var previous = card.querySelector<HTMLElement>(".slot.sel");
+  const previous = card.querySelector<HTMLElement>(".slot.sel");
   if (previous) {
     previous.classList.remove("sel");
     (previous.firstChild as HTMLElement).setAttribute("aria-pressed", "false");
@@ -329,13 +325,13 @@ function toggleSlot(ms: number) {
     return;
   }
   state.slot = ms;
-  var button = document.getElementById("s" + ms);
+  const button = document.getElementById("s" + ms);
   if (!button) {
     return render();
   }
   (button.parentNode as HTMLElement).classList.add("sel");
   button.setAttribute("aria-pressed", "true");
-  var next = nextButton(ms);
+  const next = nextButton(ms);
   button.parentNode!.appendChild(next);
   next.focus({
     preventScroll: true,

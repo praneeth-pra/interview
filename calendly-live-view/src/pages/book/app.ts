@@ -35,7 +35,7 @@ export function setState(next: State) {
   state = next;
 }
 // Every change draws the card again from state; main.ts says how.
-var draw = function () {};
+let draw = function () {};
 export function render() {
   draw();
 }

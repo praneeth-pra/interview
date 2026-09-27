@@ -6,16 +6,16 @@ import { colorClass, state, view } from "./state";
 import { layoutColumns, type Item } from "./layout";
 import { showBooking } from "./booking-panel";
 
-var HOUR_PX = 64;
+const HOUR_PX = 64;
 export function dayItems(day: string): Item[] {
   return state.events
     .filter(function (booking) {
       return dayKeyOf(new Date(booking.start)) === day;
     })
     .map(function (booking): Item {
-      var start = new Date(booking.start);
-      var from = minutesOfDay(start);
-      var minutes = Math.max(15, Math.round((Date.parse(booking.end) - +start) / 60000));
+      const start = new Date(booking.start);
+      const from = minutesOfDay(start);
+      const minutes = Math.max(15, Math.round((Date.parse(booking.end) - +start) / 60000));
       return {
         booking: booking,
         from: from,
@@ -28,9 +28,9 @@ export function dayItems(day: string): Item[] {
 }
 // "Sep 21 – 27", "Sep 28 – Oct 4", with the year only when it isn't this year.
 function weekTitle(first: string) {
-  var last = addDays(first, 6);
-  var year = first.slice(0, 4) !== dayKeyOf(new Date()).slice(0, 4) ? ", " + last.slice(0, 4) : "";
-  var sameMonth = first.slice(0, 7) === last.slice(0, 7);
+  const last = addDays(first, 6);
+  const year = first.slice(0, 4) !== dayKeyOf(new Date()).slice(0, 4) ? ", " + last.slice(0, 4) : "";
+  const sameMonth = first.slice(0, 7) === last.slice(0, 7);
   return (
     formatDay(first, { month: "short", day: "numeric" }) +
     " – " +
@@ -39,14 +39,14 @@ function weekTitle(first: string) {
   );
 }
 export function renderWeek() {
-  var today = dayKeyOf(new Date());
-  var days = [];
-  var itemsByDay: Item[][] = [];
-  var i;
-  var fromMin = state.hours.start;
-  var toMin = state.hours.end;
-  var now = Date.now();
-  var nowMin = minutesOfDay(new Date());
+  const today = dayKeyOf(new Date());
+  const days = [];
+  const itemsByDay: Item[][] = [];
+  let i;
+  let fromMin = state.hours.start;
+  let toMin = state.hours.end;
+  const now = Date.now();
+  const nowMin = minutesOfDay(new Date());
   for (i = 0; i < 7; i++) {
     days.push(addDays(view.week!, i));
     itemsByDay.push(dayItems(days[i]));
@@ -57,17 +57,17 @@ export function renderWeek() {
       toMin = Math.max(toMin, item.to);
     });
   });
-  var firstHour = Math.floor(fromMin / 60);
-  var lastHour = Math.min(24, Math.ceil(toMin / 60));
-  var height = (lastHour - firstHour) * HOUR_PX;
+  const firstHour = Math.floor(fromMin / 60);
+  const lastHour = Math.min(24, Math.ceil(toMin / 60));
+  const height = (lastHour - firstHour) * HOUR_PX;
   byId("title").textContent = weekTitle(view.week!);
   byId<HTMLInputElement>("pick").value = view.day || today;
-  var week = byId("week");
-  var firstPaint = !week.firstChild;
-  var scrollX = week.scrollLeft;
-  var scrollY = week.scrollTop;
+  const week = byId("week");
+  const firstPaint = !week.firstChild;
+  const scrollX = week.scrollLeft;
+  const scrollY = week.scrollTop;
   week.textContent = "";
-  var grid = el("div", {
+  const grid = el("div", {
     class: "grid",
   });
   grid.style.setProperty("--hr", HOUR_PX + "px");
@@ -96,13 +96,13 @@ export function renderWeek() {
       ),
     );
   });
-  var axis = el("div", {
+  const axis = el("div", {
     class: "axis",
   });
   axis.style.height = height + "px";
   i = firstHour;
   for (; i <= lastHour; i++) {
-    var label = el("span", {
+    const label = el("span", {
       text: hourLabel(i),
     });
     label.style.top = (i - firstHour) * HOUR_PX + "px";
@@ -116,19 +116,19 @@ export function renderWeek() {
   }
   grid.appendChild(axis);
   days.forEach(function (day, index) {
-    var column = el("div", {
+    const column = el("div", {
       class: "col" + (day === today ? " today" : ""),
     });
     column.style.height = height + "px";
     layoutColumns(itemsByDay[index]);
     itemsByDay[index].forEach(function (item) {
-      var booking = item.booking;
-      var interviewer = state.iv.assign[booking.id];
-      var cols = item.group!.cols.length;
-      var isPast = Date.parse(booking.end) <= now;
-      var started = Date.parse(booking.start) <= now;
-      var boxHeight = Math.max(22, ((item.to - item.from) / 60) * HOUR_PX - 2);
-      var button = el(
+      const booking = item.booking;
+      const interviewer = state.iv.assign[booking.id];
+      const cols = item.group!.cols.length;
+      const isPast = Date.parse(booking.end) <= now;
+      const started = Date.parse(booking.start) <= now;
+      const boxHeight = Math.max(22, ((item.to - item.from) / 60) * HOUR_PX - 2);
+      const button = el(
         "button",
         {
           type: "button",
@@ -181,7 +181,7 @@ export function renderWeek() {
       column.appendChild(button);
     });
     if (day === today && nowMin >= firstHour * 60 && nowMin <= lastHour * 60) {
-      var nowLine = el("div", {
+      const nowLine = el("div", {
         class: "now",
       });
       nowLine.style.top = ((nowMin - firstHour * 60) / 60) * HOUR_PX + "px";
@@ -191,7 +191,7 @@ export function renderWeek() {
   });
   week.appendChild(grid);
   if (firstPaint) {
-    var todayIndex = days.indexOf(today);
+    const todayIndex = days.indexOf(today);
     if (todayIndex >= 0) {
       week.scrollTop = Math.max(0, ((nowMin - firstHour * 60) / 60) * HOUR_PX - HOUR_PX * 2);
       if (week.scrollWidth > week.clientWidth) {

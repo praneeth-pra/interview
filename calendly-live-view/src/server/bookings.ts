@@ -10,9 +10,9 @@ import { alertAdmins } from "./push";
 import { bookingLimitMs, overlapsExisting, slotOk } from "./schedule";
 import { saveStore } from "./store";
 import { istDate, t12 } from "./time";
-import { EMAIL_RE } from "./util";
+import { EMAIL_RE, type Fields } from "./util";
 
-export function managedBooking(body: any): Booking | Response {
+export function managedBooking(body: Fields): Booking | Response {
   const id = String(body?.id ?? "");
   const b = bookingsStore.data.bookings.find((x) => x.id === id);
   if (!b || !tokenOk(b.id, body?.t)) return json({ error: "This link isn't valid. Use the link from your confirmation email." }, 403);
@@ -25,14 +25,14 @@ export async function commit(b: Booking, prev: Booking) {
     await saveStore(bookingsStore);
     return true;
   } catch {
-    for (const k of Object.keys(b)) if (!(k in prev)) delete (b as any)[k];
+    for (const k of Object.keys(b)) if (!(k in prev)) delete (b as Record<string, unknown>)[k];
     Object.assign(b, prev);
     return false;
   }
 }
 const OUTCOME_LABEL = { cleared: "Cleared", rejected: "Rejected", hold: "On hold" } as const;
 export const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
-export async function createBooking(body: any, req: Request, source?: "admin"): Promise<Response> {
+export async function createBooking(body: Fields, req: Request, source?: "admin"): Promise<Response> {
   const name = String(body?.name ?? "")
     .trim()
     .slice(0, 120);

@@ -40,16 +40,16 @@ export function forget() {
   }
 }
 try {
-  var savedState = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
+  const savedState = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
   if (savedState && savedState.ready && Array.isArray(savedState.events)) {
     state = savedState;
   }
 } catch (e) {}
 export function colorClass(name: string) {
-  var index = state.iv.names.indexOf(name);
+  let index = state.iv.names.indexOf(name);
   if (index < 0) {
     index = 0;
-    for (var pos = 0; pos < name.length; pos++) {
+    for (let pos = 0; pos < name.length; pos++) {
       index += name.charCodeAt(pos);
     }
   }
@@ -62,7 +62,7 @@ export function setState(next: State) {
 // The calendar on screen: the day picked in the date box (or null) and the Monday of the week shown.
 export const view: { day: string | null; week: string | null } = { day: null, week: null };
 // Draws the calendar, agenda and open panel again from state; main.ts says how.
-var draw = function () {};
+let draw = function () {};
 export function render() {
   draw();
 }

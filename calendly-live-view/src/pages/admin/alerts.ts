@@ -1,24 +1,24 @@
 // The Alerts button in the top bar: turns booking push notifications on or off for this device.
 export function setupAlerts() {
-  var topRight = document.querySelector(".top .tr");
+  const topRight = document.querySelector(".top .tr");
   if (!topRight) {
     return;
   }
-  var supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
-  var ua = navigator.userAgent;
-  var ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-  var standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
-  var reg: ServiceWorkerRegistration | null = null;
-  var mine: PushSubscription | null = null;
+  const supported = "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+  const ua = navigator.userAgent;
+  const ios = /iphone|ipad|ipod/i.test(ua) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+  let reg: ServiceWorkerRegistration | null = null;
+  let mine: PushSubscription | null = null;
   // the server's key and the devices it sends alerts to (yours: this admin's own)
-  var info: { key: string; endpoints: string[]; yours?: string[] } = {
+  let info: { key: string; endpoints: string[]; yours?: string[] } = {
     key: "",
     endpoints: [],
     yours: [],
   };
-  var busy = false;
-  var ready: Promise<unknown> | undefined;
-  var btn = document.createElement("button");
+  let busy = false;
+  let ready: Promise<unknown> | undefined;
+  const btn = document.createElement("button");
   btn.type = "button";
   btn.id = "pushBtn";
   btn.className = "chip";
@@ -28,7 +28,7 @@ export function setupAlerts() {
   btn.innerHTML =
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 11V7a4 4 0 0 1 8 0v4l1.2 1.3H2.8z" stroke-linejoin="round"/><path d="M6.6 14h2.8" stroke-linecap="round"/></svg><span>Alerts</span>';
   topRight.insertBefore(btn, document.getElementById("qbtn"));
-  var pop = document.createElement("div");
+  const pop = document.createElement("div");
   pop.className = "pushpop";
   pop.hidden = true;
   pop.setAttribute("role", "dialog");
@@ -62,9 +62,9 @@ export function setupAlerts() {
   }
   // A VAPID key (base64url) as bytes, for pushManager.subscribe().
   function keyBytes(base64: string) {
-    var binary = atob((base64 + "===".slice((base64.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
-    var bytes = new Uint8Array(binary.length);
-    for (var i = 0; i < binary.length; i++) {
+    const binary = atob((base64 + "===".slice((base64.length + 3) % 4)).replace(/-/g, "+").replace(/_/g, "/"));
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
       bytes[i] = binary.charCodeAt(i);
     }
     return bytes;
@@ -90,13 +90,13 @@ export function setupAlerts() {
   function paint() {
     btn.classList.toggle("on", isOn());
     btn.lastChild!.textContent = isOn() ? "Alerts on" : "Alerts";
-    var menuSub = document.getElementById("mAlertsSub");
+    const menuSub = document.getElementById("mAlertsSub");
     if (menuSub) {
       menuSub.textContent = isOn() ? "On for this device" : "Booking notifications on this device";
     }
   }
   function render(msg?: string) {
-    var html = "<h3>Booking notifications</h3>";
+    let html = "<h3>Booking notifications</h3>";
     if (!supported) {
       html +=
         ios && !standalone
@@ -111,7 +111,7 @@ export function setupAlerts() {
       html +=
         '<p>Get a banner on this device whenever a candidate books, reschedules or cancels, with their name, company, round and time.</p><div class="pp-row"><button type="button" class="pp-btn primary" data-a="on">Turn on for this device</button></div>';
     }
-    var count = info.endpoints.length;
+    const count = info.endpoints.length;
     html +=
       '<p class="pp-n">' +
       (count ? count + (count > 1 ? " devices get" : " device gets") + " alerts." : "No devices get alerts yet.") +
@@ -148,7 +148,7 @@ export function setupAlerts() {
               Notification.permission === "granted" &&
               (info.yours || []).indexOf(subscription.endpoint) < 0
             ) {
-              var json: PushSubscriptionJSON & { label?: string } = subscription.toJSON();
+              const json: PushSubscriptionJSON & { label?: string } = subscription.toJSON();
               json.label = label();
               return api("/admin/api/push/subscribe", json).then(function (result) {
                 info = result;
@@ -165,7 +165,7 @@ export function setupAlerts() {
       }
     });
   function place() {
-    var rect = btn.getBoundingClientRect();
+    const rect = btn.getBoundingClientRect();
     pop.style.top = Math.round(rect.bottom + 8) + "px";
   }
   function openPop(open: boolean) {
@@ -175,7 +175,7 @@ export function setupAlerts() {
     if (open) {
       place();
       render();
-      var first = pop.querySelector("button");
+      const first = pop.querySelector("button");
       if (first) {
         first.focus();
       }
@@ -207,7 +207,7 @@ export function setupAlerts() {
       },
       function (error) {
         busy = false;
-        var message = error && error.message ? error.message : "";
+        let message = error && error.message ? error.message : "";
         if (error && (error.name === "NotAllowedError" || /permission|incognito|private/i.test(message))) {
           message =
             "This browser isn’t allowing alerts here. If this is a private or incognito window, open the page in a normal window and try again.";
@@ -219,13 +219,13 @@ export function setupAlerts() {
     );
   }
   pop.addEventListener("click", function (e) {
-    var button = (e.target as Element).closest("button[data-a]");
+    const button = (e.target as Element).closest("button[data-a]");
     if (!button || busy) {
       return;
     }
-    var action = button.getAttribute("data-a");
+    const action = button.getAttribute("data-a");
     if (action === "on") {
-      var perm = Notification.requestPermission();
+      const perm = Notification.requestPermission();
       run(
         Promise.resolve(perm)
           .then(function (permission) {
@@ -254,7 +254,7 @@ export function setupAlerts() {
           })
           .then(function (subscription) {
             mine = subscription;
-            var json: PushSubscriptionJSON & { label?: string } = subscription.toJSON();
+            const json: PushSubscriptionJSON & { label?: string } = subscription.toJSON();
             json.label = label();
             return api("/admin/api/push/subscribe", json);
           })
@@ -273,7 +273,7 @@ export function setupAlerts() {
         }),
       );
     } else if (action === "off") {
-      var endpoint = mine!.endpoint;
+      const endpoint = mine!.endpoint;
       run(
         mine!
           .unsubscribe()

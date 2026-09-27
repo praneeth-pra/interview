@@ -2,13 +2,13 @@
 import { allowStore, bookingsStore } from "./data";
 import { json, saveOrUndo } from "./http";
 import { broadcastState } from "./live";
-import { EMAIL_RE, normEmail } from "./util";
+import { EMAIL_RE, normEmail, type Fields } from "./util";
 
 const MAX_EMAILS = 5000;
 export const allowView = () => ({ enabled: allowStore.data.enabled, emails: [...allowStore.data.emails].sort() });
 // POST /admin/api/allowlist: add pasted emails, remove one, turn the list on or off, or add everyone who has booked.
 // Nothing changes unless the whole action succeeds and is saved.
-export async function changeAllowlist(body: any): Promise<Response> {
+export async function changeAllowlist(body: Fields): Promise<Response> {
   const before = allowStore.data;
   const a = { enabled: before.enabled, emails: [...before.emails] };
   let extra: Record<string, unknown> = {};

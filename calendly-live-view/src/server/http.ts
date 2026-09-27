@@ -1,6 +1,7 @@
 // Response helpers, security headers and request limits.
 import { encode, respond } from "../assets";
 import { type FileStore, saveStore } from "./store";
+import { type Fields, asFields } from "./util";
 
 export const BASE_HEADERS = {
   "X-Content-Type-Options": "nosniff",
@@ -44,12 +45,12 @@ export function sendShell(req: Request, s: Shell, cache = "private, no-cache", e
   if (s.index) delete headers["X-Robots-Tag"];
   return respond(req, s.body, headers);
 }
-export async function readJson(req: Request, max = 5000): Promise<any | Response> {
+export async function readJson(req: Request, max = 5000): Promise<Fields | Response> {
   if (!(req.headers.get("content-type") ?? "").toLowerCase().startsWith("application/json")) return json({ error: "Bad request." }, 415);
   const raw = await req.text();
   if (raw.length > max) return json({ error: "Too large." }, 413);
   try {
-    return JSON.parse(raw);
+    return asFields(JSON.parse(raw));
   } catch {
     return json({ error: "Bad request." }, 400);
   }

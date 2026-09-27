@@ -1,5 +1,6 @@
 // ---- Browser notifications (Web Push) for admins -----------------------------------------
 import { TZ } from "./config";
+import { type Fields, asFields } from "./util";
 import { type Booking, type PushSub, isOwner, pushStore } from "./data";
 import { json, saveOrUndo } from "./http";
 import { saveStore } from "./store";
@@ -125,12 +126,12 @@ export async function ensurePushKeys() {
   await saveStore(pushStore).catch(() => {});
 }
 // POST /admin/api/push/<act> from an admin's device: turn alerts on (subscribe) or off (unsubscribe), or send a test.
-export async function changePush(act: string, body: any, email: string): Promise<Response> {
+export async function changePush(act: string, body: Fields, email: string): Promise<Response> {
   const endpoint = String(body?.endpoint ?? "");
   const before = pushStore.data.subs;
   if (act === "subscribe") {
-    const p256dh = String(body?.keys?.p256dh ?? "");
-    const auth = String(body?.keys?.auth ?? "");
+    const p256dh = String(asFields(body.keys).p256dh ?? "");
+    const auth = String(asFields(body.keys).auth ?? "");
     if (!pushEndpointOk(endpoint) || !/^[\w-]{80,100}$/.test(p256dh) || !/^[\w-]{16,32}$/.test(auth))
       return json({ error: "This browser sent an unexpected subscription. Try again." }, 400);
     const subs = before.filter((x) => x.endpoint !== endpoint);

@@ -5,11 +5,11 @@ Read README.md first for layout, commands and deploy.
 ## Rules that are easy to break
 
 - **Real candidate data** lives on the Railway volume (`/data/*.json`). Never delete or overwrite it, never copy it into the repo.
-- **No inline scripts or styles.** The CSP is `script-src 'self'; style-src 'self'`. Put code in `src/pages/*.js|css`, set styles through classes or `el.style.x = ...`, and pass per-request data through the `<script type="application/json" id="boot">` block. `bun test` fails if a page shell breaks this.
+- **No inline scripts or styles.** The CSP is `script-src 'self'; style-src 'self'`. Put code in `src/pages/*.ts|css`, set styles through classes or `el.style.x = ...`, and pass per-request data through the `<script type="application/json" id="boot">` block. `bun test` fails if a page shell breaks this.
 - Page shells use `__HOST__`, `__EVENT__`, `__BOOT__`, `__PRELOAD__` placeholders, filled once at startup (per request only for `/b/<id>`).
 - Reference assets as `/assets/<file>` in HTML and CSS; `src/assets.ts` rewrites them to fingerprinted URLs. New files in `src/pages` or `src/fonts` are picked up automatically.
-- The booking, admin and analytics pages (`src/pages/book/`, `admin/`, `analytics/`) are typed TypeScript modules, checked in strict mode like the server; `bun run typecheck` must pass. Sign-in is `src/pages/login.js`.
-- Page scripts are readable sources; `src/assets.ts` bundles and minifies them at startup (`src/pages/<page>.js`, or `src/pages/<page>/main.ts` plus modules). Rename with a scope-aware tool (the editor's rename), never find-and-replace: the pages reuse short names like `row`, `box`, `event` in many scopes.
+- Every page script is TypeScript, checked in strict mode like the server (`bun run typecheck` must pass): the booking, admin and analytics pages as modules (`src/pages/book/`, `admin/`, `analytics/`), and sign-in, enquiry, payment and the theme switch as single files (`src/pages/login.ts`...). DOM helpers (`byId`, `el`) are shared from `src/pages/shared/dom.ts`.
+- Page scripts are readable sources; `src/assets.ts` bundles and minifies them at startup (`src/pages/<page>.ts`, or `src/pages/<page>/main.ts` plus modules; each is served as `/assets/<page>.js`). Rename with a scope-aware tool (the editor's rename), never find-and-replace: the pages reuse short names like `row`, `box`, `event` in many scopes.
 - Names, companies and reasons are typed by candidates: build DOM with `textContent`, not `innerHTML` with user text.
 - Fonts: every page (booking, admin, Contacts, sign-in) uses self-hosted Figtree, close to the Calendly app's font. Keep text at 11.5px or larger and grey text at 4.5:1 contrast.
 - The admin, booking and Contacts styles are `src/pages/<page>/css/*.css`, joined in file-name order into one `<page>.css`: order is the cascade, so add rules to the file for their feature and keep the numbering.

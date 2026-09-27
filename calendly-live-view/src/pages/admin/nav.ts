@@ -4,14 +4,17 @@
 import { byId } from "./dom";
 
 export function setupNav() {
-  var body = document.body;
-  var nav = document.querySelector<HTMLElement>(".bnav")!;
+  const body = document.body;
+  // Back-button bookkeeping for the bottom sheet (see the history handling further down).
+  let skipPop = false;
+  let afterPop: (() => void) | null = null;
+  const nav = document.querySelector<HTMLElement>(".bnav")!;
   // Phones with little memory (Chrome on Android says how much) scroll more smoothly without the frosted-glass bars.
-  var memory = (navigator as any).deviceMemory;
+  const memory = (navigator as any).deviceMemory;
   if (memory && memory <= 4) {
     document.documentElement.classList.add("lite");
   }
-  var weekView = new URLSearchParams(location.search).get("view") !== "agenda";
+  let weekView = new URLSearchParams(location.search).get("view") !== "agenda";
   function currentView() {
     if (!byId("viewStats").hidden) {
       return "stats";
@@ -27,7 +30,7 @@ export function setupNav() {
       return "cal";
     }
   }
-  var TITLES: Record<string, string> = {
+  const TITLES: Record<string, string> = {
     cal: "Calendar",
     ag: "Agenda",
     stats: "Contacts",
@@ -36,12 +39,12 @@ export function setupNav() {
     rev: "Revenue",
   };
   // Switching sections is instant; only the bottom bar's highlight slides to the new tab.
-  var pill = document.createElement("span");
+  const pill = document.createElement("span");
   pill.className = "bnav-pill";
   pill.setAttribute("aria-hidden", "true");
   nav.insertBefore(pill, nav.firstChild);
   function placePill() {
-    var active = nav.querySelector<HTMLElement>("[data-go].on");
+    const active = nav.querySelector<HTMLElement>("[data-go].on");
     pill.hidden = !active;
     if (active) {
       pill.style.width = active.offsetWidth + "px";
@@ -50,7 +53,7 @@ export function setupNav() {
   }
   addEventListener("resize", placePill);
   function sync() {
-    var current = currentView();
+    const current = currentView();
     byId("sect").textContent = TITLES[current];
     byId("qbtn").setAttribute("aria-expanded", String(current === "stats" && body.classList.contains("cq-open")));
     body.classList.toggle("on-cal", current === "cal" || current === "ag");
@@ -66,7 +69,7 @@ export function setupNav() {
     placePill();
   }
   // Each tab opens where you left it. The page is one long scroll, so remember its position per tab.
-  var scrolls: { [view: string]: number } = {};
+  const scrolls: { [view: string]: number } = {};
   addEventListener(
     "scroll",
     function () {
@@ -75,7 +78,7 @@ export function setupNav() {
     { passive: true },
   );
   function arrive(key: string) {
-    var top = scrolls[key] || 0;
+    const top = scrolls[key] || 0;
     window.scrollTo(0, top);
     // a tab that redraws on arrival can be shorter for a frame, so try again once it has drawn
     requestAnimationFrame(function () {
@@ -88,9 +91,9 @@ export function setupNav() {
   // then leaves. Leaving that tab adds one history entry; later switches replace it, so Back never walks through every tab.
   // Contacts is a page in a frame. Opening a person there adds a history entry (window.__contact), so Back returns to
   // the list first.
-  var contactEntry = false;
+  let contactEntry = false;
   function contactWindow() {
-    var frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
+    const frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
     return frame && (frame.contentWindow as Window | null);
   }
   window.__contact = function (open: boolean) {
@@ -105,9 +108,9 @@ export function setupNav() {
       history.back();
     }
   };
-  var homeView = "";
-  var onTab = false;
-  var restoring = false;
+  let homeView = "";
+  let onTab = false;
+  let restoring = false;
   function setUrl(url: string, key: string) {
     if (restoring) {
       return;
@@ -115,7 +118,7 @@ export function setupNav() {
     // Leaving Contacts with a person open: go back to the list and spend that person's history entry first.
     if (contactEntry && key !== "stats") {
       contactEntry = false;
-      var contacts = contactWindow();
+      const contacts = contactWindow();
       if (contacts && contacts.__contactBack) {
         contacts.__contactBack();
       }
@@ -179,7 +182,7 @@ export function setupNav() {
       return;
     }
     // keep ?pay= from a payment alert, so the tab can open that payment
-    var pay = new URLSearchParams(location.search).get("pay");
+    const pay = new URLSearchParams(location.search).get("pay");
     setUrl("/admin?view=payments" + (pay ? "&pay=" + encodeURIComponent(pay) : ""), "pay");
     byId("viewCal").hidden = true;
     byId("viewStats").hidden = true;
@@ -222,7 +225,7 @@ export function setupNav() {
     byId("viewRev").hidden = true;
     view(week);
     try {
-      var url = new URL(location.href);
+      const url = new URL(location.href);
       if (week) {
         url.searchParams.delete("view");
       } else {
@@ -238,18 +241,18 @@ export function setupNav() {
   });
   byId("tabAg").onclick = function () {
     // the Calendar click only shows the calendar section; the Agenda is the one to remember in history
-    var was = restoring;
+    const was = restoring;
     restoring = true;
     byId("tabCal").click();
     restoring = was;
     showCal(false);
   };
   nav.addEventListener("click", function (e) {
-    var button = (e.target as Element).closest("[data-go]");
+    const button = (e.target as Element).closest("[data-go]");
     if (!button) {
       return;
     }
-    var target = button.getAttribute("data-go");
+    const target = button.getAttribute("data-go");
     // tapping the tab you're already on scrolls it back to the top, like a native tab bar
     if (target === currentView()) {
       window.scrollTo({ top: 0, behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" });
@@ -269,7 +272,7 @@ export function setupNav() {
     }
     byId(target === "ag" ? "tabAg" : "tabCal").click();
   });
-  var startView = new URLSearchParams(location.search).get("view");
+  const startView = new URLSearchParams(location.search).get("view");
   if (startView === "analytics") {
     setTimeout(showStats, 0);
   } else if (startView === "enquiries") {
@@ -296,15 +299,15 @@ export function setupNav() {
   }
   // The search button in the phone header shows the contact search above the Contacts list. Phones have no
   // candidate search on the Calendar, so the button is hidden there.
-  var searchButton = byId("qbtn");
+  const searchButton = byId("qbtn");
   searchButton.onclick = function () {
     if (currentView() !== "stats") {
       return;
     }
-    var frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
-    var toggle = frame && (frame.contentWindow as any).__contactSearch;
+    const frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
+    const toggle = frame && (frame.contentWindow as any).__contactSearch;
     if (toggle) {
-      var shown = !!toggle();
+      const shown = !!toggle();
       body.classList.toggle("cq-open", shown);
       searchButton.setAttribute("aria-expanded", String(shown));
     }
@@ -318,10 +321,8 @@ export function setupNav() {
       nav.classList.add("ready");
     });
   });
-  var sheet = byId("panel");
-  var sheetEntry = false;
-  var skipPop = false;
-  var afterPop: (() => void) | null = null;
+  const sheet = byId("panel");
+  let sheetEntry = false;
   new MutationObserver(function () {
     if (!sheet.hidden && !sheetEntry) {
       sheetEntry = true;
@@ -341,7 +342,7 @@ export function setupNav() {
   addEventListener("popstate", function () {
     if (skipPop) {
       skipPop = false;
-      var next = afterPop;
+      const next = afterPop;
       afterPop = null;
       if (next) {
         next();
@@ -355,13 +356,13 @@ export function setupNav() {
     }
     if (contactEntry) {
       contactEntry = false;
-      var contacts = contactWindow();
+      const contacts = contactWindow();
       if (contacts && contacts.__contactBack) {
         contacts.__contactBack();
       }
       return;
     }
-    var shown = new URLSearchParams(location.search).get("view");
+    const shown = new URLSearchParams(location.search).get("view");
     restoring = true;
     if (shown === "analytics") {
       showStats();
@@ -377,7 +378,7 @@ export function setupNav() {
     restoring = false;
     onTab = !!homeView && currentView() !== homeView;
   });
-  var panel = byId("panel");
+  const panel = byId("panel");
   new MutationObserver(function () {
     body.classList.toggle("sheet", !panel.hidden);
     panel.style.transform = "";
@@ -387,13 +388,13 @@ export function setupNav() {
   });
   // Drag the sheet down by its handle or title to close it, like a native sheet: it follows the finger, the page behind
   // brightens as it goes, and a quick flick closes it even when it has only moved a little.
-  var dragFrom = 0;
-  var dragBy = 0;
-  var dragging = false;
-  var lastY = 0;
-  var lastT = 0;
-  var speed = 0; // px per ms, downwards
-  var back = byId("pback");
+  let dragFrom = 0;
+  let dragBy = 0;
+  let dragging = false;
+  let lastY = 0;
+  let lastT = 0;
+  let speed = 0; // px per ms, downwards
+  const back = byId("pback");
   panel.addEventListener(
     "touchstart",
     function (event: TouchEvent) {
@@ -401,8 +402,8 @@ export function setupNav() {
         dragging = false;
         return;
       }
-      var onHead = (event.target as Element).closest(".grab, .phead");
-      var atTop = byId("pbody").scrollTop <= 0;
+      const onHead = (event.target as Element).closest(".grab, .phead");
+      const atTop = byId("pbody").scrollTop <= 0;
       dragging = !!onHead || (atTop && !(event.target as Element).closest("input, textarea, select, button"));
       dragFrom = lastY = event.touches[0].clientY;
       lastT = performance.now();
@@ -417,8 +418,8 @@ export function setupNav() {
       if (!dragging) {
         return;
       }
-      var y = event.touches[0].clientY;
-      var now = performance.now();
+      const y = event.touches[0].clientY;
+      const now = performance.now();
       if (now > lastT) {
         speed = speed * 0.2 + ((y - lastY) / (now - lastT)) * 0.8;
       }
@@ -445,11 +446,11 @@ export function setupNav() {
     }
     dragging = false;
     // a flick counts only if the finger was still moving when it lifted
-    var flick = speed > 0.5 && dragBy > 24 && performance.now() - lastT < 120;
+    const flick = speed > 0.5 && dragBy > 24 && performance.now() - lastT < 120;
     if (dragBy > 110 || flick) {
       // finish at the finger's speed: a fast flick closes quickly, a slow drag glides
-      var rest = panel.offsetHeight - dragBy;
-      var ms = Math.round(Math.min(260, Math.max(120, rest / Math.max(speed, 1.2))));
+      const rest = panel.offsetHeight - dragBy;
+      const ms = Math.round(Math.min(260, Math.max(120, rest / Math.max(speed, 1.2))));
       panel.style.transition = "transform " + ms + "ms cubic-bezier(0.2, 0.7, 0.3, 1)";
       panel.style.transform = "translateY(100%)";
       back.style.transition = "opacity " + ms + "ms ease";

@@ -3,10 +3,10 @@
 import { bookingsStore, ivStore } from "./data";
 import { json, saveOrUndo } from "./http";
 import { broadcastState } from "./live";
-import { UUID } from "./util";
+import { UUID, type Fields } from "./util";
 
 // PUT /admin/api/interviewers: { set: { <booking id>: <name, or "" to clear> } }
-export async function assignInterviewers(body: any): Promise<Response> {
+export async function assignInterviewers(body: Fields): Promise<Response> {
   const iv = ivStore.data;
   const set: Record<string, string> = {};
   for (const [id, name] of Object.entries(body?.set ?? {})) {
@@ -28,7 +28,7 @@ export async function assignInterviewers(body: any): Promise<Response> {
   return json({ ok: true });
 }
 // POST /admin/api/interviewer-names: { list: [{ from?: <old name>, to: <name> }] }, in order, at most 12
-export async function renameInterviewers(body: any): Promise<Response> {
+export async function renameInterviewers(body: Fields): Promise<Response> {
   const iv = ivStore.data;
   if (!Array.isArray(body?.list) || body.list.length > 12) return json({ error: "You can have up to 12 interview supporters." }, 400);
   const names: string[] = [];

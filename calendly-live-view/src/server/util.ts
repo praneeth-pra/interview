@@ -17,3 +17,7 @@ export function safeEq(a: string, b: string) {
   return x.length === y.length && timingSafeEqual(x, y);
 }
 export const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+// JSON from outside (a request body, a data file): every field is unknown until checked. Anything that isn't a JSON
+// object reads as an empty one, so handlers only ever look fields up by name.
+export type Fields = { readonly [key: string]: unknown };
+export const asFields = (x: unknown): Fields => (x !== null && typeof x === "object" && !Array.isArray(x) ? (x as Fields) : {});

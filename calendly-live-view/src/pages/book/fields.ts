@@ -1,5 +1,5 @@
 // The details form's fields: plain text fields, the interview round and the company with its suggestions.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { companies, loadCompanies, suggestCompanies, type Match } from "./companies";
 import { state } from "./app";
 import { markPreviousCompany } from "./returning";
@@ -7,8 +7,8 @@ import type { FieldOptions, State } from "./types";
 
 export function textField(id: string, key: keyof State["form"], label: string, type: string, opts?: FieldOptions) {
   opts = opts || {};
-  var error = state.fieldErr[key];
-  var input = el("input", {
+  const error = state.fieldErr[key];
+  const input = el("input", {
     id: id,
     type: type,
     name: key,
@@ -26,13 +26,13 @@ export function textField(id: string, key: keyof State["form"], label: string, t
     if (state.fieldErr[key]) {
       delete state.fieldErr[key];
       input.removeAttribute("aria-invalid");
-      var errorEl = document.getElementById(id + "e");
+      const errorEl = document.getElementById(id + "e");
       if (errorEl) {
         errorEl.remove();
       }
     }
   });
-  var children: HTMLElement[] = [
+  const children: HTMLElement[] = [
     el(
       "label",
       {
@@ -63,11 +63,11 @@ export function textField(id: string, key: keyof State["form"], label: string, t
   );
 }
 // Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else.
-var ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round", "Demo"];
+const ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round", "Demo"];
 export function roundField() {
-  var current = state.form.round.trim();
-  var custom = !!current && ROUNDS.indexOf(current) < 0;
-  var select = el("select", {
+  const current = state.form.round.trim();
+  const custom = !!current && ROUNDS.indexOf(current) < 0;
+  const select = el("select", {
     id: "fround",
     name: "round",
     class: "rsel" + (current ? "" : " empty"),
@@ -78,7 +78,7 @@ export function roundField() {
   });
   select.appendChild(el("option", { value: "__other" }, ["Other…"]));
   select.value = custom ? "__other" : current;
-  var other = el("input", {
+  const other = el("input", {
     id: "fround-other",
     type: "text",
     name: "round-other",
@@ -106,11 +106,11 @@ export function roundField() {
   return el("div", { class: "f" }, [el("label", { for: "fround" }, ["Interview round"]), select, other]);
 }
 export function companyField() {
-  var id = "fcompany";
-  var listId = "fcompany-list";
-  var matches: Match[] = [];
-  var active = -1;
-  var input = el("input", {
+  const id = "fcompany";
+  const listId = "fcompany-list";
+  let matches: Match[] = [];
+  let active = -1;
+  const input = el("input", {
     id: id,
     type: "text",
     name: "company",
@@ -126,7 +126,7 @@ export function companyField() {
     maxlength: 120,
   });
   input.value = state.form.company;
-  var list = el("ul", {
+  const list = el("ul", {
     class: "cb-list",
     id: listId,
     role: "listbox",
@@ -143,7 +143,7 @@ export function companyField() {
   }
   function highlight(index: number, scroll?: boolean) {
     active = index;
-    for (var k = 0; k < list.children.length; k++) {
+    for (let k = 0; k < list.children.length; k++) {
       list.children[k].setAttribute("aria-selected", String(k === index));
     }
     if (index < 0) {
@@ -169,7 +169,7 @@ export function companyField() {
         loadCompanies(update);
         return;
       }
-      var query = input.value.trim();
+      const query = input.value.trim();
       matches = suggestCompanies(query);
       if (matches.length === 1 && matches[0].name.toLowerCase() === query.toLowerCase()) {
         matches = [];
@@ -178,12 +178,12 @@ export function companyField() {
         return close();
       }
       list.innerHTML = "";
-      var lower = query.toLowerCase();
+      const lower = query.toLowerCase();
       matches.forEach(function (match, index) {
-        var label = el("span", {
+        const label = el("span", {
           class: "cb-n",
         });
-        var at = match.name.toLowerCase().indexOf(lower);
+        const at = match.name.toLowerCase().indexOf(lower);
         if (at >= 0) {
           label.appendChild(document.createTextNode(match.name.slice(0, at)));
           label.appendChild(el("b", null, [match.name.slice(at, at + query.length)]));
@@ -191,7 +191,7 @@ export function companyField() {
         } else {
           label.appendChild(document.createTextNode(match.name));
         }
-        var option = el(
+        const option = el(
           "li",
           {
             id: listId + "-" + index,
@@ -236,7 +236,7 @@ export function companyField() {
     if (state.fieldErr.company) {
       delete state.fieldErr.company;
       input.removeAttribute("aria-invalid");
-      var errorEl = document.getElementById(id + "e");
+      const errorEl = document.getElementById(id + "e");
       if (errorEl) {
         errorEl.remove();
       }
@@ -248,7 +248,7 @@ export function companyField() {
   });
   input.addEventListener("blur", close);
   input.addEventListener("keydown", function (event) {
-    var open = !list.hidden;
+    const open = !list.hidden;
     if (event.key === "ArrowDown") {
       event.preventDefault();
       if (open) {

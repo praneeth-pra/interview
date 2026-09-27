@@ -16,7 +16,7 @@ import { decidePayment, paymentsList, receiptFile } from "../payments";
 import { changePush, pushView } from "../push";
 import { slotsFor } from "../schedule";
 import { istDate } from "../time";
-import { DATE_KEY } from "../util";
+import { type Fields, DATE_KEY } from "../util";
 
 // Enquiries, payments and revenue are for owners only; other admins don't see their tabs, and these APIs refuse them.
 const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|$)/;
@@ -32,7 +32,7 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   const email = me?.email ?? "";
   const q = (name: string) => url.searchParams.get(name) ?? "";
   // A JSON body of at most max characters, then the action; a bad body is answered for it.
-  const withBody = async (max: number, act: (body: any) => Promise<Response> | Response) => {
+  const withBody = async (max: number, act: (body: Fields) => Promise<Response> | Response) => {
     const body = await readJson(req, max);
     return body instanceof Response ? body : act(body);
   };

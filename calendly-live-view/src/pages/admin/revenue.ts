@@ -6,6 +6,12 @@ import { request } from "./api";
 import { byId, el } from "./dom";
 import { plural, titleCase } from "./labels";
 
+// Cumulative ("total") unless this device last picked Monthly
+let revenueMode = "total";
+try {
+  revenueMode = localStorage.getItem("revMode") === "month" ? "month" : "total";
+} catch (e) {}
+
 type Candidate = { name: string; email: string; total: number };
 type Summary = {
   months: string[];
@@ -37,7 +43,7 @@ function shortRupees(amount: number) {
   return "\u20B9" + Math.round(amount);
 }
 function monthName(key: string, withYear?: boolean) {
-  var name = MONTH_NAMES[Number(key.slice(5)) - 1];
+  const name = MONTH_NAMES[Number(key.slice(5)) - 1];
   return withYear ? name + " " + key.slice(0, 4) : name;
 }
 
@@ -50,11 +56,11 @@ function tile(label: string, value: string, note: string) {
 }
 // twelve columns, one per month; the label above each bar is its value
 function monthBars(months: string[], values: number[], label: (v: number) => string, describe: (v: number) => string, money?: boolean) {
-  var top = Math.max.apply(null, values.concat([0]));
-  var chart = el("div", { class: money ? "rv-bars money" : "rv-bars", role: "list" });
+  const top = Math.max.apply(null, values.concat([0]));
+  const chart = el("div", { class: money ? "rv-bars money" : "rv-bars", role: "list" });
   months.forEach(function (key, i) {
-    var v = values[i];
-    var bar = el("i", { class: v ? "" : "zero" });
+    const v = values[i];
+    const bar = el("i", { class: v ? "" : "zero" });
     bar.style.height = top ? Math.max(v ? 3 : 0, (v / top) * 100) + "%" : "0";
     chart.appendChild(
       el(
@@ -76,11 +82,11 @@ function monthBars(months: string[], values: number[], label: (v: number) => str
   return chart;
 }
 function draw(body: HTMLElement, data: Summary) {
-  var rev = data.revenue;
-  var months = data.months;
-  var thisMonth = rev.byMonth[months.length - 1];
-  var lastMonth = rev.byMonth[months.length - 2];
-  var change = lastMonth ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100) : 0;
+  const rev = data.revenue;
+  const months = data.months;
+  const thisMonth = rev.byMonth[months.length - 1];
+  const lastMonth = rev.byMonth[months.length - 2];
+  const change = lastMonth ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100) : 0;
 
   body.appendChild(
     el("div", { class: "rv-tiles" }, [
@@ -102,13 +108,13 @@ function draw(body: HTMLElement, data: Summary) {
   );
 
   // Cumulative: everything confirmed up to the end of each month. Monthly: what came in that month.
-  var cumulative = rev.byMonth.slice();
-  var sum = rev.before;
+  const cumulative = rev.byMonth.slice();
+  let sum = rev.before;
   cumulative.forEach(function (v, i) {
     sum += v;
     cumulative[i] = sum;
   });
-  var running = revenueMode === "total";
+  const running = revenueMode === "total";
   function modeButton(mode: string, label: string) {
     return el("button", {
       type: "button",
@@ -153,20 +159,15 @@ function draw(body: HTMLElement, data: Summary) {
   );
 }
 
-// Cumulative ("total") unless this device last picked Monthly
-var revenueMode = "total";
-try {
-  revenueMode = localStorage.getItem("revMode") === "month" ? "month" : "total";
-} catch (e) {}
 // what's typed in the search box: part of a candidate's name or email (or a picked suggestion's email)
-var revenueQuery = "";
-var loading = 0;
-var searchTimer: ReturnType<typeof setTimeout> | undefined;
+let revenueQuery = "";
+let loading = 0;
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
 // everyone with a payment, from the last answer, for the suggestions
-var candidates: Candidate[] = [];
+let candidates: Candidate[] = [];
 function setupSearch(body: HTMLElement) {
-  var list = el("ul", { id: "revDrop", class: "drop", role: "listbox", "aria-label": "Candidates", hidden: true });
-  var search = el("input", {
+  const list = el("ul", { id: "revDrop", class: "drop", role: "listbox", "aria-label": "Candidates", hidden: true });
+  const search = el("input", {
     type: "search",
     class: "payfilter paysearch",
     placeholder: "Search a candidate",
@@ -177,8 +178,8 @@ function setupSearch(body: HTMLElement) {
     "aria-controls": "revDrop",
     autocomplete: "off",
   });
-  var shown: Candidate[] = [];
-  var active = -1;
+  let shown: Candidate[] = [];
+  let active = -1;
   function close() {
     list.hidden = true;
     search.setAttribute("aria-expanded", "false");
@@ -187,7 +188,7 @@ function setupSearch(body: HTMLElement) {
   }
   function highlight(index: number) {
     active = index;
-    for (var i = 0; i < list.children.length; i++) {
+    for (let i = 0; i < list.children.length; i++) {
       list.children[i].setAttribute("aria-selected", String(i === index));
     }
     if (index >= 0) {
@@ -197,7 +198,7 @@ function setupSearch(body: HTMLElement) {
   }
   // a picked candidate: their name in the box, and the figures for their email alone
   function choose(index: number) {
-    var p = shown[index];
+    const p = shown[index];
     if (!p) {
       return;
     }
@@ -208,7 +209,7 @@ function setupSearch(body: HTMLElement) {
     showRevenue();
   }
   function suggest() {
-    var q = search.value.trim().toLowerCase();
+    const q = search.value.trim().toLowerCase();
     list.textContent = "";
     if (!q) {
       close();
@@ -277,16 +278,16 @@ function setupSearch(body: HTMLElement) {
   body.appendChild(el("div", { class: "paybar" }, [el("div", { class: "srch rv-srch" }, [search, list])]));
 }
 function showRevenue() {
-  var body = byId("revBody");
-  var figures = byId("revFigures");
+  const body = byId("revBody");
+  let figures = byId("revFigures");
   if (!figures) {
     // built once, so typing never loses the box's focus; only the figures below it redraw
     setupSearch(body);
     figures = el("div", { id: "revFigures" }, [el("p", { class: "sub", text: "Loading\u2026" })]);
     body.appendChild(figures);
   }
-  var query = revenueQuery.trim();
-  var ask = ++loading;
+  const query = revenueQuery.trim();
+  const ask = ++loading;
   // the CSV narrows to the same candidates
   byId<HTMLAnchorElement>("revDl").href = "/admin/api/revenue.csv" + (query ? "?q=" + encodeURIComponent(query) : "");
   request("/admin/api/revenue" + (query ? "?q=" + encodeURIComponent(query) : ""))
@@ -301,7 +302,7 @@ function showRevenue() {
         return;
       }
       if (query) {
-        var names = data.found.map(function (p) {
+        const names = data.found.map(function (p) {
           return titleCase(p.name);
         });
         figures.appendChild(

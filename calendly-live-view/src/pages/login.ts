@@ -6,19 +6,19 @@ if (navigator.serviceWorker && navigator.serviceWorker.controller) {
   navigator.serviceWorker.controller.postMessage("signed-out");
 }
 // Two steps: the admin's email (a 6-digit code is emailed to people on the admin list), then the code.
-var form = document.getElementById("f");
-var emailInput = document.getElementById("em");
-var codeInput = document.getElementById("code");
-var button = document.getElementById("go");
-var errorBox = document.getElementById("err");
-var lead = document.getElementById("lead");
-var firstLead = lead.textContent;
-var step = 1;
-var busy = false;
+const form = document.getElementById("f") as HTMLFormElement;
+const emailInput = document.getElementById("em") as HTMLInputElement;
+const codeInput = document.getElementById("code") as HTMLInputElement;
+const button = document.getElementById("go") as HTMLButtonElement;
+const errorBox = document.getElementById("err") as HTMLElement;
+const lead = document.getElementById("lead") as HTMLElement;
+const firstLead = lead.textContent;
+let step = 1;
+let busy = false;
 try {
   emailInput.value = localStorage.getItem("adm.email") || "";
 } catch (e) {}
-function post(url, body) {
+function post(url: string, body: object) {
   return fetch(url, {
     method: "POST",
     headers: {
@@ -36,23 +36,23 @@ function post(url, body) {
       });
   });
 }
-function setBusy(on, label) {
+function setBusy(on: boolean, label: string) {
   busy = on;
   button.disabled = on;
   button.textContent = label;
 }
-function showStep(next) {
+function showStep(next: number) {
   step = next;
-  document.getElementById("s1").hidden = step !== 1;
-  document.getElementById("s2").hidden = step !== 2;
-  document.getElementById("alt").hidden = step !== 2;
+  document.getElementById("s1")!.hidden = step !== 1;
+  document.getElementById("s2")!.hidden = step !== 2;
+  document.getElementById("alt")!.hidden = step !== 2;
   button.textContent = step === 1 ? "Email me a code" : "Sign in";
   lead.textContent =
     step === 1 ? firstLead : "If " + emailInput.value.trim() + " is on the admin list, a code is on its way. It works for 10 minutes.";
   (step === 1 ? emailInput : codeInput).focus();
 }
 function askForCode() {
-  var email = emailInput.value.trim();
+  const email = emailInput.value.trim();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     errorBox.textContent = "Enter your email address.";
     emailInput.focus();
@@ -80,7 +80,7 @@ function askForCode() {
     });
 }
 function signIn() {
-  var code = codeInput.value.replace(/\D/g, "");
+  const code = codeInput.value.replace(/\D/g, "");
   if (code.length !== 6) {
     errorBox.textContent = "Enter the 6-digit code from the email.";
     codeInput.focus();
@@ -115,7 +115,7 @@ form.addEventListener("submit", function (event) {
 });
 // the code is filled from the email (or pasted): sign in as soon as all six digits are there
 codeInput.addEventListener("input", function () {
-  var digits = codeInput.value.replace(/\D/g, "").slice(0, 6);
+  const digits = codeInput.value.replace(/\D/g, "").slice(0, 6);
   if (digits !== codeInput.value) {
     codeInput.value = digits;
   }
@@ -123,12 +123,12 @@ codeInput.addEventListener("input", function () {
     signIn();
   }
 });
-document.getElementById("again").addEventListener("click", function () {
+document.getElementById("again")!.addEventListener("click", function () {
   if (!busy) {
     askForCode();
   }
 });
-document.getElementById("other").addEventListener("click", function () {
+document.getElementById("other")!.addEventListener("click", function () {
   errorBox.textContent = "";
   showStep(1);
   emailInput.select();

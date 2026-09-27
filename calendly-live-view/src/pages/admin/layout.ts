@@ -5,7 +5,7 @@ import type { Booking } from "./types";
 export type Item = { booking: Booking; from: number; to: number; col?: number; group?: { end: number; cols: number[] } };
 // Overlapping bookings share the column width: each gets a col index within its group.
 export function layoutColumns(items: Item[]) {
-  var group: Item["group"] | null = null;
+  let group: Item["group"] | null = null;
   items.forEach(function (item) {
     if (!group || item.from >= group.end) {
       group = {
@@ -13,7 +13,8 @@ export function layoutColumns(items: Item[]) {
         cols: [],
       };
     }
-    for (var col = 0; group.cols[col] !== undefined && group.cols[col] > item.from; ) {
+    let col = 0;
+    while (group.cols[col] !== undefined && group.cols[col] > item.from) {
       col++;
     }
     group.cols[col] = item.to;

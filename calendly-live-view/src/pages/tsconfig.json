@@ -5,10 +5,12 @@
     "moduleResolution": "Bundler",
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "noEmit": true,
+    // each page script is checked on its own, as the bundler builds it, even the ones with no imports
+    "moduleDetection": "force",
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "skipLibCheck": true
   },
-  "include": ["*/**/*.ts"]
+  "include": ["*.ts", "*/**/*.ts"]
 }

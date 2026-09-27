@@ -1,5 +1,5 @@
 // The booked screen: the confirmation, a calendar file and a way to book another round.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { ICONS } from "./icons";
 import { formatRange } from "./time";
 import { card, eventName, hostName, setState, state } from "./app";
@@ -17,7 +17,7 @@ function icsLink(booking: Booking) {
       })
       .replace(/\n/g, "\\n");
   }
-  var ics = [
+  const ics = [
     "BEGIN:VCALENDAR",
     "VERSION:2.0",
     "PRODID:-//booking-form//EN",
@@ -35,12 +35,12 @@ function icsLink(booking: Booking) {
   return "data:text/calendar;charset=utf-8," + encodeURIComponent(ics);
 }
 export function renderDone() {
-  var booking = state.booking!;
-  var startMs = Date.parse(booking.start);
-  var section = el("section", {
+  const booking = state.booking!;
+  const startMs = Date.parse(booking.start);
+  const section = el("section", {
     class: "done",
   });
-  var inner = el("div", {
+  const inner = el("div", {
     class: "done-in",
   });
   inner.appendChild(
@@ -68,11 +68,11 @@ export function renderDone() {
         (booking.emailed ? "A calendar invite is on its way to " + booking.email + "." : "Add it to your calendar so it doesn't slip."),
     ]),
   );
-  var meta = el("ul", {
+  const meta = el("ul", {
     class: "meta",
   });
   function item(icon: string, text: string, highlight?: boolean) {
-    var li = el("li", {
+    const li = el("li", {
       class: highlight ? "hl" : null,
       html: icon + "<span></span>",
     });
@@ -100,7 +100,7 @@ export function renderDone() {
       ],
     ),
   );
-  var addToCalendar = el("a", {
+  const addToCalendar = el("a", {
     class: "pill",
     href: icsLink(booking),
     download: "interview.ics",

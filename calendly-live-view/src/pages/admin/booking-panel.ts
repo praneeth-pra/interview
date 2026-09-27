@@ -14,10 +14,10 @@ function clashFor(booking: Booking, interviewer: string) {
   if (!interviewer) {
     return "";
   }
-  var start = Date.parse(booking.start);
-  var end = Date.parse(booking.end);
-  for (var index = 0; index < state.events.length; index++) {
-    var other = state.events[index];
+  const start = Date.parse(booking.start);
+  const end = Date.parse(booking.end);
+  for (let index = 0; index < state.events.length; index++) {
+    const other = state.events[index];
     if (
       other.id !== booking.id &&
       state.iv.assign[other.id] === interviewer &&
@@ -30,7 +30,7 @@ function clashFor(booking: Booking, interviewer: string) {
   return "";
 }
 function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
-  var change: Record<string, string> = {};
+  const change: Record<string, string> = {};
   change[booking.id] = name;
   setMessage(msg, "Saving…");
   request(
@@ -49,7 +49,7 @@ function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
 }
 // "in 2 days", "in 3 hours", "in 20 min"
 function untilText(ms: number) {
-  var minutes = Math.round(ms / 60000);
+  const minutes = Math.round(ms / 60000);
   if (minutes < 60) {
     return "in " + Math.max(1, minutes) + " min";
   } else if (minutes < 24 * 60) {
@@ -62,13 +62,13 @@ function untilText(ms: number) {
 // interview). One tap saves a status; tapping the selected one clears it. No-show and Didn't happen are offered while
 // nobody is recorded as giving support.
 function roundStatusCard(booking: Booking, current: RoundStatus | null, supported: boolean) {
-  var card = el("div", { class: "bk-card rsc" }, [el("h3", { text: "Round status" })]);
-  var msg = el("p", { class: "msg", role: "status" });
-  var options = ROUND_STATUSES.filter(function (option) {
+  const card = el("div", { class: "bk-card rsc" }, [el("h3", { text: "Round status" })]);
+  const msg = el("p", { class: "msg", role: "status" });
+  const options = ROUND_STATUSES.filter(function (option) {
     return !supported || (option.value !== "noshow" && option.value !== "other");
   });
-  var group = el("div", { class: "rs-opts", role: "group", "aria-label": "Round status" });
-  var buttons = options.map(function (option) {
+  const group = el("div", { class: "rs-opts", role: "group", "aria-label": "Round status" });
+  const buttons = options.map(function (option) {
     return el(
       "button",
       {
@@ -94,7 +94,7 @@ function roundStatusCard(booking: Booking, current: RoundStatus | null, supporte
 }
 // Saves a status (null clears it); the panel redraws when the new state arrives.
 function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: HTMLElement[], msg: HTMLElement) {
-  var before = buttons.map(function (button) {
+  const before = buttons.map(function (button) {
     return button.getAttribute("aria-pressed");
   });
   buttons.forEach(function (button) {
@@ -113,23 +113,23 @@ function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: 
     });
 }
 export function showBooking(id: string, refresh?: boolean) {
-  var booking = findBooking(id);
+  const booking = findBooking(id);
   if (!booking) {
     if (refresh) {
       closePanel();
     }
     return;
   }
-  var start = new Date(booking.start);
-  var end = new Date(booking.end);
-  var now = Date.now();
-  var interviewer = state.iv.assign[booking.id] || "";
-  var upcoming = Date.parse(booking.start) > now;
-  var status = roundStatus(booking);
+  const start = new Date(booking.start);
+  const end = new Date(booking.end);
+  const now = Date.now();
+  const interviewer = state.iv.assign[booking.id] || "";
+  const upcoming = Date.parse(booking.start) > now;
+  const status = roundStatus(booking);
   panel.refresh = function () {
     showBooking(id, true);
   };
-  var body = openPanel(
+  const body = openPanel(
     titleCase(booking.name),
     [booking.company, booking.round].filter(Boolean).join(" · ") || "No company given",
     refresh,
@@ -138,7 +138,7 @@ export function showBooking(id: string, refresh?: boolean) {
   panel.bookingId = id;
 
   // When: a calendar tile, the day and time, how far away it is, and the status.
-  var relative = booking.cancelled
+  const relative = booking.cancelled
     ? "Cancelled " + (booking.cancelledAt ? timeAgo(booking.cancelledAt) : "")
     : upcoming
       ? "Starts " + untilText(Date.parse(booking.start) - now)
@@ -166,7 +166,7 @@ export function showBooking(id: string, refresh?: boolean) {
   }
 
   // Details
-  var details = el("div", { class: "bk-card bk-rows" });
+  const details = el("div", { class: "bk-card bk-rows" });
   function row(name: string, label: string, value: Node | string | undefined) {
     if (value) {
       details.appendChild(
@@ -197,15 +197,15 @@ export function showBooking(id: string, refresh?: boolean) {
 
   // Interview support (not for an interview marked as a no-show or didn't happen: its status card says so)
   if (!booking.cancelled && !booking.missed) {
-    var box = el("div", { class: "bk-card" }, [el("h3", { text: "Interview support given by" })]);
+    const box = el("div", { class: "bk-card" }, [el("h3", { text: "Interview support given by" })]);
     if (upcoming) {
       box.appendChild(
         el("p", { class: "sub", text: "You can record who gave interview support once it starts at " + formatTime(start) + "." }),
       );
     } else {
-      var choices = el("div", { class: "ivc" });
-      var msg = el("p", { class: "msg", role: "status" });
-      var names = interviewer ? [interviewer] : state.iv.names.slice();
+      const choices = el("div", { class: "ivc" });
+      const msg = el("p", { class: "msg", role: "status" });
+      const names = interviewer ? [interviewer] : state.iv.names.slice();
       names.forEach(function (name) {
         choices.appendChild(
           el(
@@ -236,7 +236,7 @@ export function showBooking(id: string, refresh?: boolean) {
       } else {
         box.appendChild(el("p", { class: "sub ivh", text: "Tap who gave interview support." }));
       }
-      var clash = clashFor(booking, interviewer);
+      const clash = clashFor(booking, interviewer);
       if (clash) {
         box.appendChild(el("div", { class: "warn", text: interviewer + " also has " + clash + " at the same time." }));
       }
@@ -247,22 +247,22 @@ export function showBooking(id: string, refresh?: boolean) {
 
   // The candidate's other interviews (same email) with this company: its other rounds and any repeat bookings, newest
   // first. Spellings that differ slightly ("Randstand", "Randstandi") count as the same company.
-  var seen: Record<string, boolean> = {};
-  var sameEmail = function (other: Booking) {
+  const seen: Record<string, boolean> = {};
+  const sameEmail = function (other: Booking) {
     return !!booking.email && other.email.toLowerCase() === booking.email.toLowerCase();
   };
-  var sameFirm = function (other: Booking) {
-    var mine = (booking.company || "").trim().toLowerCase();
-    var theirs = (other.company || "").trim().toLowerCase();
+  const sameFirm = function (other: Booking) {
+    const mine = (booking.company || "").trim().toLowerCase();
+    const theirs = (other.company || "").trim().toLowerCase();
     return !!mine && (mine === theirs || sameCompany(mine, theirs));
   };
-  var sameSpelling = function (other: Booking) {
+  const sameSpelling = function (other: Booking) {
     return (other.company || "").trim().toLowerCase() === (booking.company || "").trim().toLowerCase();
   };
-  var others = (state.events || [])
+  const others = (state.events || [])
     .concat(allBookings || [])
     .filter(function (other) {
-      var keep = other.id !== booking.id && !seen[other.id] && sameEmail(other) && sameFirm(other);
+      const keep = other.id !== booking.id && !seen[other.id] && sameEmail(other) && sameFirm(other);
       seen[other.id] = true;
       return keep;
     })
@@ -270,7 +270,7 @@ export function showBooking(id: string, refresh?: boolean) {
       return Date.parse(second.start) - Date.parse(first.start);
     });
   if (others.length) {
-    var history = el("div", { class: "bk-card bk-hist" }, [el("h3", { text: "Other interviews at " + (booking.company || "").trim() })]);
+    const history = el("div", { class: "bk-card bk-hist" }, [el("h3", { text: "Other interviews at " + (booking.company || "").trim() })]);
     others.slice(0, 10).forEach(function (other) {
       history.appendChild(
         el(
@@ -334,13 +334,13 @@ export function showBooking(id: string, refresh?: boolean) {
 }
 export function showCancel(booking: Booking) {
   panel.refresh = null;
-  var body = openPanel("Cancel booking", titleCase(booking.name) + " · " + formatRange(booking), true);
-  var reason = el("textarea", {
+  const body = openPanel("Cancel booking", titleCase(booking.name) + " · " + formatRange(booking), true);
+  const reason = el("textarea", {
     id: "creason",
     maxlength: "500",
     rows: "3",
   });
-  var msg = el("p", {
+  const msg = el("p", {
     class: "msg",
     role: "status",
   });
@@ -367,7 +367,7 @@ export function showCancel(booking: Booking) {
         : "The time opens up again. Emails are off, so let the candidate know yourself.",
     }),
   );
-  var button = el("button", {
+  const button = el("button", {
     type: "button",
     class: "danger",
     text: "Cancel booking",
@@ -413,17 +413,17 @@ export function showCancel(booking: Booking) {
 }
 // Date, length and free-time fields. get() gives the chosen time, or null.
 export function timePicker(duration: number, day: string | null, ignoreId?: string) {
-  var today = dayKeyOf(new Date());
-  var durationSelect = el("select", {
+  const today = dayKeyOf(new Date());
+  const durationSelect = el("select", {
     id: "cdur",
   });
-  var dateInput = el("input", {
+  const dateInput = el("input", {
     type: "date",
     id: "cdate",
     min: today,
     max: addDays(today, 29),
   });
-  var timeSelect = el("select", {
+  const timeSelect = el("select", {
     id: "ctime",
   });
   [30, 60, 90].forEach(function (minutes) {
@@ -447,7 +447,7 @@ export function timePicker(duration: number, day: string | null, ignoreId?: stri
     timeSelect.disabled = true;
   }
   function loadTimes() {
-    var day = dateInput.value;
+    const day = dateInput.value;
     placeholder("Loading…");
     if (!day) {
       return placeholder("Pick a date");
@@ -540,16 +540,16 @@ export function timePicker(duration: number, day: string | null, ignoreId?: stri
   };
 }
 export function goToTime(startMs: number) {
-  var day = dayKeyOf(new Date(startMs));
+  const day = dayKeyOf(new Date(startMs));
   view.day = day;
   view.week = weekStart(day);
   render();
 }
 export function showReschedule(booking: Booking) {
   panel.refresh = null;
-  var body = openPanel("Reschedule", titleCase(booking.name) + " · now " + formatRange(booking), true);
-  var picker = timePicker(booking.duration, dayKeyOf(new Date(booking.start)), booking.id);
-  var msg = el("p", {
+  const body = openPanel("Reschedule", titleCase(booking.name) + " · now " + formatRange(booking), true);
+  const picker = timePicker(booking.duration, dayKeyOf(new Date(booking.start)), booking.id);
+  const msg = el("p", {
     class: "msg",
     role: "status",
   });
@@ -562,12 +562,12 @@ export function showReschedule(booking: Booking) {
         : "Emails are off, so let the candidate know the new time yourself.",
     }),
   );
-  var button = el("button", {
+  const button = el("button", {
     type: "button",
     class: "pri",
     text: "Save new time",
     onclick: function () {
-      var choice = picker.get();
+      const choice = picker.get();
       if (!choice) {
         return setMessage(msg, "Pick a time first.", true);
       }
@@ -611,8 +611,8 @@ export function showReschedule(booking: Booking) {
   byId("cdate").focus();
 }
 export function showWeekOf(booking: Booking) {
-  var day = dayKeyOf(new Date(booking.start));
-  var week = weekStart(day);
+  const day = dayKeyOf(new Date(booking.start));
+  const week = weekStart(day);
   view.day = day;
   if (week !== view.week) {
     view.week = week;
@@ -621,7 +621,7 @@ export function showWeekOf(booking: Booking) {
 }
 export function showList(title: string, subtitle: string, bookings: Booking[]) {
   panel.refresh = null;
-  var body = openPanel(title, subtitle);
+  const body = openPanel(title, subtitle);
   if (!bookings.length) {
     body.appendChild(
       el("p", {
@@ -631,7 +631,7 @@ export function showList(title: string, subtitle: string, bookings: Booking[]) {
     );
     return;
   }
-  var list = el("ul", {
+  const list = el("ul", {
     class: "items",
   });
   bookings.forEach(function (booking) {

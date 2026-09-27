@@ -6,13 +6,13 @@ import { closePanel, openPanel, panel } from "./panel";
 
 export function showInterviewers() {
   panel.refresh = null;
-  var body = openPanel("Interview supporters", "Rename, add or remove. Renaming also updates interviews already recorded.");
-  var rows = el("div");
-  var msg = el("p", {
+  const body = openPanel("Interview supporters", "Rename, add or remove. Renaming also updates interviews already recorded.");
+  const rows = el("div");
+  const msg = el("p", {
     class: "msg",
     role: "status",
   });
-  var list = state.iv.names.map(function (name) {
+  const list = state.iv.names.map(function (name) {
     return {
       from: name,
       to: name,
@@ -21,7 +21,7 @@ export function showInterviewers() {
   function renderRows() {
     rows.textContent = "";
     list.forEach(function (entry, index) {
-      var input = el("input", {
+      const input = el("input", {
         type: "text",
         maxlength: "30",
         "aria-label": "Interview supporter " + (index + 1) + " name",
@@ -76,7 +76,7 @@ export function showInterviewers() {
       },
     }),
   );
-  var saveButton = el("button", {
+  const saveButton = el("button", {
     type: "button",
     class: "pri",
     text: "Save",

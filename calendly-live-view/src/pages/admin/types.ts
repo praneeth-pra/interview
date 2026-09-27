@@ -50,6 +50,7 @@ declare global {
     __statsEvent?: string; // open this booking's candidate when the Contacts tab shows
     __contact?: (open: boolean) => void; // Contacts opened a person (true) or went back to its list (false)
     __contactBack?: () => void; // in the Contacts frame: show the list again
+    __theme?: (theme: string) => void; // theme.ts: switch to "light" or "dark" ("" follows the phone)
   }
   interface Navigator {
     standalone?: boolean;

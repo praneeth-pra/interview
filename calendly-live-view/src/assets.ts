@@ -71,7 +71,7 @@ const linkAssets = (text: string) => text.replace(/\/assets\/([\w-]+\.(?:css|js|
 
 for (const f of readdirSync(FONTS)) if (f.endsWith(".woff2")) add(f, readFileSync(join(FONTS, f)));
 const fontCss = (name: string) => (name ? readFileSync(join(FONTS, name), "utf8").replace(/url\(fonts\//g, "url(/assets/") : "");
-// Page scripts are readable sources (src/pages/<page>.js, or src/pages/<page>/main.ts split into modules);
+// Page scripts are readable sources (src/pages/<page>.ts, or src/pages/<page>/main.ts split into modules);
 // they are bundled and minified here, so what the browser gets is one small file per page.
 async function bundle(entry: string) {
   const out = await Bun.build({ entrypoints: [entry], format: "iife", target: "browser", minify: true });
@@ -165,7 +165,7 @@ for (const f of sorted(PAGES)) {
           .map((c) => readFileSync(join(cssDir, c.name), "utf8"))
           .join(""),
       );
-  } else if (f.name.endsWith(".js")) add(f.name, Buffer.from(await bundle(join(PAGES, f.name))));
+  } else if (/\.(js|ts)$/.test(f.name)) add(f.name.replace(/\.ts$/, ".js"), Buffer.from(await bundle(join(PAGES, f.name))));
   else if (f.name.endsWith(".css")) addCss(f.name, readFileSync(join(PAGES, f.name), "utf8"));
 }
 

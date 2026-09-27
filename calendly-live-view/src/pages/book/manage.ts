@@ -1,5 +1,5 @@
 // A candidate's manage link: the booking, rescheduling it and cancelling it.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { ICONS } from "./icons";
 import { formatRange } from "./time";
 import { eventName, hostName, manage, render, state } from "./app";
@@ -53,7 +53,7 @@ function postChange(url: string, payload: Record<string, unknown>, onSuccess: (r
     });
 }
 export function renderManage() {
-  var section = el("section", {
+  const section = el("section", {
     class: "form",
     "aria-labelledby": "mh",
   });
@@ -134,7 +134,7 @@ export function renderManage() {
                 state.step = "cancel";
                 state.err = "";
                 render();
-                var reasonBox = document.getElementById("reason");
+                const reasonBox = document.getElementById("reason");
                 if (reasonBox) {
                   reasonBox.focus();
                 }
@@ -149,7 +149,7 @@ export function renderManage() {
   }
 }
 export function renderCancel() {
-  var form = el("form", {
+  const form = el("form", {
     class: "form",
     novalidate: true,
     "aria-labelledby": "ch",
@@ -215,7 +215,7 @@ export function renderCancel() {
       ["Your time will be released and " + hostName + " will be told."],
     ),
   );
-  var reasonBox = el("textarea", {
+  const reasonBox = el("textarea", {
     id: "reason",
     maxlength: 500,
     rows: 4,
@@ -257,7 +257,7 @@ export function renderCancel() {
   return form;
 }
 export function renderConfirm() {
-  var section = el("section", {
+  const section = el("section", {
     class: "form",
     "aria-labelledby": "rh",
   });
@@ -282,11 +282,11 @@ export function renderConfirm() {
       ),
     );
   }
-  var meta = el("ul", {
+  const meta = el("ul", {
     class: "meta chg",
   });
   function timeItem(cls: string, label: string, text: string) {
-    var li = el("li", {
+    const li = el("li", {
       class: cls,
       html: ICONS.cal + "<span></span>",
     });

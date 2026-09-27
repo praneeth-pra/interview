@@ -1,23 +1,23 @@
 // A returning candidate: the name booked with before on this device or for this email, and the companies used.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { state } from "./app";
 import type { Me } from "./types";
 
-var ME_KEY = "bk.me";
-var nameCache: Record<string, string> = {};
+const ME_KEY = "bk.me";
+const nameCache: Record<string, string> = {};
 export const WELCOME_BACK = "Welcome back. We filled in the name from your earlier booking.";
 export function readMe(): Me | null {
   try {
-    var me = JSON.parse(localStorage.getItem(ME_KEY) || "null");
+    const me = JSON.parse(localStorage.getItem(ME_KEY) || "null");
     return me && typeof me.email === "string" && typeof me.name === "string" && Array.isArray(me.companies) ? me : null;
   } catch (error) {
     return null;
   }
 }
 export function rememberBooking(name: string, email: string, company: string) {
-  var old = readMe();
-  var earlier = old && sameEmail(old.email, email) ? old.companies : [];
-  var companies = [company].concat(earlier).filter(function (item, index, all) {
+  const old = readMe();
+  const earlier = old && sameEmail(old.email, email) ? old.companies : [];
+  const companies = [company].concat(earlier).filter(function (item, index, all) {
     return (
       typeof item === "string" &&
       item.trim() &&
@@ -37,11 +37,11 @@ function sameEmail(first: string, second: string) {
 }
 // "Same company as before?" buttons above the Company field, shown while the email is the one this device booked with.
 export function previousCompanies() {
-  var me = readMe();
+  const me = readMe();
   if (!me || !me.companies.length) {
     return null;
   }
-  var buttons = me.companies.map(function (company) {
+  const buttons = me.companies.map(function (company) {
     return el(
       "button",
       {
@@ -51,13 +51,13 @@ export function previousCompanies() {
         onclick: function () {
           state.form.company = company;
           delete state.fieldErr.company;
-          var input = document.getElementById("fcompany") as HTMLInputElement;
+          const input = document.getElementById("fcompany") as HTMLInputElement;
           if (input) {
             input.value = company;
             input.removeAttribute("aria-invalid");
             input.removeAttribute("aria-describedby");
           }
-          var errorEl = document.getElementById("fcompanye");
+          const errorEl = document.getElementById("fcompanye");
           if (errorEl) {
             errorEl.remove();
           }
@@ -83,7 +83,7 @@ export function previousCompanies() {
   );
 }
 export function markPreviousCompany() {
-  var box = document.getElementById("prevco");
+  const box = document.getElementById("prevco");
   if (box) {
     box.querySelectorAll(".pcb").forEach(function (button) {
       button.setAttribute("aria-pressed", sameEmail(button.textContent || "", state.form.company) ? "true" : "false");
@@ -91,20 +91,20 @@ export function markPreviousCompany() {
   }
 }
 export function showPreviousCompanies() {
-  var box = document.getElementById("prevco");
-  var me = readMe();
+  const box = document.getElementById("prevco");
+  const me = readMe();
   if (box && me) {
     box.hidden = !sameEmail(me.email, state.form.email);
   }
 }
 export function setNameHint(text: string) {
-  var hint = document.getElementById("fnameh");
+  const hint = document.getElementById("fnameh");
   if (hint) {
     hint.textContent = text;
   }
 }
 function lookupName(email: string, callback: (name: string) => void) {
-  var key = email.trim().toLowerCase();
+  const key = email.trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(key)) {
     return callback("");
   }
@@ -132,7 +132,7 @@ function lookupName(email: string, callback: (name: string) => void) {
 export function prefillName(email: string) {
   lookupName(email, function (name) {
     if (state.step === "details" && state.form.email.trim().toLowerCase() === email.trim().toLowerCase()) {
-      var input = document.getElementById("fname") as HTMLInputElement;
+      const input = document.getElementById("fname") as HTMLInputElement;
       if (!name) {
         if (state.nameAuto) {
           state.nameAuto = false;
@@ -151,7 +151,7 @@ export function prefillName(email: string) {
         if (input) {
           input.value = name;
           input.removeAttribute("aria-invalid");
-          var errorEl = document.getElementById("fnamee");
+          const errorEl = document.getElementById("fnamee");
           if (errorEl) {
             errorEl.remove();
           }

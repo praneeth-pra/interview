@@ -13,7 +13,7 @@ import { icon } from "./panel";
 function rupees(amount: number) {
   return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 }
-var paymentsShown = -1;
+let paymentsShown = -1;
 // Verified: the server read the typed amount on the receipt. Needs check: it couldn't read an amount (a blurry photo,
 // a HEIC photo), so look at the receipt. Payments from before the check have no badge.
 function checkBadge(item: any) {
@@ -27,7 +27,7 @@ function checkBadge(item: any) {
 }
 // which part of the fee a payment is; older payments didn't ask, and show a dash
 function installmentText(item: any, short?: boolean) {
-  var names: Record<string, string> = short
+  const names: Record<string, string> = short
     ? { advance: "Advance", "1": "1st", "2": "2nd", "3": "3rd" }
     : { advance: "Advance", "1": "1st installment", "2": "2nd installment", "3": "3rd installment" };
   return names[item.installment] || "\u2014";
@@ -45,24 +45,24 @@ function statusBadge(item: any) {
 // Table (candidate, date, amount) and List (one block per payment, with its receipt). The search box narrows every view
 // by name or email; when it finds one candidate, Table and List show their subtotal. Tapping a candidate in By candidate
 // searches for them.
-var paymentsMode = "people";
+let paymentsMode = "people";
 try {
-  var savedMode = localStorage.getItem("payMode") || "";
+  const savedMode = localStorage.getItem("payMode") || "";
   paymentsMode = ["people", "table", "list"].indexOf(savedMode) >= 0 ? savedMode : "people";
 } catch (e) {}
-var paymentsSort = { key: "date", down: true };
-var peopleSort = { key: "last", down: true };
+let paymentsSort = { key: "date", down: true };
+let peopleSort = { key: "last", down: true };
 // what's typed in the search box: part of a candidate's name or email
-var paymentsQuery = "";
+let paymentsQuery = "";
 // "" is pending and confirmed; or just "pending", "confirmed" or "discarded"
-var paymentsStatus = "";
-var paymentOpening = new URLSearchParams(location.search).get("pay") || "";
-var paymentShown = ""; // the one an alert opened, highlighted
+let paymentsStatus = "";
+let paymentOpening = new URLSearchParams(location.search).get("pay") || "";
+let paymentShown = ""; // the one an alert opened, highlighted
 export function showPayments() {
-  var body = byId("payBody");
+  const body = byId("payBody");
   body.textContent = "";
-  var link = location.origin + "/payment";
-  var msg = el("p", { class: "msg", role: "status" });
+  const link = location.origin + "/payment";
+  const msg = el("p", { class: "msg", role: "status" });
   body.appendChild(
     el("div", { class: "enqlink" }, [
       el("a", { href: "/payment", target: "_blank", rel: "noopener", text: link.replace(/^https?:\/\//, "") }),
@@ -83,14 +83,14 @@ export function showPayments() {
       }),
     ]),
   );
-  var bar = el("div", { class: "paybar", hidden: true });
-  var list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
+  const bar = el("div", { class: "paybar", hidden: true });
+  const list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
   body.appendChild(bar);
   body.appendChild(list);
   body.appendChild(msg);
-  var payments: any[] = [];
+  let payments: any[] = [];
   // redrawing keeps this same box, so typing isn't interrupted
-  var search = el("input", {
+  const search = el("input", {
     type: "search",
     class: "payfilter paysearch",
     placeholder: "Search candidates",
@@ -104,13 +104,13 @@ export function showPayments() {
   search.value = paymentsQuery;
   // one entry per candidate email, with the name from their latest payment (payments come newest first)
   function people() {
-    var byEmail: Record<string, any> = {};
-    var out: any[] = [];
+    const byEmail: Record<string, any> = {};
+    const out: any[] = [];
     payments.forEach(function (item) {
       if (item.decision === "discarded") {
         return;
       }
-      var p = byEmail[item.email];
+      let p = byEmail[item.email];
       if (!p) {
         p = byEmail[item.email] = { email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, pending: 0 };
         out.push(p);
@@ -142,7 +142,7 @@ export function showPayments() {
     });
   }
   function sortButton(sort: { key: string; down: boolean }, key: string, label: string, set: (s: { key: string; down: boolean }) => void) {
-    var on = sort.key === key;
+    const on = sort.key === key;
     return el("button", {
       type: "button",
       text: label + (on ? (sort.down ? " \u2193" : " \u2191") : ""),
@@ -159,14 +159,14 @@ export function showPayments() {
     num: boolean,
     set: (s: { key: string; down: boolean }) => void,
   ) {
-    var on = sort.key === key;
+    const on = sort.key === key;
     return el("th", { scope: "col", class: num ? "num" : "", "aria-sort": on ? (sort.down ? "descending" : "ascending") : null }, [
       sortButton(sort, key, label, set),
     ]);
   }
   function draw() {
     // checked before the bar is cleared, which takes the focus away
-    var typing = document.activeElement === search;
+    const typing = document.activeElement === search;
     list.textContent = "";
     bar.textContent = "";
     bar.hidden = !payments.length;
@@ -175,23 +175,23 @@ export function showPayments() {
       list.appendChild(el("p", { class: "sub", text: "No payments yet. Share the link above." }));
       return;
     }
-    var listed = people();
+    const listed = people();
     // a candidate whose payments were all discarded isn't in By candidate, but search still finds them
-    var all = listed.slice();
+    const all = listed.slice();
     payments.forEach(function (item) {
       if (!all.some((p) => p.email === item.email)) {
         all.push({ email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, pending: 0 });
       }
     });
-    var query = paymentsQuery.trim().toLowerCase();
+    const query = paymentsQuery.trim().toLowerCase();
     function matches(p: any) {
       return !query || p.name.toLowerCase().indexOf(query) >= 0 || p.email.indexOf(query) >= 0;
     }
-    var found = all.filter(matches);
+    const found = all.filter(matches);
     if (!typing) {
       search.value = paymentsQuery;
     }
-    var controls: HTMLElement[] = [
+    const controls: HTMLElement[] = [
       el("div", { class: "paysw", role: "group", "aria-label": "Show payments" }, [
         modeButton("people", "By candidate"),
         modeButton("table", "Table"),
@@ -200,7 +200,7 @@ export function showPayments() {
     ];
     controls.push(search);
     if (paymentsMode !== "people") {
-      var status = el(
+      const status = el(
         "select",
         {
           class: "payfilter",
@@ -238,15 +238,15 @@ export function showPayments() {
       }
       return;
     }
-    var rows = payments.filter(function (item) {
-      var state = item.decision || "pending";
-      var mine = found.some(function (p) {
+    const rows = payments.filter(function (item) {
+      const state = item.decision || "pending";
+      const mine = found.some(function (p) {
         return p.email === item.email;
       });
       return mine && (paymentsStatus ? state === paymentsStatus : state !== "discarded");
     });
     // one candidate found: their total at the top, and no candidate column
-    var who = query && found.length === 1 ? found[0] : null;
+    const who = query && found.length === 1 ? found[0] : null;
     if (who) {
       list.appendChild(
         el("div", { class: "paysum" }, [
@@ -271,8 +271,8 @@ export function showPayments() {
   // one row per candidate; tapping one shows their payments
   function drawPeople(all: any[]) {
     list.className = "enqlist paytbl";
-    var rows = all.slice().sort(function (a, b) {
-      var diff =
+    const rows = all.slice().sort(function (a, b) {
+      const diff =
         peopleSort.key === "total"
           ? a.total - b.total
           : peopleSort.key === "count"
@@ -325,8 +325,8 @@ export function showPayments() {
   // candidate, the last row is their total.
   function drawTable(filtered: any[], who: any) {
     list.className = "enqlist paytbl";
-    var rows = filtered.slice().sort(function (a, b) {
-      var diff = paymentsSort.key === "amount" ? a.amount - b.amount : Date.parse(a.createdAt) - Date.parse(b.createdAt);
+    const rows = filtered.slice().sort(function (a, b) {
+      const diff = paymentsSort.key === "amount" ? a.amount - b.amount : Date.parse(a.createdAt) - Date.parse(b.createdAt);
       return paymentsSort.down ? -diff : diff;
     });
     function setSort(next: { key: string; down: boolean }) {
@@ -369,7 +369,7 @@ export function showPayments() {
   // Pending: Confirm and Discard, each asked once. Decided: when, and nothing to press; the server refuses a change too.
   function decided(item: any) {
     if (item.decision) {
-      var at = new Date(item.decidedAt || item.createdAt);
+      const at = new Date(item.decidedAt || item.createdAt);
       return el("small", {
         class: "pdone",
         text:
@@ -379,9 +379,9 @@ export function showPayments() {
           formatTime(at),
       });
     }
-    var who = titleCase(item.name);
+    const who = titleCase(item.name);
     function decide(decision: string) {
-      var question =
+      const question =
         decision === "confirm"
           ? "Confirm " + rupees(item.amount) + " from " + who + "? Once confirmed, it can't be changed or discarded."
           : "Discard " + rupees(item.amount) + " from " + who + "? It won't count in their total, and it can't be changed after this.";
@@ -424,8 +424,8 @@ export function showPayments() {
   }
   function drawList(rows: any[]) {
     rows.forEach(function (item) {
-      var when = new Date(item.createdAt);
-      var kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
+      const when = new Date(item.createdAt);
+      const kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
       list.appendChild(
         el(
           "div",
@@ -470,9 +470,9 @@ export function showPayments() {
     request("/admin/api/payments")
       .then(function (result) {
         payments = result.payments || [];
-        var opening = openFromAlert();
+        const opening = openFromAlert();
         draw();
-        var target = opening && list.querySelector('[data-pay="' + opening + '"]');
+        const target = opening && list.querySelector('[data-pay="' + opening + '"]');
         if (target) {
           target.scrollIntoView({ block: "center" });
         }
@@ -484,8 +484,8 @@ export function showPayments() {
   }
   // a payment alert opens /admin?view=payments&pay=<id>: show that payment in the list, whatever it is
   function openFromAlert() {
-    var id = paymentOpening;
-    var item = payments.filter(function (p) {
+    const id = paymentOpening;
+    const item = payments.filter(function (p) {
       return p.id === id;
     })[0];
     if (!item) {
@@ -494,7 +494,7 @@ export function showPayments() {
     paymentOpening = "";
     paymentShown = id;
     try {
-      var url = new URL(location.href);
+      const url = new URL(location.href);
       url.searchParams.delete("pay");
       history.replaceState(null, "", url.pathname + url.search);
     } catch (e) {}
@@ -506,15 +506,15 @@ export function showPayments() {
   load();
 }
 // a new or decided payment while the tab is open shows up straight away; the badge counts pending ones
-var paymentsKey = "";
+let paymentsKey = "";
 export function refreshPayments() {
-  var pending = state.paymentsPending || 0;
+  const pending = state.paymentsPending || 0;
   document.querySelectorAll<HTMLElement>(".pbadge").forEach(function (badge: HTMLElement) {
     badge.hidden = !pending;
     badge.textContent = pending > 99 ? "99+" : String(pending);
   });
   byId("tabPay").setAttribute("aria-label", pending ? "Payments, " + pending + " pending" : "Payments");
-  var key = (state.payments || 0) + "/" + pending;
+  const key = (state.payments || 0) + "/" + pending;
   if (!byId("viewPay").hidden && paymentsShown >= 0 && key !== paymentsKey) {
     showPayments();
   }

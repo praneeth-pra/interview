@@ -2,8 +2,12 @@
 import { ignoreQuery, render, state } from "./app";
 import type { Day } from "./types";
 
+// each day's free times by "date:length", and the requests for them in flight
+let slotCache: Record<string, number[]> = {};
+let slotRequests: Record<string, Promise<number[] | null>> = {};
+
 export function loadDays(keepView?: boolean) {
-  var duration = state.dur;
+  const duration = state.dur;
   return fetch("/api/days?duration=" + duration + ignoreQuery)
     .then(function (res) {
       return res.json();
@@ -17,13 +21,13 @@ export function loadDays(keepView?: boolean) {
         }
         // The days list carries each day's times, so tapping a date needs no further request.
         if (day.slots) {
-          var key = day.key + ":" + duration;
+          const key = day.key + ":" + duration;
           slotCache[key] = day.slots;
           slotRequests[key] = Promise.resolve(day.slots);
         }
       });
       if (!keepView || !state.viewY) {
-        var first =
+        const first =
           data.days.filter(function (day: Day) {
             return day.open;
           })[0] || data.days[0];
@@ -45,10 +49,8 @@ export function loadDays(keepView?: boolean) {
       render();
     });
 }
-var slotCache: Record<string, number[]> = {};
-var slotRequests: Record<string, Promise<number[] | null>> = {};
 export function fetchSlots(date: string, duration: number, refresh?: boolean): Promise<number[] | null> {
-  var key = date + ":" + duration;
+  const key = date + ":" + duration;
   if (refresh || !slotRequests[key]) {
     slotRequests[key] = fetch("/api/slots?date=" + date + "&duration=" + duration + ignoreQuery)
       .then(function (res) {
@@ -67,8 +69,8 @@ export function fetchSlots(date: string, duration: number, refresh?: boolean): P
 }
 // Load every open day's times in the background, two at a time, so tapping a date shows its times at once.
 export function prefetchSlots() {
-  var duration = state.dur;
-  var queue = state.days
+  const duration = state.dur;
+  const queue = state.days
     .filter(function (day) {
       return day.open && !slotCache[day.key + ":" + duration];
     })
@@ -76,7 +78,7 @@ export function prefetchSlots() {
       return day.key;
     });
   function next() {
-    var key = queue.shift();
+    const key = queue.shift();
     if (key && duration === state.dur) {
       fetchSlots(key, duration).then(next);
     }
@@ -86,7 +88,7 @@ export function prefetchSlots() {
 }
 export function scrollToTimes() {
   if (window.innerWidth <= 900) {
-    var heading = document.getElementById("timesh");
+    const heading = document.getElementById("timesh");
     if (heading) {
       heading.scrollIntoView({
         behavior: "smooth",
@@ -96,8 +98,8 @@ export function scrollToTimes() {
   }
 }
 export function showSlots(scroll?: boolean) {
-  var key = state.date + ":" + state.dur;
-  var cached = !!slotCache[key];
+  const key = state.date + ":" + state.dur;
+  const cached = !!slotCache[key];
   state.slot = null;
   // Keep the previous day's times on screen (inactive) until this day's arrive, instead of flashing a spinner.
   state.stale = !cached && !!state.slots && state.slots.length > 0;

@@ -1,17 +1,17 @@
 // The ⋯ menu in the header: New booking (Alerts on phones), candidates, interviewers, downloads and sign-out.
 export function setupDownloadMenu() {
-  var btn = document.getElementById("dlBtn")!;
-  var menu = document.getElementById("dlMenu")!;
+  const btn = document.getElementById("dlBtn")!;
+  const menu = document.getElementById("dlMenu")!;
   if (!btn || !menu) {
     return;
   }
-  var home = menu.parentElement;
-  var phone = matchMedia("(max-width:760px)");
+  const home = menu.parentElement;
+  const phone = matchMedia("(max-width:760px)");
   function setOpen(open: boolean) {
     // On phones the menu is a bottom sheet over a dimmed page. The header's frosted glass would hold a fixed menu
     // inside the header, so the sheet moves to the page body while it's open, and back beside the button on computers.
     if (open) {
-      var parent = phone.matches ? document.body : home;
+      const parent = phone.matches ? document.body : home;
       if (parent && menu.parentElement !== parent) {
         parent.appendChild(menu);
       }
@@ -29,7 +29,7 @@ export function setupDownloadMenu() {
     if ((e.target as Element).closest("#mAlerts")) {
       e.stopPropagation();
       setOpen(false);
-      var alertsButton = document.getElementById("pushBtn");
+      const alertsButton = document.getElementById("pushBtn");
       if (alertsButton) {
         alertsButton.click();
       }

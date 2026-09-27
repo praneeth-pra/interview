@@ -1,5 +1,5 @@
 // Dates and times, always shown in India Standard Time.
-var TIME_ZONE = "Asia/Kolkata";
+const TIME_ZONE = "Asia/Kolkata";
 function formatIst(ms: number, options?: Intl.DateTimeFormatOptions) {
   return new Intl.DateTimeFormat(
     "en-US",
