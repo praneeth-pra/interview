@@ -80,6 +80,25 @@ export function setupNav() {
   }
   // Phone Back (or iPhone's swipe back) closes an open sheet first, then returns to the tab the admin opened on, and only
   // then leaves. Leaving that tab adds one history entry; later switches replace it, so Back never walks through every tab.
+  // Contacts is a page in a frame. Opening a person there adds a history entry (window.__contact), so Back returns to
+  // the list first.
+  var contactEntry = false;
+  function contactWindow() {
+    var frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
+    return frame && (frame.contentWindow as Window | null);
+  }
+  window.__contact = function (open: boolean) {
+    if (open && !contactEntry && currentView() === "stats") {
+      contactEntry = true;
+      try {
+        history.pushState({ contact: 1 }, "", location.href);
+      } catch (e) {}
+    } else if (!open && contactEntry) {
+      contactEntry = false;
+      skipPop = true;
+      history.back();
+    }
+  };
   var homeView = "";
   var onTab = false;
   var restoring = false;
@@ -87,6 +106,23 @@ export function setupNav() {
     if (restoring) {
       return;
     }
+    // Leaving Contacts with a person open: go back to the list and spend that person's history entry first.
+    if (contactEntry && key !== "stats") {
+      contactEntry = false;
+      var contacts = contactWindow();
+      if (contacts && contacts.__contactBack) {
+        contacts.__contactBack();
+      }
+      skipPop = true;
+      afterPop = function () {
+        applyUrl(url, key);
+      };
+      history.back();
+      return;
+    }
+    applyUrl(url, key);
+  }
+  function applyUrl(url: string, key: string) {
     try {
       if (homeView && key === homeView && onTab) {
         onTab = false;
@@ -269,6 +305,7 @@ export function setupNav() {
   var sheet = byId("panel");
   var sheetEntry = false;
   var skipPop = false;
+  var afterPop: (() => void) | null = null;
   new MutationObserver(function () {
     if (!sheet.hidden && !sheetEntry) {
       sheetEntry = true;
@@ -288,11 +325,24 @@ export function setupNav() {
   addEventListener("popstate", function () {
     if (skipPop) {
       skipPop = false;
+      var next = afterPop;
+      afterPop = null;
+      if (next) {
+        next();
+      }
       return;
     }
     if (sheetEntry) {
       sheetEntry = false;
       byId("pclose").click();
+      return;
+    }
+    if (contactEntry) {
+      contactEntry = false;
+      var contacts = contactWindow();
+      if (contacts && contacts.__contactBack) {
+        contacts.__contactBack();
+      }
       return;
     }
     var shown = new URLSearchParams(location.search).get("view");

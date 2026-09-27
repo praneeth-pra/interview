@@ -360,8 +360,10 @@ input[type="search"] {
   right: 0;
   border-top: 1px solid var(--d);
 }
-.crow:hover {
-  background: var(--p);
+@media (hover: hover) {
+  .crow:hover {
+    background: var(--p);
+  }
 }
 .crow:active {
   transform: none;
@@ -556,8 +558,10 @@ input[type="search"] {
 #ahead .hact + .hact {
   border-left: 1px solid var(--d);
 }
-#ahead .hact:hover {
-  background: var(--p) !important;
+@media (hover: hover) {
+  #ahead .hact:hover {
+    background: var(--p) !important;
+  }
 }
 #ahead .hact svg {
   display: block !important;
@@ -692,8 +696,10 @@ input[type="search"] {
 button.acard {
   cursor: pointer;
 }
-button.acard:hover {
-  border-color: var(--q);
+@media (hover: hover) {
+  button.acard:hover {
+    border-color: var(--q);
+  }
 }
 button.acard:active {
   transform: none;
@@ -832,4 +838,19 @@ button.acard:active {
   height: 9px;
   border-radius: 50%;
   background: var(--b);
+}
+/* On touch screens, holding a finger on something tappable doesn't select its words or pop up Copy / Look up, as in an app.
+   Text in sheets, forms and pages stays selectable. */
+@media (hover: none) {
+  button,
+  a,
+  [role="button"],
+  tr.tap,
+  label,
+  .drop li,
+  .items li {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
 }

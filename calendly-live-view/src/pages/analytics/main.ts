@@ -342,8 +342,22 @@ function showDetail() {
   byId("home").hidden = true;
   byId("an").hidden = false;
   window.scrollTo(0, 0);
+  tellAdmin(true);
 }
+// In the admin, the page around this frame keeps a history entry while a person is open, so the phone's Back returns here.
+function tellAdmin(open) {
+  var host = window.parent as any;
+  if (host && host !== window && host.__contact) {
+    host.__contact(open);
+  }
+}
+(window as any).__contactBack = () => {
+  if (!byId("an").hidden) {
+    showHome();
+  }
+};
 function showHome() {
+  tellAdmin(false);
   byId("an").hidden = true;
   byId("home").hidden = false;
   chosen = null;
