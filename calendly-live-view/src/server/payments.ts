@@ -1,7 +1,7 @@
 // Payments from the public /payment page, with their receipts.
 import { DATA_DIR, RECEIPT_MAX } from "./config";
 import { INSTALLMENTS, type Installment, type Payment, emailAllowed, paymentsStore, pushStore } from "./data";
-import { type Srv, json, underLimit, clientIp } from "./http";
+import { type Srv, json, saveOrUndo, storedFile, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
 import { checkReceipt } from "./receipt-check";
@@ -136,3 +136,36 @@ export const paymentView = (v: Payment) => ({
   createdAt: v.createdAt,
   receipt: { name: v.receipt.name, type: v.receipt.type, size: v.receipt.size },
 });
+// Newest first, for the Payments tab; reversed first, so two sent in the same millisecond still list the later one first.
+export const paymentsList = () => ({
+  payments: [...paymentsStore.data.payments]
+    .reverse()
+    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt))
+    .map(paymentView),
+});
+// A payment's receipt: opens in the browser, or with download saves as "<name> receipt.jpg".
+export async function receiptFile(id: string, download: boolean): Promise<Response> {
+  const v = paymentsStore.data.payments.find((x) => x.id === id);
+  const bytes = v && (await readReceipt(v.receipt.file));
+  if (!v || !bytes) return json({ error: "That receipt isn't there any more." }, 404);
+  return storedFile(bytes, v.receipt, download, v.name, "Payment", "receipt");
+}
+// Confirm or discard a payment waiting for a decision. Either is final: a decided payment can't be changed or deleted.
+export async function decidePayment(id: string, choice: unknown, by: string): Promise<Response> {
+  const decision = choice === "confirm" ? "confirmed" : choice === "discard" ? "discarded" : "";
+  if (!decision) return json({ error: "Bad request." }, 400);
+  const v = paymentsStore.data.payments.find((x) => x.id === id);
+  if (!v) return json({ error: "That payment isn't there any more." }, 404);
+  if (v.decision) return json({ error: "This payment was already " + v.decision + ". It can't be changed." }, 409);
+  v.decision = decision;
+  v.decidedAt = new Date().toISOString();
+  v.decidedBy = by;
+  const failed = await saveOrUndo(paymentsStore, () => {
+    delete v.decision;
+    delete v.decidedAt;
+    delete v.decidedBy;
+  });
+  if (failed) return failed;
+  broadcastState();
+  return json({ ok: true, payment: paymentView(v) });
+}

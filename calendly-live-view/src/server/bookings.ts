@@ -75,7 +75,7 @@ export async function createBooking(body: any, req: Request, source?: "admin"): 
   try {
     await saveStore(bookingsStore);
   } catch {
-    bookingsStore.data.bookings.pop();
+    bookingsStore.data.bookings = bookingsStore.data.bookings.filter((x) => x !== booking);
     return json({ error: "Couldn't save the booking. Try again." }, 500);
   }
   broadcastState();
@@ -239,4 +239,30 @@ export async function removeListedBookings() {
   console.log(
     "cleanup: removed " + gone.length + " booking(s)" + (gone.length ? ": " + gone.map((b) => b.name + " " + b.start).join(", ") : ""),
   );
+}
+// The round's result from the booking panel, once the interview has started: "cleared", "rejected", "hold",
+// "noshow" or "other" (didn't happen), or "" to clear it. No-show and didn't happen reuse the missed mark.
+export async function setRoundStatus(id: string, status: unknown): Promise<Response> {
+  const b = bookingsStore.data.bookings.find((x) => x.id === id);
+  if (!b || typeof status !== "string" || !["", "cleared", "rejected", "hold", "noshow", "other"].includes(status))
+    return json({ error: "Bad request." }, 400);
+  if (b.cancelled) return json({ error: "This interview was cancelled." }, 409);
+  if (status && Date.parse(b.start) > Date.now() + 60000)
+    return json({ error: "You can set the round's status once the interview's start time has passed." }, 409);
+  const missed = status === "noshow" || status === "other" ? status : "";
+  if (missed && ivStore.data.assign[b.id]) return json({ error: "Interview support is already recorded for this interview, so it happened." }, 409);
+  const prev = { ...b };
+  const now = new Date().toISOString();
+  if (!missed) {
+    delete b.missed;
+    delete b.missedAt;
+  } else if (b.missed !== missed) Object.assign(b, { missed, missedAt: now });
+  if (status && !missed) Object.assign(b, { outcome: status, outcomeAt: now });
+  else {
+    delete b.outcome;
+    delete b.outcomeAt;
+  }
+  if (!(await commit(b, prev))) return saveFailed();
+  broadcastState();
+  return json({ ok: true });
 }

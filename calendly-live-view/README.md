@@ -9,20 +9,23 @@ Runs on Railway: project `calendly-live-view`, service `booking-form`, productio
 ```
 src/server.ts        starts the server: loads the data, logs the settings, listens, runs backups
 src/server/          the server, one module per feature:
-                     routes/ (public.ts, auth.ts, admin.ts: every URL), config.ts (environment variables),
-                     data.ts (what is stored, one JSON file each) and store.ts (reading and writing them),
-                     bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts, payments.ts, analytics.ts (owners' Revenue tab data),
-                     auth.ts (sign-in codes and
-                     sessions), email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin
-                     updates), backup.ts, pages.ts (page shells), http.ts (headers, limits), sw.js (service worker)
+                     routes/ (public.ts, auth.ts, admin.ts: every URL, who may use it, and reading the request),
+                     config.ts (environment variables), data.ts (what is stored, one JSON file each) and store.ts
+                     (reading and writing them), bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts,
+                     payments.ts, allowlist.ts (the Candidates list), interviewers.ts (interview supporters),
+                     analytics.ts (owners' Revenue tab data), auth.ts (sign-in codes, sessions and the admin list),
+                     email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin updates),
+                     backup.ts, pages.ts (page shells), http.ts (headers, limits, file downloads), sw.js (service worker)
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
 src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|js   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
 src/pages/book/      the booking page as TypeScript modules: main.ts (steps and rendering), time.ts, companies.ts, dom.ts, icons.ts
-src/pages/admin/     the admin page: main.ts (calendar, panel, forms, search, allowlist, live updates), alerts.ts, nav.ts,
-                     stats-frame.ts, download-menu.ts, revenue.ts (owners' Revenue tab), and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
+src/pages/admin/     the admin page: main.ts (calendar, agenda, booking panel, search, tabs, live updates), state.ts (boot data and
+                     the live state), panel.ts (the side panel), interviewers.ts, admins.ts, allowlist.ts (Candidates),
+                     enquiries.ts, payments.ts, revenue.ts (owners' tabs), alerts.ts, nav.ts, stats-frame.ts, download-menu.ts,
+                     theme-switch.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
 src/pages/analytics/ the Analytics tab (framed in admin): main.ts (people picker, company progress, timeline, insights),
-                     api.ts (answers the page's old dashboard API in the browser from /admin/api/*), companies.ts, rounds.ts
+                     api.ts (answers the page's old dashboard API in the browser from /admin/api/*)
 src/fonts/           Figtree and Instrument Serif (open source, SIL OFL), self-hosted
 data/companies.json  company suggestions for the booking form ("Name|Alias|Alias")
 public/icon.png      app icon (admin home-screen app and browser alerts)
@@ -58,7 +61,7 @@ NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origi
 - Admin pages and APIs need a signed-in admin. Sign-in never switches itself off: if `ADMIN_EMAILS` goes missing, the admin page locks instead of opening.
 - Every response carries `nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, HSTS, `Cross-Origin-Opener-Policy: same-origin` and a `Permissions-Policy` that turns off camera, microphone and location.
 - Limits count visitors by `X-Real-IP`, which Railway's edge sets to the real address (`X-Forwarded-For` can be written by the visitor, so it isn't used).
-- The server reads at most 2 MB per request (more when `RECEIPT_MAX_MB` is raised). Enquiries and payments: each five an hour per network and 100 in any 24 hours in total.
+- The server reads at most 2 MB per request (more when `RECEIPT_MAX_MB` is raised). Enquiries and payments: each five an hour per network and 100 in any 24 hours in total. Bookings: 20 an hour per network.
 - `/api/companies` shares the built-in company list and names that at least two candidates typed; a name only one person typed stays private.
 
 ## Environment variables
@@ -93,6 +96,8 @@ bun run scripts/restore.ts /tmp/backup.json /data
 ```
 
 The script keeps each replaced file as `<name>.pre-restore`.
+
+If a data file and its `.bak` copy both fail to read at startup, the log says `store unreadable, not saving until it is fixed` and that store runs in memory only, so the files are left as they are for you to repair or restore.
 
 ## Deploying
 
