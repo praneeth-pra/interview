@@ -2,9 +2,10 @@
 import { HOST_NAME, OWNER_EMAILS, RESEND_API_KEY } from "./config";
 import { type Session, adminsStore, isAdmin, liveSession, sessionsStore } from "./data";
 import { emailBody, sendEmail } from "./email";
+import { json, saveOrUndo } from "./http";
 import { closeEndedStreams } from "./live";
 import { saveStore } from "./store";
-import { safeEq, sha256 } from "./util";
+import { EMAIL_RE, normEmail, safeEq, sha256 } from "./util";
 import { randomInt } from "node:crypto";
 
 const SESSION_COOKIE = "bf_admin";
@@ -102,3 +103,17 @@ export function checkSignInCode(email: string, code: string): "ok" | "wrong" | "
   return "ok";
 }
 export const adminsView = (me: string) => ({ owners: [...OWNER_EMAILS].sort(), emails: [...adminsStore.data.emails].sort(), me });
+// POST /admin/api/admins from an owner: the full list of added admins. Owners (ADMIN_EMAILS) stay whatever the list says;
+// anyone taken off it is signed out on every device.
+export async function setAdmins(list: unknown, me: string): Promise<Response> {
+  if (!Array.isArray(list) || list.length > 50) return json({ error: "You can have up to 50 admins." }, 400);
+  const emails = [...new Set<string>(list.map(normEmail))];
+  const bad = emails.find((e) => !EMAIL_RE.test(e) || e.length > 200);
+  if (bad !== undefined) return json({ error: (bad || "An empty entry") + " isn't a valid email address." }, 400);
+  const prev = adminsStore.data.emails;
+  adminsStore.data.emails = emails.filter((e) => !OWNER_EMAILS.includes(e));
+  const failed = await saveOrUndo(adminsStore, () => (adminsStore.data.emails = prev));
+  if (failed) return failed;
+  await dropSessions((v) => isAdmin(v.email)).catch(() => {});
+  return json(adminsView(me));
+}

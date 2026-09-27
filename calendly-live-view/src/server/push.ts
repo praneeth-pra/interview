@@ -1,6 +1,7 @@
 // ---- Browser notifications (Web Push) for admins -----------------------------------------
 import { TZ } from "./config";
 import { type Booking, type PushSub, isOwner, pushStore } from "./data";
+import { json, saveOrUndo } from "./http";
 import { saveStore } from "./store";
 import { dayShort } from "./time";
 import { createCipheriv, createECDH, createPrivateKey, hkdfSync, randomBytes, sign as cryptoSign } from "node:crypto";
@@ -122,4 +123,37 @@ export async function ensurePushKeys() {
   pushStore.data.pub = b64u(kp.getPublicKey());
   pushStore.data.priv = b64u(kp.getPrivateKey());
   await saveStore(pushStore).catch(() => {});
+}
+// POST /admin/api/push/<act> from an admin's device: turn alerts on (subscribe) or off (unsubscribe), or send a test.
+export async function changePush(act: string, body: any, email: string): Promise<Response> {
+  const endpoint = String(body?.endpoint ?? "");
+  const before = pushStore.data.subs;
+  if (act === "subscribe") {
+    const p256dh = String(body?.keys?.p256dh ?? "");
+    const auth = String(body?.keys?.auth ?? "");
+    if (!pushEndpointOk(endpoint) || !/^[\w-]{80,100}$/.test(p256dh) || !/^[\w-]{16,32}$/.test(auth))
+      return json({ error: "This browser sent an unexpected subscription. Try again." }, 400);
+    const subs = before.filter((x) => x.endpoint !== endpoint);
+    if (subs.length >= 50) return json({ error: "Too many devices. Turn alerts off on an old one first." }, 400);
+    subs.push({ endpoint, p256dh, auth, label: String(body?.label ?? "Browser").slice(0, 40), addedAt: new Date().toISOString(), email });
+    pushStore.data.subs = subs;
+  } else if (act === "unsubscribe") {
+    pushStore.data.subs = before.filter((x) => x.endpoint !== endpoint);
+  } else if (act === "test") {
+    const sub = before.find((x) => x.endpoint === endpoint);
+    if (!sub) return json({ error: "Alerts aren't on for this device. Turn them on first." }, 404);
+    const code = await pushTo(sub, {
+      title: "Test notification",
+      body: "Alerts are working on this " + sub.label + ".",
+      tag: "test",
+      url: "/admin",
+    });
+    return code >= 200 && code < 300
+      ? json(pushView(email))
+      : json({ error: "The notification service didn't accept it (" + code + "). Turn alerts off and on again." }, 502);
+  } else return json({ error: "Not found." }, 404);
+  const failed = await saveOrUndo(pushStore, () => (pushStore.data.subs = before));
+  if (failed) return failed;
+  console.log("browser alerts: " + pushStore.data.subs.length + " device(s)");
+  return json(pushView(email));
 }

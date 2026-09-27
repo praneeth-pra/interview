@@ -978,3 +978,46 @@ describe("hardening", () => {
     expect((await (await enquiry({ "x-real-ip": "10.9.0.3" })).json()).error).toContain("from this network");
   });
 });
+
+describe("data safety", () => {
+  let s: Srv;
+  const GARBAGE = "{ not json";
+  beforeAll(async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-safety-"));
+    seed(dir);
+    // neither the interview supporters file nor its backup reads; the Candidates list is one email short of full
+    writeFileSync(join(dir, "interviewers.json"), GARBAGE);
+    writeFileSync(join(dir, "interviewers.json.bak"), GARBAGE);
+    const emails = Array.from({ length: 4999 }, (_, i) => "c" + i + "@example.com");
+    writeFileSync(join(dir, "allowlist.json"), JSON.stringify({ enabled: false, emails }));
+    s = await start(4318, {}, dir);
+  });
+  afterAll(() => s?.proc.kill());
+
+  test("a store whose file and backup don't read is never overwritten", async () => {
+    const r = await fetch(s.url + "/admin/api/interviewer-names", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ list: [{ to: "Asha" }] }),
+    });
+    expect(r.status).toBe(200);
+    expect(readFileSync(join(s.dir, "interviewers.json"), "utf8")).toBe(GARBAGE);
+  });
+
+  test("adding more emails than fit changes nothing, not even in memory", async () => {
+    const full = await postJson(s, "/admin/api/allowlist", { action: "add", text: "new1@example.com new2@example.com" });
+    expect(full.status).toBe(400);
+    expect((await postJson(s, "/admin/api/allowlist", { action: "remove", email: "nobody@example.com" })).status).toBe(200);
+    const saved = JSON.parse(readFileSync(join(s.dir, "allowlist.json"), "utf8"));
+    expect(saved.emails.length).toBe(4999);
+    expect(saved.emails).not.toContain("new1@example.com");
+  });
+
+  test("one network can make at most 20 bookings an hour", async () => {
+    const codes: number[] = [];
+    for (let i = 0; i < 21; i++) codes.push((await postJson(s, "/api/book", {}, { "x-real-ip": "10.7.0.1" })).status);
+    expect(codes.slice(0, 20).every((c) => c === 400)).toBe(true);
+    expect(codes[20]).toBe(429);
+    expect((await postJson(s, "/api/book", {}, { "x-real-ip": "10.7.0.2" })).status).toBe(400);
+  });
+});

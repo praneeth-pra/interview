@@ -1,5 +1,6 @@
 // Response helpers, security headers and request limits.
 import { encode, respond } from "../assets";
+import { type FileStore, saveStore } from "./store";
 
 export const BASE_HEADERS = {
   "X-Content-Type-Options": "nosniff",
@@ -68,3 +69,44 @@ export type Srv = { requestIP(r: Request): { address: string } | null; timeout(r
 // The visitor's address, for the per-network limits. Railway's edge puts the real one in X-Real-IP; X-Forwarded-For is
 // not used because a visitor can write anything at its start.
 export const clientIp = (req: Request, srv: Srv) => (req.headers.get("x-real-ip") ?? "").trim() || srv.requestIP(req)?.address || "unknown";
+// Saves a changed store. When the write fails, undo() puts the change back and the answer is the error to send.
+export async function saveOrUndo<T>(s: FileStore<T>, undo: () => void): Promise<Response | null> {
+  try {
+    await saveStore(s);
+    return null;
+  } catch {
+    undo();
+    return json({ error: "Couldn't save the change. Try again." }, 500);
+  }
+}
+// A resume or receipt from the volume. It opens in the browser; with download it saves as "<person> <what>.<ext>"
+// (fallback when the person's name leaves nothing usable) instead of the name it was uploaded with.
+export function storedFile(
+  bytes: Uint8Array,
+  f: { file: string; name: string; type: string },
+  download: boolean,
+  person: string,
+  fallback: string,
+  what: string,
+) {
+  const ext = f.file.slice(f.file.lastIndexOf("."));
+  const name = download
+    ? (person
+        .replace(/[\x00-\x1f\x7f/\\:*?"<>|]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 80) || fallback) +
+      " " +
+      what +
+      ext
+    : f.name;
+  const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/"/g, "");
+  return new Response(bytes as Uint8Array<ArrayBuffer>, {
+    headers: {
+      ...BASE_HEADERS,
+      "Content-Type": f.type,
+      "Content-Disposition":
+        (download ? "attachment" : "inline") + '; filename="' + ascii + "\"; filename*=UTF-8''" + encodeURIComponent(name),
+    },
+  });
+}

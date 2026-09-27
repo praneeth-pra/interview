@@ -132,6 +132,9 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
     return json({ slots: slotsFor(y, mo, d, duration, ignoreId).filter((s) => s < bookingLimitMs()) });
   }
   if (path === "/api/book" && method === "POST") {
+    // a person books a round or two; 20 an hour from one network keeps a script from filling every free time
+    if (!underLimit("book:" + clientIp(req, srv), 20, 3600000))
+      return json({ error: "Too many bookings from this network. Try again in an hour." }, 429);
     const body = await readJson(req);
     if (body instanceof Response) return body;
     return createBooking(body, req);

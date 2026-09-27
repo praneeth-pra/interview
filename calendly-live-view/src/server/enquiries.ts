@@ -1,7 +1,7 @@
 // Enquiries from the public /enquiry page, with their resumes.
 import { DATA_DIR } from "./config";
 import { type Enquiry, enquiriesStore, pushStore } from "./data";
-import { type Srv, json, underLimit, clientIp } from "./http";
+import { type Srv, json, saveOrUndo, storedFile, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
 import { saveStore } from "./store";
@@ -123,3 +123,33 @@ export const enquiryView = (v: Enquiry) => ({
   createdAt: v.createdAt,
   resume: { name: v.resume.name, size: v.resume.size },
 });
+// Newest first, for the Enquiries tab.
+export const enquiriesList = () => ({
+  enquiries: [...enquiriesStore.data.enquiries].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(enquiryView),
+});
+// An enquiry's resume: opens in the browser, or with download saves as "<candidate> resume.pdf".
+export async function resumeFile(id: string, download: boolean): Promise<Response> {
+  const v = enquiriesStore.data.enquiries.find((x) => x.id === id);
+  const bytes = v && (await readResume(v.resume.file));
+  if (!v || !bytes) return json({ error: "That resume isn't there any more." }, 404);
+  return storedFile(bytes, v.resume, download, v.name, "Candidate", "resume");
+}
+export async function deleteEnquiry(id: string): Promise<Response> {
+  const v = enquiriesStore.data.enquiries.find((x) => x.id === id);
+  if (!v) return json({ error: "That enquiry was already deleted." }, 404);
+  const prev = enquiriesStore.data.enquiries;
+  enquiriesStore.data.enquiries = prev.filter((x) => x !== v);
+  const failed = await saveOrUndo(enquiriesStore, () => (enquiriesStore.data.enquiries = prev));
+  if (failed) return failed;
+  await removeResume(v.resume.file).catch(() => {});
+  broadcastState();
+  return json({ ok: true });
+}
+// When this admin ("" with sign-in off) last opened Enquiries; with now, it is being opened now.
+export async function enquiriesSeen(email: string, now: boolean): Promise<Response> {
+  if (now) {
+    enquiriesStore.data.seen[email] = new Date().toISOString();
+    await saveStore(enquiriesStore).catch(() => {});
+  }
+  return json({ seenAt: enquiriesStore.data.seen[email] ?? "" });
+}

@@ -1,5 +1,5 @@
-// Admin calendar: week grid and agenda, booking panel, reschedule/cancel, candidate search, the Candidates
-// allowlist panel and the live connection to /admin/stream.
+// Admin calendar: week grid and agenda, booking panel, reschedule/cancel, candidate search, the tabs and the live
+// connection to /admin/stream. The ⋯ menu's sections, Enquiries and Payments are in their own modules.
 import { byId, el, onEnterOrSpace, setMessage, toast } from "./dom";
 import {
   addDays,
@@ -23,74 +23,26 @@ import { setupDownloadMenu } from "./download-menu";
 import { setupNav } from "./nav";
 import { showRevenue } from "./revenue";
 import { setupStatsFrame } from "./stats-frame";
-import type { Allowlist, Booking, State } from "./types";
+import { boot, colorClass, forget, remember, setState, state } from "./state";
+import { closePanel, icon, initials, openPanel, panel, setPanelAvatar } from "./panel";
+import { showInterviewers } from "./interviewers";
+import { showAdmins } from "./admins";
+import { renderEnquiryBadge, setupEnquiries, showEnquiries } from "./enquiries";
+import { refreshPayments, showPayments } from "./payments";
+import { setupAllowlist, showCandidates, syncAllow } from "./allowlist";
+import type { Booking } from "./types";
 
-var boot = JSON.parse(document.getElementById("boot").textContent);
 var HOUR_PX = 64;
-var state: State = {
-  ready: false,
-  events: [],
-  changes: [],
-  iv: {
-    names: [],
-    assign: {},
-  },
-  allow: {
-    enabled: false,
-    count: 0,
-  },
-  hours: {
-    start: 540,
-    end: 1260,
-  },
-  email: false,
-};
-// The last state seen is kept on this device so the app opens with the bookings already on screen, and still shows
-// them offline. It is dropped on sign-out and whenever the sign-in page shows.
-var STATE_KEY = "adm.state";
-var SEEN_KEY = "adm.enqSeen"; // when this admin last opened Enquiries, so the badge is right before the server answers
-function remember(text: string) {
-  try {
-    localStorage.setItem(STATE_KEY, text);
-  } catch (e) {}
-}
-function forget() {
-  try {
-    localStorage.removeItem(STATE_KEY);
-    localStorage.removeItem(SEEN_KEY);
-  } catch (e) {}
-  if (navigator.serviceWorker && navigator.serviceWorker.controller) {
-    navigator.serviceWorker.controller.postMessage("signed-out");
-  }
-}
-try {
-  var savedState = JSON.parse(localStorage.getItem(STATE_KEY) || "null");
-  if (savedState && savedState.ready && Array.isArray(savedState.events)) {
-    state = savedState;
-  }
-} catch (e) {}
 var selectedDay: string | null = null; // the day picked in the date box, or null
 
 var weekOf: string | null = null; // Monday of the week on screen
 var live = false; // connected to /admin/stream
 var stream: EventSource | null = null;
-var refreshPanel: (() => void) | null = null; // redraws the open panel when new data arrives
-var returnFocus: HTMLElement | null = null; // focused before the panel opened
 var allBookings: Booking[] | null = null; // every booking, for search; refetched after 30s
 var allBookingsAt = 0;
 var dateParam = new URLSearchParams(location.search).get("date");
 if (/^\d{4}-\d{2}-\d{2}$/.test(dateParam || "")) {
   selectedDay = dateParam;
-}
-function colorClass(name: string) {
-  var index = state.iv.names.indexOf(name);
-  if (index < 0) {
-    index = 0;
-    for (var pos = 0; pos < name.length; pos++) {
-      index += name.charCodeAt(pos);
-    }
-  }
-  return "c" + (index % 6);
 }
 function findBooking(id: string) {
   function find(list: Booking[] | null) {
@@ -624,53 +576,10 @@ function render() {
     renderLegend();
     renderWeek();
     renderAgenda();
-    if (refreshPanel && !byId("panel").hidden) {
-      refreshPanel();
+    if (panel.refresh && !byId("panel").hidden) {
+      panel.refresh();
     }
   }
-}
-// The Candidates panel borrows the allowlist section itself, so its buttons keep their handlers. Put it back in the page
-// (hidden) whenever the panel closes or shows something else.
-function parkAllow() {
-  var section = byId("viewAllow");
-  if (section.parentElement !== document.querySelector("main")) {
-    section.hidden = true;
-    document.querySelector("main").appendChild(section);
-  }
-  // the Revenue sheet borrows the Revenue page's contents the same way
-  var revenue = byId("revBody").closest(".enqview");
-  if (revenue.parentElement !== byId("viewRev")) {
-    byId("viewRev").appendChild(revenue);
-  }
-}
-function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
-  parkAllow();
-  if (!keepFocus && byId("panel").hidden) {
-    returnFocus = document.activeElement as HTMLElement;
-  }
-  byId("ptitle").textContent = title;
-  byId("psub").textContent = subtitle || "";
-  setPanelAvatar(null);
-  sheetBookingId = "";
-  var body = byId("pbody");
-  body.textContent = "";
-  body.classList.remove("grp", "rv");
-  byId("panel").hidden = false;
-  byId("pback").hidden = false;
-  if (!keepFocus) {
-    byId("pclose").focus();
-  }
-  return body;
-}
-function closePanel() {
-  parkAllow();
-  byId("panel").hidden = true;
-  byId("pback").hidden = true;
-  refreshPanel = null;
-  if (returnFocus && document.contains(returnFocus)) {
-    returnFocus.focus();
-  }
-  returnFocus = null;
 }
 function showWeekOf(booking: Booking) {
   var day = dayKeyOf(new Date(booking.start));
@@ -682,7 +591,7 @@ function showWeekOf(booking: Booking) {
   }
 }
 function showList(title: string, subtitle: string, bookings: Booking[]) {
-  refreshPanel = null;
+  panel.refresh = null;
   var body = openPanel(title, subtitle);
   if (!bookings.length) {
     body.appendChild(
@@ -762,32 +671,6 @@ function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
       setMessage(msg, error.message, true);
     });
 }
-// Small line icons for the booking sheet (24×24, stroked with the text colour).
-var ICON: Record<string, string> = {
-  mail: "M4 6.5h16v11H4zM4.5 7l7.5 6 7.5-6",
-  copy: "M9 9h10v10H9zM5 15V5h10",
-  chart: "M5 20v-7M12 20V5M19 20v-10M3 20h18",
-  person: "M12 11.6a3.6 3.6 0 1 0 0-7.2 3.6 3.6 0 0 0 0 7.2zM5 20c.8-3.6 3.6-5.6 7-5.6s6.2 2 7 5.6",
-  cal: "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4",
-  clock: "M12 7v5l3 2M12 20.5a8.5 8.5 0 1 0 0-17 8.5 8.5 0 0 0 0 17z",
-  moved: "M4 12h13M13 7l5 5-5 5",
-  x: "M6 6l12 12M18 6 6 18",
-  note: "M5 4h14v16H5zM8.5 9h7M8.5 13h7M8.5 17h4",
-  download: "M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14",
-};
-function icon(name: string) {
-  var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("aria-hidden", "true");
-  var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
-  path.setAttribute("d", ICON[name]);
-  svg.appendChild(path);
-  return svg;
-}
-function initials(name: string) {
-  var words = titleCase(name).trim().split(/\s+/).filter(Boolean);
-  return ((words[0] || "?").charAt(0) + (words.length > 1 ? words[words.length - 1].charAt(0) : "")).toUpperCase();
-}
 // "in 2 days", "in 3 hours", "in 20 min"
 function untilText(ms: number) {
   var minutes = Math.round(ms / 60000);
@@ -798,18 +681,6 @@ function untilText(ms: number) {
   } else {
     return "in " + plural(Math.round(minutes / 1440), "day");
   }
-}
-// The avatar in the sheet header: the candidate's initials, in the interviewer's colour once recorded.
-function setPanelAvatar(name: string | null, interviewer?: string) {
-  var avatar = document.getElementById("pav");
-  if (!avatar) {
-    var head = document.querySelector(".phead");
-    avatar = el("span", { id: "pav", class: "pav", "aria-hidden": "true" });
-    head.insertBefore(avatar, head.firstChild);
-  }
-  avatar.hidden = !name;
-  avatar.textContent = name ? initials(name) : "";
-  avatar.className = "pav " + (interviewer ? colorClass(interviewer) : "cn");
 }
 // The round's status in the booking panel, shown once the interview has started (the result comes from the
 // interview). One tap saves a status; tapping the selected one clears it. No-show and Didn't happen are offered while
@@ -863,7 +734,6 @@ function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: 
       setMessage(msg, error.message, true);
     });
 }
-var sheetBookingId = "";
 function showBooking(id: string, refresh?: boolean) {
   var booking = findBooking(id);
   if (!booking) {
@@ -878,12 +748,12 @@ function showBooking(id: string, refresh?: boolean) {
   var interviewer = state.iv.assign[booking.id] || "";
   var upcoming = Date.parse(booking.start) > now;
   var status = roundStatus(booking);
-  refreshPanel = function () {
+  panel.refresh = function () {
     showBooking(id, true);
   };
   var body = openPanel(titleCase(booking.name), [booking.company, booking.round].filter(Boolean).join(" · ") || "No company given", refresh);
   setPanelAvatar(booking.name, interviewer);
-  sheetBookingId = id;
+  panel.bookingId = id;
 
   // When: a calendar tile, the day and time, how far away it is, and the status.
   var relative = booking.cancelled
@@ -1052,7 +922,7 @@ function showBooking(id: string, refresh?: boolean) {
   if (!allBookings && booking.email) {
     loadAllBookings()
       .then(function () {
-        if (sheetBookingId === id && !byId("panel").hidden) {
+        if (panel.bookingId === id && !byId("panel").hidden) {
           showBooking(id, true);
         }
       })
@@ -1083,7 +953,7 @@ function showBooking(id: string, refresh?: boolean) {
   }
 }
 function showCancel(booking: Booking) {
-  refreshPanel = null;
+  panel.refresh = null;
   var body = openPanel("Cancel booking", titleCase(booking.name) + " · " + formatRange(booking), true);
   var reason = el("textarea", {
     id: "creason",
@@ -1296,7 +1166,7 @@ function goToTime(startMs: number) {
   render();
 }
 function showReschedule(booking: Booking) {
-  refreshPanel = null;
+  panel.refresh = null;
   var body = openPanel("Reschedule", titleCase(booking.name) + " · now " + formatRange(booking), true);
   var picker = timePicker(booking.duration, dayKeyOf(new Date(booking.start)), booking.id);
   var msg = el("p", {
@@ -1360,899 +1230,7 @@ function showReschedule(booking: Booking) {
   body.appendChild(msg);
   byId("cdate").focus();
 }
-function showInterviewers() {
-  refreshPanel = null;
-  var body = openPanel("Interview supporters", "Rename, add or remove. Renaming also updates interviews already recorded.");
-  var rows = el("div");
-  var msg = el("p", {
-    class: "msg",
-    role: "status",
-  });
-  var list = state.iv.names.map(function (name) {
-    return {
-      from: name,
-      to: name,
-    };
-  });
-  function renderRows() {
-    rows.textContent = "";
-    list.forEach(function (entry, index) {
-      var input = el("input", {
-        type: "text",
-        maxlength: "30",
-        "aria-label": "Interview supporter " + (index + 1) + " name",
-      });
-      input.value = entry.to;
-      input.oninput = function () {
-        entry.to = input.value;
-      };
-      rows.appendChild(
-        el(
-          "div",
-          {
-            class: "ivrow",
-          },
-          [
-            el("span", {
-              class: "lg " + (entry.from ? colorClass(entry.from) : "cn"),
-            }),
-            input,
-            el("button", {
-              type: "button",
-              class: "rm",
-              text: "Remove",
-              "aria-label": "Remove " + (entry.to || "interview supporter"),
-              onclick: function () {
-                list.splice(index, 1);
-                renderRows();
-              },
-            }),
-          ],
-        ),
-      );
-    });
-  }
-  renderRows();
-  body.appendChild(rows);
-  body.appendChild(
-    el("button", {
-      type: "button",
-      class: "linkbtn",
-      text: "+ Add interview supporter",
-      onclick: function () {
-        if (list.length >= 12) {
-          return setMessage(msg, "You can have up to 12 interview supporters.", true);
-        }
-        list.push({
-          from: "",
-          to: "",
-        });
-        renderRows();
-        (rows.lastChild as HTMLElement).querySelector("input").focus();
-      },
-    }),
-  );
-  var saveButton = el("button", {
-    type: "button",
-    class: "pri",
-    text: "Save",
-    onclick: function () {
-      saveButton.disabled = true;
-      request("/admin/api/interviewer-names", {
-        list: list,
-      })
-        .then(function () {
-          closePanel();
-          toast("Interview supporters saved");
-        })
-        .catch(function (error) {
-          saveButton.disabled = false;
-          setMessage(msg, error.message, true);
-        });
-    },
-  });
-  body.appendChild(
-    el(
-      "div",
-      {
-        class: "row mt",
-      },
-      [
-        saveButton,
-        el("button", {
-          type: "button",
-          class: "ghost",
-          text: "Cancel",
-          onclick: closePanel,
-        }),
-      ],
-    ),
-  );
-  body.appendChild(msg);
-}
-// Who can sign in. Owners come from the server's ADMIN_EMAILS and can't be removed here; everyone else can be added or
-// removed, and removing someone signs them out on all their devices.
-function showAdmins() {
-  refreshPanel = null;
-  // only owners add and remove admins; everyone else sees the list
-  var body = openPanel(
-    "Admins",
-    boot.owner ? "People on this list sign in with a code sent to their email." : "Only the owner can add or remove admins.",
-  );
-  var msg = el("p", {
-    class: "msg",
-    role: "status",
-  });
-  var me = el("p", { class: "sub", text: "Loading…" });
-  var rows = el("div", { class: "admlist" });
-  var input = el("input", {
-    type: "email",
-    inputmode: "email",
-    autocomplete: "off",
-    autocapitalize: "off",
-    spellcheck: "false",
-    placeholder: "name@example.com",
-    "aria-label": "Email of the admin to add",
-  }) as HTMLInputElement;
-  var addButton = el("button", { type: "button", class: "pri", text: "Add" }) as HTMLButtonElement;
-  var view = { owners: [] as string[], emails: [] as string[], me: "" };
-  function save(emails: string[], done: string) {
-    addButton.disabled = true;
-    return request("/admin/api/admins", { emails: emails })
-      .then(function (result) {
-        view = result;
-        draw();
-        toast(done);
-        return true;
-      })
-      .catch(function (error) {
-        setMessage(msg, error.message, true);
-        return false;
-      })
-      .then(function (ok) {
-        addButton.disabled = false;
-        return ok;
-      });
-  }
-  function draw() {
-    me.textContent = view.me ? "You're signed in as " + view.me + "." : "";
-    rows.textContent = "";
-    view.owners.forEach(function (email) {
-      rows.appendChild(el("div", { class: "admrow" }, [el("span", { class: "admail", text: email }), el("span", { class: "tag r", text: "Owner" })]));
-    });
-    view.emails.forEach(function (email) {
-      if (!boot.owner) {
-        rows.appendChild(el("div", { class: "admrow" }, [el("span", { class: "admail", text: email })]));
-        return;
-      }
-      rows.appendChild(
-        el("div", { class: "admrow" }, [
-          el("span", { class: "admail", text: email }),
-          el("button", {
-            type: "button",
-            class: "rm",
-            text: "Remove",
-            "aria-label": "Remove " + email,
-            onclick: function () {
-              if (confirm("Remove " + email + "? They'll be signed out on every device.")) {
-                save(
-                  view.emails.filter(function (other) {
-                    return other !== email;
-                  }),
-                  "Admin removed",
-                );
-              }
-            },
-          }),
-        ]),
-      );
-    });
-  }
-  function add() {
-    var email = input.value.trim().toLowerCase();
-    setMessage(msg, "");
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setMessage(msg, "Enter a valid email address.", true);
-      input.focus();
-      return;
-    }
-    if (view.owners.indexOf(email) >= 0 || view.emails.indexOf(email) >= 0) {
-      setMessage(msg, email + " is already an admin.", true);
-      return;
-    }
-    save(view.emails.concat([email]), "Admin added").then(function (ok) {
-      if (ok) {
-        input.value = "";
-        setMessage(msg, email + " can now sign in with a code sent to that email.");
-      }
-    });
-  }
-  addButton.onclick = add;
-  input.addEventListener("keydown", function (event: KeyboardEvent) {
-    if (event.key === "Enter") {
-      event.preventDefault();
-      add();
-    }
-  });
-  body.appendChild(me);
-  body.appendChild(rows);
-  if (boot.owner) {
-    body.appendChild(el("div", { class: "admadd" }, [input, addButton]));
-  }
-  body.appendChild(msg);
-  request("/admin/api/admins")
-    .then(function (result) {
-      view = result;
-      draw();
-    })
-    .catch(function (error) {
-      me.textContent = "";
-      setMessage(msg, error.message, true);
-    });
-}
-// The Enquiries tab: responses from the public /enquiry page, newest first, with contact details, technology,
-// experience and the resume. Opening it marks them as seen, which clears the red count.
-function showEnquiries() {
-  var body = byId("enqBody");
-  body.textContent = "";
-  var link = location.origin + "/enquiry";
-  var msg = el("p", { class: "msg", role: "status" });
-  body.appendChild(
-    el("div", { class: "enqlink" }, [
-      el("a", { href: "/enquiry", target: "_blank", rel: "noopener", text: link.replace(/^https?:\/\//, "") }),
-      el("button", {
-        type: "button",
-        class: "ghost",
-        text: "Copy link",
-        onclick: function () {
-          navigator.clipboard.writeText(link).then(
-            function () {
-              toast("Link copied");
-            },
-            function () {
-              setMessage(msg, "Couldn't copy. The link is " + link, true);
-            },
-          );
-        },
-      }),
-    ]),
-  );
-  var list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
-  body.appendChild(list);
-  body.appendChild(msg);
-  function draw(enquiries: any[]) {
-    list.textContent = "";
-    if (!enquiries.length) {
-      list.appendChild(el("p", { class: "sub", text: "No enquiries yet. Share the link above." }));
-      return;
-    }
-    enquiries.forEach(function (item) {
-      var when = new Date(item.createdAt);
-      list.appendChild(
-        el("div", { class: "enq" }, [
-          el("div", { class: "enqh" }, [
-            el("b", { text: titleCase(item.name) }),
-            el("small", { text: formatIst({ month: "short", day: "numeric" }, when) + ", " + formatTime(when) }),
-          ]),
-          el("p", { class: "enqt", text: item.tech + " · " + item.experience }),
-          el("p", { class: "enqc" }, [
-            el("a", { href: "mailto:" + item.email, text: item.email }),
-            el("a", { href: "tel:" + item.phone.replace(/[^\d+]/g, ""), text: item.phone }),
-          ]),
-          el("div", { class: "enqa" }, [
-            // the resume opens in a new tab to read; the icon beside it saves it, named after the candidate
-            el("div", { class: "enqr" }, [
-              el("a", {
-                class: "bk-act",
-                href: "/admin/api/enquiries/" + item.id + "/resume",
-                target: "_blank",
-                rel: "noopener",
-                text: "Resume · " + Math.max(1, Math.round(item.resume.size / 1024)) + " KB",
-              }),
-              el(
-                "a",
-                {
-                  class: "bk-act dl",
-                  href: "/admin/api/enquiries/" + item.id + "/resume?download=1",
-                  download: "",
-                  title: "Download resume",
-                  "aria-label": "Download the resume of " + item.name,
-                },
-                [icon("download")],
-              ),
-            ]),
-            el("button", {
-              type: "button",
-              class: "rm",
-              text: "Delete",
-              "aria-label": "Delete the enquiry from " + item.name,
-              onclick: function () {
-                if (!confirm("Delete the enquiry from " + item.name + ", with their resume? This can't be undone.")) {
-                  return;
-                }
-                request("/admin/api/enquiries/delete", { id: item.id })
-                  .then(function () {
-                    toast("Enquiry deleted");
-                    load();
-                  })
-                  .catch(function (error) {
-                    setMessage(msg, error.message, true);
-                  });
-              },
-            }),
-          ]),
-        ]),
-      );
-    });
-  }
-  function load() {
-    request("/admin/api/enquiries")
-      .then(function (result) {
-        draw(result.enquiries || []);
-        markEnquiriesSeen();
-      })
-      .catch(function (error) {
-        list.textContent = "";
-        setMessage(msg, error.message, true);
-      });
-  }
-  load();
-}
-// The red count on the Enquiries tab: enquiries that came in after this admin last opened the tab (kept on the server,
-// so phone and laptop agree). The home-screen app's icon shows it too, where the phone allows it.
-// Until the last-opened time is known (kept on this device, then checked with the server) the badge stays hidden, so a
-// refresh doesn't flash every enquiry as new and then drop to the real count.
-var enquiriesSeenAt: string | null = null;
-try {
-  enquiriesSeenAt = localStorage.getItem(SEEN_KEY);
-} catch (e) {}
-var enquiriesShown = -1;
-function setEnquiriesSeen(at: string) {
-  enquiriesSeenAt = at;
-  try {
-    localStorage.setItem(SEEN_KEY, at);
-  } catch (e) {}
-  renderEnquiryBadge();
-}
-function unreadEnquiries() {
-  if (enquiriesSeenAt === null) return 0;
-  var seen = enquiriesSeenAt ? Date.parse(enquiriesSeenAt) : 0;
-  return (state.enquiries || []).filter(function (at) {
-    return Date.parse(at) > seen;
-  }).length;
-}
-function renderEnquiryBadge() {
-  var count = byId("viewEnq").hidden ? unreadEnquiries() : 0;
-  document.querySelectorAll(".nbadge:not(.pbadge)").forEach(function (badge: HTMLElement) {
-    badge.hidden = !count;
-    badge.textContent = count > 99 ? "99+" : String(count);
-  });
-  byId("tabEnq").setAttribute("aria-label", count ? "Enquiries, " + count + " new" : "Enquiries");
-  var nav = navigator as any;
-  try {
-    if (count && nav.setAppBadge) {
-      nav.setAppBadge(count).catch(function () {});
-    } else if (!count && nav.clearAppBadge) {
-      nav.clearAppBadge().catch(function () {});
-    }
-  } catch (e) {}
-  // a new enquiry while the tab is open shows up straight away
-  var total = (state.enquiries || []).length;
-  if (!byId("viewEnq").hidden && enquiriesShown >= 0 && total !== enquiriesShown) {
-    showEnquiries();
-  }
-  enquiriesShown = total;
-}
-function markEnquiriesSeen() {
-  request("/admin/api/enquiries/seen", {})
-    .then(function (result) {
-      setEnquiriesSeen(result.seenAt || "");
-    })
-    .catch(function () {});
-}
-// only owners have Enquiries
-if (boot.owner) {
-  request("/admin/api/enquiries/seen")
-    .then(function (result) {
-      setEnquiriesSeen(result.seenAt || "");
-    })
-    .catch(function () {});
-}
-// The Payments tab: what people sent from the public /payment page, newest first. Each receipt opens in a new tab; the
-// icon beside it saves it, named after the payer. A new payment is Pending until an owner confirms or discards it, and
-// that's final. Totals count confirmed payments only; discarded ones are kept but hidden unless the status filter asks.
-function rupees(amount: number) {
-  return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
-}
-var paymentsShown = -1;
-// Verified: the server read the typed amount on the receipt. Needs check: it couldn't read an amount (a blurry photo,
-// a HEIC photo), so look at the receipt. Payments from before the check have no badge.
-function checkBadge(item: any) {
-  if (item.check === "verified") {
-    return el("span", { class: "pchk ok", text: "Verified", title: "The amount on the receipt matches" });
-  } else if (item.check === "unread") {
-    return el("span", { class: "pchk warn", text: "Needs check", title: "The amount on the receipt couldn't be read" });
-  } else {
-    return null;
-  }
-}
-// which part of the fee a payment is; older payments didn't ask, and show a dash
-function installmentText(item: any, short?: boolean) {
-  var names: Record<string, string> = short
-    ? { advance: "Advance", "1": "1st", "2": "2nd", "3": "3rd" }
-    : { advance: "Advance", "1": "1st installment", "2": "2nd installment", "3": "3rd installment" };
-  return names[item.installment] || "\u2014";
-}
-function statusBadge(item: any) {
-  if (item.decision === "confirmed") {
-    return el("span", { class: "pst ok", text: "Confirmed" });
-  } else if (item.decision === "discarded") {
-    return el("span", { class: "pst off", text: "Discarded" });
-  } else {
-    return el("span", { class: "pst wait", text: "Pending" });
-  }
-}
-// Three views, remembered per device: By candidate (one row per candidate email: payments, total paid, last paid),
-// Table (candidate, date, amount) and List (one block per payment, with its receipt). The search box narrows every view
-// by name or email; when it finds one candidate, Table and List show their subtotal. Tapping a candidate in By candidate
-// searches for them.
-var paymentsMode = "people";
-try {
-  var savedMode = localStorage.getItem("payMode") || "";
-  paymentsMode = ["people", "table", "list"].indexOf(savedMode) >= 0 ? savedMode : "people";
-} catch (e) {}
-var paymentsSort = { key: "date", down: true };
-var peopleSort = { key: "last", down: true };
-// what's typed in the search box: part of a candidate's name or email
-var paymentsQuery = "";
-// "" is pending and confirmed; or just "pending", "confirmed" or "discarded"
-var paymentsStatus = "";
-var paymentOpening = new URLSearchParams(location.search).get("pay") || "";
-var paymentShown = ""; // the one an alert opened, highlighted
-function showPayments() {
-  var body = byId("payBody");
-  body.textContent = "";
-  var link = location.origin + "/payment";
-  var msg = el("p", { class: "msg", role: "status" });
-  body.appendChild(
-    el("div", { class: "enqlink" }, [
-      el("a", { href: "/payment", target: "_blank", rel: "noopener", text: link.replace(/^https?:\/\//, "") }),
-      el("button", {
-        type: "button",
-        class: "ghost",
-        text: "Copy link",
-        onclick: function () {
-          navigator.clipboard.writeText(link).then(
-            function () {
-              toast("Link copied");
-            },
-            function () {
-              setMessage(msg, "Couldn't copy. The link is " + link, true);
-            },
-          );
-        },
-      }),
-    ]),
-  );
-  var bar = el("div", { class: "paybar", hidden: true });
-  var list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
-  body.appendChild(bar);
-  body.appendChild(list);
-  body.appendChild(msg);
-  var payments: any[] = [];
-  // redrawing keeps this same box, so typing isn't interrupted
-  var search = el("input", {
-    type: "search",
-    class: "payfilter paysearch",
-    placeholder: "Search candidates",
-    "aria-label": "Search payments by candidate name or email",
-    autocomplete: "off",
-    oninput: function () {
-      paymentsQuery = search.value;
-      draw();
-    },
-  }) as HTMLInputElement;
-  search.value = paymentsQuery;
-  // one entry per candidate email, with the name from their latest payment (payments come newest first)
-  function people() {
-    var byEmail: Record<string, any> = {};
-    var out: any[] = [];
-    payments.forEach(function (item) {
-      if (item.decision === "discarded") {
-        return;
-      }
-      var p = byEmail[item.email];
-      if (!p) {
-        p = byEmail[item.email] = { email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, pending: 0 };
-        out.push(p);
-      }
-      if (item.decision === "confirmed") {
-        p.count++;
-        p.total += item.amount;
-      } else {
-        p.pending++;
-      }
-      if (Date.parse(item.createdAt) > Date.parse(p.last)) {
-        p.last = item.createdAt;
-      }
-    });
-    return out;
-  }
-  function modeButton(mode: string, label: string) {
-    return el("button", {
-      type: "button",
-      "aria-pressed": String(paymentsMode === mode),
-      text: label,
-      onclick: function () {
-        paymentsMode = mode;
-        try {
-          localStorage.setItem("payMode", mode);
-        } catch (e) {}
-        draw();
-      },
-    });
-  }
-  function sortButton(sort: { key: string; down: boolean }, key: string, label: string, set: (s: { key: string; down: boolean }) => void) {
-    var on = sort.key === key;
-    return el("button", {
-      type: "button",
-      text: label + (on ? (sort.down ? " \u2193" : " \u2191") : ""),
-      onclick: function () {
-        set({ key: key, down: on ? !sort.down : true });
-        draw();
-      },
-    });
-  }
-  function heading(sort: { key: string; down: boolean }, key: string, label: string, num: boolean, set: (s: { key: string; down: boolean }) => void) {
-    var on = sort.key === key;
-    return el("th", { scope: "col", class: num ? "num" : "", "aria-sort": on ? (sort.down ? "descending" : "ascending") : null }, [
-      sortButton(sort, key, label, set),
-    ]);
-  }
-  function draw() {
-    // checked before the bar is cleared, which takes the focus away
-    var typing = document.activeElement === search;
-    list.textContent = "";
-    bar.textContent = "";
-    bar.hidden = !payments.length;
-    list.className = "enqlist";
-    if (!payments.length) {
-      list.appendChild(el("p", { class: "sub", text: "No payments yet. Share the link above." }));
-      return;
-    }
-    var listed = people();
-    // a candidate whose payments were all discarded isn't in By candidate, but search still finds them
-    var all = listed.slice();
-    payments.forEach(function (item) {
-      if (!all.some((p) => p.email === item.email)) {
-        all.push({ email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, pending: 0 });
-      }
-    });
-    var query = paymentsQuery.trim().toLowerCase();
-    function matches(p: any) {
-      return !query || p.name.toLowerCase().indexOf(query) >= 0 || p.email.indexOf(query) >= 0;
-    }
-    var found = all.filter(matches);
-    if (!typing) {
-      search.value = paymentsQuery;
-    }
-    var controls: HTMLElement[] = [
-      el("div", { class: "paysw", role: "group", "aria-label": "Show payments" }, [
-        modeButton("people", "By candidate"),
-        modeButton("table", "Table"),
-        modeButton("list", "List"),
-      ]),
-    ];
-    controls.push(search);
-    if (paymentsMode !== "people") {
-      var status = el(
-        "select",
-        {
-          class: "payfilter",
-          "aria-label": "Show payments by status",
-          onchange: function () {
-            paymentsStatus = status.value;
-            draw();
-          },
-        },
-        [
-          el("option", { value: "", text: "Pending and confirmed" }),
-          el("option", { value: "pending", text: "Pending" }),
-          el("option", { value: "confirmed", text: "Confirmed" }),
-          el("option", { value: "discarded", text: "Discarded" }),
-        ],
-      );
-      status.value = paymentsStatus;
-      controls.push(status);
-    }
-    controls.forEach(function (c) {
-      bar.appendChild(c);
-    });
-    if (typing) {
-      search.focus();
-    }
-    if (!found.length) {
-      list.appendChild(el("p", { class: "sub", text: "No candidate matches \u201C" + paymentsQuery.trim() + "\u201D." }));
-      return;
-    }
-    if (paymentsMode === "people") {
-      if (listed.length) {
-        drawPeople(listed.filter(matches));
-      } else {
-        list.appendChild(el("p", { class: "sub", text: "Every payment so far was discarded. Pick List or Table to see them." }));
-      }
-      return;
-    }
-    var rows = payments.filter(function (item) {
-      var state = item.decision || "pending";
-      var mine = found.some(function (p) {
-        return p.email === item.email;
-      });
-      return mine && (paymentsStatus ? state === paymentsStatus : state !== "discarded");
-    });
-    // one candidate found: their total at the top, and no candidate column
-    var who = query && found.length === 1 ? found[0] : null;
-    if (who) {
-      list.appendChild(
-        el("div", { class: "paysum" }, [
-          el("div", null, [el("b", { text: who.name }), el("small", { text: who.email })]),
-          el("div", { class: "num" }, [
-            el("b", { text: rupees(who.total) }),
-            el("small", { text: plural(who.count, "confirmed payment") + (who.pending ? " \u00B7 " + who.pending + " pending" : "") }),
-          ]),
-        ]),
-      );
-    }
-    if (!rows.length) {
-      list.appendChild(el("p", { class: "sub", text: paymentsStatus ? "No " + paymentsStatus + " payments here." : "No payments here." }));
-      return;
-    }
-    if (paymentsMode === "table") {
-      drawTable(rows, who);
-    } else {
-      drawList(rows);
-    }
-  }
-  // one row per candidate; tapping one shows their payments
-  function drawPeople(all: any[]) {
-    list.className = "enqlist paytbl";
-    var rows = all.slice().sort(function (a, b) {
-      var diff = peopleSort.key === "total" ? a.total - b.total : peopleSort.key === "count" ? a.count - b.count : Date.parse(a.last) - Date.parse(b.last);
-      return peopleSort.down ? -diff : diff;
-    });
-    function setSort(next: { key: string; down: boolean }) {
-      peopleSort = next;
-    }
-    list.appendChild(
-      el("table", null, [
-        el("thead", null, [
-          el("tr", null, [
-            el("th", { scope: "col", text: "Candidate" }),
-            heading(peopleSort, "count", "Confirmed", true, setSort),
-            heading(peopleSort, "total", "Total", true, setSort),
-            heading(peopleSort, "last", "Last", false, setSort),
-          ]),
-        ]),
-        el(
-          "tbody",
-          null,
-          rows.map(function (p) {
-            function open() {
-              paymentsQuery = p.email;
-              paymentsMode = "table";
-              draw();
-            }
-            return el("tr", { class: "tap", tabindex: "0", title: "Show " + p.name + "'s payments", onclick: open, onkeydown: onEnterOrSpace(open) }, [
-              el("td", null, [
-                el("span", { class: "pn", text: p.name }),
-                el("small", { text: p.email }),
-                p.pending ? el("span", { class: "pst wait", text: p.pending + " pending" }) : null,
-              ]),
-              el("td", { class: "num", text: String(p.count) + "\u00D7" }),
-              el("td", { class: "num", text: rupees(p.total) }),
-              el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short" }, new Date(p.last)) }),
-            ]);
-          }),
-        ),
-      ]),
-    );
-  }
-  // Candidate, date and amount; Date and Amount sort when their heading is tapped (again to reverse). Filtered to one
-  // candidate, the last row is their total.
-  function drawTable(filtered: any[], who: any) {
-    list.className = "enqlist paytbl";
-    var rows = filtered.slice().sort(function (a, b) {
-      var diff = paymentsSort.key === "amount" ? a.amount - b.amount : Date.parse(a.createdAt) - Date.parse(b.createdAt);
-      return paymentsSort.down ? -diff : diff;
-    });
-    function setSort(next: { key: string; down: boolean }) {
-      paymentsSort = next;
-    }
-    list.appendChild(
-      el("table", null, [
-        el("thead", null, [
-          el("tr", null, [
-            // filtered to one candidate, their name is in the summary above instead
-            who ? null : el("th", { scope: "col", text: "Candidate" }),
-            heading(paymentsSort, "date", "Date", false, setSort),
-            el("th", { scope: "col", text: "For" }),
-            heading(paymentsSort, "amount", "Amount", true, setSort),
-          ]),
-        ]),
-        el(
-          "tbody",
-          null,
-          rows.map(function (item) {
-            return el("tr", null, [
-              who ? null : el("td", { text: titleCase(item.name) }),
-              el("td", { class: "dt", text: formatIst({ day: "numeric", month: "short", year: "numeric" }, new Date(item.createdAt)) }),
-              el("td", { class: "pin", text: installmentText(item, true), title: installmentText(item) }),
-              el("td", { class: "num" }, [rupees(item.amount), statusBadge(item)]),
-            ]);
-          }),
-        ),
-        who
-          ? el("tfoot", null, [
-              el("tr", null, [
-                el("th", { scope: "row", colspan: "2", text: "Confirmed \u00B7 " + plural(who.count, "payment") }),
-                el("td", { class: "num", text: rupees(who.total) }),
-              ]),
-            ])
-          : null,
-      ]),
-    );
-  }
-  // Pending: Confirm and Discard, each asked once. Decided: when, and nothing to press; the server refuses a change too.
-  function decided(item: any) {
-    if (item.decision) {
-      var at = new Date(item.decidedAt || item.createdAt);
-      return el("small", {
-        class: "pdone",
-        text: (item.decision === "confirmed" ? "Confirmed " : "Discarded ") + formatIst({ month: "short", day: "numeric" }, at) + ", " + formatTime(at),
-      });
-    }
-    var who = titleCase(item.name);
-    function decide(decision: string) {
-      var question =
-        decision === "confirm"
-          ? "Confirm " + rupees(item.amount) + " from " + who + "? Once confirmed, it can't be changed or discarded."
-          : "Discard " + rupees(item.amount) + " from " + who + "? It won't count in their total, and it can't be changed after this.";
-      if (!confirm(question)) {
-        return;
-      }
-      request("/admin/api/payments/decide", { id: item.id, decision: decision })
-        .then(function (result) {
-          toast(decision === "confirm" ? "Payment confirmed" : "Payment discarded");
-          payments = payments.map(function (p) {
-            return p.id === item.id ? result.payment : p;
-          });
-          draw();
-        })
-        .catch(function (error) {
-          setMessage(msg, error.message, true);
-          load();
-        });
-    }
-    return el("div", { class: "pdec" }, [
-      el("button", {
-        type: "button",
-        class: "rm",
-        text: "Discard",
-        "aria-label": "Discard the payment from " + who,
-        onclick: function () {
-          decide("discard");
-        },
-      }),
-      el("button", {
-        type: "button",
-        class: "pri",
-        text: "Confirm",
-        "aria-label": "Confirm the payment from " + who,
-        onclick: function () {
-          decide("confirm");
-        },
-      }),
-    ]);
-  }
-  function drawList(rows: any[]) {
-    rows.forEach(function (item) {
-      var when = new Date(item.createdAt);
-      var kind = item.receipt.type === "application/pdf" ? "PDF" : "Image";
-      list.appendChild(
-        el("div", { class: "enq" + (item.decision === "discarded" ? " off" : "") + (item.id === paymentShown ? " hl" : ""), "data-pay": item.id }, [
-          el("div", { class: "enqh" }, [
-            el("b", { text: titleCase(item.name) }),
-            el("small", { text: formatIst({ month: "short", day: "numeric", year: "numeric" }, when) + ", " + formatTime(when) }),
-          ]),
-          el("p", { class: "enqt payamt" }, [rupees(item.amount), statusBadge(item), item.decision ? null : checkBadge(item)]),
-          el("p", { class: "pinst", text: installmentText(item) }),
-          el("p", { class: "enqc" }, [el("a", { href: "mailto:" + item.email, text: item.email })]),
-          el("div", { class: "enqa" }, [
-            el("div", { class: "enqr" }, [
-              el("a", {
-                class: "bk-act",
-                href: "/admin/api/payments/" + item.id + "/receipt",
-                target: "_blank",
-                rel: "noopener",
-                text: "Receipt · " + kind,
-              }),
-              el(
-                "a",
-                {
-                  class: "bk-act dl",
-                  href: "/admin/api/payments/" + item.id + "/receipt?download=1",
-                  download: "",
-                  title: "Download receipt",
-                  "aria-label": "Download the receipt from " + item.name,
-                },
-                [icon("download")],
-              ),
-            ]),
-            decided(item),
-          ]),
-        ]),
-      );
-    });
-  }
-  function load() {
-    request("/admin/api/payments")
-      .then(function (result) {
-        payments = result.payments || [];
-        var opening = openFromAlert();
-        draw();
-        var target = opening && list.querySelector('[data-pay="' + opening + '"]');
-        if (target) {
-          target.scrollIntoView({ block: "center" });
-        }
-      })
-      .catch(function (error) {
-        list.textContent = "";
-        setMessage(msg, error.message, true);
-      });
-  }
-  // a payment alert opens /admin?view=payments&pay=<id>: show that payment in the list, whatever it is
-  function openFromAlert() {
-    var id = paymentOpening;
-    var item = payments.filter(function (p) {
-      return p.id === id;
-    })[0];
-    if (!item) {
-      return "";
-    }
-    paymentOpening = "";
-    paymentShown = id;
-    try {
-      var url = new URL(location.href);
-      url.searchParams.delete("pay");
-      history.replaceState(null, "", url.pathname + url.search);
-    } catch (e) {}
-    paymentsMode = "list";
-    paymentsQuery = "";
-    paymentsStatus = item.decision === "discarded" ? "discarded" : "";
-    return id;
-  }
-  load();
-}
-// a new or decided payment while the tab is open shows up straight away; the badge counts pending ones
-var paymentsKey = "";
-function refreshPayments() {
-  var pending = state.paymentsPending || 0;
-  document.querySelectorAll(".pbadge").forEach(function (badge: HTMLElement) {
-    badge.hidden = !pending;
-    badge.textContent = pending > 99 ? "99+" : String(pending);
-  });
-  byId("tabPay").setAttribute("aria-label", pending ? "Payments, " + pending + " pending" : "Payments");
-  var key = (state.payments || 0) + "/" + pending;
-  if (!byId("viewPay").hidden && paymentsShown >= 0 && key !== paymentsKey) {
-    showPayments();
-  }
-  // a new or decided payment changes the numbers in Revenue too
-  if (revenueShown() && paymentsShown >= 0 && key !== paymentsKey) {
-    showRevenue();
-  }
-  paymentsKey = key;
-  paymentsShown = state.payments || 0;
-}
+setupEnquiries();
 var searchBox = byId<HTMLInputElement>("q");
 var searchList = byId("qdrop");
 var matches: Booking[] = [];
@@ -2368,156 +1346,7 @@ searchBox.addEventListener("keydown", function (event) {
   }
 });
 searchBox.addEventListener("blur", closeSearch);
-var allow: Allowlist = {
-  enabled: false,
-  emails: [],
-};
-var allowLoaded = false;
-function updateAllow(change: Record<string, unknown>) {
-  return request("/admin/api/allowlist", change).then(function (result) {
-    allow = result.state;
-    allowLoaded = true;
-    renderAllow();
-    return result;
-  });
-}
-function renderAllow() {
-  var toggle = byId<HTMLButtonElement>("sw");
-  toggle.disabled = false;
-  toggle.setAttribute("aria-checked", String(allow.enabled));
-  byId("swd").textContent = allow.enabled
-    ? "On. Only the " + plural(allow.emails.length, "email") + " below can book and send payments."
-    : "Off. Anyone with the booking or payment link can use it.";
-  byId("cnt").textContent = plural(allow.emails.length, "email");
-  var query = byId<HTMLInputElement>("aq").value.trim().toLowerCase();
-  var list = byId("alist");
-  list.textContent = "";
-  var shown = allow.emails.filter(function (email) {
-    return !query || email.indexOf(query) >= 0;
-  });
-  if (!shown.length) {
-    list.appendChild(
-      el("li", {
-        class: "empty",
-        text: allow.emails.length ? "No emails match your search." : "No emails yet. Add your candidates above.",
-      }),
-    );
-  }
-  shown.forEach(function (email) {
-    var button = el("button", {
-      type: "button",
-      class: "rm",
-      text: "Remove",
-      "aria-label": "Remove " + email,
-      onclick: function () {
-        button.disabled = true;
-        updateAllow({
-          action: "remove",
-          email: email,
-        })
-          .then(function () {
-            setMessage(byId("addm"), "Removed " + email + ".");
-          })
-          .catch(function (error) {
-            button.disabled = false;
-            setMessage(byId("addm"), error.message, true);
-          });
-      },
-    });
-    list.appendChild(
-      el("li", { "data-i": email.charAt(0).toUpperCase() }, [
-        el("span", {
-          text: email,
-        }),
-        button,
-      ]),
-    );
-  });
-}
-byId("sw").onclick = function () {
-  var button = this as HTMLButtonElement;
-  button.disabled = true;
-  setMessage(byId("swm"), "");
-  updateAllow({
-    action: "enable",
-    on: !allow.enabled,
-  })
-    .then(function () {
-      setMessage(byId("swm"), allow.enabled ? "Turned on. Only listed emails can book and send payments now." : "Turned off. Anyone with the links can book and send payments.");
-    })
-    .catch(function (error) {
-      button.disabled = false;
-      setMessage(byId("swm"), error.message, true);
-    });
-};
-byId("addb").onclick = function () {
-  var button = this as HTMLButtonElement;
-  var text = byId<HTMLTextAreaElement>("add").value;
-  if (!text.trim()) {
-    byId("add").focus();
-    return setMessage(byId("addm"), "Paste at least one email first.", true);
-  }
-  button.disabled = true;
-  updateAllow({
-    action: "add",
-    text: text,
-  })
-    .then(function (result) {
-      button.disabled = false;
-      var parts = ["Added " + plural(result.added, "email") + "."];
-      if (result.existing) {
-        parts.push(result.existing + " already on the list.");
-      }
-      if (result.invalid.length) {
-        parts.push("Left in the box because they aren't valid emails: " + result.invalid.join(", ") + ".");
-      }
-      byId<HTMLTextAreaElement>("add").value = result.invalid.join(`
-`);
-      setMessage(byId("addm"), parts.join(" "), !result.added && result.invalid.length > 0);
-    })
-    .catch(function (error) {
-      button.disabled = false;
-      setMessage(byId("addm"), error.message, true);
-    });
-};
-byId("impb").onclick = function () {
-  var button = this as HTMLButtonElement;
-  button.disabled = true;
-  updateAllow({
-    action: "importBooked",
-  })
-    .then(function (result) {
-      button.disabled = false;
-      setMessage(
-        byId("addm"),
-        result.added
-          ? "Added " + plural(result.added, "email") + " from past bookings."
-          : "Everyone who has booked is already on the list.",
-      );
-    })
-    .catch(function (error) {
-      button.disabled = false;
-      setMessage(byId("addm"), error.message, true);
-    });
-};
-byId("aq").oninput = renderAllow;
-// Candidates: who may book. Opens in the side panel like Interview supporters and Admins.
-function showCandidates() {
-  refreshPanel = null;
-  var body = openPanel("Candidates", "Emails allowed to book an interview.");
-  var section = byId("viewAllow");
-  body.classList.add("grp");
-  body.appendChild(section);
-  section.hidden = false;
-  request("/admin/api/allowlist")
-    .then(function (result) {
-      allow = result.state;
-      renderAllow();
-    })
-    .catch(function (error) {
-      setMessage(byId("swm"), error.message, true);
-    });
-}
+setupAllowlist();
 function showTab(tab: string) {
   byId("viewCal").hidden = false;
   byId("tabCal").setAttribute("aria-selected", "true");
@@ -2538,17 +1367,13 @@ function showRevenueSheet() {
   if (byId("tabRev").hidden) {
     return;
   }
-  refreshPanel = null;
+  panel.refresh = null;
   var body = openPanel("Revenue", "Confirmed payments over the last 12 months.");
   body.classList.add("rv");
   body.appendChild(byId("revBody").closest(".enqview"));
   showRevenue();
 }
 byId("mRev").onclick = showRevenueSheet;
-// the Revenue figures are on screen, as a page or in the sheet
-function revenueShown() {
-  return !byId("viewRev").hidden || (!byId("panel").hidden && byId("panel").contains(byId("revBody")));
-}
 function connect() {
   if (stream) {
     stream.close();
@@ -2560,7 +1385,7 @@ function connect() {
   };
   stream.addEventListener("state", function (event) {
     try {
-      state = JSON.parse(event.data);
+      setState(JSON.parse(event.data));
     } catch {
       return;
     }
@@ -2569,14 +1394,7 @@ function connect() {
     live = true;
     allBookingsAt = 0;
     render();
-    if (allowLoaded && !byId("viewAllow").hidden && (state.allow.count !== allow.emails.length || state.allow.enabled !== allow.enabled)) {
-      request("/admin/api/allowlist")
-        .then(function (result) {
-          allow = result.state;
-          renderAllow();
-        })
-        .catch(function () {});
-    }
+    syncAllow();
   });
   stream.addEventListener("tick", function () {
     if (!live) {
@@ -2743,7 +1561,7 @@ document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible") {
     request("/admin/api/state")
       .then(function (fresh) {
-        state = fresh;
+        setState(fresh);
         remember(JSON.stringify(fresh));
         render();
         checkForUpdate();

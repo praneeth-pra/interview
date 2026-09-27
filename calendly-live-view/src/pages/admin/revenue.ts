@@ -305,3 +305,7 @@ function showRevenue() {
 }
 
 export { showRevenue };
+// the Revenue figures are on screen, as a page or in the sheet
+export function revenueShown() {
+  return !byId("viewRev").hidden || (!byId("panel").hidden && byId("panel").contains(byId("revBody")));
+}

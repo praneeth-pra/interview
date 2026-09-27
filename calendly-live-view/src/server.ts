@@ -4,7 +4,7 @@ import { assetList, compressed } from "./assets";
 import { startBackups } from "./server/backup";
 import { removeListedBookings } from "./server/bookings";
 import { cleanupContacts } from "./server/cleanup";
-import { ADMIN_OPEN, LOGIN_ON, OWNER_EMAILS, PORT, RESEND_API_KEY, EMAIL_FROM, MAX_BODY } from "./server/config";
+import { ADMIN_OPEN, LOGIN_ON, OWNER_EMAILS, PORT, PUBLIC_URL, RESEND_API_KEY, EMAIL_FROM, MAX_BODY } from "./server/config";
 import { adminsStore, allowStore, bookingsStore, loadStores, pushStore, resultsStore } from "./server/data";
 import { ensureSecret } from "./server/links";
 import { ensurePushKeys } from "./server/push";
@@ -17,6 +17,9 @@ await ensureSecret();
 await removeListedBookings();
 await cleanupContacts();
 console.log(RESEND_API_KEY ? "email: on, sending as " + EMAIL_FROM : "email: off (set RESEND_API_KEY to send invites)");
+// Without PUBLIC_URL, links in emails (candidates' manage links, with their token) are built from the request's
+// X-Forwarded-Host or Host header, which a visitor can set.
+if (!PUBLIC_URL) console.log("PUBLIC_URL is not set: links in emails use the request's host name (set PUBLIC_URL=https://hi-techie.dev)");
 console.log("allowlist: " + (allowStore.data.enabled ? "on" : "off") + ", " + allowStore.data.emails.length + " emails");
 console.log(
   !LOGIN_ON

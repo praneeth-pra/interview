@@ -1,6 +1,7 @@
 // Live admin updates over server-sent events (/admin/stream).
 import { DAY_END_MIN, DAY_START_MIN, RESEND_API_KEY } from "./config";
 import { type Booking, activeBookings, allowStore, bookingsStore, enquiriesStore, ivStore, paymentsStore, liveSession, sessionsStore } from "./data";
+import { BASE_HEADERS, type Srv } from "./http";
 import { BUILD } from "./pages";
 
 export const enc = new TextEncoder();
@@ -90,3 +91,24 @@ export const broadcastState = () => {
   if (streams.size) send("state", adminState);
 };
 setInterval(() => send("tick", {}), 15000);
+// GET /admin/stream: the admin page's live connection. It starts with the current state; sid is the viewer's session
+// ("" with sign-in off), so the stream closes when that session ends.
+export function openStream(req: Request, srv: Srv, sid: string, owner: boolean): Response {
+  if (streams.size >= 50) return new Response("Too many viewers", { status: 503, headers: BASE_HEADERS });
+  srv.timeout(req, 0);
+  let ctrl: ReadableStreamDefaultController;
+  const stream = new ReadableStream({
+    start(c) {
+      ctrl = c;
+      streams.set(c, { sid, owner });
+      c.enqueue(enc.encode("retry: 3000\n\nevent: state\ndata: " + JSON.stringify(adminState(owner)) + "\n\n"));
+    },
+    cancel() {
+      streams.delete(ctrl);
+    },
+  });
+  req.signal.addEventListener("abort", () => streams.delete(ctrl));
+  return new Response(stream, {
+    headers: { ...BASE_HEADERS, "Content-Type": "text/event-stream", "Cache-Control": "no-store, no-transform", "X-Accel-Buffering": "no" },
+  });
+}
