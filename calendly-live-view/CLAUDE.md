@@ -26,7 +26,8 @@ Read README.md first for layout, commands and deploy.
 0. `bun run format` (Prettier, 140 columns; CI fails on unformatted code) and `bun run typecheck` (strict, no unused names)
 1. `bun test tests/` (CI runs `bun run test:coverage`: each file the unit tests load needs 85% of its functions covered, see `bunfig.toml`)
 2. `NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs`
-3. Refactors must not change any pixel: `NODE_PATH=$(npm root -g) node tests/visual.cjs` compares every screen with `origin/main` (about 2 minutes). CI runs it on every PR unless the PR has the `ui-change` label.
-4. For intentional visual changes, look at the page in a real browser at desktop and 390 px phone width, light and dark.
+3. `NODE_PATH=$(npm root -g) node tests/a11y.cjs`: every page must pass WCAG 2.1 A/AA (axe-core) at desktop and phone width, light and dark. Colour changes: keep text at 4.5:1 against the background it actually sits on.
+4. Refactors must not change any pixel: `NODE_PATH=$(npm root -g) node tests/visual.cjs` compares every screen with `origin/main` (about 2 minutes). CI runs it on every PR unless the PR has the `ui-change` label.
+5. For intentional visual changes, look at the page in a real browser at desktop and 390 px phone width, light and dark.
 
 A push to the branch Railway follows deploys to production (see README). Check the deploy logs afterwards.

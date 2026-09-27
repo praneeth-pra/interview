@@ -37,6 +37,8 @@ jobs:
         run: npm install -g playwright@1.56.1 && playwright install --with-deps chromium
       - name: Browser smoke test
         run: NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs
+      - name: Accessibility (axe-core, WCAG 2.1 A and AA, every page, desktop and phone, light and dark)
+        run: NODE_PATH=$(npm root -g) node tests/a11y.cjs
 
   # Every screen of the PR must look exactly like the base branch. For intentional design changes,
   # add the "ui-change" label to the PR and review the screenshots yourself instead.

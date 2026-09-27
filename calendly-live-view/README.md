@@ -53,6 +53,7 @@ bun test tests/                                          # server tests, ~0.5 s
 bun run test:coverage                                    # the same, with coverage of the in-process code (bar in bunfig.toml)
 NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs    # needs the playwright package
 NODE_PATH=$(npm root -g) node tests/visual.cjs           # every screen vs origin/main; must match for refactors
+NODE_PATH=$(npm root -g) node tests/a11y.cjs             # accessibility: WCAG 2.1 A/AA on every page (axe-core)
 ```
 
 ## How pages are served
