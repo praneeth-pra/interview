@@ -1,0 +1,87 @@
+@media (max-width: 900px) {
+  body {
+    padding: 0;
+    background: var(--card);
+  }
+  .card,
+  .card.narrow {
+    flex-direction: column;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+  .info {
+    flex: none;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+    padding: 22px 20px;
+  }
+  .info.has-back {
+    padding-top: 22px;
+    padding-left: 80px;
+    min-height: 92px;
+  }
+  .back {
+    top: 22px;
+    left: 20px;
+  }
+  .ev {
+    font-size: 24px;
+    margin-bottom: 16px;
+  }
+  .main {
+    flex-direction: column;
+  }
+  .pick {
+    padding: 22px 20px;
+  }
+  .times {
+    flex: none;
+    padding: 0 20px 28px;
+    animation: none;
+  }
+  .times h3 {
+    margin: 4px 0 14px;
+    font-weight: 700;
+  }
+  .tlist {
+    max-height: none;
+    overflow: visible;
+    margin: 0;
+    padding: 0;
+  }
+  .form {
+    padding: 22px 20px 32px;
+    max-width: none;
+  }
+  .row2 {
+    flex-direction: column;
+    gap: 0;
+  }
+  .cb-list {
+    max-height: 232px;
+  }
+  .cb-opt {
+    padding: 11px 10px;
+  }
+  .done {
+    padding: 32px 20px;
+  }
+}
+@media (max-width: 380px) {
+  .day {
+    width: 40px;
+    height: 40px;
+  }
+  .mhead {
+    gap: 14px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}

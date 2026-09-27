@@ -1,0 +1,116 @@
+:root {
+  color-scheme: light;
+  --ink: #1a1a1a;
+  --ink2: rgba(26, 26, 26, 0.61);
+  --ink3: rgba(26, 26, 26, 0.4);
+  --line: rgba(26, 26, 26, 0.1);
+  --bg: #f4f2ec;
+  --card: #fff;
+  --blue: #bc5935;
+  --blue-d: #a64b2a;
+  --link: #b4532f;
+  --acc: rgba(26, 26, 26, 0.61);
+  --day: #a64b2a;
+  --blue-t: rgba(217, 119, 87, 0.1);
+  --blue-t2: rgba(217, 119, 87, 0.2);
+  --slot-b: rgba(201, 100, 66, 0.55);
+  --sel: #666;
+  --field-b: #b2b2b2;
+  --err-bg: #fdecea;
+  --shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
+  --green: #0a8a3d;
+  --red: #c8372d;
+  --seg: #f0ede6;
+  --dur-h: rgba(26, 26, 26, 0.04);
+  --dur-t: rgba(26, 26, 26, 0.64);
+  --dur-on: #fbeee8;
+  --dur-b: #d97757;
+  --note-bg: #fff7e8;
+  --note-b: #f3dcae;
+  --note-t: #7a4a00;
+  --note-i: #c77d00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --ink: #f2f2f2;
+    --ink2: #bdbdbd;
+    --ink3: #5c5c5c;
+    --line: #33312e;
+    --bg: #201f1d;
+    --card: #1b1a18;
+    --blue: #bc5935;
+    --blue-d: #a64b2a;
+    --link: #e89a7f;
+    --acc: #e3b8a7;
+    --day: #eeab93;
+    --blue-t: #33261f;
+    --blue-t2: #443027;
+    --slot-b: rgba(224, 138, 109, 0.6);
+    --sel: #3a2a22;
+    --field-b: #555;
+    --err-bg: #3b1f1d;
+    --shadow: none;
+    --green: #3ecf7a;
+    --red: #ff8a80;
+    --seg: #292724;
+    --dur-h: rgba(255, 255, 255, 0.04);
+    --dur-t: #bdbdbd;
+    --dur-on: #3a2820;
+    --dur-b: #d97757;
+    --note-bg: #241e14;
+    --note-b: #3d3220;
+    --note-t: #f1d29a;
+    --note-i: #e0a948;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: var(--bg);
+  color: var(--ink);
+  font:
+    16px/1.5 Figtree,
+    -apple-system,
+    BlinkMacSystemFont,
+    Segoe UI,
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  padding: 66px 16px 40px;
+}
+button {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+/* Taps respond the moment a finger lands: no grey flash, no double-tap zoom wait, a slight press-in. */
+html {
+  -webkit-tap-highlight-color: transparent;
+}
+button,
+a {
+  touch-action: manipulation;
+}
+button:active:not(:disabled) {
+  scale: 0.97;
+}
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}

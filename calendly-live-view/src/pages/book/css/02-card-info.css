@@ -1,0 +1,206 @@
+.card {
+  position: relative;
+  margin: 0 auto;
+  max-width: 1060px;
+  min-height: 560px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  display: flex;
+  overflow: hidden;
+}
+.card.narrow {
+  max-width: 820px;
+}
+.card.details {
+  overflow: visible;
+}
+.info {
+  flex: 0 0 332px;
+  padding: 28px 28px 32px;
+  border-right: 1px solid var(--line);
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+.back {
+  position: absolute;
+  top: 24px;
+  left: 24px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  display: grid;
+  place-items: center;
+  color: var(--link);
+  transition: background 0.15s;
+}
+@media (hover: hover) {
+  .back:hover {
+    background: var(--blue-t);
+  }
+}
+.info.has-back {
+  padding-top: 84px;
+}
+.logo {
+  width: 56px;
+  height: 56px;
+  color: #d97757;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 20px;
+  margin-bottom: 18px;
+}
+.logo::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.host {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink2);
+  margin: 0;
+}
+.mark {
+  width: 32px;
+  height: 32px;
+  flex: 0 0 32px;
+  display: grid;
+  place-items: center;
+  font-size: 15px;
+  font-weight: 700;
+  color: #d97757;
+}
+.mark::before {
+  content: "";
+  width: 100%;
+  height: 100%;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.ev {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 14px 0 22px;
+  letter-spacing: -0.02em;
+}
+.meta {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.meta li {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  color: var(--acc);
+  font-weight: 600;
+  font-size: 16px;
+  margin-bottom: 16px;
+}
+.meta li.hl {
+  color: var(--ink);
+}
+.meta svg {
+  flex: 0 0 20px;
+  width: 20px;
+  height: 20px;
+  margin-top: 2px;
+}
+.desc {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  margin: 6px 0 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--note-bg);
+  border: 1px solid var(--note-b);
+  color: var(--note-t);
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 1.5;
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+.desc svg {
+  flex: 0 0 18px;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  color: var(--note-i);
+}
+.dur {
+  margin: 4px 0 22px;
+}
+.dur-l {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+  margin-bottom: 8px;
+}
+.dur-l svg {
+  width: 15px;
+  height: 15px;
+}
+.dur-opts {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+  padding: 3px;
+  border-radius: 10px;
+  background: var(--seg);
+}
+.dur-opts button {
+  min-width: 0;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--dur-t);
+  font-size: 14px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.18s,
+    color 0.18s,
+    box-shadow 0.18s;
+}
+@media (hover: hover) {
+  .dur-opts button:hover {
+    color: var(--ink);
+    background: var(--dur-h);
+  }
+}
+.dur-opts button[aria-pressed="true"] {
+  background: var(--dur-on);
+  color: var(--day);
+  box-shadow: inset 0 0 0 1.5px var(--dur-b);
+}
+@media (hover: hover) {
+  .dur-opts button[aria-pressed="true"]:hover {
+    background: var(--dur-on);
+    color: var(--day);
+    box-shadow: inset 0 0 0 1.5px var(--dur-b);
+  }
+}

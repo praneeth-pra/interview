@@ -1,13 +1,13 @@
 // The booking panel: one interview's details, its supporter and round status, and cancelling or moving it.
-import { byId, el, setMessage, toast } from "./dom";
+import { byId, el, onEnterOrSpace, setMessage, toast } from "./dom";
 import { addDays, dayKeyOf, formatIst, formatRange, formatTime, shortDate, timeAgo, weekStart } from "./time";
-import { ROUND_STATUSES, byWhom, plural, roundStatus, statusPill, titleCase, type RoundStatus } from "./labels";
+import { ROUND_STATUSES, type RoundStatus, byWhom, plural, roundStatus, statusPill, titleCase } from "./labels";
 import { request } from "./api";
-import { sameCompany } from "../../same-company";
-import { colorClass, state, view, render } from "./state";
+import { colorClass, render, state, view } from "./state";
 import { closePanel, icon, initials, openPanel, panel, setPanelAvatar } from "./panel";
 import type { Booking } from "./types";
 import { allBookings, findBooking, loadAllBookings } from "./bookings";
+import { sameCompany } from "../../same-company";
 
 // Another booking the same interviewer has at an overlapping time.
 function clashFor(booking: Booking, interviewer: string) {
@@ -609,4 +609,56 @@ export function showReschedule(booking: Booking) {
   );
   body.appendChild(msg);
   byId("cdate").focus();
+}
+export function showWeekOf(booking: Booking) {
+  var day = dayKeyOf(new Date(booking.start));
+  var week = weekStart(day);
+  view.day = day;
+  if (week !== view.week) {
+    view.week = week;
+    render();
+  }
+}
+export function showList(title: string, subtitle: string, bookings: Booking[]) {
+  panel.refresh = null;
+  var body = openPanel(title, subtitle);
+  if (!bookings.length) {
+    body.appendChild(
+      el("p", {
+        class: "sub",
+        text: "Nothing here.",
+      }),
+    );
+    return;
+  }
+  var list = el("ul", {
+    class: "items",
+  });
+  bookings.forEach(function (booking) {
+    function open() {
+      showWeekOf(booking);
+      showBooking(booking.id);
+    }
+    list.appendChild(
+      el(
+        "li",
+        {
+          tabindex: "0",
+          role: "button",
+          onclick: open,
+          onkeydown: onEnterOrSpace(open),
+        },
+        [
+          el("b", {
+            text: titleCase(booking.name),
+          }),
+          el("div", {
+            class: "m",
+            text: formatRange(booking) + (booking.company ? " · " + booking.company : "") + (booking.cancelled ? " · Cancelled" : ""),
+          }),
+        ],
+      ),
+    );
+  });
+  body.appendChild(list);
 }

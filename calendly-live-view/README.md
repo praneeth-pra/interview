@@ -19,14 +19,15 @@ src/server/          the server, one module per feature:
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
 src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|js   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
-src/pages/admin/css/ the admin page's styles, joined in file-name order into admin.css (later files override earlier ones)
+src/pages/<page>/css/ the admin, booking and Contacts styles, joined in file-name order into <page>.css (later files override earlier ones)
 src/pages/book/      the booking page as TypeScript modules: main.ts (which step to draw, and starting up), app.ts (boot data,
                      state and render()), slots.ts (free days and times), info.ts, calendar.ts, fields.ts, details.ts,
                      returning.ts (returning candidates), done.ts, manage.ts (manage links), message.ts, and helpers
                      time.ts, companies.ts, dom.ts, icons.ts, types.ts
-src/pages/admin/     the admin page: main.ts (calendar, agenda, search, tabs, live updates), state.ts (boot data, the live state,
+src/pages/admin/     the admin page: main.ts (start-up, tabs, live updates), week.ts, agenda.ts, summary.ts (the calendar),
+                     search.ts, state.ts (boot data, the live state,
                      the week on screen and render()), panel.ts (the side panel), booking-panel.ts (one booking: details,
-                     supporter, round status, cancel, reschedule), bookings.ts (every booking, for search), interviewers.ts,
+                     supporter, round status, cancel, reschedule; lists of bookings), bookings.ts (every booking, for search), interviewers.ts,
                      admins.ts, allowlist.ts (Candidates),
                      enquiries.ts, payments.ts, revenue.ts (owners' tabs), alerts.ts, nav.ts, stats-frame.ts, download-menu.ts,
                      theme-switch.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts

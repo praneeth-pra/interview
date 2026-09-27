@@ -1,0 +1,85 @@
+.chg {
+  margin: 0 0 24px;
+}
+.chg li.old {
+  text-decoration: line-through;
+}
+.done {
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  padding: 48px 28px;
+}
+.done-in {
+  width: 100%;
+  max-width: 560px;
+  text-align: center;
+}
+.done .logo {
+  margin: 0 auto 22px;
+}
+.done h1 {
+  font-size: 20px;
+  font-weight: 700;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.done h1 svg {
+  width: 22px;
+  height: 22px;
+  color: var(--green);
+}
+.done p {
+  color: var(--ink2);
+  margin: 10px 0 28px;
+}
+.box {
+  text-align: left;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 22px 24px;
+}
+.box .ev {
+  font-size: 20px;
+  margin: 0 0 16px;
+}
+.box .meta li {
+  margin-bottom: 12px;
+  font-size: 15px;
+}
+.box .meta li:last-child {
+  margin-bottom: 0;
+}
+.acts {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 26px;
+}
+.pill {
+  height: 44px;
+  padding: 0 20px;
+  border-radius: 40px;
+  border: 1px solid var(--ink3);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  color: var(--ink);
+  font-size: 15px;
+  transition: border-color 0.15s;
+}
+@media (hover: hover) {
+  .pill:hover {
+    border-color: var(--ink);
+  }
+}
+.pill svg {
+  width: 18px;
+  height: 18px;
+}

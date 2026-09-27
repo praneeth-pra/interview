@@ -1,0 +1,102 @@
+/* Activity */
+#tpAct {
+  max-width: 760px;
+}
+.aday {
+  margin: 22px 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.aday:first-child {
+  margin-top: 4px;
+}
+.aitem {
+  position: relative;
+  margin-bottom: 16px;
+}
+.aitem:before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 26px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--d);
+}
+.ahead2 {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  color: var(--a);
+}
+.awhat {
+  flex: 1;
+  min-width: 0;
+}
+.aitem.upcoming .awhat {
+  color: var(--m);
+  font-weight: 600;
+}
+.aitem.canceled .awhat,
+.aitem.noshow .awhat {
+  color: var(--g);
+}
+.aitem.rescheduled .awhat {
+  color: var(--h);
+}
+.acard {
+  position: relative;
+  display: block;
+  width: calc(100% - 28px);
+  height: auto;
+  min-height: 0;
+  margin: 8px 0 0 28px;
+  padding: 14px 16px 14px 24px;
+  border: 1px solid var(--d);
+  border-radius: 16px;
+  background: var(--c);
+  color: var(--k);
+  font: inherit;
+  text-align: left;
+}
+button.acard {
+  cursor: pointer;
+}
+@media (hover: hover) {
+  button.acard:hover {
+    border-color: var(--q);
+  }
+}
+button.acard:active {
+  transform: none;
+  background: var(--p);
+}
+.acard:before {
+  content: "";
+  position: absolute;
+  left: 8px;
+  top: 12px;
+  bottom: 12px;
+  width: 5px;
+  border-radius: 3px;
+  background: var(--b, var(--q));
+}
+.acard b {
+  display: block;
+  font-size: 16px;
+  font-weight: 600;
+}
+.acard .sub {
+  margin-top: 4px;
+  font-size: 13.5px;
+}
+.aitem.canceled .acard,
+.aitem.rescheduled .acard {
+  opacity: 0.7;
+}
+.aitem.canceled .acard b,
+.aitem.rescheduled .acard b {
+  text-decoration: line-through;
+}
