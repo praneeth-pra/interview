@@ -15,7 +15,7 @@ import {
   weekStart,
 } from "./time";
 import { ROUND_STATUSES, byWhom, missedLabel, plural, roundStatus, statusOf, statusPill, titleCase, type RoundStatus } from "./labels";
-import { request } from "./api";
+import { request, freshReload } from "./api";
 import { sameCompany } from "../../same-company";
 import { setupAlerts } from "./alerts";
 import { setupThemeSwitch } from "./theme-switch";
@@ -2567,7 +2567,7 @@ function connect() {
     fetch("/admin/api/state")
       .then(function (response) {
         if (response.status === 401) {
-          location.reload();
+          freshReload();
         }
       })
       .catch(function () {});
@@ -2586,30 +2586,93 @@ byId("next").onclick = function () {
   selectedDay = null;
   render();
 };
-// Swipe the agenda sideways to move a day, like paging in a calendar app.
+// Swipe the agenda sideways to move a day, like paging in a calendar app: the day follows the finger, and a long drag or
+// a quick flick moves to the next or previous day; anything less springs back. Swipes that start at the screen's left
+// edge are left to the browser's own swipe back.
 (function () {
   var box = byId("agenda");
   var startX = 0;
   var startY = 0;
+  var dx = 0;
+  var lock = 0; // 1 sideways (ours), -1 up and down (the page scrolls), 0 not decided yet
+  var lastX = 0;
+  var lastT = 0;
+  var speed = 0; // px per ms
+  function reset() {
+    box.style.transition = "";
+    box.style.transform = "";
+    box.style.opacity = "";
+  }
   box.addEventListener(
     "touchstart",
     function (event) {
-      startX = event.touches[0].clientX;
+      startX = lastX = event.touches[0].clientX;
       startY = event.touches[0].clientY;
+      lastT = performance.now();
+      dx = 0;
+      speed = 0;
+      lock = innerWidth > 760 || startX < 24 ? -1 : 0;
     },
     { passive: true },
   );
-  box.addEventListener("touchend", function (event) {
-    var dx = event.changedTouches[0].clientX - startX;
-    var dy = event.changedTouches[0].clientY - startY;
-    if (Math.abs(dx) < 70 || Math.abs(dy) > Math.abs(dx) * 0.6) {
+  box.addEventListener(
+    "touchmove",
+    function (event) {
+      if (lock === -1) {
+        return;
+      }
+      var x = event.touches[0].clientX;
+      var mx = x - startX;
+      var my = event.touches[0].clientY - startY;
+      if (lock === 0) {
+        if (Math.abs(mx) < 10 && Math.abs(my) < 10) {
+          return;
+        }
+        lock = Math.abs(mx) > Math.abs(my) * 1.3 ? 1 : -1;
+        if (lock !== 1) {
+          return;
+        }
+      }
+      var now = performance.now();
+      if (now > lastT) {
+        speed = speed * 0.2 + ((x - lastX) / (now - lastT)) * 0.8;
+      }
+      lastX = x;
+      lastT = now;
+      dx = mx;
+      box.style.transition = "none";
+      box.style.transform = "translateX(" + dx + "px)";
+      box.style.opacity = String(1 - Math.min(Math.abs(dx) / innerWidth, 0.6) * 0.6);
+    },
+    { passive: true },
+  );
+  function end() {
+    if (lock !== 1) {
+      lock = 0;
       return;
     }
-    pickAgendaDay(addDays(agendaDay(), dx < 0 ? 1 : -1));
-    box.classList.remove("swipe-next", "swipe-prev");
-    void box.offsetWidth;
-    box.classList.add(dx < 0 ? "swipe-next" : "swipe-prev");
-  });
+    lock = 0;
+    var flick = Math.abs(speed) > 0.45 && Math.abs(dx) > 24 && speed * dx > 0 && performance.now() - lastT < 120;
+    if (Math.abs(dx) < 80 && !flick) {
+      box.style.transition = "transform 0.24s var(--ease), opacity 0.24s ease";
+      box.style.transform = "";
+      box.style.opacity = "";
+      return;
+    }
+    var next = dx < 0;
+    box.style.transition = "transform 0.13s ease-in, opacity 0.13s ease-in";
+    box.style.transform = "translateX(" + (next ? -1 : 1) * Math.round(innerWidth * 0.5) + "px)";
+    box.style.opacity = "0";
+    setTimeout(function () {
+      reset();
+      pickAgendaDay(addDays(agendaDay(), next ? 1 : -1));
+      box.classList.remove("swipe-next", "swipe-prev");
+      void box.offsetWidth;
+      box.classList.add(next ? "swipe-next" : "swipe-prev");
+    }, 130);
+  }
+  box.addEventListener("touchend", end);
+  box.addEventListener("touchcancel", end);
 })();
 byId("today").onclick = function () {
   selectedDay = dayKeyOf(new Date());
@@ -2713,7 +2776,7 @@ function checkForUpdate() {
     try {
       sessionStorage.setItem("adm.reloaded", state.build);
     } catch (e) {}
-    location.reload();
+    freshReload();
   }
 }
 document.addEventListener("visibilitychange", function () {

@@ -14,7 +14,7 @@ function request(url: string, body?: unknown, method?: string): Promise<any> {
   ).then(
     function (response) {
       if (response.status === 401) {
-        location.reload();
+        freshReload();
         throw new Error("Sign in again.");
       }
       return response
@@ -35,4 +35,17 @@ function request(url: string, body?: unknown, method?: string): Promise<any> {
   );
 }
 
-export { request };
+// The home-screen app opens from a saved copy of the page (see sw.js). Reloading after signing out, or to pick up a
+// deploy, drops that copy first so the reload comes from the server.
+function freshReload() {
+  var done = function () {
+    location.reload();
+  };
+  if (window.caches) {
+    caches.delete("admin-shell-v1").then(done, done);
+  } else {
+    done();
+  }
+}
+
+export { request, freshReload };

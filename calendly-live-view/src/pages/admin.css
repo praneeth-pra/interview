@@ -3903,3 +3903,9 @@ html {
     height: 36px;
   }
 }
+/* Phones: sideways swipes on the agenda move the day under the finger; up and down still scrolls the page. */
+@media (max-width: 760px) {
+  .agenda {
+    touch-action: pan-y;
+  }
+}

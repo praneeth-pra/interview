@@ -335,12 +335,21 @@ function choose(person) {
   loadAnalytics(person.event);
 }
 // home ⇄ contact page
+function slide(el, name) {
+  el.classList.remove("push-in", "pop-in");
+  if (name) {
+    void el.offsetWidth;
+    el.classList.add(name);
+  }
+}
 function showDetail() {
-  if (!byId("home").hidden) {
+  var fromList = !byId("home").hidden;
+  if (fromList) {
     homeScroll = window.scrollY;
   }
   byId("home").hidden = true;
   byId("an").hidden = false;
+  slide(byId("an"), fromList ? "push-in" : "");
   window.scrollTo(0, 0);
   tellAdmin(true);
 }
@@ -356,10 +365,105 @@ function tellAdmin(open) {
     showHome();
   }
 };
-function showHome() {
+// In the iPhone home-screen app there is no browser swipe back, so a swipe from the left edge of a person's page drags
+// it to the right, showing the list underneath, and lets go to go back (or springs back if it didn't go far). Safari and
+// Android have their own edge swipe for Back, which already returns to the list.
+(() => {
+  if ((navigator as any).standalone !== true) {
+    return;
+  }
+  var page = byId("an");
+  var list = byId("home");
+  var startX = 0;
+  var startY = 0;
+  var dx = 0;
+  var lastX = 0;
+  var lastT = 0;
+  var speed = 0;
+  var state = 0; // 0 idle, 1 edge touch not decided, 2 dragging
+  function clear() {
+    document.body.classList.remove("edge");
+    page.style.transition = page.style.transform = "";
+    list.style.transition = list.style.transform = list.style.opacity = list.style.top = "";
+  }
+  document.addEventListener(
+    "touchstart",
+    (event) => {
+      var x = event.touches[0].clientX;
+      state = !page.hidden && x < 24 && innerWidth <= 700 ? 1 : 0;
+      startX = lastX = x;
+      startY = event.touches[0].clientY;
+      lastT = performance.now();
+      dx = speed = 0;
+    },
+    { passive: true },
+  );
+  document.addEventListener(
+    "touchmove",
+    (event) => {
+      if (!state) {
+        return;
+      }
+      var x = event.touches[0].clientX;
+      if (state === 1) {
+        var my = Math.abs(event.touches[0].clientY - startY);
+        if (x - startX < 10 && my < 10) {
+          return;
+        }
+        if (x - startX < my) {
+          state = 0;
+          return;
+        }
+        state = 2;
+        // the list sits underneath at the place it was left
+        list.style.top = page.offsetTop - homeScroll + "px";
+        document.body.classList.add("edge");
+      }
+      event.preventDefault();
+      var now = performance.now();
+      if (now > lastT) {
+        speed = speed * 0.2 + ((x - lastX) / (now - lastT)) * 0.8;
+      }
+      lastX = x;
+      lastT = now;
+      dx = Math.max(0, x - startX);
+      var part = dx / innerWidth;
+      page.style.transition = list.style.transition = "none";
+      page.style.transform = "translateX(" + dx + "px)";
+      list.style.transform = "translateX(" + (-24 + 24 * part) + "%)";
+      list.style.opacity = String(0.6 + 0.4 * part);
+    },
+    { passive: false },
+  );
+  function end() {
+    if (state !== 2) {
+      state = 0;
+      return;
+    }
+    state = 0;
+    var go = dx > innerWidth * 0.35 || (speed > 0.4 && dx > 30 && performance.now() - lastT < 120);
+    var ease = "0.22s cubic-bezier(0.2, 0.8, 0.2, 1)";
+    page.style.transition = "transform " + ease;
+    list.style.transition = "transform " + ease + ", opacity " + ease;
+    page.style.transform = go ? "translateX(100%)" : "";
+    list.style.transform = go ? "translateX(0)" : "translateX(-24%)";
+    list.style.opacity = go ? "1" : "0.6";
+    setTimeout(() => {
+      clear();
+      if (go) {
+        showHome(true);
+      }
+    }, 220);
+  }
+  document.addEventListener("touchend", end);
+  document.addEventListener("touchcancel", end);
+})();
+function showHome(swiped?: boolean) {
   tellAdmin(false);
+  var fromPerson = !byId("an").hidden;
   byId("an").hidden = true;
   byId("home").hidden = false;
+  slide(byId("home"), fromPerson && !swiped ? "pop-in" : "");
   chosen = null;
   data = null;
   loadSeq++;
@@ -412,7 +516,7 @@ byId("csort").addEventListener("click", () => {
   } catch (error) {}
   renderPeople();
 });
-byId("back").addEventListener("click", showHome);
+byId("back").addEventListener("click", () => showHome());
 byId("tabAct").addEventListener("click", () => setTab("act"));
 byId("tabAbout").addEventListener("click", () => setTab("about"));
 document.addEventListener("keydown", (event) => {

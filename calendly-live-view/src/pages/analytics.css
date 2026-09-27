@@ -854,3 +854,48 @@ button.acard:active {
     -webkit-touch-callout: none;
   }
 }
+/* Phones: a person's page slides in from the right and the list slides back in from the left, like pages in a native
+   app. In the iPhone home-screen app, a swipe from the left edge drags the page away to show the list underneath. */
+@media (max-width: 700px) {
+  #an.push-in {
+    animation: pushIn 0.3s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+  #home.pop-in {
+    animation: popIn 0.28s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+  }
+  body.edge #an {
+    position: relative;
+    z-index: 2;
+    margin: 0 -18px;
+    padding: 0 18px;
+    min-height: 100vh;
+    background: var(--p);
+    box-shadow: -10px 0 28px rgba(0, 0, 0, 0.12);
+  }
+  body.edge #home {
+    display: block !important;
+    position: fixed;
+    left: 18px;
+    right: 18px;
+    z-index: 1;
+    pointer-events: none;
+  }
+}
+@keyframes pushIn {
+  from {
+    transform: translateX(36%);
+    opacity: 0;
+  }
+}
+@keyframes popIn {
+  from {
+    transform: translateX(-18%);
+    opacity: 0.4;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #an.push-in,
+  #home.pop-in {
+    animation: none;
+  }
+}
