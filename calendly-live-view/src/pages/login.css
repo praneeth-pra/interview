@@ -48,6 +48,9 @@ body {
     sans-serif;
   padding: 16px;
 }
+main {
+  width: min(360px, 100%);
+}
 form {
   width: min(360px, 100%);
   background: var(--card);

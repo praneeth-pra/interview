@@ -10,6 +10,7 @@
   --blue: #bc5935;
   --blue-d: #a64b2a;
   --link: #b4532f;
+  --tab-on: #b0502c;
   --tint: rgba(217, 119, 87, 0.1);
   --today: rgba(217, 119, 87, 0.045);
   --field: #b2b2b2;
@@ -34,6 +35,7 @@
     --blue: #bc5935;
     --blue-d: #a64b2a;
     --link: #e89a7f;
+    --tab-on: #e89a7f;
     --tint: rgba(224, 138, 109, 0.15);
     --today: rgba(224, 138, 109, 0.05);
     --field: #555;
@@ -131,7 +133,7 @@ a {
 }
 .tabs [aria-selected="true"] {
   background: var(--tint);
-  color: var(--link);
+  color: var(--tab-on);
 }
 .tr {
   display: flex;
@@ -459,7 +461,7 @@ button.card:hover {
 .axis span {
   position: absolute;
   right: 6px;
-  font-size: 11px;
+  font-size: 11.5px;
   color: var(--ink2);
   transform: translateY(-50%);
 }
@@ -1307,7 +1309,7 @@ a.ghost:active {
 .tabs [aria-selected="true"],
 .tabs [aria-selected="true"]:hover {
   background: var(--tint);
-  color: var(--link);
+  color: var(--tab-on);
 }
 .tr {
   gap: 8px;
@@ -2542,8 +2544,9 @@ html {
   gap: 8px;
   width: auto;
   height: auto;
-  min-height: 0;
-  margin: 0 0 14px;
+  /* 24 px tap target; the negative margin keeps the old spacing */
+  min-height: 24px;
+  margin: -2px 0 12px;
   padding: 0;
   border: 0;
   background: none;
