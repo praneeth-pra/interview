@@ -1,6 +1,6 @@
 // Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts, Enquiries, Payments and Revenue) in the
 // header and the phone bottom bar, the phone section title, and the bottom-sheet panel, which can be swiped down to close.
-// Phones keep five buttons in the bottom bar, so Revenue opens from the ⋯ menu there.
+// Phones keep five buttons in the bottom bar, so Revenue opens from the ⋯ menu there, in the bottom sheet (main.ts).
 export function setupNav() {
   function byId(id: string) {
     return document.getElementById(id);
@@ -192,6 +192,10 @@ export function setupNav() {
     if (byId("tabRev").hidden) {
       return;
     }
+    // the phone sheet holds the page's contents while it's open, so close it first
+    if (!byId("panel").hidden && byId("panel").contains(byId("revBody"))) {
+      byId("pclose").click();
+    }
     setUrl("/admin?view=revenue", "rev");
     byId("viewCal").hidden = true;
     byId("viewStats").hidden = true;
@@ -205,7 +209,6 @@ export function setupNav() {
     }
   }
   byId("tabRev").onclick = showRev;
-  byId("mRev").onclick = showRev;
   function showCal(week: boolean) {
     byId("viewStats").hidden = true;
     byId("viewEnq").hidden = true;
@@ -268,7 +271,14 @@ export function setupNav() {
   } else if (startView === "payments") {
     setTimeout(showPay, 0);
   } else if (startView === "revenue") {
-    setTimeout(showRev, 0);
+    // phones open Revenue in the bottom sheet, as the ⋯ menu does
+    setTimeout(function () {
+      if (matchMedia("(max-width: 900px)").matches) {
+        byId("mRev").click();
+      } else {
+        showRev();
+      }
+    }, 0);
   }
   setTimeout(function () {
     homeView = currentView();

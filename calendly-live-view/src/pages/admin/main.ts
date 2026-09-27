@@ -637,6 +637,11 @@ function parkAllow() {
     section.hidden = true;
     document.querySelector("main").appendChild(section);
   }
+  // the Revenue sheet borrows the Revenue page's contents the same way
+  var revenue = byId("revBody").closest(".enqview");
+  if (revenue.parentElement !== byId("viewRev")) {
+    byId("viewRev").appendChild(revenue);
+  }
 }
 function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
   parkAllow();
@@ -649,7 +654,7 @@ function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
   sheetBookingId = "";
   var body = byId("pbody");
   body.textContent = "";
-  body.classList.remove("grp");
+  body.classList.remove("grp", "rv");
   byId("panel").hidden = false;
   byId("pback").hidden = false;
   if (!keepFocus) {
@@ -2241,8 +2246,8 @@ function refreshPayments() {
   if (!byId("viewPay").hidden && paymentsShown >= 0 && key !== paymentsKey) {
     showPayments();
   }
-  // a new or decided payment changes the numbers in Analytics too
-  if (!byId("viewRev").hidden && paymentsShown >= 0 && key !== paymentsKey) {
+  // a new or decided payment changes the numbers in Revenue too
+  if (revenueShown() && paymentsShown >= 0 && key !== paymentsKey) {
     showRevenue();
   }
   paymentsKey = key;
@@ -2526,6 +2531,24 @@ byId("tabCal").onclick = function () {
   showTab("cal");
 };
 byId("mCand").onclick = showCandidates;
+// Revenue on phones (owners only): the ⋯ menu opens it in the bottom sheet, like Candidates, rather than as a page.
+// The desktop header tab still opens the page.
+function showRevenueSheet() {
+  // admins who aren't owners don't have Revenue
+  if (byId("tabRev").hidden) {
+    return;
+  }
+  refreshPanel = null;
+  var body = openPanel("Revenue", "Confirmed payments over the last 12 months.");
+  body.classList.add("rv");
+  body.appendChild(byId("revBody").closest(".enqview"));
+  showRevenue();
+}
+byId("mRev").onclick = showRevenueSheet;
+// the Revenue figures are on screen, as a page or in the sheet
+function revenueShown() {
+  return !byId("viewRev").hidden || (!byId("panel").hidden && byId("panel").contains(byId("revBody")));
+}
 function connect() {
   if (stream) {
     stream.close();

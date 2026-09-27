@@ -3278,6 +3278,12 @@ html {
     background: var(--bg);
   }
 }
+/* Revenue in the phone sheet keeps one height, so the sheet doesn't jump while a search redraws the figures. */
+@media (max-width: 760px) {
+  .panel:has(> .pbody.rv) {
+    height: 88vh;
+  }
+}
 /* ---- Agenda: one day, like a phone calendar's Day view ----
    A week strip picks the day (circled in orange, dots for days with interviews). Below it, an hour grid holds the
    day's interviews as blocks sized to their length, tinted in the interview supporter's colour with a top edge in that
