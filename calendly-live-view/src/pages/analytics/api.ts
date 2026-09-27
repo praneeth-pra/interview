@@ -24,7 +24,15 @@ function loadData(force?: boolean): Promise<Data> {
           return response.status === 401;
         })
       ) {
-        (parent || window).location.reload();
+        // the saved copy of the admin page would come back signed out, so drop it before reloading
+        var reload = function () {
+          (parent || window).location.reload();
+        };
+        if (window.caches) {
+          caches.delete("admin-shell-v1").then(reload, reload);
+        } else {
+          reload();
+        }
         throw new Error("auth");
       }
       return Promise.all(

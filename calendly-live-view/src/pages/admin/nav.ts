@@ -369,10 +369,15 @@ export function setupNav() {
     attributes: true,
     attributeFilter: ["hidden"],
   });
-  // Drag the sheet down by its handle or title to close it, like a native sheet.
+  // Drag the sheet down by its handle or title to close it, like a native sheet: it follows the finger, the page behind
+  // brightens as it goes, and a quick flick closes it even when it has only moved a little.
   var dragFrom = 0;
   var dragBy = 0;
   var dragging = false;
+  var lastY = 0;
+  var lastT = 0;
+  var speed = 0; // px per ms, downwards
+  var back = byId("pback");
   panel.addEventListener(
     "touchstart",
     function (event: TouchEvent) {
@@ -383,8 +388,10 @@ export function setupNav() {
       var onHead = (event.target as Element).closest(".grab, .phead");
       var atTop = byId("pbody").scrollTop <= 0;
       dragging = !!onHead || (atTop && !(event.target as Element).closest("input, textarea, select, button"));
-      dragFrom = event.touches[0].clientY;
+      dragFrom = lastY = event.touches[0].clientY;
+      lastT = performance.now();
       dragBy = 0;
+      speed = 0;
     },
     { passive: true },
   );
@@ -394,7 +401,14 @@ export function setupNav() {
       if (!dragging) {
         return;
       }
-      dragBy = Math.max(0, event.touches[0].clientY - dragFrom);
+      var y = event.touches[0].clientY;
+      var now = performance.now();
+      if (now > lastT) {
+        speed = speed * 0.2 + ((y - lastY) / (now - lastT)) * 0.8;
+      }
+      lastY = y;
+      lastT = now;
+      dragBy = Math.max(0, y - dragFrom);
       if (dragBy > 0) {
         // Stop iOS from also rubber-banding the sheet's scroll area, which pulls the content away from the
         // header and leaves a blank gap while the sheet moves.
@@ -403,6 +417,8 @@ export function setupNav() {
       if (dragBy > 4) {
         panel.style.transition = "none";
         panel.style.transform = "translateY(" + dragBy + "px)";
+        back.style.transition = "none";
+        back.style.opacity = String(Math.max(0, 1 - dragBy / panel.offsetHeight));
       }
     },
     { passive: false },
@@ -412,14 +428,26 @@ export function setupNav() {
       return;
     }
     dragging = false;
-    panel.style.transition = "";
-    if (dragBy > 110) {
+    // a flick counts only if the finger was still moving when it lifted
+    var flick = speed > 0.5 && dragBy > 24 && performance.now() - lastT < 120;
+    if (dragBy > 110 || flick) {
+      // finish at the finger's speed: a fast flick closes quickly, a slow drag glides
+      var rest = panel.offsetHeight - dragBy;
+      var ms = Math.round(Math.min(260, Math.max(120, rest / Math.max(speed, 1.2))));
+      panel.style.transition = "transform " + ms + "ms cubic-bezier(0.2, 0.7, 0.3, 1)";
       panel.style.transform = "translateY(100%)";
+      back.style.transition = "opacity " + ms + "ms ease";
+      back.style.opacity = "0";
       setTimeout(function () {
         byId("pclose").click();
-      }, 180);
+        back.style.transition = "";
+        back.style.opacity = "";
+      }, ms);
     } else {
+      panel.style.transition = "";
       panel.style.transform = "";
+      back.style.transition = "opacity 0.2s ease";
+      back.style.opacity = "";
     }
   });
 }

@@ -23,14 +23,19 @@ self.addEventListener("fetch", function (e) {
     }));
     return;
   }
+  // An admin page opens from its saved copy at once, like an app, and the network copy replaces the saved one for next
+  // time (the page reloads itself when a deploy changed it). A signed-out answer (the sign-in page) drops the saved copy,
+  // so the next open asks the network. With nothing saved yet it waits for the network.
   if (r.mode === "navigate" && APP_PAGES[u.pathname]) {
-    var fromCache = function () { return caches.open(SHELL).then(function (c) { return c.match(u.pathname) }) };
     var net = fetch(r).then(function (res) {
-      if (res.ok && res.headers.get("X-App-Shell")) { var copy = res.clone(); caches.open(SHELL).then(function (c) { c.put(u.pathname, copy) }) }
-      return res;
+      return caches.open(SHELL).then(function (c) {
+        if (res.ok && res.headers.get("X-App-Shell")) return c.put(u.pathname, res.clone()).then(function () { return res });
+        if (res.status < 500) return c.delete(u.pathname).then(function () { return res });
+        return res;
+      });
     });
-    var slow = new Promise(function (ok) { setTimeout(ok, 3000) }).then(fromCache).then(function (hit) { return hit || net });
-    e.respondWith(Promise.race([net, slow]).catch(function () { return fromCache().then(function (hit) { return hit || net }) }));
+    e.waitUntil(net.catch(function () {}));
+    e.respondWith(caches.open(SHELL).then(function (c) { return c.match(u.pathname) }).then(function (hit) { return hit || net }));
   }
 });
 self.addEventListener("push",function(e){var d={};try{d=e.data.json()}catch(x){d={body:e.data?e.data.text():""}}
