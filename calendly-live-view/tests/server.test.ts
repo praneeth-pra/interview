@@ -397,16 +397,14 @@ describe("payments", () => {
     expect((await get(locked, "/admin/api/payments/" + payments[1].id + "/receipt")).status).toBe(401);
   });
 
-  test("Analytics counts confirmed payments as revenue, keeps pending ones apart, and exports them as CSV", async () => {
+  test("Analytics counts confirmed payments as revenue, keeps pending ones apart, narrows to a searched candidate, and exports CSV", async () => {
     expect((await send(form({ ...good, installment: "1", amount: "5000" }, { bytes: PNG, name: "r.png" }), "10.1.0.4")).status).toBe(200);
     const v = await (await get(open, "/admin/api/revenue")).json();
     expect(v.months).toHaveLength(12);
     // Kiran's advance was confirmed; Meena's payment was discarded and doesn't count anywhere
     expect(v.revenue).toMatchObject({ total: 12500, count: 1, pending: 5000, pendingCount: 1, payers: 1 });
     expect(v.revenue.byMonth.at(-1)).toBe(12500);
-    expect(v.installments.find((i: any) => i.key === "advance")).toEqual({ key: "advance", total: 12500, count: 1 });
-    expect(v.installments.find((i: any) => i.key === "2")).toEqual({ key: "2", total: 0, count: 0 });
-    expect(v.candidates).toEqual([{ name: "Kiran Kumar", email: "kiran@example.com", total: 12500, count: 1, last: expect.any(String) }]);
+    expect(v.found).toEqual([]);
     expect(v.bookings.rounds).toHaveProperty("cleared");
     expect(v.enquiries).toHaveProperty("booked");
     const csv = await get(open, "/admin/api/revenue.csv");
@@ -417,6 +415,15 @@ describe("payments", () => {
       "Kiran Kumar,kiran@example.com,Advance,12500,Confirmed",
       "Kiran Kumar,kiran@example.com,1st installment,5000,Pending",
     ]);
+    // the search narrows everything to candidates whose name or email contains it, and says whom it found
+    const kiran = await (await get(open, "/admin/api/revenue?q=KIRAN@")).json();
+    expect(kiran.found).toEqual([{ name: "Kiran Kumar", email: "kiran@example.com" }]);
+    expect(kiran.revenue).toMatchObject({ total: 12500, pending: 5000, payers: 1 });
+    const nobody = await (await get(open, "/admin/api/revenue?q=zzz")).json();
+    expect(nobody.found).toEqual([]);
+    expect(nobody.revenue).toMatchObject({ total: 0, pending: 0, payers: 0 });
+    expect(nobody.bookings.rounds.upcoming + nobody.bookings.rounds.done).toBe(0);
+    expect((await (await get(open, "/admin/api/revenue.csv?q=meena")).text()).trim().split("\r\n")).toHaveLength(1);
     expect((await get(locked, "/admin/api/revenue")).status).toBe(401);
     expect((await get(locked, "/admin/api/revenue.csv")).status).toBe(401);
   });

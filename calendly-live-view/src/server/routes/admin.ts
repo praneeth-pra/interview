@@ -37,8 +37,8 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     if (!owner && /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|$)/.test(path))
       return json({ error: "Only the owner can see enquiries, payments and revenue." }, 403);
     // the Analytics tab: revenue, bookings and enquiries in one summary, and the payments as a spreadsheet
-    if (path === "/admin/api/revenue" && method === "GET") return json(analyticsView());
-    if (path === "/admin/api/revenue.csv" && method === "GET") return analyticsCsv();
+    if (path === "/admin/api/revenue" && method === "GET") return json(analyticsView((url.searchParams.get("q") ?? "").slice(0, 100)));
+    if (path === "/admin/api/revenue.csv" && method === "GET") return analyticsCsv((url.searchParams.get("q") ?? "").slice(0, 100));
     // Enquiries from /enquiry, newest first; each resume downloads from its own link; an enquiry can be deleted.
     if (path === "/admin/api/enquiries" && method === "GET")
       return json({
