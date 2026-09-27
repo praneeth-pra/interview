@@ -2,20 +2,20 @@
 // as one multipart request to /api/payment, which also checks that the amount is the one on the receipt. The receipt's
 // size limit comes from the server (the boot block) and is only mentioned when a file is too big. The same rules are
 // checked again on the server.
-var MAX_BYTES = JSON.parse(document.getElementById("boot")!.textContent).max;
-var MAX_TEXT = Math.round((MAX_BYTES / 1048576) * 10) / 10 + " MB";
-var form = document.getElementById("f") as HTMLFormElement;
-var fileInput = document.getElementById("rc") as HTMLInputElement;
-var button = document.getElementById("go") as HTMLButtonElement;
-var errorBox = document.getElementById("err") as HTMLElement;
-var fields = {
+const MAX_BYTES = JSON.parse(document.getElementById("boot")!.textContent).max;
+const MAX_TEXT = Math.round((MAX_BYTES / 1048576) * 10) / 10 + " MB";
+const form = document.getElementById("f") as HTMLFormElement;
+const fileInput = document.getElementById("rc") as HTMLInputElement;
+const button = document.getElementById("go") as HTMLButtonElement;
+const errorBox = document.getElementById("err") as HTMLElement;
+const fields = {
   email: document.getElementById("em") as HTMLInputElement,
   name: document.getElementById("nm") as HTMLInputElement,
   installment: document.getElementById("in") as HTMLSelectElement,
   amount: document.getElementById("am") as HTMLInputElement,
 };
 function amountValue() {
-  var text = fields.amount.value.replace(/[,\s₹]/g, "");
+  const text = fields.amount.value.replace(/[,\s₹]/g, "");
   return /^\d+(\.\d{1,2})?$/.test(text) ? Number(text) : NaN;
 }
 function fileProblem(file: File | undefined) {
@@ -35,8 +35,8 @@ function sizeText(bytes: number) {
   return bytes < 1048576 ? Math.max(1, Math.round(bytes / 1024)) + " KB" : Math.round((bytes / 1048576) * 10) / 10 + " MB";
 }
 function showFile() {
-  var file = fileInput.files![0];
-  var problem = file ? fileProblem(file) : "";
+  const file = fileInput.files![0];
+  const problem = file ? fileProblem(file) : "";
   document.getElementById("rcname")!.textContent = file ? file.name : "Attach your receipt";
   document.getElementById("rchint")!.textContent =
     problem || (file ? sizeText(file.size) + " · tap to change" : "A photo, screenshot or PDF");
@@ -54,7 +54,7 @@ function fixing(event: Event) {
 form.addEventListener("input", fixing);
 form.addEventListener("change", fixing);
 function check() {
-  var problems = [];
+  const problems = [];
   function need(input: HTMLElement, ok: boolean, text: string) {
     input.setAttribute("aria-invalid", String(!ok));
     if (!ok) {
@@ -64,9 +64,9 @@ function check() {
   need(fields.email, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.value.trim()), "Enter a valid email address.");
   need(fields.name, fields.name.value.trim().length >= 2, "Enter your full name.");
   need(fields.installment, !!fields.installment.value, "Choose which installment this is.");
-  var amount = amountValue();
+  const amount = amountValue();
   need(fields.amount, amount > 0 && amount <= 10000000, "Enter the amount you paid, in rupees.");
-  var fileText = fileProblem(fileInput.files![0]);
+  const fileText = fileProblem(fileInput.files![0]);
   document.getElementById("dropbox")!.classList.toggle("bad", !!fileText);
   if (fileText) {
     problems.push({ input: fileInput, text: fileText });
@@ -76,7 +76,7 @@ function check() {
 form.addEventListener("submit", function (event) {
   event.preventDefault();
   errorBox.textContent = "";
-  var problems = check();
+  const problems = check();
   if (problems.length) {
     errorBox.textContent = problems[0].text;
     problems[0].input.focus();
@@ -95,7 +95,7 @@ form.addEventListener("submit", function (event) {
         .then(function (body) {
           if (!response.ok) {
             // the email isn't on the invite list, or the amount isn't the one on the receipt
-            var field = fields[body.field as keyof typeof fields];
+            const field = fields[body.field as keyof typeof fields];
             if (field) {
               field.setAttribute("aria-invalid", "true");
               field.focus();

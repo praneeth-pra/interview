@@ -12,7 +12,7 @@ function titleCase(text: string | null | undefined): string {
   }
 }
 function statusOf(booking: Booking) {
-  var now = Date.now();
+  const now = Date.now();
   if (booking.cancelled) {
     return "Cancelled";
   } else if (booking.missed) {
@@ -36,7 +36,7 @@ function statusClass(status: string) {
 // The round's status, set by an admin in the booking panel once the interview has started. No-show and Didn't happen
 // are the missed mark the app already records; value is what /admin/api/round-status takes.
 type RoundStatus = { key: string; label: string; value: string };
-var ROUND_STATUSES: RoundStatus[] = [
+const ROUND_STATUSES: RoundStatus[] = [
   { key: "cleared", label: "Cleared", value: "cleared" },
   { key: "rejected", label: "Rejected", value: "rejected" },
   { key: "hold", label: "On hold", value: "hold" },
@@ -45,7 +45,7 @@ var ROUND_STATUSES: RoundStatus[] = [
 ];
 // The status set for a booking, or null when none is (or the booking was cancelled).
 function roundStatus(booking: Booking): RoundStatus | null {
-  var key = booking.cancelled ? "" : booking.missed === "noshow" ? "noshow" : booking.missed ? "didnthappen" : booking.outcome || "";
+  const key = booking.cancelled ? "" : booking.missed === "noshow" ? "noshow" : booking.missed ? "didnthappen" : booking.outcome || "";
   return (
     ROUND_STATUSES.find(function (status) {
       return status.key === key;
@@ -54,8 +54,8 @@ function roundStatus(booking: Booking): RoundStatus | null {
 }
 // A status pill: the round's status when set, otherwise Upcoming, In progress, Completed or Cancelled.
 function statusPill(booking: Booking, small?: boolean) {
-  var round = roundStatus(booking);
-  var label = round ? round.label : statusOf(booking);
+  const round = roundStatus(booking);
+  const label = round ? round.label : statusOf(booking);
   return { class: "bk-st " + (small ? "sm " : "") + (round ? "rs-" + round.key : statusClass(label)), text: label };
 }
 function byWhom(who: string | undefined) {

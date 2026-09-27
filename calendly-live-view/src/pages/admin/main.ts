@@ -23,17 +23,17 @@ import { renderAgenda, setupAgendaSwipe } from "./agenda";
 import { renderAttention, renderCards, renderLegend } from "./summary";
 import { setupSearch } from "./search";
 
-var live = false; // connected to /admin/stream
-var stream: EventSource | null = null;
-var dateParam = new URLSearchParams(location.search).get("date");
+let live = false; // connected to /admin/stream
+let stream: EventSource | null = null;
+const dateParam = new URLSearchParams(location.search).get("date");
 if (/^\d{4}-\d{2}-\d{2}$/.test(dateParam || "")) {
   view.day = dateParam;
 }
 // The connection state shows only when something is wrong: "Offline" at once, "Reconnecting…" after 8 seconds.
-var statusTimer = 0;
+let statusTimer = 0;
 function renderStatus() {
-  var status = byId("status");
-  var offline = navigator.onLine === false;
+  const status = byId("status");
+  const offline = navigator.onLine === false;
   status.lastChild!.textContent = live ? "Live" : offline ? "Offline" : "Reconnecting…";
   clearTimeout(statusTimer);
   if (live) {
@@ -90,7 +90,7 @@ function showRevenueSheet() {
     return;
   }
   panel.refresh = null;
-  var body = openPanel("Revenue", "Confirmed payments over the last 12 months.");
+  const body = openPanel("Revenue", "Confirmed payments over the last 12 months.");
   body.classList.add("rv");
   body.appendChild(byId("revBody").closest(".enqview")!);
   showRevenue();
@@ -164,7 +164,7 @@ byId("tabAg").addEventListener("click", function () {
   }
   // before the first frame, so the page doesn't show at the top and then jump
   requestAnimationFrame(function () {
-    var mark = document.querySelector("#agenda .ag-now") || document.querySelector("#agenda .ag-i");
+    const mark = document.querySelector("#agenda .ag-now") || document.querySelector("#agenda .ag-i");
     if (mark && mark.getBoundingClientRect().top > innerHeight * 0.6) {
       scrollTo(0, scrollY + mark.getBoundingClientRect().top - innerHeight / 2);
     }
@@ -236,7 +236,7 @@ window.__openB = function (id) {
 // After a deploy the server restarts, and a phone that kept the app open reconnects to it with the old page still
 // showing. When the live state reports a different build, reload: straight away if nothing is open, otherwise the next
 // time the app comes back to the foreground or the sheet closes. Once per build, so a stale offline copy can't loop.
-var updateWaiting = false;
+let updateWaiting = false;
 function checkForUpdate() {
   if (!state.build || !boot.build || state.build === boot.build) {
     return;
@@ -247,7 +247,7 @@ function checkForUpdate() {
     }
   } catch (e) {}
   updateWaiting = true;
-  var busy =
+  const busy =
     !byId("panel").hidden ||
     document.body.classList.contains("pp-open") ||
     /^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || "");

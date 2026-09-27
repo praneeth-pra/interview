@@ -5,13 +5,17 @@
 import { byId, el as make } from "../shared/dom";
 import { api, type Analytics, type DashState, type IvInfo, type Person, type TimelineEvent } from "./api";
 
+// the open contact's page, and a counter so only the latest request draws it
+let data: Analytics | null = null;
+let loadSeq = 0;
+
 function div(cls?: string | null, text?: string | null) {
   return el("div", cls, text);
 }
 function span(cls?: string | null, text?: string | null) {
   return el("span", cls, text);
 }
-var state: DashState = {
+let state: DashState = {
   ready: false,
   events: [],
   tz: "Asia/Kolkata",
@@ -19,10 +23,9 @@ var state: DashState = {
   error: "",
   lastChecked: 0,
 };
-var live = false;
-var stream: EventSource | null = null;
-var lastSeen = 0;
-var merge = true;
+let live = false;
+let lastSeen = 0;
+let merge = true;
 function mergeQuery() {
   if (merge) {
     return "&merge=1";
@@ -30,9 +33,9 @@ function mergeQuery() {
     return "";
   }
 }
-var ivMap: Record<string, string> = {};
-var ivNames: string[] = [];
-var ivSig = "";
+let ivMap: Record<string, string> = {};
+let ivNames: string[] = [];
+let ivSig = "";
 function ivSigOf(info: IvInfo) {
   return JSON.stringify(info.assign || {}) + "|" + JSON.stringify(info.names || []) + "|" + (info.persistent !== false);
 }
@@ -40,7 +43,7 @@ function loadIv() {
   api("/api/interviewers")
     .then((response) => response.json())
     .then((info) => {
-      var signature = ivSigOf(info);
+      const signature = ivSigOf(info);
       ivMap = info.assign || {};
       ivNames = info.names || [];
       if (signature !== ivSig) {
@@ -53,10 +56,10 @@ function loadIv() {
     .catch(() => {});
 }
 function ivCls(name: string) {
-  var index = ivNames.indexOf(name);
+  let index = ivNames.indexOf(name);
   if (index < 0) {
     index = 0;
-    for (var i = 0; i < name.length; i++) {
+    for (let i = 0; i < name.length; i++) {
       index += name.charCodeAt(i);
     }
   }
@@ -105,12 +108,12 @@ function niceName(name: string) {
   }
 }
 function paintStatus() {
-  var status = byId("status");
-  var text = byId("statusText");
+  const status = byId("status");
+  const text = byId("statusText");
   status.className = "status" + (live && !state.error ? " live" : "");
   if (live) {
     if (lastSeen) {
-      var seconds = Math.max(0, Math.round((Date.now() - lastSeen) / 1000));
+      const seconds = Math.max(0, Math.round((Date.now() - lastSeen) / 1000));
       text.textContent = "Live · checked " + (seconds < 60 ? seconds + "s" : Math.round(seconds / 60) + "m") + " ago";
     } else {
       text.textContent = "Live";
@@ -120,8 +123,8 @@ function paintStatus() {
   }
 }
 function paintBanner() {
-  var message = state.error || (state.ready ? "" : "Loading bookings…");
-  var banner = byId("banner");
+  const message = state.error || (state.ready ? "" : "Loading bookings…");
+  const banner = byId("banner");
   banner.textContent = message;
   banner.hidden = !message;
 }
@@ -136,9 +139,7 @@ document.addEventListener("visibilitychange", () => {
         render();
       })
       .catch(() => {});
-    if (!stream || stream.readyState === 2) {
-      connect();
-    }
+    connect();
   }
 });
 setInterval(paintStatus, 5000);
@@ -149,11 +150,11 @@ setInterval(() => {
   }
 }, 60000);
 loadIv();
-var people: Person[] = [];
+let people: Person[] = [];
 // the contact on screen; name and event come from the list, or from the page when it opened by itself
-var chosen: { name: string; event: string } | null = null;
-var peopleLoaded = false;
-var peopleKey = "";
+let chosen: { name: string; event: string } | null = null;
+let peopleLoaded = false;
+let peopleKey = "";
 function words(text: string) {
   return text.toLowerCase().split(/\s+/).filter(Boolean);
 }
@@ -178,38 +179,38 @@ function loadPeople() {
     });
 }
 function syncPeople() {
-  var key = state.events.length + ":" + state.events.map((event) => event.invitee).join("|");
+  const key = state.events.length + ":" + state.events.map((event) => event.invitee).join("|");
   if (state.ready && key !== peopleKey) {
     peopleKey = key;
     loadPeople();
   }
 }
 function skelRows(count: number, label: string) {
-  var box = el("div");
-  var msg = div("rempty");
+  const box = el("div");
+  const msg = div("rempty");
   msg.appendChild(span("spin"));
   msg.appendChild(document.createTextNode(label));
   box.appendChild(msg);
-  for (var i = 0; i < count; i++) {
-    var row = div("rrow skel-rrow");
+  for (let i = 0; i < count; i++) {
+    const row = div("rrow skel-rrow");
     row.appendChild(div("skel sk-line sk-w" + ((i % 3) + 1)));
     box.appendChild(row);
   }
   return box;
 }
 // ---- Contacts: everyone who has booked, the latest activity first (like the Calendly app's Contacts) ----
-var SORTS = [
+const SORTS = [
   ["recent", "All contacts", "Sorted by recent activity"],
   ["upcoming", "Upcoming", "Next meeting first"],
   ["name", "All contacts", "Sorted by name"],
 ];
-var sortMode = "recent";
+let sortMode = "recent";
 try {
   sortMode = localStorage.getItem("ct.sort") || "recent";
 } catch (error) {}
-var homeScroll = 0;
+let homeScroll = 0;
 function initials(name: string) {
-  var parts = niceName(String(name || "?"))
+  const parts = niceName(String(name || "?"))
     .trim()
     .split(/\s+/)
     .filter(Boolean);
@@ -217,9 +218,9 @@ function initials(name: string) {
 }
 // "Today at 3:00pm", "Thursday at 3:00pm", "Last Friday at 12:00pm", "Sep 12 at 11:00am"
 function meetingWhen(iso: string, now: number) {
-  var date = new Date(iso);
-  var days = dayNum(ymd(date)) - dayNum(ymd(new Date(now)));
-  var label =
+  const date = new Date(iso);
+  const days = dayNum(ymd(date)) - dayNum(ymd(new Date(now)));
+  const label =
     days === 0
       ? "Today"
       : days === 1
@@ -235,7 +236,7 @@ function meetingWhen(iso: string, now: number) {
 }
 // "now", "5h", "2d", "1w", "3mo"
 function agoShort(iso: string, now: number) {
-  var minutes = Math.max(0, (now - Date.parse(iso)) / 60000);
+  const minutes = Math.max(0, (now - Date.parse(iso)) / 60000);
   if (minutes < 60) {
     return "now";
   } else if (minutes < 1440) {
@@ -248,18 +249,18 @@ function agoShort(iso: string, now: number) {
     return Math.floor(minutes / 43200) + "mo";
   }
 }
-var CAL_ICON = "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4";
+const CAL_ICON = "M4 6h16v14H4zM4 10h16M8 3.5v4M16 3.5v4";
 function svgIcon(path: string) {
-  var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
   svg.setAttribute("viewBox", "0 0 24 24");
   svg.setAttribute("aria-hidden", "true");
-  var line = document.createElementNS("http://www.w3.org/2000/svg", "path");
+  const line = document.createElementNS("http://www.w3.org/2000/svg", "path");
   line.setAttribute("d", path);
   svg.appendChild(line);
   return svg;
 }
 function sortedPeople(list: Person[]) {
-  var copy = list.slice();
+  const copy = list.slice();
   if (sortMode === "name") {
     copy.sort((first, second) => niceName(first.name).localeCompare(niceName(second.name)));
   } else if (sortMode === "upcoming") {
@@ -278,22 +279,22 @@ function sortedPeople(list: Person[]) {
   return copy;
 }
 function paintSort() {
-  var mode = SORTS.filter((entry) => entry[0] === sortMode)[0] || SORTS[0];
+  const mode = SORTS.filter((entry) => entry[0] === sortMode)[0] || SORTS[0];
   byId("csortt").textContent = mode[1];
   byId("csortl").textContent = mode[2];
 }
 function renderPeople() {
-  var box = byId("clist");
+  const box = byId("clist");
   paintSort();
   box.textContent = "";
   if (!peopleLoaded) {
     box.appendChild(skelRows(5, "Loading contacts…"));
     return;
   }
-  var terms = words(byId<HTMLInputElement>("pq").value.trim());
-  var now = Date.now();
-  var shown = sortedPeople(people).filter((person) => {
-    var text = (person.name + " " + niceName(person.name) + " " + (person.companies_ || "")).toLowerCase();
+  const terms = words(byId<HTMLInputElement>("pq").value.trim());
+  const now = Date.now();
+  const shown = sortedPeople(people).filter((person) => {
+    const text = (person.name + " " + niceName(person.name) + " " + (person.companies_ || "")).toLowerCase();
     return terms.every((term) => text.indexOf(term) >= 0);
   });
   if (!shown.length) {
@@ -301,15 +302,15 @@ function renderPeople() {
     return;
   }
   shown.slice(0, 300).forEach((person) => {
-    var row = el("button", "crow");
+    const row = el("button", "crow");
     row.type = "button";
     row.appendChild(span("cav", initials(person.name)));
-    var main = div("cmain");
-    var top = div("cline");
+    const main = div("cmain");
+    const top = div("cline");
     top.appendChild(el("b", null, niceName(person.name)));
     top.appendChild(span("cago", person.activity ? agoShort(person.activity, now) : ""));
     main.appendChild(top);
-    var meta = div("cmeta");
+    const meta = div("cmeta");
     meta.appendChild(svgIcon(CAL_ICON));
     meta.appendChild(
       span(
@@ -342,7 +343,7 @@ function slide(el: HTMLElement, name: string) {
   }
 }
 function showDetail() {
-  var fromList = !byId("home").hidden;
+  const fromList = !byId("home").hidden;
   if (fromList) {
     homeScroll = window.scrollY;
   }
@@ -354,7 +355,7 @@ function showDetail() {
 }
 // In the admin, the page around this frame keeps a history entry while a person is open, so the phone's Back returns here.
 function tellAdmin(open: boolean) {
-  var host = window.parent as any;
+  const host = window.parent as any;
   if (host && host !== window && host.__contact) {
     host.__contact(open);
   }
@@ -371,15 +372,15 @@ function tellAdmin(open: boolean) {
   if ((navigator as any).standalone !== true) {
     return;
   }
-  var page = byId("an");
-  var list = byId("home");
-  var startX = 0;
-  var startY = 0;
-  var dx = 0;
-  var lastX = 0;
-  var lastT = 0;
-  var speed = 0;
-  var state = 0; // 0 idle, 1 edge touch not decided, 2 dragging
+  const page = byId("an");
+  const list = byId("home");
+  let startX = 0;
+  let startY = 0;
+  let dx = 0;
+  let lastX = 0;
+  let lastT = 0;
+  let speed = 0;
+  let state = 0; // 0 idle, 1 edge touch not decided, 2 dragging
   function clear() {
     document.body.classList.remove("edge");
     page.style.transition = page.style.transform = "";
@@ -388,7 +389,7 @@ function tellAdmin(open: boolean) {
   document.addEventListener(
     "touchstart",
     (event) => {
-      var x = event.touches[0].clientX;
+      const x = event.touches[0].clientX;
       state = !page.hidden && x < 24 && innerWidth <= 700 ? 1 : 0;
       startX = lastX = x;
       startY = event.touches[0].clientY;
@@ -403,9 +404,9 @@ function tellAdmin(open: boolean) {
       if (!state) {
         return;
       }
-      var x = event.touches[0].clientX;
+      const x = event.touches[0].clientX;
       if (state === 1) {
-        var my = Math.abs(event.touches[0].clientY - startY);
+        const my = Math.abs(event.touches[0].clientY - startY);
         if (x - startX < 10 && my < 10) {
           return;
         }
@@ -419,14 +420,14 @@ function tellAdmin(open: boolean) {
         document.body.classList.add("edge");
       }
       event.preventDefault();
-      var now = performance.now();
+      const now = performance.now();
       if (now > lastT) {
         speed = speed * 0.2 + ((x - lastX) / (now - lastT)) * 0.8;
       }
       lastX = x;
       lastT = now;
       dx = Math.max(0, x - startX);
-      var part = dx / innerWidth;
+      const part = dx / innerWidth;
       page.style.transition = list.style.transition = "none";
       page.style.transform = "translateX(" + dx + "px)";
       list.style.transform = "translateX(" + (-24 + 24 * part) + "%)";
@@ -440,8 +441,8 @@ function tellAdmin(open: boolean) {
       return;
     }
     state = 0;
-    var go = dx > innerWidth * 0.35 || (speed > 0.4 && dx > 30 && performance.now() - lastT < 120);
-    var ease = "0.22s cubic-bezier(0.2, 0.8, 0.2, 1)";
+    const go = dx > innerWidth * 0.35 || (speed > 0.4 && dx > 30 && performance.now() - lastT < 120);
+    const ease = "0.22s cubic-bezier(0.2, 0.8, 0.2, 1)";
     page.style.transition = "transform " + ease;
     list.style.transition = "transform " + ease + ", opacity " + ease;
     page.style.transform = go ? "translateX(100%)" : "";
@@ -459,7 +460,7 @@ function tellAdmin(open: boolean) {
 })();
 function showHome(swiped?: boolean) {
   tellAdmin(false);
-  var fromPerson = !byId("an").hidden;
+  const fromPerson = !byId("an").hidden;
   byId("an").hidden = true;
   byId("home").hidden = false;
   slide(byId("home"), fromPerson && !swiped ? "pop-in" : "");
@@ -474,7 +475,7 @@ function setTab(name: string) {
     ["tabAct", "tpAct", "act"],
     ["tabAbout", "tpAbout", "about"],
   ].forEach((entry) => {
-    var on = entry[2] === name;
+    const on = entry[2] === name;
     byId(entry[0]).setAttribute("aria-selected", String(on));
     byId(entry[1]).hidden = !on;
   });
@@ -492,8 +493,8 @@ byId<HTMLInputElement>("asq").addEventListener("input", () => {
 // On phones the search field is hidden until the search button in the admin header asks for it; returns whether
 // it is now shown.
 (window as any).__contactSearch = () => {
-  var field = byId<HTMLInputElement>("pq");
-  var show = !document.body.classList.contains("cq") || !byId("an").hidden;
+  const field = byId<HTMLInputElement>("pq");
+  const show = !document.body.classList.contains("cq") || !byId("an").hidden;
   document.body.classList.toggle("cq", show);
   if (!byId("an").hidden) {
     showHome();
@@ -508,7 +509,7 @@ byId<HTMLInputElement>("asq").addEventListener("input", () => {
   return show;
 };
 byId("csort").addEventListener("click", () => {
-  var index = SORTS.map((entry) => entry[0]).indexOf(sortMode);
+  const index = SORTS.map((entry) => entry[0]).indexOf(sortMode);
   sortMode = SORTS[(index + 1) % SORTS.length][0];
   try {
     localStorage.setItem("ct.sort", sortMode);
@@ -523,7 +524,7 @@ document.addEventListener("keydown", (event) => {
     showHome();
   }
 });
-var DAY = 86400000;
+const DAY = 86400000;
 function dayNum(day: string) {
   return Date.parse(day + "T00:00:00Z") / DAY;
 }
@@ -542,11 +543,9 @@ function evState(event: TimelineEvent, now: number) {
     return "done";
   }
 }
-var data: Analytics | null = null;
-var loadSeq = 0;
-var renderedTz = "";
+const renderedTz = "";
 function loadAnalytics(eventId: string) {
-  var requestId = ++loadSeq;
+  const requestId = ++loadSeq;
   data = null;
   showDetail();
   ["tpAct", "tpAbout"].forEach((id) => {
@@ -588,12 +587,12 @@ function onIv() {
   }
 }
 function openBooking(id: string) {
-  var host = window.parent as any;
+  const host = window.parent as any;
   if (host && host !== window && host.__openB) {
     host.__openB(id);
   }
 }
-var canOpenBooking = (() => {
+const canOpenBooking = (() => {
   try {
     return window.parent !== window && !!(window.parent as any).__openB;
   } catch (error) {
@@ -602,13 +601,13 @@ var canOpenBooking = (() => {
 })();
 // ---- Activity: every interview, reschedule and cancellation, newest first, grouped by day ----
 function renderActivity(events: TimelineEvent[], now: number) {
-  var box = byId("tpAct");
+  const box = byId("tpAct");
   box.textContent = "";
-  var query = byId<HTMLInputElement>("asq").value.trim();
-  var terms = words(query);
-  var list = events
+  const query = byId<HTMLInputElement>("asq").value.trim();
+  const terms = words(query);
+  const list = events
     .filter((event) => {
-      var text = ((event.company || "") + " " + (event.round || "")).toLowerCase();
+      const text = ((event.company || "") + " " + (event.round || "")).toLowerCase();
       return terms.every((term) => text.indexOf(term) >= 0);
     })
     .sort((first, second) => Date.parse(second.start) - Date.parse(first.start));
@@ -616,18 +615,18 @@ function renderActivity(events: TimelineEvent[], now: number) {
     box.appendChild(div("rempty", terms.length ? "No interviews match \u201c" + query + "\u201d." : "No activity yet."));
     return;
   }
-  var lastDay = "";
+  let lastDay = "";
   list.forEach((event) => {
-    var start = new Date(event.start);
-    var day = ymd(start);
+    const start = new Date(event.start);
+    const day = ymd(start);
     if (day !== lastDay) {
       lastDay = day;
       box.appendChild(div("aday", fmt({ weekday: "long", day: "numeric", month: "short" }, start)));
     }
-    var kind = evState(event, now);
-    var bookingId = event.rescheduled ? String(event.id).replace(/-moved$/, "") : event.id;
-    var moved = event.rescheduled ? events.filter((other) => other.id === bookingId)[0] : null;
-    var what =
+    const kind = evState(event, now);
+    const bookingId = event.rescheduled ? String(event.id).replace(/-moved$/, "") : event.id;
+    const moved = event.rescheduled ? events.filter((other) => other.id === bookingId)[0] : null;
+    const what =
       kind === "upcoming"
         ? "Upcoming interview"
         : kind === "done"
@@ -639,20 +638,20 @@ function renderActivity(events: TimelineEvent[], now: number) {
             : kind === "rescheduled"
               ? "Rescheduled" + (moved ? " to " + fmt({ weekday: "short", day: "numeric", month: "short" }, new Date(moved.start)) : "")
               : "Canceled" + (event.canceledBy === "invitee" ? " by the candidate" : event.canceledBy === "host" ? " by you" : "");
-    var item = div("aitem " + kind);
-    var head = div("ahead2");
+    const item = div("aitem " + kind);
+    const head = div("ahead2");
     head.appendChild(svgIcon(CAL_ICON));
     head.appendChild(span("awhat", what));
     head.appendChild(span("atime", t12(start)));
     item.appendChild(head);
-    var interviewer = ivMap[bookingId];
-    var cardEl = el(canOpenBooking ? "button" : "div", "acard " + (interviewer ? ivCls(interviewer) : "none"));
+    const interviewer = ivMap[bookingId];
+    const cardEl = el(canOpenBooking ? "button" : "div", "acard " + (interviewer ? ivCls(interviewer) : "none"));
     if (canOpenBooking) {
       (cardEl as HTMLButtonElement).type = "button";
       cardEl.addEventListener("click", () => openBooking(bookingId));
     }
     cardEl.appendChild(el("b", null, [event.company, event.round].filter(Boolean).join(" · ") || "Interview"));
-    var minutes = Math.round((Date.parse(event.end) - Date.parse(event.start)) / 60000);
+    const minutes = Math.round((Date.parse(event.end) - Date.parse(event.start)) / 60000);
     cardEl.appendChild(
       div(
         "sub",
@@ -669,11 +668,11 @@ function renderActivity(events: TimelineEvent[], now: number) {
 }
 // ---- About: emails, first booking, totals, and combining people with the same name ----
 function renderAbout(events: TimelineEvent[], now: number) {
-  var box = byId("tpAbout");
+  const box = byId("tpAbout");
   box.textContent = "";
-  var group = div("agroup");
+  const group = div("agroup");
   function line(label: string, value: string) {
-    var row = div("arow");
+    const row = div("arow");
     row.appendChild(span("alabel", label));
     row.appendChild(el("b", null, value));
     group.appendChild(row);
@@ -681,22 +680,22 @@ function renderAbout(events: TimelineEvent[], now: number) {
   (data!.emailList || []).forEach((email, index) => {
     line(index ? "Also" : "Email", email);
   });
-  var created = events
+  const created = events
     .map((event) => Date.parse(event.created || event.start))
     .filter((time) => !isNaN(time))
     .sort((first, second) => first - second)[0];
   if (created) {
     line("First booked", fmt({ day: "numeric", month: "short", year: "numeric" }, new Date(created)));
   }
-  var real = events.filter((event) => !event.rescheduled);
+  const real = events.filter((event) => !event.rescheduled);
   line("Bookings", real.length + " (" + real.filter((event) => event.status === "canceled").length + " canceled)");
   box.appendChild(group);
   // how many of this candidate's interviews each interviewer took
-  var taken: Record<string, number> = {};
-  var notRecorded = 0;
+  const taken: Record<string, number> = {};
+  let notRecorded = 0;
   events.forEach((event) => {
     if (event.status === "active" && !event.noShow && Date.parse(event.end) <= now) {
-      var interviewer = ivMap[event.id];
+      const interviewer = ivMap[event.id];
       if (interviewer) {
         taken[interviewer] = (taken[interviewer] || 0) + 1;
       } else {
@@ -704,19 +703,19 @@ function renderAbout(events: TimelineEvent[], now: number) {
       }
     }
   });
-  var names = Object.keys(taken).sort((first, second) => taken[second] - taken[first] || (first < second ? -1 : 1));
+  const names = Object.keys(taken).sort((first, second) => taken[second] - taken[first] || (first < second ? -1 : 1));
   if (names.length || notRecorded) {
     box.appendChild(div("ahead3", "Interview support given"));
-    var ivGroup = div("agroup");
+    const ivGroup = div("agroup");
     names.forEach((name) => {
-      var row = div("arow");
-      var label = span("alabel ivn " + ivCls(name), name);
+      const row = div("arow");
+      const label = span("alabel ivn " + ivCls(name), name);
       row.appendChild(label);
       row.appendChild(el("b", null, taken[name] + (taken[name] === 1 ? " interview" : " interviews")));
       ivGroup.appendChild(row);
     });
     if (notRecorded) {
-      var missing = div("arow");
+      const missing = div("arow");
       missing.appendChild(span("alabel", "Not recorded"));
       missing.appendChild(el("b", null, String(notRecorded)));
       ivGroup.appendChild(missing);
@@ -724,7 +723,7 @@ function renderAbout(events: TimelineEvent[], now: number) {
     box.appendChild(ivGroup);
   }
   if (data!.emails > 1 || !merge) {
-    var note = div("anote");
+    const note = div("anote");
     note.appendChild(
       document.createTextNode(
         data!.emails > 1
@@ -732,7 +731,7 @@ function renderAbout(events: TimelineEvent[], now: number) {
           : "Showing this email address only. ",
       ),
     );
-    var button = el("button", "linkbtn", data!.emails > 1 ? "Show separately" : "Combine again");
+    const button = el("button", "linkbtn", data!.emails > 1 ? "Show separately" : "Combine again");
     button.addEventListener("click", () => {
       setMerge(!merge || data!.emails <= 1);
     });
@@ -743,16 +742,16 @@ function renderAbout(events: TimelineEvent[], now: number) {
 // ---- Analytics: what needs doing, then the numbers that matter to an interviewer ----
 function renderAnalysis() {
   if (data) {
-    var events = data.events;
-    var now = Date.now();
+    const events = data.events;
+    const now = Date.now();
     byId("aname").textContent = niceName(data.name);
     byId("av").textContent = initials(data.name);
-    var upcoming = events
+    const upcoming = events
       .filter((event) => event.status === "active" && Date.parse(event.end) > now)
       .sort((first, second) => Date.parse(first.start) - Date.parse(second.start))[0];
     byId("asub").textContent = upcoming ? "Next meeting: " + meetingWhen(upcoming.start, now) : "No upcoming meetings";
-    var firstEmail = (data.emailList || [])[0] || "";
-    var mail = byId<HTMLAnchorElement>("aemail");
+    const firstEmail = (data.emailList || [])[0] || "";
+    const mail = byId<HTMLAnchorElement>("aemail");
     mail.href = "mailto:" + firstEmail;
     mail.hidden = !firstEmail;
     byId("acopy").hidden = !firstEmail;
@@ -777,8 +776,8 @@ function setMerge(on: boolean) {
   }
 }
 byId("acopy").onclick = () => {
-  var email = data && data.emailList && data.emailList[0];
-  var label = byId("acopy").querySelector("span")!;
+  const email = data && data.emailList && data.emailList[0];
+  const label = byId("acopy").querySelector("span")!;
   if (email && navigator.clipboard) {
     navigator.clipboard.writeText(email).then(() => {
       label.textContent = "Copied";
@@ -788,7 +787,7 @@ byId("acopy").onclick = () => {
     });
   }
 };
-var eventParam = new URLSearchParams(location.search).get("event");
+const eventParam = new URLSearchParams(location.search).get("event");
 if (eventParam && /^[0-9a-f-]{36}$/i.test(eventParam)) {
   chosen = {
     name: "",

@@ -1,5 +1,5 @@
 // Inline SVG icons used on the booking page.
-var ICONS = {
+const ICONS = {
   clock:
     '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 5.8V10l2.8 1.8"/></svg>',
   cal: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><rect x="3" y="4.2" width="14" height="12.8" rx="2"/><path d="M3 8.2h14M7 2.6v3.2M13 2.6v3.2"/></svg>',

@@ -18,7 +18,7 @@ function toast(text: string) {
       navigator.vibrate(10);
     }
   } catch (e) {}
-  var box = byId("toast");
+  const box = byId("toast");
   box.textContent = text;
   box.hidden = false;
   clearTimeout(toastTimer);

@@ -4,11 +4,11 @@ import { ICONS } from "./icons";
 import { card, render, state } from "./app";
 
 export function renderMessage() {
-  var msg = state.msg!;
-  var section = el("section", {
+  const msg = state.msg!;
+  const section = el("section", {
     class: "done",
   });
-  var inner = el("div", {
+  const inner = el("div", {
     class: "done-in",
   });
   inner.appendChild(
@@ -21,7 +21,7 @@ export function renderMessage() {
       [],
     ),
   );
-  var heading = el(
+  const heading = el(
     "h1",
     msg.check
       ? {
@@ -35,7 +35,7 @@ export function renderMessage() {
   }
   inner.appendChild(heading);
   inner.appendChild(el("p", null, [msg.body]));
-  var actions = [];
+  const actions = [];
   if (msg.manage) {
     actions.push(
       el(

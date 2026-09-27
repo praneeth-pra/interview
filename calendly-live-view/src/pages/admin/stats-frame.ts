@@ -1,20 +1,20 @@
 // The Contacts tab is /admin/analytics in a frame, loaded in the background soon after the admin opens (or on the first
 // visit to the tab, if that comes first) and sized to the window.
 export function setupStatsFrame() {
-  var box = document.getElementById("viewStats")!;
+  const box = document.getElementById("viewStats")!;
   if (!box) {
     return;
   }
-  var frame: HTMLIFrameElement | null = null;
-  var body = document.body;
+  let frame: HTMLIFrameElement | null = null;
+  const body = document.body;
   function fit() {
     if (!frame || box.hidden) {
       return;
     }
-    var top = frame.getBoundingClientRect().top;
-    var nav = document.querySelector(".bnav");
-    var navRect = nav && nav.getBoundingClientRect();
-    var bottom = navRect && navRect.height ? navRect.top - 8 : innerHeight - 12;
+    const top = frame.getBoundingClientRect().top;
+    const nav = document.querySelector(".bnav");
+    const navRect = nav && nav.getBoundingClientRect();
+    const bottom = navRect && navRect.height ? navRect.top - 8 : innerHeight - 12;
     frame.style.height = Math.max(300, Math.round(bottom - top)) + "px";
   }
   function sync() {

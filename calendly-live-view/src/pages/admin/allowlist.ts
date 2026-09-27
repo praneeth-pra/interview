@@ -6,11 +6,11 @@ import { state } from "./state";
 import { openPanel, panel } from "./panel";
 import type { Allowlist } from "./types";
 
-var allow: Allowlist = {
+let allow: Allowlist = {
   enabled: false,
   emails: [],
 };
-var allowLoaded = false;
+let allowLoaded = false;
 function updateAllow(change: Record<string, unknown>) {
   return request("/admin/api/allowlist", change).then(function (result) {
     allow = result.state;
@@ -20,17 +20,17 @@ function updateAllow(change: Record<string, unknown>) {
   });
 }
 function renderAllow() {
-  var toggle = byId<HTMLButtonElement>("sw");
+  const toggle = byId<HTMLButtonElement>("sw");
   toggle.disabled = false;
   toggle.setAttribute("aria-checked", String(allow.enabled));
   byId("swd").textContent = allow.enabled
     ? "On. Only the " + plural(allow.emails.length, "email") + " below can book and send payments."
     : "Off. Anyone with the booking or payment link can use it.";
   byId("cnt").textContent = plural(allow.emails.length, "email");
-  var query = byId<HTMLInputElement>("aq").value.trim().toLowerCase();
-  var list = byId("alist");
+  const query = byId<HTMLInputElement>("aq").value.trim().toLowerCase();
+  const list = byId("alist");
   list.textContent = "";
-  var shown = allow.emails.filter(function (email) {
+  const shown = allow.emails.filter(function (email) {
     return !query || email.indexOf(query) >= 0;
   });
   if (!shown.length) {
@@ -42,7 +42,7 @@ function renderAllow() {
     );
   }
   shown.forEach(function (email) {
-    var button = el("button", {
+    const button = el("button", {
       type: "button",
       class: "rm",
       text: "Remove",
@@ -75,7 +75,7 @@ function renderAllow() {
 // The Candidates section's buttons: the on/off switch, adding pasted emails and importing everyone who has booked.
 export function setupAllowlist() {
   byId("sw").onclick = function () {
-    var button = this as HTMLButtonElement;
+    const button = this as HTMLButtonElement;
     button.disabled = true;
     setMessage(byId("swm"), "");
     updateAllow({
@@ -96,8 +96,8 @@ export function setupAllowlist() {
       });
   };
   byId("addb").onclick = function () {
-    var button = this as HTMLButtonElement;
-    var text = byId<HTMLTextAreaElement>("add").value;
+    const button = this as HTMLButtonElement;
+    const text = byId<HTMLTextAreaElement>("add").value;
     if (!text.trim()) {
       byId("add").focus();
       return setMessage(byId("addm"), "Paste at least one email first.", true);
@@ -109,7 +109,7 @@ export function setupAllowlist() {
     })
       .then(function (result) {
         button.disabled = false;
-        var parts = ["Added " + plural(result.added, "email") + "."];
+        const parts = ["Added " + plural(result.added, "email") + "."];
         if (result.existing) {
           parts.push(result.existing + " already on the list.");
         }
@@ -126,7 +126,7 @@ export function setupAllowlist() {
       });
   };
   byId("impb").onclick = function () {
-    var button = this as HTMLButtonElement;
+    const button = this as HTMLButtonElement;
     button.disabled = true;
     updateAllow({
       action: "importBooked",
@@ -150,8 +150,8 @@ export function setupAllowlist() {
 // Candidates: who may book. Opens in the side panel like Interview supporters and Admins.
 export function showCandidates() {
   panel.refresh = null;
-  var body = openPanel("Candidates", "Emails allowed to book an interview.");
-  var section = byId("viewAllow");
+  const body = openPanel("Candidates", "Emails allowed to book an interview.");
+  const section = byId("viewAllow");
   body.classList.add("grp");
   body.appendChild(section);
   section.hidden = false;

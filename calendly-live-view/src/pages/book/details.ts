@@ -6,10 +6,10 @@ import { clearSlots, loadDays, showSlots } from "./slots";
 import { companyField, roundField, textField } from "./fields";
 import { WELCOME_BACK, prefillName, previousCompanies, rememberBooking, setNameHint, showPreviousCompanies } from "./returning";
 
-var lookupTimer: ReturnType<typeof setTimeout> | null = null; // clearTimeout(null) does nothing, so the calls below pass it as is
+let lookupTimer: ReturnType<typeof setTimeout> | null = null; // clearTimeout(null) does nothing, so the calls below pass it as is
 export function renderDetails() {
   loadCompanies();
-  var form = el("form", {
+  const form = el("form", {
     class: "form",
     novalidate: true,
     "aria-labelledby": "formh",
@@ -39,12 +39,12 @@ export function renderDetails() {
       ),
     );
   }
-  var emailField = textField("femail", "email", "Email", "email", {
+  const emailField = textField("femail", "email", "Email", "email", {
     req: true,
     ac: "email",
     max: 200,
   });
-  var nameField = textField("fname", "name", "Name", "text", {
+  const nameField = textField("fname", "name", "Name", "text", {
     req: true,
     ac: "name",
   });
@@ -59,8 +59,8 @@ export function renderDetails() {
       [state.nameAuto ? WELCOME_BACK : ""],
     ),
   );
-  var emailInput = emailField.querySelector("input")!;
-  var nameInput = nameField.querySelector("input")!;
+  const emailInput = emailField.querySelector("input")!;
+  const nameInput = nameField.querySelector("input")!;
   emailInput.addEventListener("input", function () {
     showPreviousCompanies();
     clearTimeout(lookupTimer!);
@@ -85,7 +85,7 @@ export function renderDetails() {
       prefillName(state.form.email);
     }, 0);
   }
-  var previous = previousCompanies();
+  const previous = previousCompanies();
   if (previous) {
     form.appendChild(previous);
   }
@@ -113,8 +113,8 @@ export function renderDetails() {
   return form;
 }
 function submitBooking() {
-  var errors: Record<string, string> = {};
-  var form = state.form;
+  const errors: Record<string, string> = {};
+  const form = state.form;
   if (!form.name.trim()) {
     errors.name = "Enter your name.";
   }
@@ -128,7 +128,7 @@ function submitBooking() {
   state.err = "";
   if (Object.keys(errors).length) {
     render();
-    var firstInvalid = document.getElementById(errors.email ? "femail" : errors.name ? "fname" : "fcompany");
+    const firstInvalid = document.getElementById(errors.email ? "femail" : errors.name ? "fname" : "fcompany");
     if (firstInvalid) {
       firstInvalid.focus();
     }
@@ -174,7 +174,7 @@ function submitBooking() {
           [result.j.field]: result.j.error,
         };
         render();
-        var badInput = document.getElementById(result.j.field === "email" ? "femail" : "fcompany");
+        const badInput = document.getElementById(result.j.field === "email" ? "femail" : "fcompany");
         if (badInput) {
           badInput.focus();
         }

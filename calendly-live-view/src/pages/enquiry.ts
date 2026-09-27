@@ -1,11 +1,11 @@
 // The public enquiry form (/enquiry): name, email, phone, technology, experience and a resume (PDF or Word, 200 KB at most),
 // sent as one multipart request to /api/enquiry. The same rules are checked again on the server.
-var MAX_BYTES = 200 * 1024;
-var form = document.getElementById("f") as HTMLFormElement;
-var fileInput = document.getElementById("cv") as HTMLInputElement;
-var button = document.getElementById("go") as HTMLButtonElement;
-var errorBox = document.getElementById("err") as HTMLElement;
-var fields = {
+const MAX_BYTES = 200 * 1024;
+const form = document.getElementById("f") as HTMLFormElement;
+const fileInput = document.getElementById("cv") as HTMLInputElement;
+const button = document.getElementById("go") as HTMLButtonElement;
+const errorBox = document.getElementById("err") as HTMLElement;
+const fields = {
   name: document.getElementById("nm") as HTMLInputElement,
   email: document.getElementById("em") as HTMLInputElement,
   phone: document.getElementById("ph") as HTMLInputElement,
@@ -26,8 +26,8 @@ function fileProblem(file: File | undefined) {
   }
 }
 function showFile() {
-  var file = fileInput.files![0];
-  var problem = file ? fileProblem(file) : "";
+  const file = fileInput.files![0];
+  const problem = file ? fileProblem(file) : "";
   document.getElementById("cvname")!.textContent = file ? file.name : "Choose your resume";
   document.getElementById("cvhint")!.textContent =
     problem || (file ? Math.max(1, Math.round(file.size / 1024)) + " KB · tap to change" : "PDF or Word");
@@ -43,7 +43,7 @@ form.addEventListener("input", function (event) {
   }
 });
 function check() {
-  var problems = [];
+  const problems = [];
   function need(input: HTMLElement, ok: boolean, text: string) {
     input.setAttribute("aria-invalid", String(!ok));
     if (!ok) {
@@ -52,11 +52,11 @@ function check() {
   }
   need(fields.name, fields.name.value.trim().length >= 2, "Enter your full name.");
   need(fields.email, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.value.trim()), "Enter a valid email address.");
-  var digits = fields.phone.value.replace(/\D/g, "");
+  const digits = fields.phone.value.replace(/\D/g, "");
   need(fields.phone, digits.length >= 10 && digits.length <= 15, "Enter a valid phone number.");
   need(fields.tech, fields.tech.value.trim().length >= 2, "Tell us the technology you're looking for.");
   need(fields.experience, !!fields.experience.value, "Choose your years of experience.");
-  var fileText = fileProblem(fileInput.files![0]);
+  const fileText = fileProblem(fileInput.files![0]);
   document.getElementById("dropbox")!.classList.toggle("bad", !!fileText);
   if (fileText) {
     problems.push({ input: fileInput, text: fileText });
@@ -66,7 +66,7 @@ function check() {
 form.addEventListener("submit", function (event) {
   event.preventDefault();
   errorBox.textContent = "";
-  var problems = check();
+  const problems = check();
   if (problems.length) {
     errorBox.textContent = problems[0].text;
     problems[0].input.focus();

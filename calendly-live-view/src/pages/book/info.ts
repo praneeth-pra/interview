@@ -7,13 +7,13 @@ import { loadDays, showSlots } from "./slots";
 import type { Step } from "./types";
 
 export function renderInfo() {
-  var backTo: Step | null =
+  const backTo: Step | null =
     state.step === "details" || state.step === "confirm"
       ? "pick"
       : manage && (state.step === "pick" || state.step === "cancel")
         ? "manage"
         : null;
-  var section = el("section", {
+  const section = el("section", {
     class: "info" + (backTo ? " has-back" : ""),
   });
   if (backTo) {
@@ -62,9 +62,9 @@ export function renderInfo() {
       [eventName],
     ),
   );
-  var onDetails = state.step === "details";
+  const onDetails = state.step === "details";
   if (state.step === "pick") {
-    var lengths = el("div", {
+    const lengths = el("div", {
       class: "dur-opts",
       role: "group",
       "aria-label": "Meeting length",
@@ -109,7 +109,7 @@ export function renderInfo() {
       ),
     );
   }
-  var meta = el("ul", {
+  const meta = el("ul", {
     class: "meta",
   });
   if (onDetails) {
@@ -159,7 +159,7 @@ export function renderInfo() {
   }
   section.appendChild(meta);
   if (info.desc) {
-    var desc = el("p", {
+    const desc = el("p", {
       class: "desc",
       html: '<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="10" cy="10" r="7.5"/><path d="M10 9v4.6M10 6.4v.1" stroke-linecap="round"/></svg><span></span>',
     });

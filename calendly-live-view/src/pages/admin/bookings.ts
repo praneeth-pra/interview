@@ -5,7 +5,7 @@ import type { Booking } from "./types";
 
 // every booking, for search and the booking panel; fetched when needed and again after 30s
 export let allBookings: Booking[] | null = null;
-var allBookingsAt = 0;
+let allBookingsAt = 0;
 export function findBooking(id: string) {
   function find(list: Booking[] | null) {
     return (list || []).filter(function (booking) {

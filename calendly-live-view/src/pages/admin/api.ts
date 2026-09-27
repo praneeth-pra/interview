@@ -38,7 +38,7 @@ function request(url: string, body?: unknown, method?: string): Promise<any> {
 // The home-screen app opens from a saved copy of the page (see sw.js). Reloading after signing out, or to pick up a
 // deploy, drops that copy first so the reload comes from the server.
 function freshReload() {
-  var done = function () {
+  const done = function () {
     location.reload();
   };
   if (window.caches) {

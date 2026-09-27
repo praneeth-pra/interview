@@ -8,10 +8,10 @@ import { showBooking, showWeekOf } from "./booking-panel";
 
 // The candidate search box: every booking by name, email or company, with keyboard navigation.
 export function setupSearch() {
-  var searchBox = byId<HTMLInputElement>("q");
-  var searchList = byId("qdrop");
-  var matches: Booking[] = [];
-  var activeIndex = -1;
+  const searchBox = byId<HTMLInputElement>("q");
+  const searchList = byId("qdrop");
+  let matches: Booking[] = [];
+  let activeIndex = -1;
   function closeSearch() {
     searchList.hidden = true;
     searchBox.setAttribute("aria-expanded", "false");
@@ -20,7 +20,7 @@ export function setupSearch() {
   }
   function highlight(index: number) {
     activeIndex = index;
-    for (var i = 0; i < searchList.children.length; i++) {
+    for (let i = 0; i < searchList.children.length; i++) {
       searchList.children[i].setAttribute("aria-selected", String(i === index));
     }
     if (index >= 0) {
@@ -31,7 +31,7 @@ export function setupSearch() {
     }
   }
   function choose(index: number) {
-    var booking = matches[index];
+    const booking = matches[index];
     if (booking) {
       closeSearch();
       showWeekOf(booking);
@@ -39,7 +39,7 @@ export function setupSearch() {
     }
   }
   searchBox.addEventListener("input", function () {
-    var query = searchBox.value.trim().toLowerCase();
+    const query = searchBox.value.trim().toLowerCase();
     if (query.length < 2) {
       return closeSearch();
     }

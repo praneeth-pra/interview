@@ -6,21 +6,21 @@ import { colorClass, render, state, view } from "./state";
 import { showBooking, showList } from "./booking-panel";
 
 export function renderCards() {
-  var now = Date.now();
-  var today = dayKeyOf(new Date());
-  var upcoming = state.events.filter(function (booking) {
+  const now = Date.now();
+  const today = dayKeyOf(new Date());
+  const upcoming = state.events.filter(function (booking) {
     return Date.parse(booking.end) > now;
   });
-  var todays = state.events.filter(function (booking) {
+  const todays = state.events.filter(function (booking) {
     return dayKeyOf(new Date(booking.start)) === today;
   });
-  var unassigned = state.events.filter(function (booking) {
+  const unassigned = state.events.filter(function (booking) {
     return Date.parse(booking.start) <= now && !state.iv.assign[booking.id] && !booking.missed;
   });
-  var next = upcoming.filter(function (booking) {
+  const next = upcoming.filter(function (booking) {
     return Date.parse(booking.start) > now;
   })[0];
-  var cards = byId("cards");
+  const cards = byId("cards");
   cards.textContent = "";
   function card(label: string, value: string, onClick: (() => void) | null, extraClass?: string, small?: boolean) {
     cards.appendChild(
@@ -96,11 +96,11 @@ export function renderCards() {
 }
 // One line above the calendar when started interviews have no interviewer recorded; each such booking has an amber dot.
 export function renderAttention() {
-  var now = Date.now();
-  var unassigned = state.events.filter(function (booking) {
+  const now = Date.now();
+  const unassigned = state.events.filter(function (booking) {
     return Date.parse(booking.start) <= now && !state.iv.assign[booking.id] && !booking.missed;
   });
-  var line = byId("attn");
+  const line = byId("attn");
   line.hidden = !unassigned.length;
   line.textContent =
     unassigned.length + (unassigned.length === 1 ? " interview has no supporter recorded" : " interviews have no supporter recorded");
@@ -109,7 +109,7 @@ export function renderAttention() {
   };
 }
 export function renderLegend() {
-  var legend = byId("legend");
+  const legend = byId("legend");
   legend.textContent = "";
   state.iv.names.forEach(function (name) {
     legend.appendChild(

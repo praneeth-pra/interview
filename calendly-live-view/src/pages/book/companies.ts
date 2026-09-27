@@ -5,9 +5,9 @@ type Company = { name: string; popularity: number; terms: Term[] };
 // as /api/companies sends it: the name, other names it goes by, and how many candidates booked with it
 type ApiCompany = { n: string; a?: string[]; f?: number };
 export type Match = { name: string; popularity: number; score: number; via: string | null };
-var companies: Company[] | null = null;
-var companiesLoading = false;
-var companyWaiters: Array<() => void> = [];
+let companies: Company[] | null = null;
+let companiesLoading = false;
+let companyWaiters: Array<() => void> = [];
 function compact(text: string) {
   return String(text)
     .toLowerCase()
@@ -31,7 +31,7 @@ function loadCompanies(callback?: () => void) {
       })
       .then(function (data) {
         companies = (data.companies || []).map(function (company: ApiCompany) {
-          var names = [company.n].concat(company.a || []);
+          const names = [company.n].concat(company.a || []);
           return {
             name: company.n,
             popularity: company.f || 0,
@@ -49,7 +49,7 @@ function loadCompanies(callback?: () => void) {
           };
         });
         companiesLoading = false;
-        var waiters = companyWaiters;
+        const waiters = companyWaiters;
         companyWaiters = [];
         waiters.forEach(function (waiter) {
           waiter();
@@ -63,16 +63,16 @@ function loadCompanies(callback?: () => void) {
 }
 // Best matches for what the candidate typed: exact name, then prefix, then word prefix, then substring; aliases rank a bit lower.
 function suggestCompanies(query: string): Match[] {
-  var key = compact(query);
+  const key = compact(query);
   if (!key || !companies) {
     return [];
   }
-  var matches: Match[] = [];
+  const matches: Match[] = [];
   companies.forEach(function (company) {
-    var best = 9;
-    var via = null;
+    let best = 9;
+    let via = null;
     company.terms.forEach(function (term) {
-      var score = 9;
+      let score = 9;
       if (term.key === key) {
         score = 0;
       } else if (term.key.indexOf(key) === 0) {

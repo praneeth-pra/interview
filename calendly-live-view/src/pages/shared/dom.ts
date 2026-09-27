@@ -7,10 +7,10 @@ export function byId<T extends HTMLElement = HTMLElement>(id: string): T {
   return document.getElementById(id) as T;
 }
 export function el<K extends keyof HTMLElementTagNameMap>(tag: K, attrs?: Attrs, children?: Child[] | null): HTMLElementTagNameMap[K] {
-  var node = document.createElement(tag);
+  const node = document.createElement(tag);
   if (attrs) {
-    for (var key in attrs) {
-      var value = attrs[key];
+    for (const key in attrs) {
+      const value = attrs[key];
       if (value != null && value !== false) {
         if (key === "class") {
           node.className = value;

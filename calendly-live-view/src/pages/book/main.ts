@@ -13,9 +13,9 @@ import { renderMessage } from "./message";
 
 // Draws the card for the current step.
 function drawCard() {
-  var focusedId = document.activeElement && document.activeElement.id;
-  var list = card.querySelector(".tlist");
-  var scrollTop = list && !state.anim ? list.scrollTop : 0;
+  const focusedId = document.activeElement && document.activeElement.id;
+  let list = card.querySelector(".tlist");
+  const scrollTop = list && !state.anim ? list.scrollTop : 0;
   card.innerHTML = "";
   card.className = "card" + (state.step !== "pick" || !state.date ? " narrow" : "") + (state.step === "details" ? " details" : "");
   if (state.step === "done") {
@@ -25,7 +25,7 @@ function drawCard() {
     return renderMessage();
   }
   card.appendChild(renderInfo());
-  var main = el("div", {
+  const main = el("div", {
     class: "main",
   });
   if (state.step === "pick") {
@@ -55,7 +55,7 @@ function drawCard() {
 }
 setDraw(drawCard);
 // A returning candidate on the same device: start with the email and name they booked with last time.
-var savedMe = manage ? null : readMe();
+const savedMe = manage ? null : readMe();
 if (savedMe) {
   state.form.email = savedMe.email;
   state.form.name = savedMe.name;
@@ -77,7 +77,7 @@ if (manage) {
   } else {
     state.step = "manage";
     state.dur = DURATIONS.indexOf(manage.duration) >= 0 ? manage.duration : 30;
-    var action = new URLSearchParams(location.search).get("a");
+    const action = new URLSearchParams(location.search).get("a");
     if (action && history.replaceState) {
       history.replaceState(null, "", location.pathname + "?t=" + encodeURIComponent(manage.t));
     }

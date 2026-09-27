@@ -3,15 +3,15 @@
 // With merge=1, bookings under different emails whose names look alike count as one person.
 import type { Booking } from "../admin/types";
 
-var TIME_ZONE = "Asia/Kolkata";
+const TIME_ZONE = "Asia/Kolkata";
 // Everything the answers are built from, fetched together and kept for 15 seconds.
 type Data = {
   bookings: Booking[]; // all bookings, as /admin/api/bookings sends them
   iv: { names: string[]; assign: Record<string, string> };
 };
-var dataCache: Data | null = null;
-var dataCachedAt = 0;
-var dataLoading: Promise<Data> | null = null;
+let dataCache: Data | null = null;
+let dataCachedAt = 0;
+let dataLoading: Promise<Data> | null = null;
 function loadData(force?: boolean): Promise<Data> {
   if (!force && dataCache && Date.now() - dataCachedAt < 15000) {
     return Promise.resolve(dataCache);
@@ -27,7 +27,7 @@ function loadData(force?: boolean): Promise<Data> {
         })
       ) {
         // the saved copy of the admin page would come back signed out, so drop it before reloading
-        var reload = function () {
+        const reload = function () {
           (parent || window).location.reload();
         };
         if (window.caches) {
@@ -126,11 +126,11 @@ function normalizeName(name: string) {
     .trim();
 }
 function nameDistance(first: string, second: string) {
-  var rows = first.length;
-  var cols = second.length;
-  var table = [];
-  var i;
-  var j;
+  const rows = first.length;
+  const cols = second.length;
+  const table = [];
+  let i;
+  let j;
   for (i = 0; i <= rows; i++) {
     table[i] = [i];
     for (j = 1; j <= cols; j++) {
@@ -148,16 +148,16 @@ function nameDistance(first: string, second: string) {
   return table[rows][cols];
 }
 function sameName(first: string, second: string) {
-  var firstKey = normalizeName(first);
-  var secondKey = normalizeName(second);
+  const firstKey = normalizeName(first);
+  const secondKey = normalizeName(second);
   if (!firstKey || !secondKey || firstKey === "guest" || secondKey === "guest") {
     return false;
   }
   if (firstKey === secondKey) {
     return true;
   }
-  var firstWords = firstKey.split(" ");
-  var secondWords = secondKey.split(" ");
+  const firstWords = firstKey.split(" ");
+  const secondWords = secondKey.split(" ");
   if (firstWords.length < 2 || secondWords.length < 2) {
     return false;
   }
@@ -182,15 +182,15 @@ function findBooking(data: Data, id: string) {
   })[0];
 }
 function personGroup(data: Data, booking: Booking, merge: boolean) {
-  var emails: Record<string, number> = {};
-  var names = [booking.name];
+  const emails: Record<string, number> = {};
+  const names = [booking.name];
   emails[lower(booking.email)] = 1;
   if (merge) {
-    var changed = true;
+    let changed = true;
     while (changed) {
       changed = false;
       data.bookings.forEach(function (other) {
-        var email = lower(other.email);
+        const email = lower(other.email);
         if (
           email &&
           !emails[email] &&
@@ -238,19 +238,19 @@ function dashboardState(data: Data) {
   };
 }
 function peopleList(data: Data, merge: boolean) {
-  var act = data.bookings.filter(function (booking) {
+  const act = data.bookings.filter(function (booking) {
     return !booking.cancelled && booking.email;
   });
-  var byKey: Record<string, Contact> = {};
-  var root: Record<string, string> = {};
+  const byKey: Record<string, Contact> = {};
+  const root: Record<string, string> = {};
   if (merge) {
-    var names: string[] = [];
+    const names: string[] = [];
     act.forEach(function (booking) {
       if (names.indexOf(booking.name) < 0) {
         names.push(booking.name);
       }
     });
-    var par: Record<string, string> = {};
+    const par: Record<string, string> = {};
     names.forEach(function (name) {
       par[name] = name;
     });
@@ -260,11 +260,11 @@ function peopleList(data: Data, merge: boolean) {
       }
       return name;
     }
-    for (var i = 0; i < names.length; i++) {
-      for (var j = i + 1; j < names.length; j++) {
+    for (let i = 0; i < names.length; i++) {
+      for (let j = i + 1; j < names.length; j++) {
         if (sameName(names[i], names[j])) {
-          var rootA = rootOf(names[i]);
-          var rootB = rootOf(names[j]);
+          const rootA = rootOf(names[i]);
+          const rootB = rootOf(names[j]);
           if (rootA !== rootB) {
             par[rootB] = rootA;
           }
@@ -276,13 +276,13 @@ function peopleList(data: Data, merge: boolean) {
     });
   }
   act.forEach(function (booking) {
-    var normalized = normalizeName(booking.name);
-    var key =
+    const normalized = normalizeName(booking.name);
+    const key =
       merge && normalized && normalized !== "guest"
         ? "n:" + normalizeName(root[booking.name] || booking.name)
         : "e:" + lower(booking.email);
-    var start = Date.parse(booking.start);
-    var person = byKey[key];
+    const start = Date.parse(booking.start);
+    let person = byKey[key];
     if (!person) {
       person = byKey[key] = {
         name: booking.name,
@@ -298,7 +298,7 @@ function peopleList(data: Data, merge: boolean) {
     }
     person.count++;
     // for the Contacts list: the latest booking or reschedule, and the next and the last meeting
-    var now = Date.now();
+    const now = Date.now();
     person.activity = Math.max(
       person.activity,
       Date.parse(booking.createdAt) || 0,
@@ -316,10 +316,10 @@ function peopleList(data: Data, merge: boolean) {
       person.event = booking.id;
       person.name = booking.name;
     }
-    var company = String(booking.company || "").trim();
-    var companyKey = company.toLowerCase();
+    const company = String(booking.company || "").trim();
+    const companyKey = company.toLowerCase();
     if (companyKey) {
-      var seen = person.companies[companyKey];
+      const seen = person.companies[companyKey];
       if (!seen || start > seen.t) {
         person.companies[companyKey] = {
           c: company,
@@ -362,7 +362,7 @@ function peopleList(data: Data, merge: boolean) {
     });
 }
 function analyticsFor(data: Data, id: string, merge: boolean): Answer {
-  var booking = findBooking(data, id);
+  const booking = findBooking(data, id);
   if (!booking) {
     return [
       404,
@@ -379,9 +379,9 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
       },
     ];
   }
-  var group = personGroup(data, booking, merge);
-  var set: Record<string, number> = {};
-  var events: TimelineEvent[] = [];
+  const group = personGroup(data, booking, merge);
+  const set: Record<string, number> = {};
+  const events: TimelineEvent[] = [];
   group.emails.forEach(function (email) {
     set[email] = 1;
   });
@@ -389,7 +389,7 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
     if (!set[lower(other.email)]) {
       return;
     }
-    var base = {
+    const base = {
       name: "Interview",
       created: other.createdAt || other.start,
       // marked by an admin as a no-show ("noshow") or as not happened for another reason ("other")
@@ -443,12 +443,12 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
   ];
 }
 function api(url: string): Promise<Response> {
-  var parsed = new URL(String(url), "http://local.invalid");
-  var path = parsed.pathname;
-  var combine = parsed.searchParams.get("merge") === "1";
-  var eventId = parsed.searchParams.get("event") || "";
+  const parsed = new URL(String(url), "http://local.invalid");
+  const path = parsed.pathname;
+  const combine = parsed.searchParams.get("merge") === "1";
+  const eventId = parsed.searchParams.get("event") || "";
   return loadData(path === "/api/state").then(function (data) {
-    var answer: Answer;
+    let answer: Answer;
     if (path === "/api/state") {
       answer = [200, dashboardState(data)];
     } else if (path === "/api/interviewers") {

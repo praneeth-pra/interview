@@ -1,7 +1,7 @@
 // Dates and times, always in India Standard Time. Day keys are "YYYY-MM-DD".
 import type { Booking } from "./types";
 
-var TIME_ZONE = "Asia/Kolkata";
+const TIME_ZONE = "Asia/Kolkata";
 function formatIst(options: Intl.DateTimeFormatOptions, date: Date | number) {
   return new Intl.DateTimeFormat(
     "en-US",
@@ -35,7 +35,7 @@ function formatTime(date: Date | number) {
 }
 // Minutes since midnight in India.
 function minutesOfDay(date: Date | number) {
-  var minutes = 0;
+  let minutes = 0;
   new Intl.DateTimeFormat("en-GB", {
     timeZone: TIME_ZONE,
     hour: "2-digit",
@@ -54,7 +54,7 @@ function minutesOfDay(date: Date | number) {
   return minutes;
 }
 function addDays(day: string, count: number): string {
-  var date = new Date(day + "T12:00:00Z");
+  const date = new Date(day + "T12:00:00Z");
   date.setUTCDate(date.getUTCDate() + count);
   return date.toISOString().slice(0, 10);
 }
@@ -87,7 +87,7 @@ function formatRange(booking: Pick<Booking, "start" | "end">) {
   return shortDate(booking.start) + ", " + formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end));
 }
 function timeAgo(iso: string) {
-  var seconds = (Date.now() - Date.parse(iso)) / 1000;
+  const seconds = (Date.now() - Date.parse(iso)) / 1000;
   if (seconds < 60) {
     return "just now";
   } else if (seconds < 3600) {

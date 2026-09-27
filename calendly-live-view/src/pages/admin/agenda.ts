@@ -10,16 +10,16 @@ import { layoutColumns } from "./layout";
 // The agenda: one day at a time, like a phone calendar's Day view. A week strip picks the day (the day on screen circled
 // in orange, dots for days with interviews), then an hour grid holds that day's interviews as blocks sized to their
 // length, tinted in the interview supporter's colour (grey when none), with a line at the current time today.
-var AGENDA_HOUR_PX = 80;
+const AGENDA_HOUR_PX = 80;
 export function agendaDay() {
-  var today = dayKeyOf(new Date());
+  const today = dayKeyOf(new Date());
   if (view.day && weekStart(view.day) === view.week) {
     return view.day;
   }
   if (weekStart(today) === view.week) {
     return today;
   }
-  for (var i = 0; i < 7; i++) {
+  for (let i = 0; i < 7; i++) {
     if (dayItems(addDays(view.week!, i)).length) {
       return addDays(view.week!, i);
     }
@@ -32,29 +32,29 @@ export function pickAgendaDay(day: string) {
   render();
 }
 export function renderAgenda() {
-  var box = byId("agenda");
+  const box = byId("agenda");
   if (!box) {
     return;
   }
-  var today = dayKeyOf(new Date());
-  var now = Date.now();
-  var shown = agendaDay();
+  const today = dayKeyOf(new Date());
+  const now = Date.now();
+  const shown = agendaDay();
   box.textContent = "";
-  var strip = el("div", {
+  const strip = el("div", {
     class: "ws",
     role: "group",
     "aria-label": "Days",
   });
-  for (var i = 0; i < 7; i++) {
-    let day = addDays(view.week!, i);
-    var count = dayItems(day).length;
-    var dots = el("span", {
+  for (let i = 0; i < 7; i++) {
+    const day = addDays(view.week!, i);
+    const count = dayItems(day).length;
+    const dots = el("span", {
       class: "ws-d",
       "aria-hidden": "true",
     });
     // a dot per interview in its supporter's colour, up to three, then "+N"
     dayItems(day).forEach(function (item, index) {
-      var interviewer = state.iv.assign[item.booking.id];
+      const interviewer = state.iv.assign[item.booking.id];
       if (index < 3) {
         dots.appendChild(el("i", { class: interviewer ? colorClass(interviewer) : "cn" }));
       }
@@ -85,7 +85,7 @@ export function renderAgenda() {
     );
   }
   box.appendChild(strip);
-  var items = dayItems(shown!);
+  const items = dayItems(shown!);
   layoutColumns(items);
   box.appendChild(
     el("div", { class: "ag-h" + (shown === today ? " today" : "") }, [
@@ -95,9 +95,9 @@ export function renderAgenda() {
     ]),
   );
   // the hours shown: working hours, stretched to fit the day's interviews and, today, the time now
-  var nowMin = minutesOfDay(new Date());
-  var fromMin = state.hours.start;
-  var toMin = state.hours.end;
+  const nowMin = minutesOfDay(new Date());
+  let fromMin = state.hours.start;
+  let toMin = state.hours.end;
   items.forEach(function (item) {
     fromMin = Math.min(fromMin, item.from);
     toMin = Math.max(toMin, item.to);
@@ -106,24 +106,24 @@ export function renderAgenda() {
     fromMin = Math.min(fromMin, nowMin);
     toMin = Math.max(toMin, nowMin + 30);
   }
-  var firstHour = Math.floor(fromMin / 60);
-  var lastHour = Math.min(24, Math.ceil(toMin / 60));
-  var grid = el("div", { class: "ag-grid" });
+  const firstHour = Math.floor(fromMin / 60);
+  const lastHour = Math.min(24, Math.ceil(toMin / 60));
+  const grid = el("div", { class: "ag-grid" });
   grid.style.height = (lastHour - firstHour) * AGENDA_HOUR_PX + "px";
-  for (var hour = firstHour; hour <= lastHour; hour++) {
-    var line = el("div", { class: "ag-hr" }, [el("span", { text: hour === 12 ? "Noon" : hourLabel(hour) })]);
+  for (let hour = firstHour; hour <= lastHour; hour++) {
+    const line = el("div", { class: "ag-hr" }, [el("span", { text: hour === 12 ? "Noon" : hourLabel(hour) })]);
     line.style.top = (hour - firstHour) * AGENDA_HOUR_PX + "px";
     grid.appendChild(line);
   }
-  var lane = el("div", { class: "ag-lane" });
+  const lane = el("div", { class: "ag-lane" });
   items.forEach(function (item) {
-    var booking = item.booking;
-    var interviewer = state.iv.assign[booking.id];
-    var isPast = Date.parse(booking.end) <= now;
-    var needsSupport = !interviewer && Date.parse(booking.start) <= now && !booking.missed;
-    var cols = item.group!.cols.length;
-    var height = Math.max(26, ((item.to - item.from) / 60) * AGENDA_HOUR_PX - 2);
-    var block = el(
+    const booking = item.booking;
+    const interviewer = state.iv.assign[booking.id];
+    const isPast = Date.parse(booking.end) <= now;
+    const needsSupport = !interviewer && Date.parse(booking.start) <= now && !booking.missed;
+    const cols = item.group!.cols.length;
+    const height = Math.max(26, ((item.to - item.from) / 60) * AGENDA_HOUR_PX - 2);
+    const block = el(
       "button",
       {
         type: "button",
@@ -166,7 +166,7 @@ export function renderAgenda() {
   });
   grid.appendChild(lane);
   if (shown === today && nowMin >= firstHour * 60 && nowMin <= lastHour * 60) {
-    var nowLine = el("div", { class: "ag-now" }, [el("span", { text: formatTime(now) })]);
+    const nowLine = el("div", { class: "ag-now" }, [el("span", { text: formatTime(now) })]);
     nowLine.style.top = ((nowMin - firstHour * 60) / 60) * AGENDA_HOUR_PX + "px";
     grid.appendChild(nowLine);
   }
@@ -176,14 +176,14 @@ export function renderAgenda() {
 // a quick flick moves to the next or previous day; anything less springs back. Swipes that start at the screen's left
 // edge are left to the browser's own swipe back.
 export function setupAgendaSwipe() {
-  var box = byId("agenda");
-  var startX = 0;
-  var startY = 0;
-  var dx = 0;
-  var lock = 0; // 1 sideways (ours), -1 up and down (the page scrolls), 0 not decided yet
-  var lastX = 0;
-  var lastT = 0;
-  var speed = 0; // px per ms
+  const box = byId("agenda");
+  let startX = 0;
+  let startY = 0;
+  let dx = 0;
+  let lock = 0; // 1 sideways (ours), -1 up and down (the page scrolls), 0 not decided yet
+  let lastX = 0;
+  let lastT = 0;
+  let speed = 0; // px per ms
   function reset() {
     box.style.transition = "";
     box.style.transform = "";
@@ -207,9 +207,9 @@ export function setupAgendaSwipe() {
       if (lock === -1) {
         return;
       }
-      var x = event.touches[0].clientX;
-      var mx = x - startX;
-      var my = event.touches[0].clientY - startY;
+      const x = event.touches[0].clientX;
+      const mx = x - startX;
+      const my = event.touches[0].clientY - startY;
       if (lock === 0) {
         if (Math.abs(mx) < 10 && Math.abs(my) < 10) {
           return;
@@ -219,7 +219,7 @@ export function setupAgendaSwipe() {
           return;
         }
       }
-      var now = performance.now();
+      const now = performance.now();
       if (now > lastT) {
         speed = speed * 0.2 + ((x - lastX) / (now - lastT)) * 0.8;
       }
@@ -238,14 +238,14 @@ export function setupAgendaSwipe() {
       return;
     }
     lock = 0;
-    var flick = Math.abs(speed) > 0.45 && Math.abs(dx) > 24 && speed * dx > 0 && performance.now() - lastT < 120;
+    const flick = Math.abs(speed) > 0.45 && Math.abs(dx) > 24 && speed * dx > 0 && performance.now() - lastT < 120;
     if (Math.abs(dx) < 80 && !flick) {
       box.style.transition = "transform 0.24s var(--ease), opacity 0.24s ease";
       box.style.transform = "";
       box.style.opacity = "";
       return;
     }
-    var next = dx < 0;
+    const next = dx < 0;
     box.style.transition = "transform 0.13s ease-in, opacity 0.13s ease-in";
     box.style.transform = "translateX(" + (next ? -1 : 1) * Math.round(innerWidth * 0.5) + "px)";
     box.style.opacity = "0";

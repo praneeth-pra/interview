@@ -9,17 +9,17 @@ import { openPanel, panel } from "./panel";
 export function showAdmins() {
   panel.refresh = null;
   // only owners add and remove admins; everyone else sees the list
-  var body = openPanel(
+  const body = openPanel(
     "Admins",
     boot.owner ? "People on this list sign in with a code sent to their email." : "Only the owner can add or remove admins.",
   );
-  var msg = el("p", {
+  const msg = el("p", {
     class: "msg",
     role: "status",
   });
-  var me = el("p", { class: "sub", text: "Loading…" });
-  var rows = el("div", { class: "admlist" });
-  var input = el("input", {
+  const me = el("p", { class: "sub", text: "Loading…" });
+  const rows = el("div", { class: "admlist" });
+  const input = el("input", {
     type: "email",
     inputmode: "email",
     autocomplete: "off",
@@ -28,8 +28,8 @@ export function showAdmins() {
     placeholder: "name@example.com",
     "aria-label": "Email of the admin to add",
   }) as HTMLInputElement;
-  var addButton = el("button", { type: "button", class: "pri", text: "Add" }) as HTMLButtonElement;
-  var view = { owners: [] as string[], emails: [] as string[], me: "" };
+  const addButton = el("button", { type: "button", class: "pri", text: "Add" }) as HTMLButtonElement;
+  let view = { owners: [] as string[], emails: [] as string[], me: "" };
   function save(emails: string[], done: string) {
     addButton.disabled = true;
     return request("/admin/api/admins", { emails: emails })
@@ -85,7 +85,7 @@ export function showAdmins() {
     });
   }
   function add() {
-    var email = input.value.trim().toLowerCase();
+    const email = input.value.trim().toLowerCase();
     setMessage(msg, "");
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       setMessage(msg, "Enter a valid email address.", true);
