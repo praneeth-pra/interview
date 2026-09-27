@@ -38,8 +38,12 @@ const checks = [
       for (let i = 0; i < 40 && !re.test(await card()); i++) await p.waitForTimeout(50);
       if (!re.test(await card())) throw new Error(what);
     };
+    // Days and times are picked by what is open now, not by position: near the end of a day or a month the calendar
+    // shows fewer open days.
     await p.goto(BASE + "/booking");
-    await p.locator("button.day.open").nth(2).click();
+    const firstDay = p.locator("button.day.open").first();
+    const bookedDay = await firstDay.getAttribute("aria-label");
+    await firstDay.click();
     const booked = (await p.locator("button.t").first().textContent()).trim();
     await p.locator("button.t").first().click();
     await p.locator("#go").click();
@@ -53,14 +57,19 @@ const checks = [
     await p.click("#submitb");
     await p.locator('a[href*="/b/"]').first().waitFor();
     const manage = await p.locator('a[href*="/b/"]').first().getAttribute("href");
-    // booking another starts over, without the time just taken
+    // booking another starts over, without the time just taken (or the day is now full)
     await p.locator("button.pill").last().click();
-    await p.locator("button.day.open").nth(2).click();
-    await p.locator("button.t").first().waitFor();
-    if ((await p.locator("button.t").first().textContent()).trim() === booked) throw new Error("the booked time is still offered");
+    await p.locator("button.day").first().waitFor();
+    const sameDay = p.locator(`button.day.open[aria-label="${bookedDay}"]`);
+    if (await sameDay.count()) {
+      await sameDay.click();
+      await p.locator("button.t").first().waitFor();
+      const times = (await p.locator("button.t").allTextContents()).map((s) => s.trim());
+      if (times.includes(booked)) throw new Error("the booked time is still offered");
+    }
     await p.goto(manage + "&a=reschedule");
-    await p.locator("button.day.open").nth(3).click();
-    await p.locator("button.t").nth(1).click();
+    await p.locator("button.day.open").last().click();
+    await p.locator("button.t").last().click();
     await p.locator("#go").click();
     await p.getByRole("button", { name: "Reschedule" }).click();
     await expectText(/rescheduled/i, "reschedule didn't finish");
