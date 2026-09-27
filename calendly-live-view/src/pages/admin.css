@@ -3763,3 +3763,21 @@ html {
     text-align: left;
   }
 }
+/* Desktop header: the logo on the left, the bell and ⋯ on the right, and the tabs centred on the bar itself (the two
+   side columns share the leftover space equally). */
+@media (min-width: 901px) {
+  .top {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+  }
+  /* the logo link stays its own size, so the empty space beside it isn't a link */
+  .top .brand {
+    justify-self: start;
+  }
+  .top .tabs {
+    margin: 0;
+  }
+  .top .tr {
+    justify-self: end;
+  }
+}
