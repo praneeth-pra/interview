@@ -1,0 +1,138 @@
+/* Days that can't be booked (past, full or outside the window) recede so open days stand out. */
+.day:not(.open) {
+  color: var(--ink3);
+}
+/* Desktop: the card sits in the middle of tall screens and shows more times before scrolling. */
+@media (min-width: 901px) {
+  body {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: 40px 16px;
+  }
+  .card {
+    width: 100%;
+    min-height: 620px;
+  }
+  .tlist {
+    max-height: 490px;
+  }
+}
+/* Choosing a time and moving on to the details form: one column of times; tapping one splits its row into the
+   time, muted, and a Next button that grows out beside it (as on Calendly). The details page then opens at once. */
+.slot.sel .t {
+  flex: 1 1 0;
+}
+.go {
+  flex: 0 0 calc(50% - 4px);
+  overflow: hidden;
+  white-space: nowrap;
+  animation: goGrow 0.28s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@keyframes goGrow {
+  from {
+    flex-basis: 0;
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .go {
+    animation: none;
+  }
+}
+/* Changing date: the previous day's times stay put and only fade (after a moment) while the new day's load */
+.tlist.stale .slot {
+  opacity: 0.45;
+  transition: opacity 0.15s ease 0.2s;
+}
+/* Interview round dropdown, drawn like the text fields */
+.rsel {
+  width: 100%;
+  height: 46px;
+  padding: 0 40px 0 14px;
+  border: 1px solid var(--field-b);
+  border-radius: 8px;
+  font: inherit;
+  color: var(--ink);
+  background: var(--card)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%23888' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4.5l3 3 3-3'/%3E%3C/svg%3E")
+    no-repeat right 14px center;
+  -webkit-appearance: none;
+  appearance: none;
+  cursor: pointer;
+}
+.rsel.empty {
+  color: var(--ink2);
+}
+@media (hover: hover) {
+  .rsel:hover {
+    border-color: var(--ink2);
+  }
+}
+.rsel:focus {
+  outline: none;
+  border-color: var(--blue);
+  box-shadow: 0 0 0 1px var(--blue);
+}
+#fround-other {
+  margin-top: 8px;
+}
+/* "Same company as before?" buttons for a returning candidate */
+.prevco {
+  margin-bottom: 18px;
+}
+.prevco-h {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+.prevco-l {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.pcb {
+  min-height: 36px;
+  padding: 6px 14px;
+  border: 1px solid var(--blue-t2);
+  border-radius: 999px;
+  background: var(--blue-t);
+  color: var(--link);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+@media (hover: hover) {
+  .pcb:hover {
+    border-color: var(--blue);
+  }
+}
+.pcb[aria-pressed="true"] {
+  background: var(--blue);
+  border-color: var(--blue);
+  color: #fff;
+}
+/* On touch screens, holding a finger on something tappable doesn't select its words or pop up Copy / Look up, as in an app.
+   Text in sheets, forms and pages stays selectable. */
+@media (hover: none) {
+  button,
+  a,
+  [role="button"],
+  tr.tap,
+  label,
+  .drop li,
+  .items li {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+}

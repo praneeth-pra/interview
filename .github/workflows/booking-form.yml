@@ -28,6 +28,8 @@ jobs:
         run: bun test tests/
       - name: Type check the server (strict) and the page modules
         run: bun run typecheck
+      - name: Formatting (Prettier; `bun run format` fixes it)
+        run: bun run format:check
       - uses: actions/setup-node@v4
         with:
           node-version: 22

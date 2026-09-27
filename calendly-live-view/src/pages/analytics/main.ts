@@ -107,7 +107,7 @@ function t12(date: Date | number) {
 }
 function niceName(name: string) {
   if (name === name.toLowerCase() && name !== name.toUpperCase()) {
-    return name.replace(/(^|[\s\-'])(\p{L})/gu, (match: string, before: string, letter: string) => before + letter.toUpperCase());
+    return name.replace(/(^|[\s\-'])(\p{L})/gu, (_match: string, before: string, letter: string) => before + letter.toUpperCase());
   } else {
     return name;
   }
@@ -217,7 +217,10 @@ try {
 } catch (error) {}
 var homeScroll = 0;
 function initials(name: string) {
-  var parts = niceName(String(name || "?")).trim().split(/\s+/).filter(Boolean);
+  var parts = niceName(String(name || "?"))
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
   return ((parts[0] || "?").charAt(0) + (parts.length > 1 ? parts[parts.length - 1].charAt(0) : "")).toUpperCase();
 }
 // "Today at 3:00pm", "Thursday at 3:00pm", "Last Friday at 12:00pm", "Sep 12 at 11:00am"
@@ -659,7 +662,13 @@ function renderActivity(events: TimelineEvent[], now: number) {
     cardEl.appendChild(el("b", null, [event.company, event.round].filter(Boolean).join(" · ") || "Interview"));
     var minutes = Math.round((Date.parse(event.end) - Date.parse(event.start)) / 60000);
     cardEl.appendChild(
-      div("sub", minutes + "m" + (interviewer ? " · " + interviewer : kind === "done" ? " · Support not recorded" : "") + (event.cancelReason ? " · " + event.cancelReason : "")),
+      div(
+        "sub",
+        minutes +
+          "m" +
+          (interviewer ? " · " + interviewer : kind === "done" ? " · Support not recorded" : "") +
+          (event.cancelReason ? " · " + event.cancelReason : ""),
+      ),
     );
     cardEl.appendChild(div("sub", t12(start) + " – " + t12(new Date(event.end))));
     item.appendChild(cardEl);

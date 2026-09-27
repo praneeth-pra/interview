@@ -57,7 +57,8 @@ export function compareAmount(text: string, amount: number): ReceiptCheck {
   const found = numbersIn(text);
   // OCR often misreads ".00" as ".09" or ".60", so a whole-rupee amount also matches the rupees of a read amount
   const whole = Number.isInteger(amount);
-  if (found.some((f) => Math.abs(f.value - amount) < 0.005 || (whole && f.money && Math.floor(f.value) === amount))) return { status: "verified" };
+  if (found.some((f) => Math.abs(f.value - amount) < 0.005 || (whole && f.money && Math.floor(f.value) === amount)))
+    return { status: "verified" };
   const all = [...new Set(found.filter((f) => f.money).map((f) => f.value))];
   if (!all.length) return { status: "unread" };
   // "₹12,500" misread as "412500" or "212500" shows as ₹12,500 only

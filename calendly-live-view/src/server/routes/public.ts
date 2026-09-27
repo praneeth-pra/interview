@@ -67,7 +67,9 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   // For search engines: the landing page is listed; the admin, the API and candidates' manage links are not crawled.
   if (path === "/robots.txt" && method === "GET")
     return new Response(
-      ["User-agent: *", "Disallow: /admin", "Disallow: /api/", "Disallow: /b/", "", "Sitemap: " + siteUrl(req) + "/sitemap.xml", ""].join("\n"),
+      ["User-agent: *", "Disallow: /admin", "Disallow: /api/", "Disallow: /b/", "", "Sitemap: " + siteUrl(req) + "/sitemap.xml", ""].join(
+        "\n",
+      ),
       { headers: { ...BASE_HEADERS, "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "public, max-age=3600" } },
     );
   if (path === "/sitemap.xml" && method === "GET")

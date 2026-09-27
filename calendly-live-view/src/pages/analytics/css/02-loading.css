@@ -1,0 +1,77 @@
+/* loading */
+.rempty {
+  padding: 16px;
+  color: var(--a);
+  font-size: 14px;
+}
+.skel-rrow {
+  padding: 11px 16px;
+}
+.skel {
+  border-radius: 6px;
+  background: linear-gradient(90deg, var(--d) 25%, var(--p) 50%, var(--d) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.3s infinite linear;
+}
+.sk-line {
+  height: 14px;
+  margin: 8px 0;
+}
+.sk-w1 {
+  width: 60%;
+}
+.sk-w2 {
+  width: 85%;
+}
+.sk-w3 {
+  width: 40%;
+}
+.spin {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-right: 8px;
+  border: 2px solid var(--d);
+  border-top-color: var(--m);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  vertical-align: -2px;
+}
+@keyframes shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  to {
+    background-position: 400px 0;
+  }
+}
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes fadein {
+  0% {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+#an:not([hidden]) {
+  animation: fadein 0.25s ease backwards;
+}
+@media (prefers-reduced-motion: reduce) {
+  .skel,
+  .spin,
+  #an:not([hidden]) {
+    animation: none;
+  }
+}
+@media (max-width: 700px) {
+  body {
+    padding: 8px 18px calc(24px + env(safe-area-inset-bottom));
+  }
+}

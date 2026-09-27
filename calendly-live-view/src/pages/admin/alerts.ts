@@ -112,7 +112,10 @@ export function setupAlerts() {
         '<p>Get a banner on this device whenever a candidate books, reschedules or cancels, with their name, company, round and time.</p><div class="pp-row"><button type="button" class="pp-btn primary" data-a="on">Turn on for this device</button></div>';
     }
     var count = info.endpoints.length;
-    html += '<p class="pp-n">' + (count ? count + (count > 1 ? " devices get" : " device gets") + " alerts." : "No devices get alerts yet.") + "</p>";
+    html +=
+      '<p class="pp-n">' +
+      (count ? count + (count > 1 ? " devices get" : " device gets") + " alerts." : "No devices get alerts yet.") +
+      "</p>";
     if (msg) {
       html += '<p class="pp-msg" role="status"></p>';
     }
@@ -139,7 +142,12 @@ export function setupAlerts() {
           .then(function (subscription) {
             mine = subscription;
             // signed up again when the server doesn't have it for this admin, so it gets the alerts meant for them
-            if (subscription && info.key && Notification.permission === "granted" && (info.yours || []).indexOf(subscription.endpoint) < 0) {
+            if (
+              subscription &&
+              info.key &&
+              Notification.permission === "granted" &&
+              (info.yours || []).indexOf(subscription.endpoint) < 0
+            ) {
               var json: PushSubscriptionJSON & { label?: string } = subscription.toJSON();
               json.label = label();
               return api("/admin/api/push/subscribe", json).then(function (result) {

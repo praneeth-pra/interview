@@ -29,7 +29,8 @@ function showFile() {
   var file = fileInput.files[0];
   var problem = file ? fileProblem(file) : "";
   document.getElementById("cvname").textContent = file ? file.name : "Choose your resume";
-  document.getElementById("cvhint").textContent = problem || (file ? Math.max(1, Math.round(file.size / 1024)) + " KB · tap to change" : "PDF or Word");
+  document.getElementById("cvhint").textContent =
+    problem || (file ? Math.max(1, Math.round(file.size / 1024)) + " KB · tap to change" : "PDF or Word");
   document.getElementById("dropbox").classList.toggle("bad", !!problem);
   document.getElementById("dropbox").classList.toggle("has", !!file && !problem);
 }
@@ -98,7 +99,6 @@ form.addEventListener("submit", function (event) {
       button.disabled = false;
       button.classList.remove("busy");
       button.textContent = "Send enquiry";
-      errorBox.textContent =
-        error instanceof TypeError ? "Couldn't reach the server. Check your connection and try again." : error.message;
+      errorBox.textContent = error instanceof TypeError ? "Couldn't reach the server. Check your connection and try again." : error.message;
     });
 });

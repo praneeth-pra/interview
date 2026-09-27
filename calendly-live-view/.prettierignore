@@ -1,0 +1,7 @@
+# Formatting: `bun run format` (CI runs `bun run format:check`). The tests keep their compact one-line style.
+src/pages/*.html
+src/fonts/
+data/
+public/
+tests/
+bun.lock

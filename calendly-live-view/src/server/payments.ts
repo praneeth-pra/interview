@@ -83,7 +83,10 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
   const check = await checkReceipt(bytes, kind.type, amount);
   if (check.status === "mismatch") {
     const shown = check.read.map(rupees).join(" or ");
-    return json({ error: "The receipt shows " + shown + ", not " + rupees(amount) + ". Enter the amount on your receipt.", field: "amount" }, 422);
+    return json(
+      { error: "The receipt shows " + shown + ", not " + rupees(amount) + ". Enter the amount on your receipt.", field: "amount" },
+      422,
+    );
   }
   const id = crypto.randomUUID();
   const original =

@@ -1,0 +1,234 @@
+/* Contacts (/admin/analytics, shown in the admin page's Contacts tab). Colours: --p page, --c card, --k text,
+   --a muted text, --d/--q lines and pressed fills, --m orange, --n/--v/--o the avatar tints, --j/--r green, --h/--l amber,
+   --g/--t red; .ivc0-5 give each interviewer a colour (--b) in Activity and About. */
+:root {
+  color-scheme: light dark;
+  --p: #f4f2ec;
+  --c: #fff;
+  --k: #1f1e1d;
+  --a: #6b675f;
+  --d: #ebe8e1;
+  --q: #e4e0d8;
+  --i: #1f1e1d;
+  --s: #fff;
+  --m: #bc5935;
+  --n: #fbece6;
+  --v: #f1c6b6;
+  --o: #a64b2a;
+  --j: #16794a;
+  --r: #dff3e7;
+  --h: #9a5a00;
+  --l: #fcefd6;
+  --g: #b42318;
+  --t: #fde6e3;
+  --u: 0 10px 34px rgba(31, 30, 29, 0.16);
+}
+.ivc0 {
+  --b: #7c5cf0;
+  --e: #ece8fd;
+  --f: #4b2fc4;
+}
+.ivc1 {
+  --b: #0d9488;
+  --e: #d9f2ee;
+  --f: #0a675e;
+}
+.ivc2 {
+  --b: #d63f8c;
+  --e: #fbe3ee;
+  --f: #a3205f;
+}
+.ivc3 {
+  --b: #0284c7;
+  --e: #daeffb;
+  --f: #075d8e;
+}
+.ivc4 {
+  --b: #7a8a12;
+  --e: #eef1d2;
+  --f: #566108;
+}
+.ivc5 {
+  --b: #64748b;
+  --e: #e4e8ee;
+  --f: #3d495a;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --p: #161513;
+    --c: #1f1e1c;
+    --k: #f2efe8;
+    --a: #a8a39a;
+    --d: #2a2826;
+    --q: #33312e;
+    --i: #f2efe8;
+    --s: #161513;
+    --m: #e08a6d;
+    --n: #3a2820;
+    --v: #5a3627;
+    --o: #e89a7f;
+    --j: #6fd49a;
+    --r: #12301f;
+    --h: #f2b45a;
+    --l: #33270e;
+    --g: #ff9a90;
+    --t: #3a1815;
+    --u: 0 10px 34px rgba(0, 0, 0, 0.55);
+  }
+  .ivc0 {
+    --b: #a08cff;
+    --e: #2a2450;
+    --f: #cbc0ff;
+  }
+  .ivc1 {
+    --b: #3cc9b8;
+    --e: #11332f;
+    --f: #8fe6d9;
+  }
+  .ivc2 {
+    --b: #f07db3;
+    --e: #3d1a2b;
+    --f: #ffb3d3;
+  }
+  .ivc3 {
+    --b: #4bb2ee;
+    --e: #12324a;
+    --f: #a5d9f7;
+  }
+  .ivc4 {
+    --b: #b7c832;
+    --e: #2f3310;
+    --f: #d9e58a;
+  }
+  .ivc5 {
+    --b: #94a3b8;
+    --e: #272d38;
+    --f: #c5cfdc;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+html,
+body {
+  background: transparent;
+}
+body {
+  margin: 0 auto;
+  max-width: 1080px;
+  padding: 14px 20px 64px;
+  color: var(--k);
+  font:
+    15px/1.5 Figtree,
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  font-variant-numeric: tabular-nums;
+  -webkit-font-smoothing: antialiased;
+}
+button,
+input {
+  font: inherit;
+  color: var(--k);
+  background-color: var(--d);
+  border: 0;
+  border-radius: 10px;
+  padding: 8px 14px;
+  min-height: 38px;
+  transition:
+    background-color 0.12s,
+    transform 0.12s;
+}
+button,
+a,
+[role="button"] {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+button {
+  cursor: pointer;
+  font-weight: 500;
+}
+button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--m);
+  outline-offset: 2px;
+}
+input:focus {
+  outline: 2px solid var(--m);
+  outline-offset: 0;
+  background-color: var(--c);
+}
+input::placeholder {
+  color: var(--a);
+}
+input[type="search"] {
+  -webkit-appearance: none;
+  appearance: none;
+  padding-left: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 16 16' fill='none' stroke='%239099a6' stroke-width='1.7' stroke-linecap='round'%3E%3Ccircle cx='7' cy='7' r='4.8'/%3E%3Cpath d='M11 11l3.2 3.2'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 14px 50%;
+  background-size: 16px;
+}
+#pq {
+  min-height: 46px;
+  border-radius: 14px;
+  background-color: var(--c);
+  box-shadow:
+    0 0 0 1px var(--d),
+    0 1px 2px #14161b0d;
+}
+.row.top,
+#title {
+  display: none !important;
+}
+.sub {
+  color: var(--a);
+  font-size: 13px;
+}
+.banner {
+  background: var(--l);
+  color: var(--h);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin: 10px 0;
+  font-size: 14px;
+}
+.linkbtn {
+  background: none;
+  padding: 0;
+  min-height: 0;
+  color: var(--o);
+  font-size: 13px;
+  font-weight: 500;
+  text-decoration: underline;
+  border-radius: 4px;
+}
+.who {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.av {
+  display: grid;
+  place-items: center;
+  flex: none;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--n), var(--v));
+  color: var(--o);
+  font-weight: 700;
+}
+.aname {
+  font-weight: 650;
+  line-height: 1.2;
+  overflow-wrap: anywhere;
+}

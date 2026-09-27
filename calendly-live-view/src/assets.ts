@@ -180,13 +180,15 @@ export function asset(path: string): { body: Encoded; current: boolean } | null 
 
 export const template = (name: string) => linkAssets(readFileSync(join(PAGES, name + ".html"), "utf8"));
 export const readData = (name: string) => readFileSync(join(ROOT, "data", name), "utf8");
-export const assetList = () => [...byName.entries()].map(([name, a]) => ({ name, url: a.url, raw: a.body.raw.length, br: a.body.br?.length ?? a.body.raw.length }));
+export const assetList = () =>
+  [...byName.entries()].map(([name, a]) => ({ name, url: a.url, raw: a.body.raw.length, br: a.body.br?.length ?? a.body.raw.length }));
 
 // API answers (JSON, CSV) are compressed on the way out when they are big enough to benefit.
 export async function compressed(req: Request, res: Response): Promise<Response> {
   const type = res.headers.get("content-type") ?? "";
   const accept = req.headers.get("accept-encoding") ?? "";
-  if (!/^(application\/json|text\/csv)/.test(type) || res.headers.has("content-encoding") || !res.body || !/\b(br|gzip)\b/.test(accept)) return res;
+  if (!/^(application\/json|text\/csv)/.test(type) || res.headers.has("content-encoding") || !res.body || !/\b(br|gzip)\b/.test(accept))
+    return res;
   const raw = Buffer.from(await res.arrayBuffer());
   const headers = new Headers(res.headers);
   if (raw.length <= 1024) return new Response(raw, { status: res.status, headers });

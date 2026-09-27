@@ -190,14 +190,14 @@ export function bookingsCsvText() {
         : b.outcome
           ? OUTCOME_LABEL[b.outcome]
           : b.missed === "noshow"
-          ? "No-show"
-          : b.missed
-            ? "Didn't happen"
-            : Date.parse(b.end) <= now
-              ? "Completed"
-              : Date.parse(b.start) <= now
-                ? "In progress"
-                : "Upcoming",
+            ? "No-show"
+            : b.missed
+              ? "Didn't happen"
+              : Date.parse(b.end) <= now
+                ? "Completed"
+                : Date.parse(b.start) <= now
+                  ? "In progress"
+                  : "Upcoming",
       iv[b.id] ?? "",
       d(b.createdAt),
       b.source === "admin" ? "Admin" : b.source === "calendly" ? "Calendly" : "Booking page",
@@ -250,7 +250,8 @@ export async function setRoundStatus(id: string, status: unknown): Promise<Respo
   if (status && Date.parse(b.start) > Date.now() + 60000)
     return json({ error: "You can set the round's status once the interview's start time has passed." }, 409);
   const missed = status === "noshow" || status === "other" ? status : "";
-  if (missed && ivStore.data.assign[b.id]) return json({ error: "Interview support is already recorded for this interview, so it happened." }, 409);
+  if (missed && ivStore.data.assign[b.id])
+    return json({ error: "Interview support is already recorded for this interview, so it happened." }, 409);
   const prev = { ...b };
   const now = new Date().toISOString();
   if (!missed) {
