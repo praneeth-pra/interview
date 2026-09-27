@@ -46,6 +46,7 @@ var state: State = {
 // The last state seen is kept on this device so the app opens with the bookings already on screen, and still shows
 // them offline. It is dropped on sign-out and whenever the sign-in page shows.
 var STATE_KEY = "adm.state";
+var SEEN_KEY = "adm.enqSeen"; // when this admin last opened Enquiries, so the badge is right before the server answers
 function remember(text: string) {
   try {
     localStorage.setItem(STATE_KEY, text);
@@ -54,6 +55,7 @@ function remember(text: string) {
 function forget() {
   try {
     localStorage.removeItem(STATE_KEY);
+    localStorage.removeItem(SEEN_KEY);
   } catch (e) {}
   if (navigator.serviceWorker && navigator.serviceWorker.controller) {
     navigator.serviceWorker.controller.postMessage("signed-out");
@@ -1691,9 +1693,22 @@ function showEnquiries() {
 }
 // The red count on the Enquiries tab: enquiries that came in after this admin last opened the tab (kept on the server,
 // so phone and laptop agree). The home-screen app's icon shows it too, where the phone allows it.
-var enquiriesSeenAt = "";
+// Until the last-opened time is known (kept on this device, then checked with the server) the badge stays hidden, so a
+// refresh doesn't flash every enquiry as new and then drop to the real count.
+var enquiriesSeenAt: string | null = null;
+try {
+  enquiriesSeenAt = localStorage.getItem(SEEN_KEY);
+} catch (e) {}
 var enquiriesShown = -1;
+function setEnquiriesSeen(at: string) {
+  enquiriesSeenAt = at;
+  try {
+    localStorage.setItem(SEEN_KEY, at);
+  } catch (e) {}
+  renderEnquiryBadge();
+}
 function unreadEnquiries() {
+  if (enquiriesSeenAt === null) return 0;
   var seen = enquiriesSeenAt ? Date.parse(enquiriesSeenAt) : 0;
   return (state.enquiries || []).filter(function (at) {
     return Date.parse(at) > seen;
@@ -1724,8 +1739,7 @@ function renderEnquiryBadge() {
 function markEnquiriesSeen() {
   request("/admin/api/enquiries/seen", {})
     .then(function (result) {
-      enquiriesSeenAt = result.seenAt || "";
-      renderEnquiryBadge();
+      setEnquiriesSeen(result.seenAt || "");
     })
     .catch(function () {});
 }
@@ -1733,8 +1747,7 @@ function markEnquiriesSeen() {
 if (boot.owner) {
   request("/admin/api/enquiries/seen")
     .then(function (result) {
-      enquiriesSeenAt = result.seenAt || "";
-      renderEnquiryBadge();
+      setEnquiriesSeen(result.seenAt || "");
     })
     .catch(function () {});
 }

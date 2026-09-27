@@ -921,6 +921,15 @@ h2 {
   font: inherit;
   font-size: 14.5px;
 }
+/* the browser's own arrow sits on the pill's edge; draw one inside it instead */
+.paybar select.payfilter {
+  -webkit-appearance: none;
+  appearance: none;
+  padding: 0 40px 0 16px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%238a8f98' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+}
 /* 16px, or iPhones zoom in while typing */
 .paybar .paysearch {
   padding: 0 16px;
