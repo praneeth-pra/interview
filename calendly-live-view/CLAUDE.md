@@ -12,7 +12,8 @@ Read README.md first for layout, commands and deploy.
 - Page scripts are readable sources; `src/assets.ts` bundles and minifies them at startup (`src/pages/<page>.js`, or `src/pages/<page>/main.ts` plus modules). Rename with a scope-aware tool (the editor's rename), never find-and-replace: the pages reuse short names like `row`, `box`, `event` in many scopes.
 - Names, companies and reasons are typed by candidates: build DOM with `textContent`, not `innerHTML` with user text.
 - Fonts: every page (booking, admin, Contacts, sign-in) uses self-hosted Figtree, close to the Calendly app's font. Keep text at 11.5px or larger and grey text at 4.5:1 contrast.
-- The admin page's styles are `src/pages/admin/css/*.css`, joined in file-name order into one `admin.css`: order is the cascade, so add rules to the file for their feature and keep the numbering.
+- The admin, booking and Contacts styles are `src/pages/<page>/css/*.css`, joined in file-name order into one `<page>.css`: order is the cascade, so add rules to the file for their feature and keep the numbering.
+- Logic without DOM (dates, labels, `admin/layout.ts`, `analytics/api.ts`, `same-company.ts`) has unit tests in `tests/page-units.test.ts`; keep such logic in modules that don't touch `document` at import, so it stays testable.
 - **CSS class names are global per page and short** (`.ev`, `.t`, `.go`...). Before adding a class, grep the page's CSS for it, and grep the page's scripts before deleting one: some are built at runtime (`"c" + n`, `"st-" + status`, `"sk-w" + n`).
 - The server is split by feature under `src/server/` (see README); `src/server.ts` only starts it. `bun run typecheck` checks the server in strict mode, so run `bun install` once for the dev tools.
 - Admin sign-in fails closed: without `ADMIN_EMAILS` the admin page is locked. Local servers and test harnesses set `ADMIN_OPEN=1` to open it; never set that on Railway.

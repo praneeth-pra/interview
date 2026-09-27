@@ -4,7 +4,8 @@ import { addDays, dayKeyOf, formatDay, formatTime, hourLabel, minutesOfDay, week
 import { statusPill, titleCase } from "./labels";
 import { colorClass, render, state, view } from "./state";
 import { showBooking } from "./booking-panel";
-import { dayItems, layoutColumns } from "./week";
+import { dayItems } from "./week";
+import { layoutColumns } from "./layout";
 
 // The agenda: one day at a time, like a phone calendar's Day view. A week strip picks the day (the day on screen circled
 // in orange, dots for days with interviews), then an hour grid holds that day's interviews as blocks sized to their

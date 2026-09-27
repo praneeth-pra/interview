@@ -3,12 +3,10 @@ import { byId, el } from "./dom";
 import { addDays, dayKeyOf, formatDay, hourLabel, minutesOfDay } from "./time";
 import { missedLabel, statusPill, titleCase } from "./labels";
 import { colorClass, state, view } from "./state";
-import type { Booking } from "./types";
+import { layoutColumns, type Item } from "./layout";
 import { showBooking } from "./booking-panel";
 
 var HOUR_PX = 64;
-// A booking placed on the week grid: minutes since midnight, and its column within a group of overlapping bookings.
-export type Item = { booking: Booking; from: number; to: number; col?: number; group?: { end: number; cols: number[] } };
 export function dayItems(day: string): Item[] {
   return state.events
     .filter(function (booking) {
@@ -27,25 +25,6 @@ export function dayItems(day: string): Item[] {
     .sort(function (first, second) {
       return first.from - second.from || first.to - second.to;
     });
-}
-// Overlapping bookings share the column width: each gets a col index within its group.
-export function layoutColumns(items: Item[]) {
-  var group: Item["group"] | null = null;
-  items.forEach(function (item) {
-    if (!group || item.from >= group.end) {
-      group = {
-        end: item.to,
-        cols: [],
-      };
-    }
-    for (var col = 0; group.cols[col] !== undefined && group.cols[col] > item.from; ) {
-      col++;
-    }
-    group.cols[col] = item.to;
-    item.col = col;
-    item.group = group;
-    group.end = Math.max(group.end, item.to);
-  });
 }
 // "Sep 21 – 27", "Sep 28 – Oct 4", with the year only when it isn't this year.
 function weekTitle(first: string) {
