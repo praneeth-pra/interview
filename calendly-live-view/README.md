@@ -24,8 +24,10 @@ src/pages/book/      the booking page as TypeScript modules: main.ts (which step
                      state and render()), slots.ts (free days and times), info.ts, calendar.ts, fields.ts, details.ts,
                      returning.ts (returning candidates), done.ts, manage.ts (manage links), message.ts, and helpers
                      time.ts, companies.ts, dom.ts, icons.ts, types.ts
-src/pages/admin/     the admin page: main.ts (calendar, agenda, booking panel, search, tabs, live updates), state.ts (boot data and
-                     the live state), panel.ts (the side panel), interviewers.ts, admins.ts, allowlist.ts (Candidates),
+src/pages/admin/     the admin page: main.ts (calendar, agenda, search, tabs, live updates), state.ts (boot data, the live state,
+                     the week on screen and render()), panel.ts (the side panel), booking-panel.ts (one booking: details,
+                     supporter, round status, cancel, reschedule), bookings.ts (every booking, for search), interviewers.ts,
+                     admins.ts, allowlist.ts (Candidates),
                      enquiries.ts, payments.ts, revenue.ts (owners' tabs), alerts.ts, nav.ts, stats-frame.ts, download-menu.ts,
                      theme-switch.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
 src/pages/analytics/ the Analytics tab (framed in admin): main.ts (people picker, company progress, timeline, insights),
