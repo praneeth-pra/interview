@@ -1,5 +1,5 @@
 // The booked screen: the confirmation, a calendar file and a way to book another round.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { ICONS } from "./icons";
 import { formatRange } from "./time";
 import { card, eventName, hostName, setState, state } from "./app";

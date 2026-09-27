@@ -6,19 +6,19 @@ if (navigator.serviceWorker && navigator.serviceWorker.controller) {
   navigator.serviceWorker.controller.postMessage("signed-out");
 }
 // Two steps: the admin's email (a 6-digit code is emailed to people on the admin list), then the code.
-var form = document.getElementById("f");
-var emailInput = document.getElementById("em");
-var codeInput = document.getElementById("code");
-var button = document.getElementById("go");
-var errorBox = document.getElementById("err");
-var lead = document.getElementById("lead");
+var form = document.getElementById("f") as HTMLFormElement;
+var emailInput = document.getElementById("em") as HTMLInputElement;
+var codeInput = document.getElementById("code") as HTMLInputElement;
+var button = document.getElementById("go") as HTMLButtonElement;
+var errorBox = document.getElementById("err") as HTMLElement;
+var lead = document.getElementById("lead") as HTMLElement;
 var firstLead = lead.textContent;
 var step = 1;
 var busy = false;
 try {
   emailInput.value = localStorage.getItem("adm.email") || "";
 } catch (e) {}
-function post(url, body) {
+function post(url: string, body: object) {
   return fetch(url, {
     method: "POST",
     headers: {
@@ -36,16 +36,16 @@ function post(url, body) {
       });
   });
 }
-function setBusy(on, label) {
+function setBusy(on: boolean, label: string) {
   busy = on;
   button.disabled = on;
   button.textContent = label;
 }
-function showStep(next) {
+function showStep(next: number) {
   step = next;
-  document.getElementById("s1").hidden = step !== 1;
-  document.getElementById("s2").hidden = step !== 2;
-  document.getElementById("alt").hidden = step !== 2;
+  document.getElementById("s1")!.hidden = step !== 1;
+  document.getElementById("s2")!.hidden = step !== 2;
+  document.getElementById("alt")!.hidden = step !== 2;
   button.textContent = step === 1 ? "Email me a code" : "Sign in";
   lead.textContent =
     step === 1 ? firstLead : "If " + emailInput.value.trim() + " is on the admin list, a code is on its way. It works for 10 minutes.";
@@ -123,12 +123,12 @@ codeInput.addEventListener("input", function () {
     signIn();
   }
 });
-document.getElementById("again").addEventListener("click", function () {
+document.getElementById("again")!.addEventListener("click", function () {
   if (!busy) {
     askForCode();
   }
 });
-document.getElementById("other").addEventListener("click", function () {
+document.getElementById("other")!.addEventListener("click", function () {
   errorBox.textContent = "";
   showStep(1);
   emailInput.select();

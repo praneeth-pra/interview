@@ -1,5 +1,5 @@
 // A candidate's manage link: the booking, rescheduling it and cancelling it.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { ICONS } from "./icons";
 import { formatRange } from "./time";
 import { eventName, hostName, manage, render, state } from "./app";

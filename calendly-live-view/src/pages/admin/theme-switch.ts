@@ -2,7 +2,7 @@
 // flips it, remembers it on this device, and tells the Contacts frame.
 export function setupThemeSwitch() {
   var button = document.getElementById("thBtn")!;
-  var switchTo = (window as any).__theme as ((theme: string) => void) | undefined;
+  var switchTo = window.__theme;
   if (!button || !switchTo) {
     return;
   }

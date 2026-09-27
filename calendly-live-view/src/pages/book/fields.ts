@@ -1,5 +1,5 @@
 // The details form's fields: plain text fields, the interview round and the company with its suggestions.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { companies, loadCompanies, suggestCompanies, type Match } from "./companies";
 import { state } from "./app";
 import { markPreviousCompany } from "./returning";

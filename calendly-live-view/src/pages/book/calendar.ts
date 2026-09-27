@@ -1,5 +1,5 @@
 // Picking a time: the month calendar, the day's times and the Next button.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { ICONS } from "./icons";
 import { formatIst, formatRange, formatTime, middayOf, todayKey } from "./time";
 import { card, manage, render, state } from "./app";

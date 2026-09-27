@@ -1,5 +1,5 @@
 // The panel beside the calendar: who, what, how long, and the chosen time.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { ICONS } from "./icons";
 import { formatRange } from "./time";
 import { DURATIONS, card, eventName, hostName, info, manage, render, state } from "./app";

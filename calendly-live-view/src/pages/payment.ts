@@ -2,23 +2,23 @@
 // as one multipart request to /api/payment, which also checks that the amount is the one on the receipt. The receipt's
 // size limit comes from the server (the boot block) and is only mentioned when a file is too big. The same rules are
 // checked again on the server.
-var MAX_BYTES = JSON.parse(document.getElementById("boot").textContent).max;
+var MAX_BYTES = JSON.parse(document.getElementById("boot")!.textContent).max;
 var MAX_TEXT = Math.round((MAX_BYTES / 1048576) * 10) / 10 + " MB";
-var form = document.getElementById("f");
-var fileInput = document.getElementById("rc");
-var button = document.getElementById("go");
-var errorBox = document.getElementById("err");
+var form = document.getElementById("f") as HTMLFormElement;
+var fileInput = document.getElementById("rc") as HTMLInputElement;
+var button = document.getElementById("go") as HTMLButtonElement;
+var errorBox = document.getElementById("err") as HTMLElement;
 var fields = {
-  email: document.getElementById("em"),
-  name: document.getElementById("nm"),
-  installment: document.getElementById("in"),
-  amount: document.getElementById("am"),
+  email: document.getElementById("em") as HTMLInputElement,
+  name: document.getElementById("nm") as HTMLInputElement,
+  installment: document.getElementById("in") as HTMLSelectElement,
+  amount: document.getElementById("am") as HTMLInputElement,
 };
 function amountValue() {
   var text = fields.amount.value.replace(/[,\s₹]/g, "");
   return /^\d+(\.\d{1,2})?$/.test(text) ? Number(text) : NaN;
 }
-function fileProblem(file) {
+function fileProblem(file: File | undefined) {
   if (!file) {
     return "Attach your payment receipt.";
   } else if (!/^image\//.test(file.type) && file.type !== "application/pdf" && !/\.(pdf|png|jpe?g|webp|heic)$/i.test(file.name)) {
@@ -31,23 +31,23 @@ function fileProblem(file) {
     return "";
   }
 }
-function sizeText(bytes) {
+function sizeText(bytes: number) {
   return bytes < 1048576 ? Math.max(1, Math.round(bytes / 1024)) + " KB" : Math.round((bytes / 1048576) * 10) / 10 + " MB";
 }
 function showFile() {
-  var file = fileInput.files[0];
+  var file = fileInput.files![0];
   var problem = file ? fileProblem(file) : "";
-  document.getElementById("rcname").textContent = file ? file.name : "Attach your receipt";
-  document.getElementById("rchint").textContent =
+  document.getElementById("rcname")!.textContent = file ? file.name : "Attach your receipt";
+  document.getElementById("rchint")!.textContent =
     problem || (file ? sizeText(file.size) + " · tap to change" : "A photo, screenshot or PDF");
-  document.getElementById("dropbox").classList.toggle("bad", !!problem);
-  document.getElementById("dropbox").classList.toggle("has", !!file && !problem);
+  document.getElementById("dropbox")!.classList.toggle("bad", !!problem);
+  document.getElementById("dropbox")!.classList.toggle("has", !!file && !problem);
 }
 fileInput.addEventListener("change", showFile);
 // a field someone is fixing stops showing as wrong
-function fixing(event) {
-  if (event.target.getAttribute("aria-invalid") === "true") {
-    event.target.setAttribute("aria-invalid", "false");
+function fixing(event: Event) {
+  if ((event.target as HTMLElement).getAttribute("aria-invalid") === "true") {
+    (event.target as HTMLElement).setAttribute("aria-invalid", "false");
     errorBox.textContent = "";
   }
 }
@@ -55,7 +55,7 @@ form.addEventListener("input", fixing);
 form.addEventListener("change", fixing);
 function check() {
   var problems = [];
-  function need(input, ok, text) {
+  function need(input: HTMLElement, ok: boolean, text: string) {
     input.setAttribute("aria-invalid", String(!ok));
     if (!ok) {
       problems.push({ input: input, text: text });
@@ -66,8 +66,8 @@ function check() {
   need(fields.installment, !!fields.installment.value, "Choose which installment this is.");
   var amount = amountValue();
   need(fields.amount, amount > 0 && amount <= 10000000, "Enter the amount you paid, in rupees.");
-  var fileText = fileProblem(fileInput.files[0]);
-  document.getElementById("dropbox").classList.toggle("bad", !!fileText);
+  var fileText = fileProblem(fileInput.files![0]);
+  document.getElementById("dropbox")!.classList.toggle("bad", !!fileText);
   if (fileText) {
     problems.push({ input: fileInput, text: fileText });
   }
@@ -95,7 +95,7 @@ form.addEventListener("submit", function (event) {
         .then(function (body) {
           if (!response.ok) {
             // the email isn't on the invite list, or the amount isn't the one on the receipt
-            var field = fields[body.field];
+            var field = fields[body.field as keyof typeof fields];
             if (field) {
               field.setAttribute("aria-invalid", "true");
               field.focus();
@@ -106,7 +106,7 @@ form.addEventListener("submit", function (event) {
     })
     .then(function () {
       form.hidden = true;
-      document.getElementById("donetxt").textContent =
+      document.getElementById("donetxt")!.textContent =
         "Thanks, " +
         fields.name.value.trim().split(/\s+/)[0] +
         ". We've received your payment of ₹" +
@@ -114,7 +114,7 @@ form.addEventListener("submit", function (event) {
         " (" +
         fields.installment.options[fields.installment.selectedIndex].text +
         ") and will check it soon.";
-      document.getElementById("done").hidden = false;
+      document.getElementById("done")!.hidden = false;
       window.scrollTo(0, 0);
     })
     .catch(function (error) {

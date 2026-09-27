@@ -1,5 +1,5 @@
 // The details step: name, email, company and round, then sending the booking.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { loadCompanies } from "./companies";
 import { render, state } from "./app";
 import { clearSlots, loadDays, showSlots } from "./slots";

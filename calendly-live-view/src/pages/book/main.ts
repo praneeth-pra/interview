@@ -1,6 +1,6 @@
 // The booking page: pick a length, day and time, enter details, confirm. The same page handles the
 // candidate's manage link (/b/<id>?t=...): reschedule or cancel an existing booking.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { DURATIONS, card, manage, render, setDraw, state } from "./app";
 import { loadDays } from "./slots";
 import { renderInfo } from "./info";

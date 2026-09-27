@@ -2,6 +2,7 @@
 // first, and a page per contact with their Activity (every interview, reschedule and cancellation) and About
 // (emails, bookings, interviews taken by each interviewer). Sections, in order: DOM and date helpers, the live state,
 // the contacts list, then the contact page.
+import { byId, el as make } from "../shared/dom";
 import { api, type Analytics, type DashState, type IvInfo, type Person, type TimelineEvent } from "./api";
 
 function div(cls?: string | null, text?: string | null) {
@@ -61,18 +62,9 @@ function ivCls(name: string) {
   }
   return "ivc" + (index % 6);
 }
-function byId<T extends HTMLElement = HTMLElement>(id: string): T {
-  return document.getElementById(id) as T;
-}
+// el(tag, class, text): this page's shorthand for the shared el()
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls?: string | null, text?: string | null): HTMLElementTagNameMap[K] {
-  var node = document.createElement(tag);
-  if (cls) {
-    node.className = cls;
-  }
-  if (text != null) {
-    node.textContent = text;
-  }
-  return node;
+  return make(tag, { class: cls || null, text: text });
 }
 function fmt(options: Intl.DateTimeFormatOptions, date: Date | number) {
   return new Intl.DateTimeFormat(

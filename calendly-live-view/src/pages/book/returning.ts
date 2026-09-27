@@ -1,5 +1,5 @@
 // A returning candidate: the name booked with before on this device or for this email, and the companies used.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { state } from "./app";
 import type { Me } from "./types";
 

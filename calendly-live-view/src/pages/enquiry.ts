@@ -1,18 +1,18 @@
 // The public enquiry form (/enquiry): name, email, phone, technology, experience and a resume (PDF or Word, 200 KB at most),
 // sent as one multipart request to /api/enquiry. The same rules are checked again on the server.
 var MAX_BYTES = 200 * 1024;
-var form = document.getElementById("f");
-var fileInput = document.getElementById("cv");
-var button = document.getElementById("go");
-var errorBox = document.getElementById("err");
+var form = document.getElementById("f") as HTMLFormElement;
+var fileInput = document.getElementById("cv") as HTMLInputElement;
+var button = document.getElementById("go") as HTMLButtonElement;
+var errorBox = document.getElementById("err") as HTMLElement;
 var fields = {
-  name: document.getElementById("nm"),
-  email: document.getElementById("em"),
-  phone: document.getElementById("ph"),
-  tech: document.getElementById("tc"),
-  experience: document.getElementById("yx"),
+  name: document.getElementById("nm") as HTMLInputElement,
+  email: document.getElementById("em") as HTMLInputElement,
+  phone: document.getElementById("ph") as HTMLInputElement,
+  tech: document.getElementById("tc") as HTMLInputElement,
+  experience: document.getElementById("yx") as HTMLSelectElement,
 };
-function fileProblem(file) {
+function fileProblem(file: File | undefined) {
   if (!file) {
     return "Add your resume.";
   } else if (!/\.(pdf|docx?)$/i.test(file.name)) {
@@ -26,25 +26,25 @@ function fileProblem(file) {
   }
 }
 function showFile() {
-  var file = fileInput.files[0];
+  var file = fileInput.files![0];
   var problem = file ? fileProblem(file) : "";
-  document.getElementById("cvname").textContent = file ? file.name : "Choose your resume";
-  document.getElementById("cvhint").textContent =
+  document.getElementById("cvname")!.textContent = file ? file.name : "Choose your resume";
+  document.getElementById("cvhint")!.textContent =
     problem || (file ? Math.max(1, Math.round(file.size / 1024)) + " KB · tap to change" : "PDF or Word");
-  document.getElementById("dropbox").classList.toggle("bad", !!problem);
-  document.getElementById("dropbox").classList.toggle("has", !!file && !problem);
+  document.getElementById("dropbox")!.classList.toggle("bad", !!problem);
+  document.getElementById("dropbox")!.classList.toggle("has", !!file && !problem);
 }
 fileInput.addEventListener("change", showFile);
 // a field someone is fixing stops showing as wrong
 form.addEventListener("input", function (event) {
-  if (event.target.getAttribute("aria-invalid") === "true") {
-    event.target.setAttribute("aria-invalid", "false");
+  if ((event.target as HTMLElement).getAttribute("aria-invalid") === "true") {
+    (event.target as HTMLElement).setAttribute("aria-invalid", "false");
     errorBox.textContent = "";
   }
 });
 function check() {
   var problems = [];
-  function need(input, ok, text) {
+  function need(input: HTMLElement, ok: boolean, text: string) {
     input.setAttribute("aria-invalid", String(!ok));
     if (!ok) {
       problems.push({ input: input, text: text });
@@ -56,8 +56,8 @@ function check() {
   need(fields.phone, digits.length >= 10 && digits.length <= 15, "Enter a valid phone number.");
   need(fields.tech, fields.tech.value.trim().length >= 2, "Tell us the technology you're looking for.");
   need(fields.experience, !!fields.experience.value, "Choose your years of experience.");
-  var fileText = fileProblem(fileInput.files[0]);
-  document.getElementById("dropbox").classList.toggle("bad", !!fileText);
+  var fileText = fileProblem(fileInput.files![0]);
+  document.getElementById("dropbox")!.classList.toggle("bad", !!fileText);
   if (fileText) {
     problems.push({ input: fileInput, text: fileText });
   }
@@ -90,9 +90,9 @@ form.addEventListener("submit", function (event) {
     })
     .then(function () {
       form.hidden = true;
-      document.getElementById("donetxt").textContent =
+      document.getElementById("donetxt")!.textContent =
         "Thanks, " + fields.name.value.trim().split(/\s+/)[0] + ". We've received your enquiry and will get back to you soon.";
-      document.getElementById("done").hidden = false;
+      document.getElementById("done")!.hidden = false;
       window.scrollTo(0, 0);
     })
     .catch(function (error) {

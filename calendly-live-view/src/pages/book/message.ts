@@ -1,5 +1,5 @@
 // A full-card message: a link that doesn't work, a cancelled interview, or an error.
-import { el } from "./dom";
+import { el } from "../shared/dom";
 import { ICONS } from "./icons";
 import { card, render, state } from "./app";
 
