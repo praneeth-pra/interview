@@ -623,3 +623,26 @@ h2 {
     font-size: 14.5px;
   }
 }
+/* smallest phones (320 px): keep the brand and links on one line each */
+@media (max-width: 359px) {
+  .wrap {
+    padding: 0 14px;
+  }
+  .navin {
+    gap: 8px;
+  }
+  .brand {
+    gap: 8px;
+  }
+  .mark {
+    width: 30px;
+    height: 30px;
+  }
+  .bt b,
+  .links a {
+    white-space: nowrap;
+  }
+  .links a {
+    padding: 8px 7px;
+  }
+}

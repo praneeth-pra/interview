@@ -539,7 +539,7 @@ function renderCalendar() {
   );
   var grid = el("div", {
     class: "grid",
-    role: "grid",
+    role: "group",
     "aria-label": monthLabel,
   });
   ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].forEach(function (weekday) {

@@ -22,6 +22,7 @@
   --red: #c8372d;
   --seg: #f0ede6;
   --dur-h: rgba(26, 26, 26, 0.04);
+  --dur-t: rgba(26, 26, 26, 0.64);
   --dur-on: #fbeee8;
   --dur-b: #d97757;
   --note-bg: #fff7e8;
@@ -54,6 +55,7 @@
     --red: #ff8a80;
     --seg: #292724;
     --dur-h: rgba(255, 255, 255, 0.04);
+    --dur-t: #bdbdbd;
     --dur-on: #3a2820;
     --dur-b: #d97757;
     --note-bg: #241e14;
@@ -285,7 +287,7 @@ button:active:not(:disabled) {
   min-width: 0;
   height: 36px;
   border-radius: 8px;
-  color: var(--ink2);
+  color: var(--dur-t);
   font-size: 14px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
