@@ -412,7 +412,7 @@ describe("payments", () => {
     const csv = await get(open, "/admin/api/revenue.csv");
     expect(csv.headers.get("content-disposition")).toStartWith('attachment; filename="payments-');
     const lines = (await csv.text()).trim().split("\r\n");
-    expect(lines[0]).toBe("\uFEFFDate,Month,Name,Email,Installment,Amount (INR),Status,Confirmed on");
+    expect(lines[0]).toBe("Date,Month,Name,Email,Installment,Amount (INR),Status,Confirmed on");
     expect(lines.slice(1).map((l) => l.split(",").slice(2, 7).join(","))).toEqual([
       "Kiran Kumar,kiran@example.com,Advance,12500,Confirmed",
       "Kiran Kumar,kiran@example.com,1st installment,5000,Pending",

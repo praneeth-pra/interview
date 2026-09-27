@@ -8,6 +8,8 @@ import { istDate, istParts } from "./time";
 import { normEmail, pad } from "./util";
 
 const MONTHS = 12;
+// "" is a payment from before the form asked which installment it was
+const PARTS = ["advance", "1", "2", "3", ""];
 const monthKey = (iso: string) => {
   const p = istParts(Date.parse(iso));
   return p.y + "-" + pad(p.mo);
@@ -32,7 +34,7 @@ export function analyticsView(now = Date.now()) {
   const enquired = months.map(() => 0);
 
   const installments: Record<string, { total: number; count: number }> = {};
-  for (const k of [...Object.keys(INSTALLMENTS), ""]) installments[k] = { total: 0, count: 0 };
+  for (const k of PARTS) installments[k] = { total: 0, count: 0 };
   const people: Record<string, { name: string; email: string; total: number; count: number; last: string }> = {};
   let total = 0;
   let count = 0;
@@ -100,7 +102,8 @@ export function analyticsView(now = Date.now()) {
   return {
     months,
     revenue: { total, count, pending, pendingCount, payers: payers.size, byMonth: revenue, paidByMonth: paid },
-    installments: Object.entries(installments).map(([key, v]) => ({ key, ...v })),
+    // in the fee's order (an object would list "1", "2", "3" before "advance")
+    installments: PARTS.map((key) => ({ key, ...installments[key] })),
     candidates: Object.values(people).sort((a, b) => b.total - a.total || b.last.localeCompare(a.last)),
     bookings: { byMonth: booked, rounds, candidates: bookers.size },
     enquiries: { total: enquiriesStore.data.enquiries.length, people: enquirers.size, booked: enquiryBooked, paid: enquiryPaid, byMonth: enquired },

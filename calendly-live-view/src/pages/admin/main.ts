@@ -20,6 +20,7 @@ import { sameCompany } from "../../same-company";
 import { setupAlerts } from "./alerts";
 import { setupDownloadMenu } from "./download-menu";
 import { setupNav } from "./nav";
+import { showRevenue } from "./revenue";
 import { setupStatsFrame } from "./stats-frame";
 import type { Allowlist, Booking, State } from "./types";
 
@@ -2239,6 +2240,10 @@ function refreshPayments() {
   if (!byId("viewPay").hidden && paymentsShown >= 0 && key !== paymentsKey) {
     showPayments();
   }
+  // a new or decided payment changes the numbers in Analytics too
+  if (!byId("viewRev").hidden && paymentsShown >= 0 && key !== paymentsKey) {
+    showRevenue();
+  }
   paymentsKey = key;
   paymentsShown = state.payments || 0;
 }
@@ -2664,6 +2669,7 @@ document.addEventListener("visibilitychange", function () {
 });
 window.__enq = showEnquiries;
 window.__pay = showPayments;
+window.__rev = showRevenue;
 // leaving the tab brings the count back for anything new
 new MutationObserver(renderEnquiryBadge).observe(byId("viewEnq"), { attributes: true, attributeFilter: ["hidden"] });
 if (boot.login) {

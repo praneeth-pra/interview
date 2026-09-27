@@ -1,6 +1,6 @@
 # booking-form (hi-techie.dev)
 
-Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones. Candidates report a payment (Advance, or the 1st, 2nd or 3rd installment) with its receipt at `/payment` (not linked from the site, not indexed; limited to the Candidates list when it is on, like booking); those are in the Payments tab, by candidate, with a search box for a name or email.
+Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones. Candidates report a payment (Advance, or the 1st, 2nd or 3rd installment) with its receipt at `/payment` (not linked from the site, not indexed; limited to the Candidates list when it is on, like booking); those are in the Payments tab, by candidate, with a search box for a name or email. Owners also get an Analytics tab (on phones and narrow windows, in the ⋯ menu): revenue from confirmed payments by month, installment and candidate, pending payments, bookings and round results by month, and how many enquiries went on to book and pay, with the payments as a CSV.
 
 Runs on Railway: project `calendly-live-view`, service `booking-form`, production environment. Domains `hi-techie.dev`, `www.hi-techie.dev`.
 
@@ -11,7 +11,8 @@ src/server.ts        starts the server: loads the data, logs the settings, liste
 src/server/          the server, one module per feature:
                      routes/ (public.ts, auth.ts, admin.ts: every URL), config.ts (environment variables),
                      data.ts (what is stored, one JSON file each) and store.ts (reading and writing them),
-                     bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts, payments.ts, auth.ts (sign-in codes and
+                     bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts, payments.ts, analytics.ts (owners' revenue summary),
+                     auth.ts (sign-in codes and
                      sessions), email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin
                      updates), backup.ts, pages.ts (page shells), http.ts (headers, limits), sw.js (service worker)
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
@@ -19,7 +20,7 @@ src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|js   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
 src/pages/book/      the booking page as TypeScript modules: main.ts (steps and rendering), time.ts, companies.ts, dom.ts, icons.ts
 src/pages/admin/     the admin page: main.ts (calendar, panel, forms, search, allowlist, live updates), alerts.ts, nav.ts,
-                     stats-frame.ts, download-menu.ts, and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
+                     stats-frame.ts, download-menu.ts, revenue.ts (owners' Analytics tab), and helpers time.ts, dom.ts, api.ts, labels.ts, types.ts
 src/pages/analytics/ the Analytics tab (framed in admin): main.ts (people picker, company progress, timeline, insights),
                      api.ts (answers the page's old dashboard API in the browser from /admin/api/*), companies.ts, rounds.ts
 src/fonts/           Figtree and Instrument Serif (open source, SIL OFL), self-hosted
