@@ -27,13 +27,16 @@ export function slotsFor(y: number, mo: number, d: number, duration: number, ign
   }
   return out;
 }
+// Each day carries its free times too, so the booking page shows them without one request per day.
 export function bookableDays(duration: number, ignoreId = "") {
   const today = istParts(Date.now());
-  const out: { key: string; open: boolean }[] = [];
+  const limit = bookingLimitMs();
+  const out: { key: string; open: boolean; slots: number[] }[] = [];
   for (let i = 0; i < DAYS_AHEAD; i++) {
     const t = new Date(Date.UTC(today.y, today.mo - 1, today.d + i));
     const [y, mo, d] = [t.getUTCFullYear(), t.getUTCMonth() + 1, t.getUTCDate()];
-    out.push({ key: y + "-" + pad(mo) + "-" + pad(d), open: slotsFor(y, mo, d, duration, ignoreId).length > 0 });
+    const slots = slotsFor(y, mo, d, duration, ignoreId).filter((s) => s < limit);
+    out.push({ key: y + "-" + pad(mo) + "-" + pad(d), open: slots.length > 0, slots });
   }
   return out;
 }

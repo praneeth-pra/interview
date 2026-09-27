@@ -194,6 +194,7 @@ describe("booking flow", () => {
     const slots = (await (await get(open, `/api/slots?date=${day.key}&duration=30`)).json()).slots;
     expect(slots.length).toBeGreaterThan(1);
     expect(slots).not.toContain(FUTURE);
+    expect(day.slots).toEqual(slots);
     const post = (path: string, body: unknown) => fetch(open.url + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const made = await (await post("/api/book", { name: "Test Person", email: "test@example.com", company: "Acme", round: "HR", duration: 30, startMs: slots[0] })).json();
     expect(made.booking.manage).toMatch(/\/b\/[0-9a-f-]{36}\?t=[0-9a-f]{32}$/);

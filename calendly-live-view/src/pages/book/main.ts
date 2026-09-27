@@ -6,7 +6,7 @@ import { companies, loadCompanies, suggestCompanies } from "./companies";
 // The booking page: pick a length, day and time, enter details, confirm. The same page handles the
 // candidate's manage link (/b/<id>?t=...): reschedule or cancel an existing booking.
 type Step = "pick" | "details" | "confirm" | "done" | "manage" | "cancel" | "msg";
-type Day = { key: string; open: boolean };
+type Day = { key: string; open: boolean; slots?: number[] };
 type Booking = {
   id: string;
   name: string;
@@ -91,7 +91,8 @@ if (savedMe) {
 }
 var ignoreQuery = manage && manage.id ? "&ignore=" + manage.id + "&t=" + manage.t : "";
 function loadDays(keepView?: boolean) {
-  return fetch("/api/days?duration=" + state.dur + ignoreQuery)
+  var duration = state.dur;
+  return fetch("/api/days?duration=" + duration + ignoreQuery)
     .then(function (res) {
       return res.json();
     })
@@ -101,6 +102,12 @@ function loadDays(keepView?: boolean) {
       data.days.forEach(function (day) {
         if (day.open) {
           state.openSet[day.key] = 1;
+        }
+        // The days list carries each day's times, so tapping a date needs no further request.
+        if (day.slots) {
+          var key = day.key + ":" + duration;
+          slotCache[key] = day.slots;
+          slotRequests[key] = Promise.resolve(day.slots);
         }
       });
       if (!keepView || !state.viewY) {
