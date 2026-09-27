@@ -396,6 +396,30 @@ describe("payments", () => {
     expect((await get(locked, "/admin/api/payments")).status).toBe(401);
     expect((await get(locked, "/admin/api/payments/" + payments[1].id + "/receipt")).status).toBe(401);
   });
+
+  test("Analytics counts confirmed payments as revenue, keeps pending ones apart, and exports them as CSV", async () => {
+    expect((await send(form({ ...good, installment: "1", amount: "5000" }, { bytes: PNG, name: "r.png" }), "10.1.0.4")).status).toBe(200);
+    const v = await (await get(open, "/admin/api/revenue")).json();
+    expect(v.months).toHaveLength(12);
+    // Kiran's advance was confirmed; Meena's payment was discarded and doesn't count anywhere
+    expect(v.revenue).toMatchObject({ total: 12500, count: 1, pending: 5000, pendingCount: 1, payers: 1 });
+    expect(v.revenue.byMonth.at(-1)).toBe(12500);
+    expect(v.installments.find((i: any) => i.key === "advance")).toEqual({ key: "advance", total: 12500, count: 1 });
+    expect(v.installments.find((i: any) => i.key === "2")).toEqual({ key: "2", total: 0, count: 0 });
+    expect(v.candidates).toEqual([{ name: "Kiran Kumar", email: "kiran@example.com", total: 12500, count: 1, last: expect.any(String) }]);
+    expect(v.bookings.rounds).toHaveProperty("cleared");
+    expect(v.enquiries).toHaveProperty("booked");
+    const csv = await get(open, "/admin/api/revenue.csv");
+    expect(csv.headers.get("content-disposition")).toStartWith('attachment; filename="payments-');
+    const lines = (await csv.text()).trim().split("\r\n");
+    expect(lines[0]).toBe("\uFEFFDate,Month,Name,Email,Installment,Amount (INR),Status,Confirmed on");
+    expect(lines.slice(1).map((l) => l.split(",").slice(2, 7).join(","))).toEqual([
+      "Kiran Kumar,kiran@example.com,Advance,12500,Confirmed",
+      "Kiran Kumar,kiran@example.com,1st installment,5000,Pending",
+    ]);
+    expect((await get(locked, "/admin/api/revenue")).status).toBe(401);
+    expect((await get(locked, "/admin/api/revenue.csv")).status).toBe(401);
+  });
 });
 
 describe("payments: the amount on the receipt", () => {
@@ -553,13 +577,13 @@ describe("admin", () => {
     expect((await get(locked, "/admin/api/state", { cookie })).status).toBe(200);
   });
 
-  test("only owners see enquiries and payments; the admins they add get neither the tabs nor the data", async () => {
+  test("only owners see enquiries, payments and revenue; the admins they add get neither the tabs nor the data", async () => {
     const cookie = ownerCookie;
     expect((await postJson(locked, "/admin/api/admins", { emails: ["aide@example.com"] }, { cookie })).status).toBe(200);
     const aide = await signIn(locked, "aide@example.com");
     const id = "00000000-0000-0000-0000-00000000abcd";
     // every enquiry and payment API refuses them, before looking anything up
-    const gets = ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/enquiries/" + id + "/resume", "/admin/api/payments", "/admin/api/payments/" + id + "/receipt?download=1"];
+    const gets = ["/admin/api/revenue", "/admin/api/revenue.csv", "/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/enquiries/" + id + "/resume", "/admin/api/payments", "/admin/api/payments/" + id + "/receipt?download=1"];
     for (const path of gets) {
       const r = await get(locked, path, { cookie: aide });
       expect(r.status).toBe(403);
@@ -568,7 +592,7 @@ describe("admin", () => {
     for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide"])
       expect((await postJson(locked, path, { id }, { cookie: aide })).status).toBe(403);
     // the owner still gets them (the made-up id isn't there, so its file is a 404, not a 403)
-    for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments"])
+    for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments", "/admin/api/revenue", "/admin/api/revenue.csv"])
       expect((await get(locked, path, { cookie })).status).toBe(200);
     expect((await get(locked, "/admin/api/enquiries/" + id + "/resume", { cookie })).status).toBe(404);
     expect((await get(locked, "/admin/api/payments/" + id + "/receipt", { cookie })).status).toBe(404);
@@ -577,6 +601,8 @@ describe("admin", () => {
     expect(boot(page).owner).toBe(false);
     expect(page).toContain('<button hidden id="tabEnq"');
     expect(page).toContain('<button hidden id="tabPay"');
+    expect(page).toContain('<button hidden id="tabRev"');
+    expect(page).toContain('<button hidden type="button" id="mRev"');
     expect(page).toContain('<button hidden type="button" data-go="enq"');
     expect(page).toContain('<button hidden type="button" data-go="pay"');
     expect(page).toContain('<nav class="bnav b3"');
