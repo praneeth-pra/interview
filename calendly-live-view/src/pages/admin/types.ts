@@ -46,7 +46,7 @@ declare global {
     __stats?: () => void;
     __enq?: () => void; // the Enquiries tab was opened
     __pay?: () => void; // the Payments tab was opened
-    __rev?: () => void; // the Analytics tab was opened
+    __rev?: () => void; // the Revenue tab was opened
     __statsEvent?: string; // open this booking's candidate when the Contacts tab shows
   }
   interface Navigator {
