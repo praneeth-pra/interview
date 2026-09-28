@@ -1,4 +1,4 @@
-// Candidates (⋯ menu): the emails allowed to book and send payments, and the switch that turns the list on.
+// Candidates (⋯ menu): the emails allowed to book (confirmed payers are added automatically), and the switch that turns the list on.
 import { byId, el, setMessage } from "./dom";
 import { plural } from "./labels";
 import { request } from "./api";
@@ -25,8 +25,8 @@ function renderAllow() {
   toggle.disabled = false;
   toggle.setAttribute("aria-checked", String(allow.enabled));
   byId("swd").textContent = allow.enabled
-    ? "On. Only the " + plural(allow.emails.length, "email") + " below can book and send payments."
-    : "Off. Anyone with the booking or payment link can use it.";
+    ? "On. Only the " + plural(allow.emails.length, "email") + " below can book. Confirming a payment adds its email."
+    : "Off. Anyone with the booking link can book.";
   byId("cnt").textContent = plural(allow.emails.length, "email");
   const query = byId<HTMLInputElement>("aq").value.trim().toLowerCase();
   const list = byId("alist");
@@ -86,9 +86,7 @@ export function setupAllowlist() {
       .then(function () {
         setMessage(
           byId("swm"),
-          allow.enabled
-            ? "Turned on. Only listed emails can book and send payments now."
-            : "Turned off. Anyone with the links can book and send payments.",
+          allow.enabled ? "Turned on. Only listed emails can book now." : "Turned off. Anyone with the booking link can book.",
         );
       })
       .catch(function (error) {

@@ -94,7 +94,7 @@ form.addEventListener("submit", function (event) {
         })
         .then(function (body) {
           if (!response.ok) {
-            // the email isn't on the invite list, or the amount isn't the one on the receipt
+            // the server refused a field, like an amount that isn't the one on the receipt
             const field = fields[body.field as keyof typeof fields];
             if (field) {
               field.setAttribute("aria-invalid", "true");

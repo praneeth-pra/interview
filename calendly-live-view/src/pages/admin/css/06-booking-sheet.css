@@ -92,7 +92,7 @@
 }
 .bk-st.st-completed {
   background: color-mix(in srgb, var(--green) 14%, transparent);
-  color: var(--green);
+  color: var(--green-ink);
 }
 .bk-st.st-inprogress {
   background: var(--amber-t);
