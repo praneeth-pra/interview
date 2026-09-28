@@ -1,6 +1,6 @@
 // Payments from the public /payment page, with their receipts.
 import { DATA_DIR, RECEIPT_MAX } from "./config";
-import { INSTALLMENTS, type Installment, type Payment, paymentsStore, pushStore } from "./data";
+import { INSTALLMENTS, INSTALLMENT_NAMES, type Installment, type Payment, paymentsStore, pushStore } from "./data";
 import { allowEmail } from "./allowlist";
 import { type Srv, json, saveOrUndo, storedFile, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
@@ -118,7 +118,7 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
     void pushAll(
       {
         title: "New payment",
-        body: name + " · ₹" + amount.toLocaleString("en-IN") + " · " + INSTALLMENTS[installment as Installment],
+        body: name + " · ₹" + amount.toLocaleString("en-IN") + " · " + INSTALLMENT_NAMES[installment as Installment],
         tag: "payment:" + id,
         url: "/admin?view=payments&pay=" + id,
       },

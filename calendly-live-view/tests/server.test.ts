@@ -344,8 +344,8 @@ describe("payments", () => {
     expect((await send(form({ ...good, website: "spam.example" }, { bytes: PNG, name: "r.png" }))).status).toBe(200);
     expect((await send(form({ ...good, amount: "abc" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
     expect((await send(form({ ...good, amount: "0" }, { bytes: PNG, name: "r.png" }))).status).toBe(400);
-    // which installment it is: one of the four, and required
-    for (const installment of ["", "4", "toString"]) {
+    // which installment it is: Advance, First or Final, and required (2nd and 3rd are no longer offered)
+    for (const installment of ["", "2", "3", "4", "toString"]) {
       const r = await send(form({ ...good, installment }, { bytes: PNG, name: "r.png" }), "10.1.0.3");
       expect(r.status).toBe(400);
       expect(await r.json()).toEqual({ error: "Choose which installment this is.", field: "installment" });
@@ -359,12 +359,12 @@ describe("payments", () => {
     expect(tooBig.status).toBe(413);
     expect((await tooBig.json()).error).toBe("Your receipt is larger than 1 MB. Please upload a smaller file.");
     expect((await send(form(good, { bytes: PNG, name: "gpay.png" }), "10.1.0.2")).status).toBe(200);
-    expect((await send(form({ ...good, name: "Meena Iyer", installment: "2", amount: "999.50" }, { bytes: PDF, name: "bank.pdf" }), "10.1.0.2")).status).toBe(200);
+    expect((await send(form({ ...good, name: "Meena Iyer", installment: "final", amount: "999.50" }, { bytes: PDF, name: "bank.pdf" }), "10.1.0.2")).status).toBe(200);
     const { payments } = await (await get(open, "/admin/api/payments")).json();
     expect(payments.map((p: any) => p.name)).toEqual(["Meena Iyer", "Kiran Kumar"]);
     expect(payments[1]).toMatchObject({ email: "kiran@example.com", amount: 12500, receipt: { name: "gpay.png", type: "image/png", size: PNG.length } });
     expect(payments[0].amount).toBe(999.5);
-    expect(payments.map((p: any) => p.installment)).toEqual(["2", "advance"]);
+    expect(payments.map((p: any) => p.installment)).toEqual(["final", "advance"]);
     const file = await get(open, "/admin/api/payments/" + payments[1].id + "/receipt");
     expect(file.headers.get("content-type")).toBe("image/png");
     expect(file.headers.get("content-disposition")).toStartWith("inline;");
@@ -415,7 +415,7 @@ describe("payments", () => {
     expect(lines[0]).toBe("Date,Month,Name,Email,Installment,Amount (INR),Status,Confirmed on");
     expect(lines.slice(1).map((l) => l.split(",").slice(2, 7).join(","))).toEqual([
       "Kiran Kumar,kiran@example.com,Advance,12500,Confirmed",
-      "Kiran Kumar,kiran@example.com,1st installment,5000,Pending",
+      "Kiran Kumar,kiran@example.com,First installment,5000,Pending",
     ]);
     // the search narrows everything to candidates whose name or email contains it, and says whom it found
     const kiran = await (await get(open, "/admin/api/revenue?q=KIRAN@")).json();
@@ -455,7 +455,7 @@ describe("payments: the amount on the receipt", () => {
     const d = new FormData();
     d.set("email", "ravi@example.com");
     d.set("name", "Ravi Teja");
-    d.set("installment", "3");
+    d.set("installment", "final");
     d.set("amount", "700");
     d.set("receipt", new File([PNG], "blurry.png"));
     expect((await fetch(open.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": "10.1.8.2" } })).status).toBe(200);
