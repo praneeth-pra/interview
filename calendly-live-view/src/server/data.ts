@@ -145,8 +145,11 @@ export const enquiriesStore = fileStore<{ enquiries: Enquiry[]; seen: Record<str
 );
 // Payments from the public /payment page. The details are in payments.json; each receipt is a file in DATA_DIR/receipts
 // (kept in memory when there is no data folder).
-export const INSTALLMENTS = { advance: "Advance", "1": "1st installment", "2": "2nd installment", "3": "3rd installment" } as const;
-export type Installment = keyof typeof INSTALLMENTS;
+// What the payment form offers. "1" is the first installment (its key from when the form offered 1st, 2nd and 3rd).
+export const INSTALLMENTS = { advance: "Advance", "1": "First installment", final: "Final installment" } as const;
+// Names for every installment a saved payment can have: the form's, and 2nd and 3rd from older payments.
+export const INSTALLMENT_NAMES = { ...INSTALLMENTS, "2": "2nd installment", "3": "3rd installment" } as const;
+export type Installment = keyof typeof INSTALLMENT_NAMES;
 export type Payment = {
   id: string;
   name: string;

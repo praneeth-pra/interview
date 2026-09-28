@@ -28,11 +28,11 @@ function checkBadge(item: Payment) {
     return null;
   }
 }
-// which part of the fee a payment is; older payments didn't ask, and show a dash
+// which part of the fee a payment is (2nd and 3rd only on older payments); the oldest didn't ask, and show a dash
 function installmentText(item: Payment, short?: boolean) {
   const names: Record<string, string> = short
-    ? { advance: "Advance", "1": "1st", "2": "2nd", "3": "3rd" }
-    : { advance: "Advance", "1": "1st installment", "2": "2nd installment", "3": "3rd installment" };
+    ? { advance: "Advance", "1": "First", final: "Final", "2": "2nd", "3": "3rd" }
+    : { advance: "Advance", "1": "First installment", final: "Final installment", "2": "2nd installment", "3": "3rd installment" };
   return names[item.installment] || "\u2014";
 }
 function statusBadge(item: Payment) {

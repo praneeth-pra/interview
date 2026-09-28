@@ -4,7 +4,7 @@
 // not at all. Months are India months, and a payment counts in the month it was sent.
 import { BASE_HEADERS } from "./http";
 import { csvCell } from "./bookings";
-import { INSTALLMENTS, paymentsStore } from "./data";
+import { INSTALLMENT_NAMES, paymentsStore } from "./data";
 import { istDate, istParts } from "./time";
 import { normEmail, pad } from "./util";
 
@@ -95,7 +95,7 @@ export function analyticsCsv(query = "") {
       monthKey(v.createdAt),
       v.name,
       normEmail(v.email),
-      v.installment ? INSTALLMENTS[v.installment] : "",
+      v.installment ? INSTALLMENT_NAMES[v.installment] : "",
       String(v.amount),
       status(v.decision),
       v.decision === "confirmed" ? istDate(v.decidedAt ?? "") : "",

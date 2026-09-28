@@ -52,7 +52,7 @@ export type Payment = {
   name: string;
   email: string;
   amount: number;
-  installment: "" | "advance" | "1" | "2" | "3";
+  installment: "" | "advance" | "1" | "final" | "2" | "3";
   check: "" | "verified" | "unread";
   decision: "" | "confirmed" | "discarded";
   decidedAt: string;
