@@ -15,6 +15,7 @@
   --today: rgba(217, 119, 87, 0.045);
   --field: #b2b2b2;
   --green: #0a8a3d;
+  --green-ink: #066b2f; /* green text on green tints: 4.5:1 or more */
   --amber: #a15c00;
   --amber-t: #fff4e0;
   --red: #c8372d;
@@ -40,6 +41,7 @@
     --today: rgba(224, 138, 109, 0.05);
     --field: #555;
     --green: #3ecf7a;
+    --green-ink: #3ecf7a;
     --amber: #ffb54d;
     --amber-t: #3a2c14;
     --red: #ff8a80;

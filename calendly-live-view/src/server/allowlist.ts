@@ -1,4 +1,5 @@
-// The Candidates list (allowlist.json): when it is on, only its emails can book and send payments.
+// The Candidates list (allowlist.json): when it is on, only its emails can book. Payments are open to any email, and
+// confirming one adds the payer here.
 import { allowStore, bookingsStore } from "./data";
 import { json, saveOrUndo } from "./http";
 import { broadcastState } from "./live";
@@ -6,6 +7,16 @@ import { EMAIL_RE, normEmail, type Fields } from "./util";
 
 const MAX_EMAILS = 5000;
 export const allowView = () => ({ enabled: allowStore.data.enabled, emails: [...allowStore.data.emails].sort() });
+// Add one email (a confirmed payer). True when it is on the list afterwards; false when the list is full or the save
+// failed, which leaves the list as it was. The caller broadcasts the new state.
+export async function allowEmail(email: string): Promise<boolean> {
+  const e = normEmail(email);
+  const before = allowStore.data;
+  if (before.emails.includes(e)) return true;
+  if (!EMAIL_RE.test(e) || before.emails.length >= MAX_EMAILS) return false;
+  allowStore.data = { enabled: before.enabled, emails: [...before.emails, e] };
+  return !(await saveOrUndo(allowStore, () => (allowStore.data = before)));
+}
 // POST /admin/api/allowlist: add pasted emails, remove one, turn the list on or off, or add everyone who has booked.
 // Nothing changes unless the whole action succeeds and is saved.
 export async function changeAllowlist(body: Fields): Promise<Response> {

@@ -465,7 +465,7 @@ describe("payments: the amount on the receipt", () => {
 });
 
 describe("payments and the invite list", () => {
-  test("when the Candidates list is on, only its emails can send a payment, as with booking", async () => {
+  test("payments are open to any email; confirming one adds the payer to the Candidates list", async () => {
     const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]);
     const f = (email: string) => {
       const d = new FormData();
@@ -480,10 +480,24 @@ describe("payments and the invite list", () => {
     expect((await postJson(open, "/admin/api/allowlist", { action: "add", text: "listed@example.com" })).status).toBe(200);
     expect((await postJson(open, "/admin/api/allowlist", { action: "enable", on: true })).status).toBe(200);
     try {
-      const refused = await send("stranger@example.com");
-      expect(refused.status).toBe(403);
-      expect(await refused.json()).toEqual({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" });
+      // anyone can send a payment, listed or not
+      expect((await send("Stranger@Example.com")).status).toBe(200);
       expect((await send("Listed@Example.com")).status).toBe(200);
+      // confirming the stranger's payment puts their email on the list, so they can book
+      const allow = async () => (await (await get(open, "/admin/api/allowlist")).json()).state.emails;
+      expect(await allow()).not.toContain("stranger@example.com");
+      const { payments } = await (await get(open, "/admin/api/payments")).json();
+      const id = payments.find((p: any) => p.email === "stranger@example.com").id;
+      const confirmed = await (await postJson(open, "/admin/api/payments/decide", { id, decision: "confirm" })).json();
+      expect(confirmed.allowed).toBe(true);
+      expect(await allow()).toContain("stranger@example.com");
+      // a discarded payment adds nothing
+      const other = payments.find((p: any) => p.email === "listed@example.com").id;
+      await postJson(open, "/admin/api/allowlist", { action: "remove", email: "listed@example.com" });
+      await postJson(open, "/admin/api/allowlist", { action: "add", text: "keep@example.com" });
+      const discarded = await (await postJson(open, "/admin/api/payments/decide", { id: other, decision: "discard" })).json();
+      expect(discarded.allowed).toBeUndefined();
+      expect(await allow()).not.toContain("listed@example.com");
     } finally {
       await postJson(open, "/admin/api/allowlist", { action: "enable", on: false });
     }

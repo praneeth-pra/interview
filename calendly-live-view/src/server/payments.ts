@@ -1,6 +1,7 @@
 // Payments from the public /payment page, with their receipts.
 import { DATA_DIR, RECEIPT_MAX } from "./config";
-import { INSTALLMENTS, type Installment, type Payment, emailAllowed, paymentsStore, pushStore } from "./data";
+import { INSTALLMENTS, type Installment, type Payment, paymentsStore, pushStore } from "./data";
+import { allowEmail } from "./allowlist";
 import { type Srv, json, saveOrUndo, storedFile, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
@@ -68,8 +69,6 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
   const amountText = text("amount", 20).replace(/[,\s₹]/g, "");
   const amount = /^\d+(\.\d{1,2})?$/.test(amountText) ? Number(amountText) : NaN;
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
-  if (!emailAllowed(email))
-    return json({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" }, 403);
   if (name.length < 2) return json({ error: "Enter your full name." }, 400);
   if (!Object.hasOwn(INSTALLMENTS, installment)) return json({ error: "Choose which installment this is.", field: "installment" }, 400);
   if (!(amount > 0) || amount > AMOUNT_MAX) return json({ error: "Enter the amount you paid, in rupees." }, 400);
@@ -154,6 +153,7 @@ export async function receiptFile(id: string, download: boolean): Promise<Respon
   return storedFile(bytes, v.receipt, download, v.name, "Payment", "receipt");
 }
 // Confirm or discard a payment waiting for a decision. Either is final: a decided payment can't be changed or deleted.
+// Confirming also adds the payer's email to the Candidates list, so they can book (allowed: whether they now can).
 export async function decidePayment(id: string, choice: unknown, by: string): Promise<Response> {
   const decision = choice === "confirm" ? "confirmed" : choice === "discard" ? "discarded" : "";
   if (!decision) return json({ error: "Bad request." }, 400);
@@ -169,6 +169,7 @@ export async function decidePayment(id: string, choice: unknown, by: string): Pr
     delete v.decidedBy;
   });
   if (failed) return failed;
+  const allowed = decision === "confirmed" ? await allowEmail(v.email) : undefined;
   broadcastState();
-  return json({ ok: true, payment: paymentView(v) });
+  return json({ ok: true, payment: paymentView(v), ...(allowed === undefined ? {} : { allowed }) });
 }
