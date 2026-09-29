@@ -8,6 +8,16 @@ const { join } = require("node:path");
 
 const PORT = 4321;
 const BASE = "http://127.0.0.1:" + PORT;
+// The booking calendar's open days, from next month when this month has none left (late on a month's last open day).
+async function openDays(p) {
+  const days = p.locator("button.day.open");
+  await p.locator("button.day").first().waitFor();
+  if (!(await days.count())) {
+    await p.locator("#nextm").click();
+    await days.first().waitFor();
+  }
+  return days;
+}
 const dir = mkdtempSync(join(tmpdir(), "booking-form-smoke-"));
 const start = new Date(Date.now() + 2 * 86400000);
 start.setUTCHours(5, 0, 0, 0);
@@ -26,7 +36,7 @@ locked.stdout.on("data", (d) => (lockedLog += d));
 const checks = [
   ["booking page", async (p) => {
     await p.goto(BASE + "/booking");
-    await p.locator("button.day.open").nth(1).click();
+    await (await openDays(p)).first().click();
     await p.locator("button.t").first().click();
     await p.locator("#go").click();
     await p.locator("#card input").first().waitFor();
@@ -41,7 +51,7 @@ const checks = [
     // Days and times are picked by what is open now, not by position: near the end of a day or a month the calendar
     // shows fewer open days.
     await p.goto(BASE + "/booking");
-    const firstDay = p.locator("button.day.open").first();
+    const firstDay = (await openDays(p)).first();
     const bookedDay = await firstDay.getAttribute("aria-label");
     await firstDay.click();
     const booked = (await p.locator("button.t").first().textContent()).trim();
@@ -68,7 +78,7 @@ const checks = [
       if (times.includes(booked)) throw new Error("the booked time is still offered");
     }
     await p.goto(manage + "&a=reschedule");
-    await p.locator("button.day.open").last().click();
+    await (await openDays(p)).last().click();
     await p.locator("button.t").last().click();
     await p.locator("#go").click();
     await p.getByRole("button", { name: "Reschedule" }).click();

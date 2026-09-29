@@ -125,12 +125,20 @@ async function gotoBooking(p, s) {
   const r = await p.goto(s.main + "/booking");
   if (r && r.status() === 404) await p.goto(s.main + "/");
 }
+// The day and time are clamped to what is open: late in the day or at a month's end the calendar has fewer open days
+// (none left this month: next month's), and a day fewer times.
 async function pickTime(p, s, dayIndex = 1, slotIndex = 2) {
   await gotoBooking(p, s);
   await wait(p, 700);
-  await p.locator("button.day.open").nth(dayIndex).click();
+  const days = p.locator("button.day.open");
+  if (!(await days.count())) {
+    await p.locator("#nextm").click();
+    await days.first().waitFor();
+  }
+  await days.nth(Math.min(dayIndex, (await days.count()) - 1)).click();
   await wait(p, 700);
-  await p.locator("button.t").nth(slotIndex).click();
+  const times = p.locator("button.t");
+  await times.nth(Math.min(slotIndex, (await times.count()) - 1)).click();
   await wait(p, 300);
 }
 // Contacts (Analytics before): type a name in the search and open the first match. Works on both the old page
