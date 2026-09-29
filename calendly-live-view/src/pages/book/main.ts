@@ -10,9 +10,11 @@ import { renderDetails } from "./details";
 import { renderDone } from "./done";
 import { renderCancel, renderConfirm, renderManage } from "./manage";
 import { renderMessage } from "./message";
+import { applyDraftForm, readDraft, resumeDraft, saveDraft } from "./draft";
 
 // Draws the card for the current step.
 function drawCard() {
+  saveDraft();
   const focusedId = document.activeElement && document.activeElement.id;
   let list = card.querySelector(".tlist");
   const scrollTop = list && !state.anim ? list.scrollTop : 0;
@@ -93,8 +95,20 @@ if (manage) {
     loadDays();
   }
 } else {
+  // after a refresh, pick up where the candidate was (see draft.ts)
+  const draft = readDraft();
+  if (draft) {
+    applyDraftForm(draft);
+  }
   render();
-  loadDays();
+  loadDays().then(function () {
+    if (draft) {
+      resumeDraft(draft);
+    }
+  });
+  // typing changes the form without a redraw; keep the saved copy current
+  document.addEventListener("input", saveDraft);
+  addEventListener("pagehide", saveDraft);
 }
 setInterval(function () {
   if (state.step === "pick") {

@@ -42,6 +42,22 @@ const checks = [
     await p.locator("#card input").first().waitFor();
     if (!(await p.evaluate(() => document.fonts.check("600 16px Figtree")))) throw new Error("Figtree did not load");
   }],
+  ["booking page: a refresh keeps the time picked and what was typed", async (p) => {
+    await p.goto(BASE + "/booking");
+    await (await openDays(p)).first().click();
+    const time = p.locator("button.t").first();
+    const picked = await time.getAttribute("id");
+    await time.click();
+    await p.locator("#go").click();
+    await p.locator("#fname").fill("Refresh Test");
+    await p.reload();
+    await p.locator("#fname").waitFor();
+    if ((await p.locator("#fname").inputValue()) !== "Refresh Test") throw new Error("the typed name was lost");
+    // the details step names the same time; back goes to the times with that time still picked
+    await p.locator("#back").click();
+    await p.locator(".slot.sel").waitFor();
+    if ((await p.locator(".slot.sel button.t").getAttribute("id")) !== picked) throw new Error("a different time is picked after the refresh");
+  }],
   ["booking page: book, book another, reschedule and cancel", async (p) => {
     const card = () => p.locator("#card").textContent();
     const expectText = async (re, what) => {
