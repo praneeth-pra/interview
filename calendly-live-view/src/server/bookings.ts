@@ -9,6 +9,7 @@ import { broadcastState } from "./live";
 import { alertAdmins } from "./push";
 import { bookingLimitMs, overlapsExisting, slotOk } from "./schedule";
 import { saveStore } from "./store";
+import { sameCompany } from "../same-company";
 import { istDate, t12 } from "./time";
 import { EMAIL_RE, type Fields } from "./util";
 
@@ -31,6 +32,31 @@ export async function commit(b: Booking, prev: Booking) {
   }
 }
 const OUTCOME_LABEL = { cleared: "Cleared", rejected: "Rejected", hold: "On hold" } as const;
+// Booking a later round with a company means the one before was cleared: the candidate's latest earlier round with the
+// same company (by email, already started, not cancelled) is marked Cleared when it has no result yet or is On hold.
+// A round an admin marked Rejected, a no-show or didn't happen is left as it is. Returns the round changed and a copy
+// from before the change, so a failed save can put it back.
+function clearEarlierRound(next: Booking): { round: Booking; before: Booking } | null {
+  if (!next.company) return null;
+  const email = next.email.toLowerCase();
+  const startMs = Date.parse(next.start);
+  const round = bookingsStore.data.bookings
+    .filter(
+      (x) =>
+        x !== next &&
+        !x.cancelled &&
+        x.email.toLowerCase() === email &&
+        !!x.company &&
+        (x.company === next.company || sameCompany(x.company, next.company!)) &&
+        Date.parse(x.start) < startMs &&
+        Date.parse(x.start) <= Date.now(),
+    )
+    .sort((a, b) => Date.parse(b.start) - Date.parse(a.start))[0];
+  if (!round || round.missed || (round.outcome && round.outcome !== "hold")) return null;
+  const before = { ...round };
+  Object.assign(round, { outcome: "cleared", outcomeAt: next.createdAt, outcomeBy: "next-round" });
+  return { round, before };
+}
 export const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
 export async function createBooking(body: Fields, req: Request, source?: "admin"): Promise<Response> {
   const name = String(body?.name ?? "")
@@ -72,10 +98,15 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     ...(source ? { source } : {}),
   };
   bookingsStore.data.bookings.push(booking);
+  const cleared = clearEarlierRound(booking);
   try {
     await saveStore(bookingsStore);
   } catch {
     bookingsStore.data.bookings = bookingsStore.data.bookings.filter((x) => x !== booking);
+    if (cleared) {
+      for (const k of Object.keys(cleared.round)) if (!(k in cleared.before)) delete (cleared.round as Record<string, unknown>)[k];
+      Object.assign(cleared.round, cleared.before);
+    }
     return json({ error: "Couldn't save the booking. Try again." }, 500);
   }
   broadcastState();
@@ -258,6 +289,7 @@ export async function setRoundStatus(id: string, status: unknown): Promise<Respo
     delete b.missed;
     delete b.missedAt;
   } else if (b.missed !== missed) Object.assign(b, { missed, missedAt: now });
+  delete b.outcomeBy;
   if (status && !missed) Object.assign(b, { outcome: status, outcomeAt: now });
   else {
     delete b.outcome;

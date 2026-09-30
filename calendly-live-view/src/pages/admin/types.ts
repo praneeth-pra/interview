@@ -21,6 +21,7 @@ export type Booking = {
   missedAt?: string;
   outcome?: "cleared" | "rejected" | "hold" | ""; // the round's result; none means Scheduled
   outcomeAt?: string;
+  outcomeBy?: "next-round" | ""; // "next-round": set to Cleared when the candidate booked their next round
 };
 // A cancellation or reschedule in the last 30 days.
 export type Change = Booking & { kind: "cancelled" | "rescheduled"; at: string };

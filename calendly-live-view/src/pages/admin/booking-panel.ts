@@ -87,7 +87,15 @@ function roundStatusCard(booking: Booking, current: RoundStatus | null, supporte
   });
   card.appendChild(group);
   card.appendChild(
-    el("p", { class: "sub rs-hint", text: current ? "Tap " + current.label + " again to clear it." : "Tap how the round went." }),
+    el("p", {
+      class: "sub rs-hint",
+      text: current
+        ? (booking.outcomeBy === "next-round" && booking.outcome === "cleared" ? "Set to Cleared when the next round was booked. " : "") +
+          "Tap " +
+          current.label +
+          " again to clear it."
+        : "Tap how the round went.",
+    }),
   );
   card.appendChild(msg);
   return card;

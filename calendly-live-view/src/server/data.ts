@@ -29,6 +29,8 @@ export type Booking = {
   // the round's result, set by an admin from the booking panel; no value means Scheduled
   outcome?: "cleared" | "rejected" | "hold";
   outcomeAt?: string;
+  // "next-round" when the result was set to Cleared because the candidate booked their next round with the company
+  outcomeBy?: "next-round";
 };
 export const activeBookings = () => bookingsStore.data.bookings.filter((b) => !b.cancelled);
 export const bookingsStore = fileStore<{ bookings: Booking[] }>(
