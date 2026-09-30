@@ -193,7 +193,14 @@ const CASES = [
     async (p, s) => {
       await gotoBooking(p, s);
       await wait(p, 700);
-      await p.click("#nextm");
+      // the other month in the booking window: next when there is one, else previous (near a month's end the window
+      // can end in the month shown first, or start in the one before it)
+      for (const id of ["#nextm", "#prevm"]) {
+        if (await p.locator(id + ":not([disabled])").count()) {
+          await p.click(id);
+          break;
+        }
+      }
       await wait(p, 600);
     },
   ],

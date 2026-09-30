@@ -773,6 +773,54 @@ describe("admin", () => {
     }
   });
 
+  test("booking the next round with a company marks the round before it Cleared, unless an admin already decided", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-next-"));
+    const past = istMidnight() - 24 * HOUR + 10 * HOUR;
+    const round = (n: number, email: string, company: string, extra: Record<string, unknown> = {}) => ({
+      ...booking, id: "00000000-0000-0000-0000-0000000001" + String(n).padStart(2, "0"), email, company, round: "1st round",
+      start: new Date(past).toISOString(), end: new Date(past + 30 * 60000).toISOString(), ...extra,
+    });
+    const rounds = [
+      round(1, "asha@example.com", "Google"), // no result yet: becomes Cleared
+      round(2, "ravi@example.com", "Infosys", { outcome: "rejected", outcomeAt: new Date(past).toISOString() }), // stays Rejected
+      round(3, "meena@example.com", "TCS", { outcome: "hold", outcomeAt: new Date(past).toISOString() }), // On hold: becomes Cleared
+      round(4, "arun@example.com", "Amazon"), // the next round is with another company: untouched
+      round(5, "kiran@example.com", "Wipro", { missed: "noshow", missedAt: new Date(past).toISOString() }), // a no-show: untouched
+      round(6, "neha@example.com", "Adobe", { start: new Date(FUTURE).toISOString(), end: new Date(FUTURE + 30 * 60000).toISOString() }), // not held yet
+    ];
+    writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: rounds }));
+    const srv = await start(4319, {}, dir);
+    try {
+      const days = await (await get(srv, "/api/days?duration=30")).json();
+      const slots: number[] = days.days.filter((d: any) => d.open).flatMap((d: any) => d.slots).filter((ms: number) => ms > FUTURE + HOUR);
+      const book = async (i: number, email: string, company: string) =>
+        (await postJson(srv, "/api/book", { name: "Someone", email, company, round: "2nd round", duration: 30, startMs: slots[i] })).status;
+      const saved = (n: number) => JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.find((b: any) => b.id === rounds[n - 1].id);
+      expect(await book(0, "Asha@Example.com", "google")).toBe(200);
+      expect(await book(1, "ravi@example.com", "Infosys")).toBe(200);
+      expect(await book(2, "meena@example.com", "TCS")).toBe(200);
+      expect(await book(3, "arun@example.com", "Microsoft")).toBe(200);
+      expect(await book(4, "kiran@example.com", "Wipro")).toBe(200);
+      expect(await book(5, "neha@example.com", "Adobe")).toBe(200);
+      expect(saved(1)).toMatchObject({ outcome: "cleared", outcomeBy: "next-round" });
+      expect(saved(2).outcome).toBe("rejected");
+      expect(saved(3)).toMatchObject({ outcome: "cleared", outcomeBy: "next-round" });
+      expect(saved(4).outcome).toBeUndefined();
+      expect(saved(5).outcome).toBeUndefined();
+      expect(saved(5).missed).toBe("noshow");
+      expect(saved(6).outcome).toBeUndefined();
+      // the admin page sees it, and an admin's own choice replaces the automatic one
+      const state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === rounds[0].id)).toMatchObject({ outcome: "cleared", outcomeBy: "next-round" });
+      expect((await postJson(srv, "/admin/api/round-status", { id: rounds[0].id, status: "hold" })).status).toBe(200);
+      expect(saved(1).outcome).toBe("hold");
+      expect(saved(1).outcomeBy).toBeUndefined();
+    } finally {
+      srv.proc.kill();
+    }
+  });
+
   test("the service worker caches admin pages and assets only, and forgets them on sign-out", async () => {
     const sw = await get(open, "/sw.js");
     expect(sw.headers.get("cache-control")).toBe("no-cache");
