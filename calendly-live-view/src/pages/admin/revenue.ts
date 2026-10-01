@@ -290,7 +290,7 @@ function showRevenue() {
   const ask = ++loading;
   // the CSV narrows to the same candidates
   byId<HTMLAnchorElement>("revDl").href = "/admin/api/revenue.csv" + (query ? "?q=" + encodeURIComponent(query) : "");
-  request<Summary>("/admin/api/revenue" + (query ? "?q=" + encodeURIComponent(query) : ""))
+  return request<Summary>("/admin/api/revenue" + (query ? "?q=" + encodeURIComponent(query) : ""))
     .then(function (data: Summary) {
       if (ask !== loading) {
         return;

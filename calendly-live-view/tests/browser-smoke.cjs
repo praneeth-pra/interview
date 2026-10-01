@@ -103,6 +103,45 @@ const checks = [
     await p.click("#cxgo");
     await expectText(/cancelled/i, "cancel didn't finish");
   }],
+  ["admin phone: pulling down from the top refreshes the tab in place; short, sideways and sheet drags don't", async (p) => {
+    const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    try {
+      const m = await ctx.newPage();
+      const errors = [];
+      m.on("pageerror", (e) => errors.push(e.message));
+      let asked = [];
+      // the page's own requests; the Contacts frame loads quietly in the background and asks for the state too
+      m.on("request", (r) => r.frame() === m.mainFrame() && asked.push(new URL(r.url()).pathname));
+      await m.goto(BASE + "/admin");
+      await m.locator("#week .ev").first().waitFor();
+      await m.waitForTimeout(600);
+      const cdp = await ctx.newCDPSession(m);
+      const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
+      const pull = async (x1, y1, x2, y2) => {
+        asked = [];
+        await touch("touchStart", x1, y1);
+        for (let i = 1; i <= 12; i++) await touch("touchMove", x1 + ((x2 - x1) * i) / 12, y1 + ((y2 - y1) * i) / 12);
+        await touch("touchEnd");
+        await m.waitForTimeout(1100);
+        return asked;
+      };
+      if (!(await pull(195, 250, 195, 430)).includes("/admin/api/state")) throw new Error("a full pull didn't fetch the bookings again");
+      if (await m.evaluate(() => scrollY) !== 0) throw new Error("the page moved");
+      if ((await pull(195, 250, 195, 290)).includes("/admin/api/state")) throw new Error("a short pull refreshed");
+      if ((await pull(320, 300, 80, 330)).includes("/admin/api/state")) throw new Error("a sideways swipe refreshed");
+      await m.locator(".bnav [data-go=pay]").click();
+      await m.waitForTimeout(400);
+      const list = await m.locator("#payBody .enqlist").elementHandle();
+      if (!(await pull(195, 250, 195, 430)).includes("/admin/api/payments")) throw new Error("pulling on Payments didn't fetch the payments");
+      if (await list.evaluate((n) => n.isConnected)) throw new Error("Payments wasn't redrawn");
+      await m.locator("#dlBtn").click();
+      await m.waitForTimeout(300);
+      if ((await pull(195, 120, 195, 330)).includes("/admin/api/state")) throw new Error("pulling with the ⋯ menu open refreshed");
+      if (errors.length) throw new Error(errors.join("; "));
+    } finally {
+      await ctx.close();
+    }
+  }],
   ["admin phone: swiping the agenda moves the day, not the week strip, and never leaves it stuck", async (p) => {
     const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
     try {

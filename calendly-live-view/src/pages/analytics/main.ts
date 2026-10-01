@@ -3,6 +3,7 @@
 // (emails, bookings, interviews taken by each interviewer). Sections, in order: DOM and date helpers, the live state,
 // the contacts list, then the contact page.
 import { byId, el as make } from "../shared/dom";
+import { setupPullRefresh } from "../shared/pull-refresh";
 import { api, type Analytics, type DashState, type IvInfo, type Person, type TimelineEvent } from "./api";
 
 // the open contact's page, and a counter so only the latest request draws it
@@ -40,7 +41,7 @@ function ivSigOf(info: IvInfo) {
   return JSON.stringify(info.assign || {}) + "|" + JSON.stringify(info.names || []) + "|" + (info.persistent !== false);
 }
 function loadIv() {
-  api("/api/interviewers")
+  return api("/api/interviewers")
     .then((response) => response.json())
     .then((info) => {
       const signature = ivSigOf(info);
@@ -158,7 +159,7 @@ function chosenName() {
   }
 }
 function loadPeople() {
-  api("/api/people" + (merge ? "?merge=1" : ""))
+  return api("/api/people" + (merge ? "?merge=1" : ""))
     .then((response) => response.json())
     .then((list) => {
       people = Array.isArray(list) ? list : [];
@@ -571,6 +572,35 @@ function loadAnalytics(eventId: string) {
       }
     });
 }
+// Pull to refresh: the list, and the open contact's page, fetched again and redrawn without clearing them first.
+function refreshContact() {
+  if (!chosen || byId("an").hidden) {
+    return Promise.resolve();
+  }
+  const eventId = chosen.event;
+  const requestId = loadSeq;
+  return api("/api/analytics?event=" + encodeURIComponent(eventId) + mergeQuery())
+    .then((response) => (response.ok ? response.json() : null))
+    .then((fresh) => {
+      if (fresh && requestId === loadSeq && chosen && chosen.event === eventId) {
+        data = fresh;
+        renderAnalysis();
+      }
+    })
+    .catch(() => {});
+}
+function refreshAll() {
+  return Promise.all([connect(), loadPeople(), loadIv(), refreshContact()]);
+}
+window.__contactRefresh = refreshAll;
+setupPullRefresh({
+  refresh: refreshAll,
+  top: () => 0,
+  // a person's page being swiped back to the list
+  blocked: () => document.body.classList.contains("edge"),
+  surface: "var(--c)",
+  color: "var(--m)",
+});
 // interviewer names changed: redraw the open contact
 function onIv() {
   if (data) {
@@ -790,7 +820,7 @@ if (eventParam && /^[0-9a-f-]{36}$/i.test(eventParam)) {
 loadPeople();
 connect();
 function connect() {
-  api("/api/state")
+  return api("/api/state")
     .then(function (response) {
       return response.json();
     })
