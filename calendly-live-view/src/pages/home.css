@@ -860,13 +860,30 @@ h1.rise {
   .chead {
     font-size: 26px;
   }
+  /* two neat rows, each item with its own dot; the long one sits in the wide column */
   .vrow {
-    flex-direction: column;
-    align-items: center;
-    gap: 8px;
+    display: grid;
+    grid-template-columns: auto auto;
+    justify-content: center;
+    gap: 14px 26px;
+    padding-top: 22px;
+    padding-bottom: 22px;
   }
+  .vrow li {
+    font-size: 14.5px;
+  }
+  .vrow li:nth-child(3) {
+    order: 1;
+  }
+  .vrow li:before,
   .vrow li + li:before {
-    display: none;
+    content: "";
+    flex: none;
+    width: 5px;
+    height: 5px;
+    margin: 0 9px 0 0;
+    border-radius: 50%;
+    background: var(--accent);
   }
   .how {
     margin: 72px 12px 0;
@@ -904,23 +921,20 @@ h1.rise {
     margin-left: 0;
   }
 }
-/* phones: the side cards peek out from behind the offer letter; steps put the numeral beside the text */
+/* phones: just the offer letter, centred and whole; steps put the numeral beside the text */
 @media (max-width: 600px) {
   .stage {
-    height: 290px;
+    height: 250px;
+    margin-top: 48px;
   }
-  .card {
-    width: 200px;
-  }
-  .cv {
-    left: -28px;
-  }
+  .cv,
   .iv {
-    right: -28px;
+    display: none;
   }
   .offer {
-    width: 260px;
-    margin-left: -130px;
+    width: 280px;
+    margin-left: -140px;
+    bottom: -24px;
   }
   .steps li,
   .steps li + li {
@@ -948,5 +962,13 @@ h1.rise {
   .brand b,
   .links a {
     white-space: nowrap;
+  }
+  .vrow {
+    grid-template-columns: auto;
+    padding-top: 22px;
+    padding-bottom: 22px;
+  }
+  .vrow li:nth-child(3) {
+    order: 0;
   }
 }
