@@ -14,6 +14,8 @@ import { mkdir, rm } from "node:fs/promises";
 const mb = (n: number) => String(Math.round((n / 1048576) * 10) / 10);
 const RECEIPT_TOO_BIG = "Your receipt is larger than " + mb(RECEIPT_MAX) + " MB. Please upload a smaller file.";
 const PAYMENTS_PER_DAY = 100;
+// payments are open to any email, so one email can't pile up payments waiting for a decision
+const PENDING_PER_EMAIL = 3;
 const rupees = (n: number) => "\u20B9" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const AMOUNT_MAX = 10000000;
 // what the first bytes of each allowed kind of file look like (HEIC photos have "ftyp" after a 4-byte length)
@@ -72,6 +74,8 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
   if (name.length < 2) return json({ error: "Enter your full name." }, 400);
   if (!Object.hasOwn(INSTALLMENTS, installment)) return json({ error: "Choose which installment this is.", field: "installment" }, 400);
   if (!(amount > 0) || amount > AMOUNT_MAX) return json({ error: "Enter the amount you paid, in rupees." }, 400);
+  if (paymentsStore.data.payments.filter((v) => v.email === email && !v.decision).length >= PENDING_PER_EMAIL)
+    return json({ error: "You already have payments waiting to be checked. We'll look at those first." }, 429);
   const receipt = form.get("receipt");
   if (!(receipt instanceof Blob) || !receipt.size) return json({ error: "Attach your payment receipt." }, 400);
   if (receipt.size > RECEIPT_MAX) return json({ error: RECEIPT_TOO_BIG }, 413);
@@ -153,13 +157,16 @@ export async function receiptFile(id: string, download: boolean): Promise<Respon
   return storedFile(bytes, v.receipt, download, v.name, "Payment", "receipt");
 }
 // Confirm or discard a payment waiting for a decision. Either is final: a decided payment can't be changed or deleted.
-// Confirming also adds the payer's email to the Candidates list, so they can book (allowed: whether they now can).
+// Confirming an email's first payment also adds it to the Candidates list, so they can book (allowed: whether they now
+// can). Later confirmed payments from that email leave the list alone, so removing someone from it sticks.
 export async function decidePayment(id: string, choice: unknown, by: string): Promise<Response> {
   const decision = choice === "confirm" ? "confirmed" : choice === "discard" ? "discarded" : "";
   if (!decision) return json({ error: "Bad request." }, 400);
   const v = paymentsStore.data.payments.find((x) => x.id === id);
   if (!v) return json({ error: "That payment isn't there any more." }, 404);
   if (v.decision) return json({ error: "This payment was already " + v.decision + ". It can't be changed." }, 409);
+  const email = normEmail(v.email);
+  const first = !paymentsStore.data.payments.some((x) => x.decision === "confirmed" && normEmail(x.email) === email);
   v.decision = decision;
   v.decidedAt = new Date().toISOString();
   v.decidedBy = by;
@@ -169,7 +176,7 @@ export async function decidePayment(id: string, choice: unknown, by: string): Pr
     delete v.decidedBy;
   });
   if (failed) return failed;
-  const allowed = decision === "confirmed" ? await allowEmail(v.email) : undefined;
+  const allowed = decision === "confirmed" && first ? await allowEmail(v.email) : undefined;
   broadcastState();
   return json({ ok: true, payment: paymentView(v), ...(allowed === undefined ? {} : { allowed }) });
 }

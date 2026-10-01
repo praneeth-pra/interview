@@ -465,7 +465,7 @@ describe("payments: the amount on the receipt", () => {
 });
 
 describe("payments and the invite list", () => {
-  test("payments are open to any email; confirming one adds the payer to the Candidates list", async () => {
+  test("payments are open to any email; confirming an email's first payment adds it to the Candidates list", async () => {
     const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]);
     const f = (email: string) => {
       const d = new FormData();
@@ -491,6 +491,12 @@ describe("payments and the invite list", () => {
       const confirmed = await (await postJson(open, "/admin/api/payments/decide", { id, decision: "confirm" })).json();
       expect(confirmed.allowed).toBe(true);
       expect(await allow()).toContain("stranger@example.com");
+      // only an email's first confirmed payment adds it: removed from the list, a later one doesn't bring it back
+      await postJson(open, "/admin/api/allowlist", { action: "remove", email: "stranger@example.com" });
+      expect((await fetch(open.url + "/api/payment", { method: "POST", body: f("stranger@example.com"), headers: { "x-real-ip": "10.1.9.2" } })).status).toBe(200);
+      const later = (await (await get(open, "/admin/api/payments")).json()).payments.find((p: any) => p.email === "stranger@example.com" && !p.decision).id;
+      expect((await (await postJson(open, "/admin/api/payments/decide", { id: later, decision: "confirm" })).json()).allowed).toBeUndefined();
+      expect(await allow()).not.toContain("stranger@example.com");
       // a discarded payment adds nothing
       const other = payments.find((p: any) => p.email === "listed@example.com").id;
       await postJson(open, "/admin/api/allowlist", { action: "remove", email: "listed@example.com" });
@@ -498,6 +504,12 @@ describe("payments and the invite list", () => {
       const discarded = await (await postJson(open, "/admin/api/payments/decide", { id: other, decision: "discard" })).json();
       expect(discarded.allowed).toBeUndefined();
       expect(await allow()).not.toContain("listed@example.com");
+      // one email can't pile up payments waiting for a decision
+      for (const ip of ["10.1.9.3", "10.1.9.4", "10.1.9.5"])
+        expect((await fetch(open.url + "/api/payment", { method: "POST", body: f("pile@example.com"), headers: { "x-real-ip": ip } })).status).toBe(200);
+      const fourth = await fetch(open.url + "/api/payment", { method: "POST", body: f("pile@example.com"), headers: { "x-real-ip": "10.1.9.6" } });
+      expect(fourth.status).toBe(429);
+      expect((await fourth.json()).error).toContain("waiting to be checked");
     } finally {
       await postJson(open, "/admin/api/allowlist", { action: "enable", on: false });
     }
