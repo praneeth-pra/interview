@@ -396,9 +396,11 @@ export function showPayments() {
           toast(
             decision === "discard"
               ? "Payment discarded"
-              : result.allowed
-                ? "Payment confirmed · " + result.payment.email + " can book"
-                : "Payment confirmed · couldn't add the email to Candidates",
+              : result.allowed === undefined
+                ? "Payment confirmed"
+                : result.allowed
+                  ? "Payment confirmed · " + result.payment.email + " can book"
+                  : "Payment confirmed · couldn't add the email to Candidates",
           );
           payments = payments.map(function (p) {
             return p.id === item.id ? result.payment : p;
