@@ -1,29 +1,29 @@
 /* The home page (/): job assistance, with links to the enquiry form and the booking page. Warm and editorial:
-   Instrument Serif headlines, Figtree text, cream paper with a fine grain, the brand terracotta (#d97757) in a soft
+   Instrument Serif headlines, Figtree text, stone-grey paper with a fine grain, the brand terracotta (#d97757) in a soft
    glow, a fan of three cards (resume, offer letter, interview), a dark "how it works" band, tracks that drift past
-   and a terracotta closing panel. Light and dark; every animation stops with reduced motion. */
+   and a brand-orange closing panel. Light and dark; every animation stops with reduced motion. */
 :root {
   color-scheme: light;
-  --bg: #faf7f2;
+  --bg: #f5f5f4;
   --paper: #ffffff;
-  --sand: #f1ebe1;
-  --ink: #1c1b19;
-  --ink2: #5d5a53;
-  --line: rgba(28, 27, 25, 0.1);
-  --line2: rgba(28, 27, 25, 0.2);
+  --sand: #eceae8;
+  --ink: #1c1917;
+  --ink2: #57534e;
+  --line: rgba(28, 25, 23, 0.1);
+  --line2: rgba(28, 25, 23, 0.18);
   --accent: #d97757;
   /* the accent for large text (3:1) and for small text (4.5:1) on the page */
   --accent-big: #c4623f;
   --accent-ink: #a94e2c;
-  --glow1: rgba(217, 119, 87, 0.3);
-  --glow2: rgba(240, 180, 130, 0.35);
-  --glow3: rgba(196, 98, 63, 0.18);
+  --glow1: rgba(217, 119, 87, 0.1);
+  --glow2: transparent;
+  --glow3: rgba(217, 119, 87, 0.05);
   /* the dark band and the closing panel */
-  --band: #1c1b19;
-  --band-ink: #f4efe6;
-  --band-ink2: #b8b1a5;
-  --band-line: rgba(244, 239, 230, 0.12);
-  --shadow: 0 1px 2px rgba(28, 27, 25, 0.05), 0 24px 48px -18px rgba(60, 36, 20, 0.28);
+  --band: #1c1917;
+  --band-ink: #f5f5f4;
+  --band-ink2: #a8a29e;
+  --band-line: rgba(245, 245, 244, 0.12);
+  --shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 16px 32px -16px rgba(28, 25, 23, 0.2);
   --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -31,21 +31,21 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #151412;
-    --paper: #221f1c;
-    --sand: #1d1b18;
-    --ink: #f4efe6;
-    --ink2: #aaa398;
-    --line: rgba(244, 239, 230, 0.1);
-    --line2: rgba(244, 239, 230, 0.22);
-    --accent: #e08a6d;
-    --accent-big: #e08a6d;
-    --accent-ink: #e89a7f;
-    --glow1: rgba(217, 119, 87, 0.26);
-    --glow2: rgba(200, 120, 70, 0.16);
-    --glow3: rgba(160, 70, 40, 0.22);
-    --band: #1f1d1a;
-    --band-line: rgba(244, 239, 230, 0.1);
+    --bg: #141413;
+    --paper: #1f1e1c;
+    --sand: #1a1918;
+    --ink: #f5f5f4;
+    --ink2: #a8a29e;
+    --line: rgba(245, 245, 244, 0.1);
+    --line2: rgba(245, 245, 244, 0.2);
+    --accent: #d97757;
+    --accent-big: #d97757;
+    --accent-ink: #e08a6d;
+    --glow1: rgba(217, 119, 87, 0.12);
+    --glow2: transparent;
+    --glow3: rgba(217, 119, 87, 0.06);
+    --band: #1f1e1c;
+    --band-line: rgba(245, 245, 244, 0.1);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 28px 56px -20px rgba(0, 0, 0, 0.75);
   }
 }
@@ -240,7 +240,7 @@ h2 em,
   inset: 0;
   z-index: -1;
   background-image: var(--grain);
-  opacity: 0.1;
+  opacity: 0.04;
   mix-blend-mode: multiply;
   pointer-events: none;
 }
@@ -559,10 +559,10 @@ h1.rise {
   }
 }
 .how .eyebrow {
-  color: #e89a7f;
+  color: #d97757;
 }
 .how h2 em {
-  color: #e89a7f;
+  color: #d97757;
 }
 .shead h2 {
   font-size: clamp(42px, 5.4vw, 68px);
@@ -591,8 +591,8 @@ h1.rise {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: #e08a6d;
-  box-shadow: 0 0 0 5px rgba(224, 138, 109, 0.18);
+  background: #d97757;
+  box-shadow: 0 0 0 5px rgba(217, 119, 87, 0.18);
 }
 .num {
   display: block;
@@ -601,7 +601,7 @@ h1.rise {
   font-family: var(--serif);
   font-size: 104px;
   line-height: 0.8;
-  -webkit-text-stroke: 1.5px #e08a6d;
+  -webkit-text-stroke: 1.5px #d97757;
 }
 .steps h3 {
   font-size: 34px;
@@ -665,7 +665,7 @@ h1.rise {
     transform: translateX(calc(-50% - 7px));
   }
 }
-/* closing: a terracotta panel with grain */
+/* closing: a solid brand-orange panel with charcoal type */
 .close {
   padding: 120px 0;
 }
@@ -675,8 +675,8 @@ h1.rise {
   overflow: hidden;
   padding: 96px 32px;
   border-radius: 36px;
-  background: radial-gradient(120% 140% at 15% 0%, #c8653f 0%, #a94e2c 55%, #8d3e21 100%);
-  color: #fff8f1;
+  background: #d97757;
+  color: #1c1917;
   text-align: center;
 }
 .panel:after {
@@ -685,7 +685,7 @@ h1.rise {
   inset: 0;
   z-index: -1;
   background-image: var(--grain);
-  opacity: 0.18;
+  opacity: 0;
   mix-blend-mode: overlay;
 }
 .motto {
@@ -696,26 +696,26 @@ h1.rise {
   line-height: 1;
 }
 .panel .motto em {
-  color: #ffd9c6;
+  color: #1c1917;
 }
 .closep {
   max-width: 520px;
   margin: 24px auto 40px;
-  color: #fbe4d8;
+  color: #2a211c;
   font-size: 18.5px;
 }
 .btn.light {
-  background: #fff8f1;
-  color: #1c1b19;
+  background: #1c1917;
+  color: #f5f5f4;
 }
 .btn.line {
-  border-color: rgba(255, 248, 241, 0.55);
+  border-color: rgba(28, 25, 23, 0.45);
   background: transparent;
-  color: #fff8f1;
+  color: #1c1917;
 }
 @media (hover: hover) {
   .btn.line:hover {
-    border-color: #fff8f1;
+    border-color: #1c1917;
     box-shadow: none;
   }
 }
