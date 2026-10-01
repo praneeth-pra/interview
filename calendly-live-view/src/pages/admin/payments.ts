@@ -61,9 +61,14 @@ let paymentsQuery = "";
 let paymentsStatus = "";
 let paymentOpening = new URLSearchParams(location.search).get("pay") || "";
 let paymentShown = ""; // the one an alert opened, highlighted
-export function showPayments() {
-  const body = byId("payBody");
-  body.textContent = "";
+// quiet (pull to refresh): keep what is on screen until the new list has loaded, then swap it in at once
+export function showPayments(quiet?: boolean): Promise<void> {
+  const page = byId("payBody");
+  const body = document.createDocumentFragment();
+  function swapIn() {
+    page.textContent = "";
+    page.appendChild(body);
+  }
   const link = location.origin + "/payment";
   const msg = el("p", { class: "msg", role: "status" });
   body.appendChild(
@@ -91,6 +96,9 @@ export function showPayments() {
   body.appendChild(bar);
   body.appendChild(list);
   body.appendChild(msg);
+  if (!quiet) {
+    swapIn();
+  }
   let payments: Payment[] = [];
   // redrawing keeps this same box, so typing isn't interrupted
   const search = el("input", {
@@ -478,17 +486,24 @@ export function showPayments() {
     });
   }
   function load() {
-    request<{ payments: Payment[] }>("/admin/api/payments")
+    return request<{ payments: Payment[] }>("/admin/api/payments")
       .then(function (result) {
         payments = result.payments || [];
         const opening = openFromAlert();
         draw();
+        if (quiet) {
+          swapIn();
+        }
         const target = opening && list.querySelector('[data-pay="' + opening + '"]');
         if (target) {
           target.scrollIntoView({ block: "center" });
         }
       })
       .catch(function (error) {
+        // a quiet refresh that failed leaves the list as it was
+        if (quiet) {
+          return;
+        }
         list.textContent = "";
         setMessage(msg, error.message, true);
       });
@@ -514,7 +529,7 @@ export function showPayments() {
     paymentsStatus = item.decision === "discarded" ? "discarded" : "";
     return id;
   }
-  load();
+  return load();
 }
 // a new or decided payment while the tab is open shows up straight away; the badge counts pending ones
 let paymentsKey = "";

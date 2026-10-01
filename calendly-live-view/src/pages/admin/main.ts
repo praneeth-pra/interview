@@ -7,7 +7,7 @@ import { setupAlerts } from "./alerts";
 import { setupThemeSwitch } from "./theme-switch";
 import { setupDownloadMenu } from "./download-menu";
 import { setupNav } from "./nav";
-import { showRevenue } from "./revenue";
+import { revenueShown, showRevenue } from "./revenue";
 import { setupStatsFrame } from "./stats-frame";
 import { boot, forget, remember, render, setRender, setState, state, view } from "./state";
 import { closePanel, openPanel, panel } from "./panel";
@@ -22,6 +22,7 @@ import { renderWeek } from "./week";
 import { renderAgenda, setupAgendaSwipe } from "./agenda";
 import { renderAttention, renderCards, renderLegend } from "./summary";
 import { setupSearch } from "./search";
+import { setupPullRefresh } from "../shared/pull-refresh";
 import type { State } from "./types";
 
 let live = false; // connected to /admin/stream
@@ -193,20 +194,61 @@ document.addEventListener("keydown", function (event) {
     closePanel();
   }
 });
+// The latest bookings from the server, asked for directly rather than waiting on the live connection, which is
+// reopened if it dropped.
+function fetchState() {
+  if (!stream || stream.readyState === 2 || !live) {
+    connect();
+  }
+  return request<State>("/admin/api/state")
+    .then(function (fresh) {
+      setState(fresh);
+      remember(JSON.stringify(fresh));
+      forgetAllBookings();
+      render();
+      syncAllow();
+      checkForUpdate();
+    })
+    .catch(function () {});
+}
 document.addEventListener("visibilitychange", function () {
   if (document.visibilityState === "visible") {
-    request<State>("/admin/api/state")
-      .then(function (fresh) {
-        setState(fresh);
-        remember(JSON.stringify(fresh));
-        render();
-        checkForUpdate();
-      })
-      .catch(function () {});
-    if (!stream || stream.readyState === 2 || !live) {
-      connect();
-    }
+    fetchState();
   }
+});
+// Pull down from the top of the page on a phone to refresh the tab on screen in place: the bookings always, plus the
+// Enquiries, Payments or Revenue list when that's the tab, or the Contacts frame. The data comes from the API, which the
+// service worker never saves, so it's always fresh. A new build found on the way reloads the page (checkForUpdate).
+setupPullRefresh({
+  refresh: function () {
+    const work: Promise<unknown>[] = [fetchState()];
+    if (!byId("viewEnq").hidden) {
+      work.push(showEnquiries(true));
+    } else if (!byId("viewPay").hidden) {
+      work.push(showPayments(true));
+    } else if (revenueShown()) {
+      work.push(showRevenue());
+    } else if (!byId("viewStats").hidden) {
+      const frame = document.querySelector<HTMLIFrameElement>("iframe.la-frame");
+      const contacts = frame && frame.contentWindow && frame.contentWindow.__contactRefresh;
+      if (contacts) {
+        work.push(contacts());
+      }
+    }
+    return Promise.all(work);
+  },
+  top: function () {
+    return document.querySelector(".top")!.getBoundingClientRect().bottom;
+  },
+  // the sheets and the ⋯ menu have their own swipe down
+  blocked: function (target) {
+    const classes = document.body.classList;
+    return (
+      classes.contains("sheet") || classes.contains("pp-open") || classes.contains("dm-open") || !!target.closest("#panel, .dlmenu, .bnav")
+    );
+  },
+  surface: "var(--card)",
+  color: "var(--blue)",
 });
 window.__enq = showEnquiries;
 window.__pay = showPayments;

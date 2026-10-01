@@ -82,6 +82,7 @@ declare global {
     __statsEvent?: string; // open this booking's candidate when the Contacts tab shows
     __contact?: (open: boolean) => void; // Contacts opened a person (true) or went back to its list (false)
     __contactBack?: () => void; // in the Contacts frame: show the list again
+    __contactRefresh?: () => Promise<unknown>; // in the Contacts frame: fetch the list and open person again
     __theme?: (theme: string) => void; // theme.ts: switch to "light" or "dark" ("" follows the phone)
     __contactSearch?: () => boolean; // in the Contacts frame: show or hide its search field; true when shown
   }

@@ -9,9 +9,14 @@ import type { Enquiry } from "./types";
 
 // The Enquiries tab: responses from the public /enquiry page, newest first, with contact details, technology,
 // experience and the resume. Opening it marks them as seen, which clears the red count.
-export function showEnquiries() {
-  const body = byId("enqBody");
-  body.textContent = "";
+// quiet (pull to refresh): keep what is on screen until the new list has loaded, then swap it in at once
+export function showEnquiries(quiet?: boolean): Promise<void> {
+  const page = byId("enqBody");
+  const body = document.createDocumentFragment();
+  function swapIn() {
+    page.textContent = "";
+    page.appendChild(body);
+  }
   const link = location.origin + "/enquiry";
   const msg = el("p", { class: "msg", role: "status" });
   body.appendChild(
@@ -37,6 +42,9 @@ export function showEnquiries() {
   const list = el("div", { class: "enqlist" }, [el("p", { class: "sub", text: "Loading…" })]);
   body.appendChild(list);
   body.appendChild(msg);
+  if (!quiet) {
+    swapIn();
+  }
   function draw(enquiries: Enquiry[]) {
     list.textContent = "";
     if (!enquiries.length) {
@@ -103,17 +111,24 @@ export function showEnquiries() {
     });
   }
   function load() {
-    request<{ enquiries: Enquiry[] }>("/admin/api/enquiries")
+    return request<{ enquiries: Enquiry[] }>("/admin/api/enquiries")
       .then(function (result) {
         draw(result.enquiries || []);
+        if (quiet) {
+          swapIn();
+        }
         markEnquiriesSeen();
       })
       .catch(function (error) {
+        // a quiet refresh that failed leaves the list as it was
+        if (quiet) {
+          return;
+        }
         list.textContent = "";
         setMessage(msg, error.message, true);
       });
   }
-  load();
+  return load();
 }
 // The red count on the Enquiries tab: enquiries that came in after this admin last opened the tab (kept on the server,
 // so phone and laptop agree). The home-screen app's icon shows it too, where the phone allows it.
