@@ -34,6 +34,32 @@
   left: 60%;
   box-shadow: 0 0 0 2px var(--card);
 }
+/* Payments is in the ⋯ menu on phones: its pending count shows on the menu item and on the ⋯ button */
+#mPay {
+  display: none;
+}
+#mPay .nbadge {
+  margin-left: 4px;
+  vertical-align: 1px;
+}
+#dlBtn .mbadge {
+  display: none;
+}
+@media (max-width: 760px) {
+  .dlmenu #mPay:not([hidden]) {
+    display: block;
+  }
+  #dlBtn.more {
+    position: relative;
+  }
+  #dlBtn .mbadge {
+    display: inline-grid;
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    box-shadow: 0 0 0 2px var(--bg);
+  }
+}
 /* Enquiries: the public link, then one block per response */
 .enqlink {
   display: flex;

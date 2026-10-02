@@ -1,10 +1,10 @@
 /* Revenue (owners only): a candidate search with suggestions, tiles and month bars. One accent colour throughout. */
-/* Phones keep five buttons in the bottom bar, so Revenue is in the ⋯ menu there; so it is on narrow windows, where the
-   header's tabs can scroll it out of sight. */
+/* Phones have Revenue in the bottom bar. On narrow windows the header's tabs can scroll it out of sight, so it is in the
+   ⋯ menu there too. */
 #mRev {
   display: none;
 }
-@media (max-width: 900px) {
+@media (min-width: 761px) and (max-width: 900px) {
   .dlmenu #mRev:not([hidden]) {
     display: block;
   }

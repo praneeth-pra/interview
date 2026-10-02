@@ -560,7 +560,8 @@ export function refreshPayments() {
   });
   byId("tabPay").setAttribute("aria-label", pending ? "Payments, " + pending + " pending" : "Payments");
   const key = (state.payments || 0) + "/" + pending;
-  if (!byId("viewPay").hidden && paymentsShown >= 0 && key !== paymentsKey) {
+  const open = !byId("viewPay").hidden || (!byId("panel").hidden && byId("panel").contains(byId("payBody")));
+  if (open && paymentsShown >= 0 && key !== paymentsKey) {
     showPayments();
   }
   // a new or decided payment changes the numbers in Revenue too

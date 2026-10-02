@@ -100,6 +100,20 @@ function showRevenueSheet() {
   showRevenue();
 }
 byId("mRev").onclick = showRevenueSheet;
+// Payments on phones (owners only): Revenue has its place in the bottom bar, so the ⋯ menu opens Payments in the bottom
+// sheet. The header tab still opens the page on wider screens.
+function showPaymentsSheet() {
+  // admins who aren't owners don't have Payments
+  if (byId("tabPay").hidden) {
+    return;
+  }
+  panel.refresh = null;
+  const body = openPanel("Payments", "Receipts from the payment page.");
+  body.classList.add("pay");
+  body.appendChild(byId("payBody").closest(".enqview")!);
+  showPayments();
+}
+byId("mPay").onclick = showPaymentsSheet;
 function connect() {
   if (stream) {
     stream.close();
