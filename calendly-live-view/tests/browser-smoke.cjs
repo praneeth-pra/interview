@@ -290,6 +290,32 @@ const checks = [
     await p.keyboard.press("Escape");
     if (await p.locator("#dlMenu").isVisible()) throw new Error("menu did not close");
   }],
+  ["admin backup: download link, then restore the same data from a file", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    await p.locator("#mBak").click();
+    await p.locator("#ptitle", { hasText: "Backup" }).waitFor();
+    await p.locator("#pbody a.bkdl[href='/admin/backup.json']").waitFor();
+    const backup = await p.evaluate(() => fetch("/admin/backup.json").then((r) => r.text()));
+    await p.setInputFiles("#bkFile", { name: "not-a-backup.json", mimeType: "application/json", buffer: Buffer.from("{}") });
+    await p.locator("#pbody .msg.err", { hasText: "isn't a backup" }).waitFor();
+    // a backup split over two emails: the second part alone isn't enough, both together are
+    const part2 = JSON.stringify({ app: "booking-form", version: 1, createdAt: JSON.parse(backup).createdAt, part: 2, parts: 2, uploads: {} });
+    await p.setInputFiles("#bkFile", { name: "backup-part2.json", mimeType: "application/json", buffer: Buffer.from(part2) });
+    await p.locator("#pbody .msg.err", { hasText: "with the data too" }).waitFor();
+    const part1 = JSON.stringify({ ...JSON.parse(backup), part: 1, parts: 2 });
+    await p.setInputFiles("#bkFile", { name: "backup-part1.json", mimeType: "application/json", buffer: Buffer.from(part1) });
+    await p.locator("#pbody .bksum", { hasText: "came in 2 emails" }).waitFor();
+    await p.setInputFiles("#bkFile", [
+      { name: "backup-part1.json", mimeType: "application/json", buffer: Buffer.from(part1) },
+      { name: "backup-part2.json", mimeType: "application/json", buffer: Buffer.from(part2) },
+    ]);
+    await p.locator("#pbody .bksum", { hasText: "bookings" }).waitFor();
+    if (await p.locator("#pbody .bksum", { hasText: "came in" }).count()) throw new Error("both parts chosen, still asks for more");
+    await p.locator("#pbody .danger", { hasText: "Replace all data" }).click();
+    await p.locator("#pbody .msg", { hasText: "Restored" }).waitFor();
+    await p.locator("#pclose").click();
+  }],
   ["admin unavailable times from the menu", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();

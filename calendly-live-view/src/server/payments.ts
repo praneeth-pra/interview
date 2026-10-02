@@ -27,7 +27,7 @@ const RECEIPT_KINDS = [
   { ext: ".heic", type: "image/heic", at: 4, magic: [0x66, 0x74, 0x79, 0x70] },
 ];
 const receiptsInMemory = new Map<string, Uint8Array>();
-async function saveReceipt(file: string, bytes: Uint8Array) {
+export async function saveReceipt(file: string, bytes: Uint8Array) {
   if (!DATA_DIR) return void receiptsInMemory.set(file, bytes);
   await mkdir(DATA_DIR + "/receipts", { recursive: true });
   await Bun.write(DATA_DIR + "/receipts/" + file, bytes);

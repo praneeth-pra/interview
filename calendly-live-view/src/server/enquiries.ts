@@ -19,7 +19,7 @@ const RESUME_KINDS = [
   { ext: ".doc", type: "application/msword", magic: [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1] },
 ];
 const resumesInMemory = new Map<string, Uint8Array>();
-async function saveResume(file: string, bytes: Uint8Array) {
+export async function saveResume(file: string, bytes: Uint8Array) {
   if (!DATA_DIR) return void resumesInMemory.set(file, bytes);
   await mkdir(DATA_DIR + "/resumes", { recursive: true });
   await Bun.write(DATA_DIR + "/resumes/" + file, bytes);

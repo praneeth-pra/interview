@@ -1,6 +1,6 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { createHmac } from "node:crypto";
-import { existsSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { brotliDecompressSync, gunzipSync } from "node:zlib";
@@ -981,13 +981,33 @@ describe("backups", () => {
   let resend: ReturnType<typeof Bun.serve>;
   let srv: Srv;
   const env = { RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4314/emails", BACKUP_EMAIL: "owner@example.com", BACKUP_HOUR: "0", ADMIN_EMAILS: "owner@example.com" };
-  const istDay = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+  const istDay = (daysAgo = 0) => new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date(Date.now() - daysAgo * 24 * HOUR));
+  const RESUME = new TextEncoder().encode("%PDF-1.4\n% a resume in the backup\n");
+  const ENQ = {
+    id: "40000000-0000-0000-0000-000000000001", name: "Asha Rao", email: "asha@example.com", phone: "9876543210", tech: "Java", experience: "3 years",
+    resume: { file: "40000000-0000-0000-0000-000000000001.pdf", name: "cv.pdf", type: "application/pdf", size: RESUME.length },
+  };
+  // one sign-in for the whole block (codes are rate limited); the session outlives restarts
+  let signedIn = "";
+  const ownerCookie = async () => {
+    if (signedIn) return signedIn;
+    expect((await postJson(srv, "/admin/login/code", { email: "owner@example.com" })).status).toBe(200);
+    const code = sent.at(-1).subject.match(/(\d{6})$/)[1];
+    const ok = await postJson(srv, "/admin/login", { email: "owner@example.com", code });
+    return (signedIn = ok.headers.get("set-cookie")!.split(";")[0]!);
+  };
   const waitFor = async (ok: () => boolean) => {
     for (let i = 0; i < 100 && !ok(); i++) await Bun.sleep(30);
   };
   beforeAll(async () => {
     resend = Bun.serve({ port: 4314, fetch: async (req) => (sent.push(await req.json()), Response.json({ id: "x" })) });
-    srv = await start(4313, env);
+    // one enquiry with its resume on the volume, for the backups to carry
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-"));
+    seed(dir);
+    writeFileSync(join(dir, "enquiries.json"), JSON.stringify({ enquiries: [{ ...ENQ, createdAt: new Date().toISOString() }], seen: {} }));
+    mkdirSync(join(dir, "resumes"));
+    writeFileSync(join(dir, "resumes", ENQ.resume.file), RESUME);
+    srv = await start(4313, env, dir);
     // the server records the day in backup-state.json just after the email goes out; wait for both, or a quick
     // restart in the next tests could land in between and send the backup a second time
     const stateFile = join(srv.dir, "backup-state.json");
@@ -998,7 +1018,7 @@ describe("backups", () => {
     resend?.stop(true);
   });
 
-  test("the daily backup is emailed with the bookings CSV and the data, without the push keys", () => {
+  test("the weekly backup is emailed with the bookings CSV and the data with the resumes, without the push keys", () => {
     expect(sent.length).toBe(1);
     const mail = sent[0];
     expect(mail.to).toEqual(["owner@example.com"]);
@@ -1011,6 +1031,8 @@ describe("backups", () => {
     expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "payments.json", "results.json", "secret.json", "unavailable.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["secret.json"].key).toBe(KEY);
+    expect(Object.keys(data.uploads)).toEqual(["resumes/" + ENQ.resume.file]);
+    expect(Buffer.from(data.uploads["resumes/" + ENQ.resume.file], "base64").equals(Buffer.from(RESUME))).toBe(true);
   });
 
   test("a full snapshot (with push keys) is kept on the volume and the day is recorded", () => {
@@ -1041,17 +1063,93 @@ describe("backups", () => {
     expect(sent.length).toBe(1);
   });
 
+  test("the email waits a week after the last one; the snapshot is still daily", async () => {
+    const restart = async (state: object) => {
+      writeFileSync(join(srv.dir, "backup-state.json"), JSON.stringify(state));
+      srv.proc.kill();
+      await srv.proc.exited;
+      srv = await start(4313, env, srv.dir);
+    };
+    await restart({ saved: "", emailed: istDay(6) });
+    await waitFor(() => readFileSync(join(srv.dir, "backup-state.json"), "utf8").includes('"saved":"' + istDay() + '"'));
+    await Bun.sleep(200);
+    expect(sent.length).toBe(1);
+    expect(JSON.parse(readFileSync(join(srv.dir, "backup-state.json"), "utf8")).emailed).toBe(istDay(6));
+    await restart({ saved: istDay(), emailed: istDay(7) });
+    await waitFor(() => sent.length > 1 && readFileSync(join(srv.dir, "backup-state.json"), "utf8").includes('"emailed":"' + istDay() + '"'));
+    expect(sent.length).toBe(2);
+    expect(sent[1].subject).toBe("Backup: Hi-Techie bookings \u2013 " + istDay());
+  });
+
   test("the admin can download a backup, and only when signed in", async () => {
     expect((await get(srv, "/admin/backup.json")).status).toBe(401);
-    expect((await postJson(srv, "/admin/login/code", { email: "owner@example.com" })).status).toBe(200);
-    const code = sent.at(-1).subject.match(/(\d{6})$/)[1];
-    const ok = await postJson(srv, "/admin/login", { email: "owner@example.com", code });
-    const r = await get(srv, "/admin/backup.json", { cookie: ok.headers.get("set-cookie")!.split(";")[0] });
+    const r = await get(srv, "/admin/backup.json", { cookie: await ownerCookie() });
     expect(r.headers.get("content-disposition")).toBe('attachment; filename="backup-' + istDay() + '.json"');
     const data = await r.json();
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["push.json"]).toBeUndefined();
     expect(data.files["unavailable.json"]).toEqual({ blocks: [] });
+    expect(Object.keys(data.uploads)).toEqual(["resumes/" + ENQ.resume.file]);
+  });
+
+  test("the owner restores a backup from the admin page: the data, then each resume", async () => {
+    const cookie = await ownerCookie();
+    const backup = await (await get(srv, "/admin/backup.json", { cookie })).json();
+    const post = (path: string, body: BodyInit, type: string, headers: Record<string, string> = { cookie }) =>
+      fetch(srv.url + path, { method: "POST", body, headers: { "content-type": type, ...headers } });
+    expect((await post("/admin/api/restore", JSON.stringify(backup), "application/json", {})).status).toBe(401);
+    expect((await post("/admin/api/restore", JSON.stringify({ app: "other", files: {} }), "application/json")).status).toBe(400);
+    // the site lost its data: one booking left and no resume
+    writeFileSync(join(srv.dir, "bookings.json"), JSON.stringify({ bookings: [booking] }));
+    rmSync(join(srv.dir, "resumes", ENQ.resume.file));
+    const { uploads, ...data } = backup;
+    const r = await post("/admin/api/restore", JSON.stringify(data), "application/json");
+    expect(r.status).toBe(200);
+    expect((await r.json()).bookings).toBe(61);
+    expect(JSON.parse(readFileSync(join(srv.dir, "bookings.json"), "utf8")).bookings.length).toBe(61);
+    expect(JSON.parse(readFileSync(join(srv.dir, "bookings.json.pre-restore"), "utf8")).bookings.length).toBe(1);
+    const bytes = Buffer.from(uploads["resumes/" + ENQ.resume.file], "base64");
+    expect((await post("/admin/api/restore-file?path=" + encodeURIComponent("../secret.json"), bytes, "application/octet-stream")).status).toBe(400);
+    expect((await post("/admin/api/restore-file?path=resumes/" + ENQ.resume.file, bytes, "text/plain")).status).toBe(415);
+    expect((await post("/admin/api/restore-file?path=resumes/" + ENQ.resume.file, bytes, "application/octet-stream")).status).toBe(200);
+    expect(readFileSync(join(srv.dir, "resumes", ENQ.resume.file)).equals(Buffer.from(RESUME))).toBe(true);
+    // the owner is still signed in, and the server serves the restored data
+    expect((await (await get(srv, "/admin/api/bookings", { cookie })).json()).bookings.length).toBe(61);
+    expect((await get(srv, "/admin/api/enquiries/" + ENQ.id + "/resume", { cookie })).status).toBe(200);
+  });
+
+  test("big backups are split over several emails, and the restore script takes all the parts", async () => {
+    // two resumes and room for one per email: the data and the newer resume, then the older resume
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-"));
+    seed(dir);
+    const second = { ...ENQ, id: "40000000-0000-0000-0000-000000000002", resume: { ...ENQ.resume, file: "40000000-0000-0000-0000-000000000002.pdf" } };
+    writeFileSync(
+      join(dir, "enquiries.json"),
+      JSON.stringify({ enquiries: [{ ...ENQ, createdAt: new Date(Date.now() - HOUR).toISOString() }, { ...second, createdAt: new Date().toISOString() }], seen: {} }),
+    );
+    mkdirSync(join(dir, "resumes"));
+    for (const e of [ENQ, second]) writeFileSync(join(dir, "resumes", e.resume.file), RESUME);
+    const before = sent.length;
+    const big = await start(4329, { ...env, BACKUP_FILES_MB: String(RESUME.length / 1024 / 1024) }, dir);
+    try {
+      await waitFor(() => sent.length >= before + 2);
+      const mails = sent.slice(before);
+      expect(mails.map((m) => m.subject)).toEqual([1, 2].map((i) => "Backup: Hi-Techie bookings \u2013 " + istDay() + " (" + i + " of 2)"));
+      const parts = mails.map((m) => JSON.parse(Buffer.from(m.attachments.find((a: any) => a.filename.endsWith(".json")).content, "base64").toString("utf8")));
+      expect(mails[0].attachments.map((a: any) => a.filename).sort()).toEqual(["backup-" + istDay() + "-part1.json", "bookings-" + istDay() + ".csv"]);
+      expect(parts.map((p) => [p.part, p.parts, !!p.files, Object.keys(p.uploads)])).toEqual([
+        [1, 2, true, ["resumes/" + second.resume.file]],
+        [2, 2, false, ["resumes/" + ENQ.resume.file]],
+      ]);
+      const out = mkdtempSync(join(tmpdir(), "booking-form-restore-"));
+      const files = parts.map((p, i) => (writeFileSync(join(out, "p" + i + ".json"), JSON.stringify(p)), join(out, "p" + i + ".json")));
+      const proc = Bun.spawn(["bun", "run", join(ROOT, "scripts/restore.ts"), files[1]!, files[0]!, out], { stdout: "ignore", stderr: "inherit" });
+      expect(await proc.exited).toBe(0);
+      for (const e of [ENQ, second]) expect(existsSync(join(out, "resumes", e.resume.file))).toBe(true);
+      expect(JSON.parse(readFileSync(join(out, "enquiries.json"), "utf8")).enquiries.length).toBe(2);
+    } finally {
+      big.proc.kill();
+    }
   });
 
   test("scripts/restore.ts puts a backup back into a data folder", async () => {
