@@ -17,6 +17,8 @@ export const SW_JS = readFileSync(join(import.meta.dir, "sw.js"), "utf8");
 const safeJson = (x: unknown) => JSON.stringify(x).replace(/</g, "\\u003c");
 const fill = (html: string, vals: Record<string, string>) => html.replace(/__([A-Z]+)__/g, (m, k) => (k in vals ? vals[k] : m));
 const HOST_HTML = Bun.escapeHTML(HOST_NAME);
+// The landing wordmark sets the part of the name before the first hyphen apart (orange italic "Hi" in "Hi-Techie").
+const BRAND_HTML = HOST_HTML.replace(/^([^-]+)-/, "<em>$1</em>-");
 const BOOK_TPL = template("book");
 const ADMIN_TPL = template("admin");
 // iPhone home-screen apps show a launch image while the page loads, white when there is none. These are plain images in
@@ -120,7 +122,7 @@ export const adminShell = (tab: "cal" | "allow", owner: boolean) => ADMIN_PAGES[
 export const ENQUIRY = shell(fill(template("enquiry"), { HOST: HOST_HTML }), CSP.page);
 export const PAYMENT = shell(fill(template("payment"), { HOST: HOST_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }), CSP.page);
 // the landing page is the one page search engines may list
-export const HOME = { ...shell(fill(template("home"), { HOST: HOST_HTML }), CSP.page), index: true };
+export const HOME = { ...shell(fill(template("home"), { HOST: HOST_HTML, BRAND: BRAND_HTML }), CSP.page), index: true };
 export const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
 export const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // A manage link carries the candidate's booking, so that page is built per request and never cached.
