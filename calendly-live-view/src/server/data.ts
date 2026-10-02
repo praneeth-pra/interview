@@ -177,7 +177,7 @@ export const paymentsStore = fileStore<{ payments: Payment[] }>(
       : [],
   }),
 );
-// Times the team is away (⋯ menu → Unavailable): candidates can't book or move an interview into them. start and end
+// Times the team is away (⋯ menu → Unavailability): candidates can't book or move an interview into them. start and end
 // are ISO times; a whole day runs from midnight to midnight IST. by: the admin who added it ("" with sign-in off).
 export type Block = { id: string; start: string; end: string; note: string; createdAt: string; by: string };
 export const blocksStore = fileStore<{ blocks: Block[] }>(
