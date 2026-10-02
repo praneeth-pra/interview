@@ -34,25 +34,8 @@ export function renderInfo() {
       }),
     );
   }
-  section.appendChild(
-    el(
-      "p",
-      {
-        class: "host",
-      },
-      [
-        el(
-          "span",
-          {
-            class: "mark",
-            "aria-hidden": "true",
-          },
-          [],
-        ),
-        hostName,
-      ],
-    ),
-  );
+  // the logo and name as on the landing page, linking back to it
+  section.appendChild(el("a", { class: "host", href: "/" }, [el("span", { class: "mark", "aria-hidden": "true" }), hostName]));
   section.appendChild(
     el(
       "h1",

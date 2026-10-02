@@ -16,14 +16,15 @@ const TYPES: Record<string, string> = {
   html: "text/html; charset=utf-8",
   json: "application/json",
 };
-// Every page uses Figtree, an open-source font close to the Calendly app's; the home page also uses Instrument Serif for
-// headings. Each stylesheet starts with the @font-face rules of its fonts (names separated by spaces).
+// Every page uses Figtree, an open-source font close to the Calendly app's; the home, booking, enquiry and payment pages
+// also use Instrument Serif for headings and the name. Each stylesheet starts with the @font-face rules of its fonts
+// (names separated by spaces).
 const FONT_OF_PAGE: Record<string, string> = {
-  "book.css": "figtree.css",
+  "book.css": "figtree.css serif.css",
   "admin.css": "figtree.css",
   "analytics.css": "figtree.css",
   "login.css": "figtree.css",
-  "enquiry.css": "figtree.css",
+  "enquiry.css": "figtree.css serif.css",
   "home.css": "figtree.css serif.css",
 };
 

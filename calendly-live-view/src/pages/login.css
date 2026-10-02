@@ -1,24 +1,24 @@
 :root {
   color-scheme: light;
-  --ink: #1a1a1a;
-  --ink2: rgba(26, 26, 26, 0.62);
-  --line: rgba(26, 26, 26, 0.1);
-  --bg: #f4f2ec;
-  --card: #fff;
+  --ink: #181511;
+  --ink2: rgba(24, 21, 17, 0.62);
+  --line: rgba(24, 21, 17, 0.1);
+  --bg: #f3f0e8;
+  --card: #faf8f3;
   --field: #b2b2b2;
-  --blue: #bc5935;
+  --blue: #b8460d;
   --red: #c8372d;
 }
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --ink: #f2f2f2;
+    --ink: #f3f0e8;
     --ink2: #b3b3b3;
-    --line: #34322f;
-    --bg: #1b1a18;
-    --card: #252422;
+    --line: #2e2a24;
+    --bg: #161410;
+    --card: #211e19;
     --field: #555;
-    --blue: #bc5935;
+    --blue: #b8460d;
     --red: #ff8a80;
   }
 }

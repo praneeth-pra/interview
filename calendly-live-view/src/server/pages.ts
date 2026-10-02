@@ -2,12 +2,14 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assetList, encode, template } from "../assets";
-import { EVENT_DESCRIPTION, EVENT_LOCATION, EVENT_NAME, HOST_NAME, LOGIN_ON, RECEIPT_MAX } from "./config";
+import { EVENT_DESCRIPTION, EVENT_LOCATION, EVENT_NAME, HOST_NAME, LOGIN_ON, PUBLIC_URL, RECEIPT_MAX } from "./config";
 import { CSP, sendShell, shell } from "./http";
 import { deflateSync } from "node:zlib";
 
 export const ICON = encode(readFileSync(join(import.meta.dir, "../../public/icon.png")), "image/png");
 // The browser-tab icon: the same drawing in orange with no tile, which reads on light and dark tab bars.
+// The picture shown when a page's link is shared (WhatsApp, LinkedIn, X...): 1200x630, the landing's headline.
+export const OG_IMAGE = encode(readFileSync(join(import.meta.dir, "../../public/og.jpg")), "image/jpeg");
 export const FAVICON = encode(readFileSync(join(import.meta.dir, "../../public/favicon.png")), "image/png");
 // The service worker shows booking alerts, and makes the home-screen app open instantly and offline: admin pages are
 // fetched from the network first (cached copy if offline or slower than 3s; only real admin shells are cached, never the
@@ -17,8 +19,22 @@ export const SW_JS = readFileSync(join(import.meta.dir, "sw.js"), "utf8");
 const safeJson = (x: unknown) => JSON.stringify(x).replace(/</g, "\\u003c");
 const fill = (html: string, vals: Record<string, string>) => html.replace(/__([A-Z]+)__/g, (m, k) => (k in vals ? vals[k] : m));
 const HOST_HTML = Bun.escapeHTML(HOST_NAME);
-// The landing wordmark sets the part of the name before the first hyphen apart (orange italic "Hi" in "Hi-Techie").
-const BRAND_HTML = HOST_HTML.replace(/^([^-]+)-/, "<em>$1</em>-");
+// Link previews (Open Graph) for the pages people share: the landing, booking and enquiry pages. Previews need full
+// addresses, so they use PUBLIC_URL (without www), or hi-techie.dev when it isn't set.
+const SITE = (PUBLIC_URL || "https://hi-techie.dev").replace("://www.", "://");
+const og = (title: string, text: string, path: string) =>
+  [
+    ["og:type", "website"],
+    ["og:site_name", HOST_NAME],
+    ["og:title", title],
+    ["og:description", text],
+    ["og:url", SITE + path],
+    ["og:image", SITE + "/og.jpg"],
+    ["og:image:width", "1200"],
+    ["og:image:height", "630"],
+  ]
+    .map(([k, v]) => `<meta property="${k}" content="${Bun.escapeHTML(v)}">`)
+    .join("") + '<meta name="twitter:card" content="summary_large_image">';
 const BOOK_TPL = template("book");
 const ADMIN_TPL = template("admin");
 // iPhone home-screen apps show a launch image while the page loads, white when there is none. These are plain images in
@@ -38,7 +54,7 @@ const SPLASH_SIZES: [number, number, number][] = [
   [375, 667, 2],
   [320, 568, 2],
 ];
-const SPLASH_BG = { light: [0xf4, 0xf2, 0xec], dark: [0x16, 0x15, 0x13] } as const;
+const SPLASH_BG = { light: [0xf3, 0xf0, 0xe8], dark: [0x16, 0x14, 0x10] } as const;
 const SPLASH_LINKS = SPLASH_SIZES.flatMap(([w, h, r]) =>
   (["light", "dark"] as const).map(
     (s) =>
@@ -90,6 +106,7 @@ const bookHtml = (manage: unknown, preload: string) =>
     EVENT: Bun.escapeHTML(EVENT_NAME),
     HOST: HOST_HTML,
     PRELOAD: preload,
+    OG: og("Book an interview slot · " + HOST_NAME, "Pick a date and time for your interview.", "/booking"),
     BOOT: safeJson({ host: HOST_NAME, event: EVENT_NAME, manage, info: { loc: EVENT_LOCATION, desc: EVENT_DESCRIPTION } }),
   });
 // The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
@@ -119,10 +136,24 @@ const ADMIN_PAGES = {
   allow: [adminPage("allow", false), adminPage("allow", true)],
 };
 export const adminShell = (tab: "cal" | "allow", owner: boolean) => ADMIN_PAGES[tab][owner ? 1 : 0];
-export const ENQUIRY = shell(fill(template("enquiry"), { HOST: HOST_HTML }), CSP.page);
+export const ENQUIRY = shell(
+  fill(template("enquiry"), {
+    HOST: HOST_HTML,
+    OG: og(
+      "Interview support · " + HOST_NAME,
+      "Tell us what you're looking for and send your resume. We'll get back to you soon.",
+      "/enquiry",
+    ),
+  }),
+  CSP.page,
+);
 export const PAYMENT = shell(fill(template("payment"), { HOST: HOST_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }), CSP.page);
 // the landing page is the one page search engines may list
-export const HOME = { ...shell(fill(template("home"), { HOST: HOST_HTML, BRAND: BRAND_HTML }), CSP.page), index: true };
+const HOME_TEXT = "A rewritten resume, interview support and help all the way to your offer letter.";
+export const HOME = {
+  ...shell(fill(template("home"), { HOST: HOST_HTML, OG: og(HOST_NAME + " · Job assistance", HOME_TEXT, "/") }), CSP.page),
+  index: true,
+};
 export const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
 export const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // A manage link carries the candidate's booking, so that page is built per request and never cached.

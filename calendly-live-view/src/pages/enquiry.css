@@ -1,35 +1,37 @@
 /* The public enquiry page: one card, the same look as the booking page. */
 :root {
   color-scheme: light;
-  --ink: #1a1a1a;
-  --ink2: rgba(26, 26, 26, 0.62);
-  --line: rgba(26, 26, 26, 0.1);
-  --bg: #f4f2ec;
-  --card: #fff;
-  --blue: #bc5935;
-  --blue-d: #a64b2a;
-  --blue-t: rgba(217, 119, 87, 0.1);
+  --ink: #181511;
+  --ink2: rgba(24, 21, 17, 0.62);
+  --line: rgba(24, 21, 17, 0.1);
+  --bg: #f3f0e8;
+  --card: #faf8f3;
+  --blue: #b8460d;
+  --blue-d: #a53e0b;
+  --blue-t: rgba(184, 70, 13, 0.1);
   --field-b: #b2b2b2;
   --green: #0a8a3d;
   --green-t: rgba(10, 138, 61, 0.1);
   --red: #c8372d;
+  --wm: #b8460d;
   --shadow: 0 1px 8px rgba(0, 0, 0, 0.08);
 }
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --ink: #f2f2f2;
+    --ink: #f3f0e8;
     --ink2: #bdbdbd;
-    --line: #33312e;
-    --bg: #201f1d;
-    --card: #1b1a18;
-    --blue: #bc5935;
-    --blue-d: #a64b2a;
+    --line: #2e2a24;
+    --bg: #161410;
+    --card: #211e19;
+    --blue: #b8460d;
+    --blue-d: #a53e0b;
     --blue-t: #33261f;
     --field-b: #555;
     --green: #3ecf7a;
     --green-t: rgba(62, 207, 122, 0.12);
     --red: #ff8a80;
+    --wm: #e0834f;
     --shadow: none;
   }
 }
@@ -67,25 +69,25 @@ body {
   border-radius: 12px;
   box-shadow: var(--shadow);
 }
+/* The logo as on the landing page, an italic H whose crossbar climbs (posts in ink, bar in the accent, drawn with two
+   masks), then the name; it links back to the landing page. */
 .host {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 10px;
   margin: 0;
-  font-size: 15px;
-  font-weight: 600;
-  color: var(--ink2);
-}
-/* The logo: an italic H whose crossbar climbs, the posts in ink and the bar in the accent (two masks). */
-.mark {
-  --mk-o: #b8460d;
-  position: relative;
-  display: block;
-  width: 30px;
-  height: 30px;
-  flex: none;
-  margin: 0;
   color: var(--ink);
+  font-size: 18px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.015em;
+  text-decoration: none;
+}
+.mark {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: none;
 }
 .mark::before,
 .mark::after {
@@ -99,22 +101,17 @@ body {
     center / contain no-repeat;
 }
 .mark::after {
-  background: var(--mk-o);
+  background: var(--wm);
   -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Cpolygon%20points='8.1,13.6%2015.9,9%2015.9,12.6%208.1,17.2'/%3E%3C/g%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Cpolygon%20points='8.1,13.6%2015.9,9%2015.9,12.6%208.1,17.2'/%3E%3C/g%3E%3C/svg%3E");
 }
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) .mark {
-    --mk-o: #e0834f;
-  }
-}
-:root[data-theme="dark"] .mark {
-  --mk-o: #e0834f;
-}
 h1 {
   margin: 18px 0 6px;
-  font-size: 28px;
-  line-height: 1.2;
+  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
+  font-size: 40px;
+  font-weight: 400;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
 }
 .lead {
   margin: 0 0 26px;
@@ -386,7 +383,7 @@ form[hidden] {
     padding: 24px 18px 28px;
   }
   h1 {
-    font-size: 24px;
+    font-size: 34px;
   }
   .row2 {
     flex-direction: column;

@@ -68,15 +68,15 @@
   }
 }
 :root {
-  --line: rgba(26, 26, 26, 0.09);
-  --bg: #f4f2ec;
+  --line: rgba(24, 21, 17, 0.09);
+  --bg: #f3f0e8;
   --sub: #f6f4ef;
   --r: 14px;
   --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #161513;
+    --bg: #161410;
     --card: #1f1e1c;
     --sub: #282624;
     --line: #2f2d2a;
@@ -132,7 +132,6 @@ a.ghost:active {
 .brand .mk {
   --mk-o: #b8460d;
   position: relative;
-  display: block;
   width: 26px;
   height: 26px;
   flex: none;

@@ -337,7 +337,7 @@
 .paytbl th:first-child,
 .paytbl td:first-child {
   padding-left: 0;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 .paytbl th:last-child,
 .paytbl td:last-child {

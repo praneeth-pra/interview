@@ -5,6 +5,7 @@
 import { request } from "./api";
 import { byId, el } from "./dom";
 import { plural, titleCase } from "./labels";
+import { TIME_ZONE } from "./time";
 
 // Cumulative ("total") unless this device last picked Monthly
 let revenueMode = "total";
@@ -24,6 +25,7 @@ type Summary = {
     before: number; // confirmed before the first month shown
     byMonth: number[];
     paidByMonth: number[];
+    lastToDate: number; // confirmed in last month up to the same day and time as now
   };
   candidates: Candidate[]; // everyone with a payment, for the suggestions
   found: { name: string; email: string }[]; // who the search found (empty without a search)
@@ -85,7 +87,15 @@ function draw(body: HTMLElement, data: Summary) {
   const rev = data.revenue;
   const months = data.months;
   const thisMonth = rev.byMonth[months.length - 1];
-  const lastMonth = rev.byMonth[months.length - 2];
+  const lastMonth = rev.lastToDate;
+  const lastName = monthName(months[months.length - 2]);
+  // the days of last month it is compared with: 1 up to today's date (Sep 1–30 on Oct 31)
+  const [ly, lm] = months[months.length - 2].split("-").map(Number);
+  const day = Math.min(
+    Number(new Date().toLocaleString("en-US", { timeZone: TIME_ZONE, day: "numeric" })),
+    new Date(Date.UTC(ly, lm, 0)).getUTCDate(),
+  );
+  const lastDays = lastName + (day > 1 ? " 1–" + day : " 1");
   const change = lastMonth ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100) : 0;
 
   body.appendChild(
@@ -94,9 +104,7 @@ function draw(body: HTMLElement, data: Summary) {
       tile(
         "This month",
         rupees(thisMonth),
-        lastMonth
-          ? (change >= 0 ? "+" : "−") + Math.abs(change) + "% on " + monthName(months[months.length - 2])
-          : "Nothing in " + monthName(months[months.length - 2]),
+        lastMonth ? (change >= 0 ? "+" : "−") + Math.abs(change) + "% on " + lastDays : "Nothing on " + lastDays,
       ),
       tile("Pending", rupees(rev.pending), rev.pendingCount ? plural(rev.pendingCount, "payment") + " to confirm" : "Nothing to confirm"),
       tile(
