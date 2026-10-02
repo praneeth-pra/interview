@@ -151,9 +151,9 @@ a.ghost:active {
 .brand .mk::after {
   content: "";
   position: absolute;
-  left: 64%;
+  left: 65%;
   top: 30%;
-  width: 13%;
+  width: 7%;
   height: 40%;
   border-radius: 1px;
   background: #e0834f;
