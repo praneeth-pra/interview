@@ -212,6 +212,48 @@ describe("booking flow", () => {
     expect(state.changes[0]).toMatchObject({ id: made.booking.id, kind: "cancelled" });
   });
 
+  test("unavailable times: candidates can't book or move into them, admins still can, and removing one frees it", async () => {
+    const dayMs = istMidnight() + 3 * 24 * HOUR;
+    const key = new Date(dayMs + 330 * 60000).toISOString().slice(0, 10);
+    const freeBefore = (await (await get(open, `/api/slots?date=${key}&duration=30`)).json()).slots;
+    expect(freeBefore.length).toBeGreaterThan(4);
+    // validation
+    expect((await postJson(open, "/admin/api/unavailable", { startMs: dayMs + HOUR, endMs: dayMs })).status).toBe(400);
+    expect((await postJson(open, "/admin/api/unavailable", { startMs: dayMs - 9 * 24 * HOUR, endMs: dayMs - 8 * 24 * HOUR })).status).toBe(400);
+    expect((await postJson(open, "/admin/api/unavailable", { startMs: "x", endMs: dayMs })).status).toBe(400);
+    // the whole day, and the afternoon two days before it, where Priya's interview is (10:00 IST) → one clash
+    const day = await (await postJson(open, "/admin/api/unavailable", { startMs: dayMs, endMs: dayMs + 24 * HOUR, note: "Travelling" })).json();
+    expect(day.clashes).toBe(0);
+    const morning = await (await postJson(open, "/admin/api/unavailable", { startMs: FUTURE - HOUR, endMs: FUTURE + 2 * HOUR })).json();
+    expect(morning.clashes).toBe(1);
+    const state = await (await get(open, "/admin/api/state")).json();
+    expect(state.blocks.map((b: any) => b.id)).toEqual([morning.id, day.id]);
+    expect(state.blocks[1]).toMatchObject({ note: "Travelling", start: new Date(dayMs).toISOString() });
+    expect(state.events.some((e: any) => e.id === booking.id)).toBe(true); // the interview already booked stays
+    // candidates: no times that day, none in the morning block, and booking or moving into them is refused
+    const days = (await (await get(open, "/api/days?duration=30")).json()).days;
+    expect(days.find((d: any) => d.key === key)).toMatchObject({ open: false, slots: [] });
+    expect((await (await get(open, `/api/slots?date=${key}&duration=30`)).json()).slots).toEqual([]);
+    const futureKey = new Date(FUTURE + 330 * 60000).toISOString().slice(0, 10);
+    const near = (await (await get(open, `/api/slots?date=${futureKey}&duration=30`)).json()).slots;
+    expect(near.filter((s: number) => s >= FUTURE - HOUR && s < FUTURE + 2 * HOUR)).toEqual([]);
+    const refused = await postJson(open, "/api/book", { name: "Ravi", email: "ravi@example.com", company: "Acme", duration: 30, startMs: freeBefore[2] });
+    expect(refused.status).toBe(409);
+    const made = await (await postJson(open, "/api/book", { name: "Ravi", email: "ravi@example.com", company: "Acme", duration: 30, startMs: near.at(-1) })).json();
+    const t = made.booking.manage.split("t=")[1];
+    expect((await postJson(open, "/api/manage/reschedule", { id: made.booking.id, t, startMs: freeBefore[3], duration: 30 })).status).toBe(409);
+    // admins still see and can book those times
+    const adminSlots = (await (await get(open, `/admin/api/slots?date=${key}&duration=30`)).json()).slots;
+    expect(adminSlots).toEqual(freeBefore);
+    // removing the day frees it again; removing twice says it's gone
+    expect((await postJson(open, "/admin/api/unavailable/delete", { id: day.id })).status).toBe(200);
+    expect((await postJson(open, "/admin/api/unavailable/delete", { id: day.id })).status).toBe(404);
+    expect((await (await get(open, `/api/slots?date=${key}&duration=30`)).json()).slots).toEqual(freeBefore);
+    expect((await postJson(open, "/admin/api/unavailable/delete", { id: morning.id })).status).toBe(200);
+    expect((await postJson(open, "/api/manage/cancel", { id: made.booking.id, t, reason: "test" })).status).toBe(200);
+    expect(JSON.parse(readFileSync(join(open.dir, "unavailable.json"), "utf8")).blocks).toEqual([]);
+  });
+
   test("company suggestions come from data/companies.json", async () => {
     const { companies } = await (await get(open, "/api/companies")).json();
     expect(companies.find((c: any) => c.n === "Google")).toMatchObject({ a: ["Alphabet"] });
@@ -919,7 +961,7 @@ describe("backups", () => {
     expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
     const data = JSON.parse(files["backup-" + istDay() + ".json"]);
     expect(data.app).toBe("booking-form");
-    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "payments.json", "results.json", "secret.json"]);
+    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "payments.json", "results.json", "secret.json", "unavailable.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["secret.json"].key).toBe(KEY);
   });
@@ -962,6 +1004,7 @@ describe("backups", () => {
     const data = await r.json();
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["push.json"]).toBeUndefined();
+    expect(data.files["unavailable.json"]).toEqual({ blocks: [] });
   });
 
   test("scripts/restore.ts puts a backup back into a data folder", async () => {

@@ -16,6 +16,7 @@ import { decidePayment, paymentsList, receiptFile } from "../payments";
 import { changePush, pushView } from "../push";
 import { slotsFor } from "../schedule";
 import { istDate } from "../time";
+import { addBlock, removeBlock } from "../unavailable";
 import { type Fields, DATE_KEY } from "../util";
 
 // Enquiries, payments and revenue are for owners only; other admins don't see their tabs, and these APIs refuse them.
@@ -105,6 +106,10 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       return moveBooking(b, Number(body?.startMs), Number(body?.duration), "host", req);
     });
   if (path === "/admin/api/round-status" && method === "POST") return withBody(1000, (b) => setRoundStatus(String(b?.id ?? ""), b?.status));
+
+  // ---- unavailable times (they come with the live state)
+  if (path === "/admin/api/unavailable" && method === "POST") return withBody(2000, (b) => addBlock(b, email));
+  if (path === "/admin/api/unavailable/delete" && method === "POST") return withBody(1000, (b) => removeBlock(String(b?.id ?? "")));
 
   // ---- Candidates list and interview supporters
   if (path === "/admin/api/allowlist") {

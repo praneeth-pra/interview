@@ -4,7 +4,7 @@ import { addDays, dayKeyOf, formatDay, formatTime, hourLabel, minutesOfDay, week
 import { statusPill, titleCase } from "./labels";
 import { colorClass, render, state, view } from "./state";
 import { showBooking } from "./booking-panel";
-import { dayItems } from "./week";
+import { blockBand, dayBlocks, dayItems } from "./week";
 import { layoutColumns } from "./layout";
 
 // The agenda: one day at a time, like a phone calendar's Day view. A week strip picks the day (the day on screen circled
@@ -91,7 +91,13 @@ export function renderAgenda() {
     el("div", { class: "ag-h" + (shown === today ? " today" : "") }, [
       el("b", { text: formatDay(shown!, { weekday: "long" }) + "," }),
       el("span", { text: formatDay(shown!, { day: "numeric", month: "short" }) }),
-      el("em", { text: items.length ? items.length + (items.length === 1 ? " interview" : " interviews") : "No interviews" }),
+      el("em", {
+        text: items.length
+          ? items.length + (items.length === 1 ? " interview" : " interviews")
+          : dayBlocks(shown!, 0, 1440).length
+            ? "Unavailable"
+            : "No interviews",
+      }),
     ]),
   );
   // the hours shown: working hours, stretched to fit the day's interviews and, today, the time now
@@ -116,6 +122,9 @@ export function renderAgenda() {
     grid.appendChild(line);
   }
   const lane = el("div", { class: "ag-lane" });
+  dayBlocks(shown!, firstHour * 60, lastHour * 60).forEach(function (band) {
+    lane.appendChild(blockBand(band, firstHour * 60, AGENDA_HOUR_PX, "blk ag-blk"));
+  });
   items.forEach(function (item) {
     const booking = item.booking;
     const interviewer = state.iv.assign[booking.id];

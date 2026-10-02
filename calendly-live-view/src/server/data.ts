@@ -1,7 +1,7 @@
 // Everything the app keeps: the types and the file store for each kind of data.
 import { DEFAULT_INTERVIEWERS, LOGIN_ON, OWNER_EMAILS } from "./config";
 import { fileStore, loadStore, type FileStore } from "./store";
-import { DAY_MS, EMAIL_RE, asFields, normEmail } from "./util";
+import { DAY_MS, EMAIL_RE, type Fields, asFields, normEmail } from "./util";
 
 export type Booking = {
   id: string;
@@ -177,6 +177,28 @@ export const paymentsStore = fileStore<{ payments: Payment[] }>(
       : [],
   }),
 );
+// Times the team is away (⋯ menu → Unavailable): candidates can't book or move an interview into them. start and end
+// are ISO times; a whole day runs from midnight to midnight IST. by: the admin who added it ("" with sign-in off).
+export type Block = { id: string; start: string; end: string; note: string; createdAt: string; by: string };
+export const blocksStore = fileStore<{ blocks: Block[] }>(
+  "unavailable.json",
+  () => ({ blocks: [] }),
+  (x) => ({
+    blocks: Array.isArray(x?.blocks)
+      ? x.blocks
+          .map(asFields)
+          .filter((b: Fields) => typeof b.id === "string" && !isNaN(Date.parse(String(b.start))) && !isNaN(Date.parse(String(b.end))))
+          .map((b: Fields) => ({
+            id: String(b.id),
+            start: String(b.start),
+            end: String(b.end),
+            note: String(b.note ?? "").slice(0, 120),
+            createdAt: String(b.createdAt ?? ""),
+            by: String(b.by ?? ""),
+          }))
+      : [],
+  }),
+);
 export const secretStore = fileStore<{ key: string }>(
   "secret.json",
   () => ({ key: "" }),
@@ -222,6 +244,7 @@ export async function loadStores() {
     enquiriesStore,
     paymentsStore,
     sessionsStore,
+    blocksStore,
   ];
   for (const s of all) await loadStore(s);
 }

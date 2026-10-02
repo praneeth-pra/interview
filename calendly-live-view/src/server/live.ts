@@ -4,6 +4,7 @@ import {
   type Booking,
   activeBookings,
   allowStore,
+  blocksStore,
   bookingsStore,
   enquiriesStore,
   ivStore,
@@ -70,6 +71,11 @@ export function adminState(owner: boolean) {
       .map(pub)
       .sort((a, b) => Date.parse(a.start) - Date.parse(b.start)),
     changes,
+    // unavailable times that haven't ended, or ended in the last 60 days, earliest first
+    blocks: blocksStore.data.blocks
+      .filter((b) => Date.parse(b.end) > since - 30 * 86400000)
+      .sort((a, b) => Date.parse(a.start) - Date.parse(b.start))
+      .map(({ id, start, end, note }) => ({ id, start, end, note })),
     owner,
     ...(owner
       ? {
