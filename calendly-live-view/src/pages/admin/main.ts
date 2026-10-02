@@ -271,9 +271,12 @@ window.__pay = showPayments;
 window.__rev = showRevenue;
 // leaving the tab brings the count back for anything new
 new MutationObserver(renderEnquiryBadge).observe(byId("viewEnq"), { attributes: true, attributeFilter: ["hidden"] });
-if (boot.login) {
+// only owners manage who can sign in
+if (boot.login && boot.owner) {
   byId("mAdm").hidden = false;
   byId("mAdm").onclick = showAdmins;
+}
+if (boot.login) {
   byId("mOut").hidden = false;
   byId("mOut").onclick = function () {
     forget();

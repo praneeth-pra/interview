@@ -330,12 +330,3 @@
     max-width: 620px;
   }
 }
-/* Phones: Alerts sits in the ⋯ menu. */
-#mAlerts {
-  display: none;
-}
-@media (max-width: 760px) {
-  .dlmenu #mAlerts {
-    display: block;
-  }
-}

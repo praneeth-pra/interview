@@ -57,6 +57,10 @@
     height: 36px;
   }
 }
+/* Admins who aren't owners have no ⋯ menu. */
+.aide .hdl {
+  display: none !important;
+}
 /* Phones: sideways swipes on the agenda move the day under the finger; up and down still scrolls the page. */
 @media (max-width: 760px) {
   .agenda {

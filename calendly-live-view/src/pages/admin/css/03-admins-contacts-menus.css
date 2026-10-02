@@ -521,8 +521,7 @@ body.wkv .agenda {
     flex: 1;
     min-width: 0;
   }
-  .tabs,
-  #pushBtn {
+  .tabs {
     display: none !important;
   }
   .tr {

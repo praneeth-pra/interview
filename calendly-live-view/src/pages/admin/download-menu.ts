@@ -25,16 +25,6 @@ export function setupDownloadMenu() {
     setOpen(menu.hidden);
   });
   menu.addEventListener("click", function (e) {
-    // Alerts opens its own sheet, so the click must not reach the document listener that closes it again.
-    if ((e.target as Element).closest("#mAlerts")) {
-      e.stopPropagation();
-      setOpen(false);
-      const alertsButton = document.getElementById("pushBtn");
-      if (alertsButton) {
-        alertsButton.click();
-      }
-      return;
-    }
     if ((e.target as Element).closest("a, button")) {
       setTimeout(function () {
         setOpen(false);
