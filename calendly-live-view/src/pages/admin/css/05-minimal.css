@@ -205,7 +205,8 @@
     height: 36px;
   }
   #pushBtn {
-    display: none !important;
+    width: 36px;
+    height: 36px;
   }
   /* The ⋯ menu: a bottom sheet over a dimmed page, like Alerts and the booking sheet. */
   .dlmenu {

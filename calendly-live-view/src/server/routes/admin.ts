@@ -21,9 +21,10 @@ import { type Fields, DATE_KEY } from "../util";
 
 // Enquiries, payments and revenue are for owners only; other admins don't see their tabs, and these APIs refuse them.
 const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|$)/;
-// Settings only owners open from the ⋯ menu: who can sign in, unavailable times and the interview supporters' names.
-// Added admins still record who supported each interview (PUT /admin/api/interviewers).
-const OWNER_SETTINGS = /^\/admin\/api\/(admins|unavailable|interviewer-names)(\/|$)/;
+// What only owners open from the ⋯ menu (added admins have no ⋯ menu): who can sign in, unavailable times, the interview
+// supporters' names, the Candidates list and the bookings download. Added admins still record who supported each
+// interview (PUT /admin/api/interviewers).
+const OWNER_SETTINGS = /^\/admin\/(api\/(admins|unavailable|interviewer-names|allowlist)(\/|$)|export\.csv$)/;
 
 export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Response | null> {
   const path = url.pathname;
@@ -44,14 +45,13 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   // ---- pages
   if ((path === "/admin" || path === "/admin/allowlist") && method === "GET") {
     if (!authed) return sendShell(req, LOGIN);
-    return sendShell(req, adminShell(path === "/admin" ? "cal" : "allow", owner));
+    return sendShell(req, adminShell(path === "/admin" || !owner ? "cal" : "allow", owner));
   }
   if (path === "/admin/analytics" && method === "GET")
     return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
   if (!authed) return json({ error: "Sign in again." }, 401);
   if (!owner && OWNER_ONLY.test(path)) return json({ error: "Only the owner can see enquiries, payments and revenue." }, 403);
-  if (!owner && OWNER_SETTINGS.test(path))
-    return json({ error: "Only the owner can change admins, unavailable times and supporters." }, 403);
+  if (!owner && OWNER_SETTINGS.test(path)) return json({ error: "Only the owner can open this." }, 403);
 
   // ---- owners: revenue, enquiries, payments
   if (path === "/admin/api/revenue" && method === "GET") return json(analyticsView(q("q").slice(0, 100)));
