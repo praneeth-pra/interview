@@ -61,6 +61,8 @@ const BACKUP_TO = (Bun.env.BACKUP_EMAIL ?? "")
 export const BACKUP_RECIPIENTS = BACKUP_TO.length ? BACKUP_TO : HOST_EMAILS;
 export const BACKUP_HOUR = /^\d{1,2}$/.test((Bun.env.BACKUP_HOUR ?? "").trim()) ? Math.min(23, Number(Bun.env.BACKUP_HOUR)) : 2;
 export const BACKUP_KEEP = 14;
+// The backup email goes out once this many days have passed since the last one.
+export const BACKUP_EMAIL_DAYS = 7;
 // The monthly revenue report to the owners: sent on the 1st after REPORT_HOUR (IST, default 9). MONTHLY_REPORT=off turns it
 // off (the test servers do).
 export const REPORT_HOUR = /^\d{1,2}$/.test((Bun.env.REPORT_HOUR ?? "").trim()) ? Math.min(23, Number(Bun.env.REPORT_HOUR)) : 9;

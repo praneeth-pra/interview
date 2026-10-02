@@ -123,6 +123,17 @@ const screens = [
       await p.locator("#pbody .unrow").first().waitFor();
     },
   ],
+  [
+    "admin: backup",
+    BASE + "/admin",
+    async (p) => {
+      await p.locator("#dlBtn").click();
+      await p.locator("#mBak").click();
+      const backup = await p.evaluate(() => fetch("/admin/backup.json").then((r) => r.text()));
+      await p.setInputFiles("#bkFile", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backup) });
+      await p.locator("#pbody .bksum").waitFor();
+    },
+  ],
   ["admin: enquiries", BASE + "/admin?view=enquiries", async (p) => p.locator("#enqBody .enqitem, #enqBody .enqlist").first().waitFor()],
   ["admin: payments", BASE + "/admin?view=payments", async (p) => p.locator("#payBody .paysw").first().waitFor()],
   ["contacts", BASE + "/admin/analytics", async (p) => p.locator("#clist .crow").first().waitFor()],
