@@ -106,7 +106,7 @@
   width: 18px;
   height: 18px;
 }
-/* Payments: the view switch and the candidate filter, above the payments */
+/* Payments: the view switch and the search on one row, the status chips under them */
 .paybar {
   display: flex;
   flex-wrap: wrap;
@@ -130,19 +130,110 @@
   font: inherit;
   font-size: 14.5px;
 }
-/* the browser's own arrow sits on the pill's edge; draw one inside it instead */
-.paybar select.payfilter {
-  -webkit-appearance: none;
-  appearance: none;
-  padding: 0 40px 0 16px;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none' stroke='%238a8f98' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M1 1.5l5 5 5-5'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 16px center;
-}
 /* 16px, or iPhones zoom in while typing */
 .paybar .paysearch {
   padding: 0 16px;
   font-size: 16px;
+}
+.payrow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+/* the search fills the rest of the row, with a magnifier inside it */
+.payrow .paysearch {
+  flex: 1 1 240px;
+  max-width: none;
+  height: 40px;
+  padding-left: 40px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%238a8f98' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cpath d='M20 20l-3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: 15px center;
+}
+.payrow .paysearch:focus {
+  border-color: var(--link);
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--link) 22%, transparent);
+}
+/* status chips; on a phone they scroll sideways rather than wrap */
+.paychips {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.paychips::-webkit-scrollbar {
+  display: none;
+}
+.paychip {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 12px 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 17px;
+  background: var(--card);
+  color: var(--ink2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.paychip span {
+  min-width: 20px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: var(--sub);
+  color: var(--ink2);
+  font-size: 12.5px;
+  text-align: center;
+}
+.paychip[aria-pressed="true"] {
+  border-color: var(--link);
+  background: color-mix(in srgb, var(--link) 10%, var(--card));
+  color: var(--link);
+}
+.paychip[aria-pressed="true"] span {
+  background: var(--link);
+  color: var(--card);
+}
+/* on a phone the view switch takes the full width, its three choices equal */
+@media (max-width: 600px) {
+  .payrow .paysw {
+    display: flex;
+    width: 100%;
+  }
+  .payrow .paysw button {
+    flex: 1;
+    padding: 0 8px;
+  }
+  /* the four statuses as equal tiles, the count over the name, so all of them fit without scrolling */
+  .paychip {
+    flex: 1 1 0;
+    flex-direction: column-reverse;
+    gap: 0;
+    min-width: 0;
+    height: auto;
+    padding: 6px 2px;
+    border-radius: 14px;
+    font-size: 13px;
+  }
+  .paychip span,
+  .paychip[aria-pressed="true"] span {
+    padding: 0;
+    background: none;
+    color: var(--ink);
+    font-size: 17px;
+    font-weight: 700;
+  }
+  .paychip[aria-pressed="true"] span {
+    color: var(--link);
+  }
 }
 /* one candidate's subtotal, above their payments */
 .paysum {
