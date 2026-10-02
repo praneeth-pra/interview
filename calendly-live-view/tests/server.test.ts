@@ -683,6 +683,9 @@ describe("admin", () => {
     expect(page).toContain('<button hidden type="button" data-go="enq"');
     expect(page).toContain('<button hidden type="button" id="mPay"');
     expect(page).toContain('<button hidden type="button" data-go="rev"');
+    // nor the ⋯ menu's Unavailable and Interview supporters (Admins stays hidden for them in the page script)
+    expect(page).toContain('<button hidden type="button" id="mUn"');
+    expect(page).toContain('<button hidden type="button" id="mIv"');
     expect(page).toContain('<nav class="bnav b3"');
     expect(boot(await (await get(locked, "/admin/allowlist", { cookie: aide })).text()).owner).toBe(false);
     const ownerPage = await (await get(locked, "/admin", { cookie })).text();
@@ -723,19 +726,35 @@ describe("admin", () => {
     expect((await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie })).status).toBe(200);
   });
 
-  test("only owners add and remove admins; other admins see the list but can't change it or the owners", async () => {
+  test("only owners see and change admins, unavailable times and supporter names; other admins are refused", async () => {
     const cookie = ownerCookie;
     await postJson(locked, "/admin/api/admins", { emails: ["aide2@example.com", "aide3@example.com"] }, { cookie });
     const aide = await signIn(locked, "aide2@example.com");
     const owners = ["boss@example.com", "chief@example.com", OWNER];
     const before = { owners, emails: ["aide2@example.com", "aide3@example.com"] };
-    expect(await (await get(locked, "/admin/api/admins", { cookie: aide })).json()).toMatchObject(before);
+    const refused = "Only the owner can change admins, unavailable times and supporters.";
+    const list = await get(locked, "/admin/api/admins", { cookie: aide });
+    expect(list.status).toBe(403);
+    expect((await list.json()).error).toBe(refused);
     // adding, removing another admin, or trying to change the owners are all refused
     for (const emails of [["aide2@example.com", "aide3@example.com", "new@example.com"], ["aide2@example.com"], ["aide2@example.com", "aide3@example.com", "boss@example.com"], []]) {
       const r = await postJson(locked, "/admin/api/admins", { emails }, { cookie: aide });
       expect(r.status).toBe(403);
-      expect((await r.json()).error).toBe("Only the owner can add or remove admins.");
+      expect((await r.json()).error).toBe(refused);
     }
+    // so are unavailable times and renaming supporters, before the body is read
+    const day = Date.now() + 3 * 86400000;
+    for (const [path, body] of [
+      ["/admin/api/unavailable", { startMs: day, endMs: day + 3600000 }],
+      ["/admin/api/unavailable/delete", { id: "x" }],
+      ["/admin/api/interviewer-names", { list: [{ to: "Someone" }] }],
+    ] as const)
+      expect((await postJson(locked, path, body, { cookie: aide })).status).toBe(403);
+    // recording who supported an interview is still theirs
+    const assign = await fetch(locked.url + "/admin/api/interviewers", { method: "PUT", headers: { "Content-Type": "application/json", cookie: aide }, body: JSON.stringify({ set: {} }) });
+    expect(assign.status).not.toBe(403);
+    // the ⋯ menu's Admins stays hidden for them
+    expect(boot(await (await get(locked, "/admin", { cookie: aide })).text()).owner).toBe(false);
     expect(await (await get(locked, "/admin/api/admins", { cookie })).json()).toMatchObject(before);
     expect(JSON.parse(readFileSync(join(locked.dir, "admins.json"), "utf8")).emails).toEqual(["aide2@example.com", "aide3@example.com"]);
     // the owner still can
