@@ -45,9 +45,9 @@ function statusBadge(item: Payment) {
   }
 }
 // Three views, remembered per device: By candidate (one row per candidate email: payments, total paid, last paid),
-// Table (candidate, date, amount) and List (one block per payment, with its receipt). The search box narrows every view
-// by name or email; when it finds one candidate, Table and List show their subtotal. Tapping a candidate in By candidate
-// searches for them.
+// Table (candidate, date, amount) and List (one block per payment, with its receipt). Typing in the search box suggests
+// candidates by name or email; picking one narrows every view to them, and Table and List show their subtotal. Tapping a
+// candidate in By candidate picks them the same way.
 let paymentsMode = "people";
 try {
   const savedMode = localStorage.getItem("payMode") || "";
@@ -55,7 +55,7 @@ try {
 } catch (e) {}
 let paymentsSort = { key: "date", down: true };
 let peopleSort = { key: "last", down: true };
-// what's typed in the search box: part of a candidate's name or email
+// the picked candidate's email, or "" for everyone
 let paymentsQuery = "";
 // "" is pending and confirmed; or just "pending", "confirmed" or "discarded"
 let paymentsStatus = "";
@@ -100,19 +100,128 @@ export function showPayments(quiet?: boolean): Promise<void> {
     swapIn();
   }
   let payments: Payment[] = [];
-  // redrawing keeps this same box, so typing isn't interrupted
+  // Redrawing keeps this same box and its suggestions, so typing isn't interrupted. Typing only suggests candidates; the
+  // payments narrow once one is picked, as in the Revenue search.
+  const drop = el("ul", { id: "payDrop", class: "drop", role: "listbox", "aria-label": "Candidates", hidden: true });
   const search = el("input", {
     type: "search",
     class: "payfilter paysearch",
     placeholder: "Search candidates",
     "aria-label": "Search payments by candidate name or email",
+    role: "combobox",
+    "aria-autocomplete": "list",
+    "aria-expanded": "false",
+    "aria-controls": "payDrop",
     autocomplete: "off",
-    oninput: function () {
-      paymentsQuery = search.value;
-      draw();
-    },
   }) as HTMLInputElement;
-  search.value = paymentsQuery;
+  const searchBox = el("div", { class: "srch paysrch" }, [search, drop]);
+  // everyone with a payment, from the last draw, for the suggestions
+  let everyone: PayPerson[] = [];
+  let shown: PayPerson[] = [];
+  let active = -1;
+  function closeDrop() {
+    drop.hidden = true;
+    search.setAttribute("aria-expanded", "false");
+    search.removeAttribute("aria-activedescendant");
+    active = -1;
+  }
+  function highlight(index: number) {
+    active = index;
+    for (let i = 0; i < drop.children.length; i++) {
+      drop.children[i].setAttribute("aria-selected", String(i === index));
+    }
+    if (index >= 0) {
+      search.setAttribute("aria-activedescendant", "pyo" + index);
+      drop.children[index].scrollIntoView({ block: "nearest" });
+    }
+  }
+  function pick(index: number) {
+    const p = shown[index];
+    if (!p) {
+      return;
+    }
+    paymentsQuery = p.email;
+    closeDrop();
+    search.blur();
+    draw();
+  }
+  function suggest() {
+    const q = search.value.trim().toLowerCase();
+    drop.textContent = "";
+    if (!q) {
+      closeDrop();
+      return;
+    }
+    shown = everyone
+      .filter(function (p) {
+        return p.name.toLowerCase().indexOf(q) >= 0 || p.email.indexOf(q) >= 0;
+      })
+      .slice(0, 8);
+    if (!shown.length) {
+      drop.appendChild(el("li", { class: "m", text: "No matching candidates" }));
+    }
+    shown.forEach(function (p, index) {
+      drop.appendChild(
+        el(
+          "li",
+          {
+            id: "pyo" + index,
+            role: "option",
+            "aria-selected": "false",
+            onmousedown: function (event: Event) {
+              event.preventDefault();
+            },
+            onclick: function () {
+              pick(index);
+            },
+          },
+          [
+            el("b", { text: p.name }),
+            el("div", {
+              class: "m",
+              text: p.email + " \u00B7 " + rupees(p.total) + " paid" + (p.pending ? " \u00B7 " + p.pending + " pending" : ""),
+            }),
+          ],
+        ),
+      );
+    });
+    active = -1;
+    drop.hidden = false;
+    search.setAttribute("aria-expanded", "true");
+  }
+  search.addEventListener("input", function () {
+    // emptying the box (or its clear button) shows everyone again
+    if (!search.value.trim() && paymentsQuery) {
+      paymentsQuery = "";
+      draw();
+    }
+    suggest();
+  });
+  search.addEventListener("focus", suggest);
+  search.addEventListener("keydown", function (event: KeyboardEvent) {
+    if (drop.hidden) {
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      highlight(active < shown.length - 1 ? active + 1 : 0);
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      highlight(active > 0 ? active - 1 : shown.length - 1);
+    } else if (event.key === "Enter") {
+      event.preventDefault();
+      pick(active < 0 ? 0 : active);
+    } else if (event.key === "Escape") {
+      event.preventDefault();
+      closeDrop();
+    }
+  });
+  // leaving the box without picking puts back the picked candidate's name (or nothing)
+  search.addEventListener("blur", function () {
+    closeDrop();
+    const picked = everyone.filter((p) => p.email === paymentsQuery)[0];
+    search.value = picked ? picked.name : "";
+  });
   // one entry per candidate email, with the name from their latest payment (payments come newest first)
   function people() {
     const byEmail: Record<string, PayPerson> = {};
@@ -194,13 +303,14 @@ export function showPayments(quiet?: boolean): Promise<void> {
         all.push({ email: item.email, name: titleCase(item.name), count: 0, total: 0, last: item.createdAt, pending: 0 });
       }
     });
-    const query = paymentsQuery.trim().toLowerCase();
+    everyone = all;
+    const query = paymentsQuery;
     function matches(p: PayPerson) {
-      return !query || p.name.toLowerCase().indexOf(query) >= 0 || p.email.indexOf(query) >= 0;
+      return !query || p.email === query;
     }
     const found = all.filter(matches);
     if (!typing) {
-      search.value = paymentsQuery;
+      search.value = found.length && query ? found[0].name : "";
     }
     // the view switch and the search on one row; the status chips, with how many payments each has, under them
     bar.appendChild(
@@ -210,7 +320,7 @@ export function showPayments(quiet?: boolean): Promise<void> {
           modeButton("table", "Table"),
           modeButton("list", "List"),
         ]),
-        search,
+        searchBox,
       ]),
     );
     if (paymentsMode !== "people") {
@@ -257,7 +367,7 @@ export function showPayments(quiet?: boolean): Promise<void> {
       search.focus();
     }
     if (!found.length) {
-      list.appendChild(el("p", { class: "sub", text: "No candidate matches \u201C" + paymentsQuery.trim() + "\u201D." }));
+      list.appendChild(el("p", { class: "sub", text: "No payments from " + paymentsQuery + "." }));
       return;
     }
     if (paymentsMode === "people") {
