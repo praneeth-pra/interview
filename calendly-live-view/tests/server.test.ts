@@ -27,7 +27,7 @@ async function start(port: number, env: Record<string, string>, existing?: strin
   const dir = existing ?? mkdtempSync(join(tmpdir(), "booking-form-"));
   if (!existing) seed(dir);
   const proc = Bun.spawn(["bun", "run", join(ROOT, "src/server.ts")], {
-    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", ADMIN_OPEN: "1", ...env },
+    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", MONTHLY_REPORT: "off", ADMIN_OPEN: "1", ...env },
     stdout: "ignore",
     stderr: "inherit",
   });
@@ -1064,6 +1064,77 @@ describe("backups", () => {
     expect(JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.length).toBe(61);
     expect(existsSync(join(dir, "bookings.json.pre-restore"))).toBe(true);
     expect(existsSync(join(dir, "push.json"))).toBe(true);
+  });
+});
+
+describe("monthly revenue report", () => {
+  const sent: any[] = [];
+  let resend: ReturnType<typeof Bun.serve>;
+  let srv: Srv;
+  const env = { RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4323/emails", ADMIN_EMAILS: "owner@example.com", MONTHLY_REPORT: "", REPORT_HOUR: "0" };
+  // last month and the one before, in India time; payments at noon IST on a given day
+  const ist = new Date(Date.now() + 330 * 60000);
+  const monthAgo = (n: number) => new Date(Date.UTC(ist.getUTCFullYear(), ist.getUTCMonth() - n, 1));
+  const key = (d: Date) => d.getUTCFullYear() + "-" + String(d.getUTCMonth() + 1).padStart(2, "0");
+  const [last, before] = [monthAgo(1), monthAgo(2)];
+  const at = (m: Date, day: number) => new Date(Date.UTC(m.getUTCFullYear(), m.getUTCMonth(), day, 12) - 330 * 60000).toISOString();
+  const name = (m: Date) => m.toLocaleString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
+  const pay = (n: number, who: string, amount: number, createdAt: string, decision?: string) => ({
+    id: "40000000-0000-0000-0000-" + String(n).padStart(12, "0"), name: who, email: who.toLowerCase() + "@example.com", amount, installment: "advance",
+    createdAt, ...(decision ? { decision } : {}), receipt: { file: "none.png", name: "r.png", type: "image/png", size: 10 },
+  });
+  const waitFor = async (ok: () => boolean) => {
+    for (let i = 0; i < 100 && !ok(); i++) await Bun.sleep(30);
+  };
+  beforeAll(async () => {
+    resend = Bun.serve({ port: 4323, fetch: async (req) => (sent.push(await req.json()), Response.json({ id: "x" })) });
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-report-"));
+    seed(dir);
+    const payments = [
+      pay(1, "Kiran", 20000, at(last, 3), "confirmed"),
+      pay(2, "Kiran", 10000, at(last, 17), "confirmed"),
+      pay(3, "Meena", 15000, at(last, 17), "confirmed"),
+      pay(4, "Ravi", 7000, at(last, 20)), // pending
+      pay(5, "Sunil", 99000, at(last, 21), "discarded"),
+      pay(6, "Meena", 30000, at(before, 9), "confirmed"),
+      pay(7, "Asha", 5000, new Date().toISOString(), "confirmed"), // this month: in a later report
+    ];
+    writeFileSync(join(dir, "payments.json"), JSON.stringify({ payments }));
+    srv = await start(4322, env, dir);
+    await waitFor(() => sent.length > 0 && existsSync(join(dir, "report-state.json")));
+  });
+  afterAll(() => {
+    srv?.proc.kill();
+    resend?.stop(true);
+  });
+
+  test("the owners get last month's report, with its confirmed revenue against the month before", () => {
+    const reports = sent.filter((m) => m.subject.startsWith("Revenue report"));
+    expect(reports.length).toBe(1);
+    const mail = reports[0];
+    expect(mail.to).toEqual(["owner@example.com"]);
+    expect(mail.subject).toBe("Revenue report: " + name(last) + " \u2013 \u20b945,000");
+    expect(mail.html).toContain("\u25b2 50% from \u20b930,000 in " + before.toLocaleString("en-US", { month: "long", timeZone: "UTC" }));
+    expect(mail.html).toContain("\u20b97,000</b> from 1 payment");
+    expect(mail.html).toContain("Kiran");
+    expect(mail.html).not.toContain("Sunil");
+    expect(mail.html).not.toContain("Asha");
+    expect(mail.html).not.toContain("<svg");
+    expect(mail.html).not.toContain("<script");
+    expect(mail.text).toContain("Confirmed since the first payment: \u20b975,000");
+    expect(mail.text).toContain("Best day: " + last.toLocaleString("en-US", { month: "short", timeZone: "UTC" }) + " 17, \u20b925,000");
+    expect(mail.attachments.map((a: any) => a.filename)).toEqual(["payments-" + key(last) + ".csv"]);
+    const csv = Buffer.from(mail.attachments[0].content, "base64").toString("utf8").trim().split("\r\n");
+    expect(csv.length).toBe(5); // the header, three confirmed payments and the pending one
+    expect(JSON.parse(readFileSync(join(srv.dir, "report-state.json"), "utf8"))).toEqual({ sent: key(last) });
+  });
+
+  test("a restart doesn't send it again", async () => {
+    srv.proc.kill();
+    await srv.proc.exited;
+    srv = await start(4322, env, srv.dir);
+    await Bun.sleep(400);
+    expect(sent.filter((m) => m.subject.startsWith("Revenue report")).length).toBe(1);
   });
 });
 

@@ -9,7 +9,7 @@ import { istDate, istParts, istToUtcMs } from "./time";
 import { normEmail, pad } from "./util";
 
 const MONTHS = 12;
-const monthKey = (iso: string) => {
+export const monthKey = (iso: string) => {
   const p = istParts(Date.parse(iso));
   return p.y + "-" + pad(p.mo);
 };
@@ -89,14 +89,15 @@ export function analyticsView(query = "", now = Date.now()) {
   };
 }
 
-// One row per payment that isn't discarded (for the searched candidates only, after a search), for a spreadsheet.
-export function analyticsCsv(query = "") {
+// One row per payment that isn't discarded (for the searched candidates only, after a search, and only the payments
+// of one month when it is given), for a spreadsheet.
+export function analyticsCsvText(query = "", month = "") {
   const mine = matcher(query);
   const status = (d?: string) => (d === "confirmed" ? "Confirmed" : "Pending");
   const rows = [["Date", "Month", "Name", "Email", "Installment", "Amount (INR)", "Status", "Confirmed on"]];
   for (const v of [...paymentsStore.data.payments].sort((a, b) => a.createdAt.localeCompare(b.createdAt))) {
     if (v.decision === "discarded") continue;
-    if (!mine(v)) continue;
+    if (!mine(v) || (month && monthKey(v.createdAt) !== month)) continue;
     rows.push([
       istDate(v.createdAt),
       monthKey(v.createdAt),
@@ -108,7 +109,10 @@ export function analyticsCsv(query = "") {
       v.decision === "confirmed" ? istDate(v.decidedAt ?? "") : "",
     ]);
   }
-  return new Response("﻿" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n", {
+  return "﻿" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
+}
+export function analyticsCsv(query = "") {
+  return new Response(analyticsCsvText(query), {
     headers: {
       ...BASE_HEADERS,
       "Content-Type": "text/csv; charset=utf-8",
