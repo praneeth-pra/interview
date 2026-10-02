@@ -1,17 +1,25 @@
-// Backup (⋯ menu, owners only): download all the data now, or restore it from a backup file (the weekly backup email's
-// backup.json, or a download). Restoring sends the data first, then each resume and receipt on its own, so no request
-// is bigger than one upload.
+// Backup (⋯ menu, owners only): download all the data now, or restore it from backup files (the weekly backup email's
+// backup.json, or its parts when the files were split over several emails, or a download). Restoring sends the data
+// first, then each resume and receipt on its own, so no request is bigger than one upload.
 import { el, setMessage, toast } from "./dom";
 import { request } from "./api";
 import { openPanel, panel } from "./panel";
 
-type Backup = { app?: string; version?: number; createdAt?: string; files?: Record<string, any>; uploads?: Record<string, string> };
+type Backup = {
+  app?: string;
+  version?: number;
+  createdAt?: string;
+  part?: number;
+  parts?: number;
+  files?: Record<string, any>;
+  uploads?: Record<string, string>;
+};
 
 export function showBackup() {
   panel.refresh = null;
   const body = openPanel("Backup", "A full backup is emailed to you every week. Keep those emails.");
   const msg = el("p", { class: "msg", role: "status" });
-  const input = el("input", { type: "file", id: "bkFile", accept: ".json,application/json" }) as HTMLInputElement;
+  const input = el("input", { type: "file", id: "bkFile", accept: ".json,application/json", multiple: true }) as HTMLInputElement;
   const summary = el("p", { class: "bksum", hidden: "" });
   const go = el("button", { type: "button", class: "danger", text: "Replace all data with this backup", hidden: "" }) as HTMLButtonElement;
   let chosen: Backup | null = null;
@@ -20,27 +28,68 @@ export function showBackup() {
     chosen = null;
     summary.hidden = go.hidden = true;
     setMessage(msg, "");
-    const file = input.files && input.files[0];
-    if (!file) {
+    const picked = Array.prototype.slice.call(input.files || []) as File[];
+    if (!picked.length) {
       return;
     }
-    file.text().then(function (text) {
-      let backup: Backup;
-      try {
-        backup = JSON.parse(text);
-      } catch (e) {
-        return setMessage(msg, "That file isn't a backup from this site.", true);
+    Promise.all(
+      picked.map(function (file) {
+        return file.text().then(
+          function (text) {
+            try {
+              return JSON.parse(text) as Backup;
+            } catch (e) {
+              return null;
+            }
+          },
+          function () {
+            return null;
+          },
+        );
+      }),
+    ).then(function (all) {
+      if (
+        all.some(function (backup) {
+          return !backup || backup.app !== "booking-form";
+        })
+      ) {
+        return setMessage(msg, (picked.length > 1 ? "One of those files isn't" : "That file isn't") + " a backup from this site.", true);
       }
-      if (!backup || backup.app !== "booking-form" || !backup.files || !backup.files["bookings.json"]) {
-        return setMessage(msg, "That file isn't a backup from this site.", true);
+      const backups = all as Backup[];
+      const main = backups.filter(function (backup) {
+        return backup.files && backup.files["bookings.json"];
+      });
+      if (main.length !== 1) {
+        return setMessage(
+          msg,
+          main.length ? "Choose the files from one backup only." : "Choose the backup file with the data too (the first email's, part 1).",
+          true,
+        );
       }
-      chosen = backup;
-      const files = backup.files;
+      const data = main[0]!;
+      if (
+        backups.some(function (backup) {
+          return backup.createdAt !== data.createdAt;
+        })
+      ) {
+        return setMessage(msg, "Those files are from different backups. Choose the files from one email date.", true);
+      }
+      const uploads: Record<string, string> = {};
+      backups.forEach(function (backup) {
+        Object.assign(uploads, backup.uploads || {});
+      });
+      chosen = { ...data, uploads: uploads };
+      const files = data.files!;
       const count = function (name: string, key: string) {
         return ((files[name] && files[name][key]) || []).length;
       };
-      const uploads = Object.keys(backup.uploads || {}).length;
-      const when = backup.createdAt ? new Date(backup.createdAt) : null;
+      const partsWanted = data.parts || 1;
+      const partsHave = new Set(
+        backups.map(function (backup) {
+          return backup.part || 1;
+        }),
+      ).size;
+      const when = data.createdAt ? new Date(data.createdAt) : null;
       summary.textContent =
         "Backup from " +
         (when && !isNaN(+when) ? when.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }) : "an unknown date") +
@@ -51,8 +100,18 @@ export function showBackup() {
         " enquiries, " +
         count("payments.json", "payments") +
         " payments and " +
-        uploads +
-        " resumes and receipts. Everything on the site now is replaced by this.";
+        Object.keys(uploads).length +
+        " resumes and receipts." +
+        (partsHave < partsWanted
+          ? " This backup came in " +
+            partsWanted +
+            " emails and you chose " +
+            partsHave +
+            " of its files, so some resumes and receipts would be missing. Choose all " +
+            partsWanted +
+            " together if you can."
+          : "") +
+        " Everything on the site now is replaced by this.";
       summary.hidden = go.hidden = false;
     });
   };
@@ -131,9 +190,9 @@ export function showBackup() {
       el("h3", { class: "unh", text: "Restore" }),
       el("p", {
         class: "sub",
-        text: "If the site's data is ever lost, choose the backup.json file from the latest backup email. It puts back the bookings, enquiries, payments, resumes, receipts and settings.",
+        text: "If the site's data is ever lost, choose the backup.json file from the latest backup email (all its parts, if it came in several emails). It puts back the bookings, enquiries, payments, resumes, receipts and settings.",
       }),
-      el("div", { class: "f" }, [el("label", { for: "bkFile", text: "Backup file" }), input]),
+      el("div", { class: "f" }, [el("label", { for: "bkFile", text: "Backup files" }), input]),
       summary,
       go,
       msg,

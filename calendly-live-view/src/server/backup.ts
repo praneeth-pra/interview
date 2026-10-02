@@ -1,10 +1,10 @@
 // ---- Backups ------------------------------------------------------------------------------
 // Every day after BACKUP_HOUR (IST, default 2) a data snapshot is written to DATA_DIR/backups (the last 14 are kept), and
 // once a week (BACKUP_EMAIL_DAYS after the last one) the bookings CSV plus a full backup (the data without push.json, and
-// the resumes and payment receipts) are emailed to BACKUP_EMAIL (or HOST_EMAIL), so the data survives losing the volume.
-// backup-state.json records the last days done, so restarts don't send duplicates; a failed email is retried later.
-// push.json (browser-alert keys) is only in the on-volume snapshots; sessions.json (who is signed in) is never copied, so
-// a restore signs everyone else out.
+// the resumes and payment receipts, split over several emails when they are big) are emailed to BACKUP_EMAIL (or
+// HOST_EMAIL), so the data survives losing the volume. backup-state.json records the last days done, so restarts don't
+// send duplicates; a failed email is retried later. push.json (browser-alert keys) is only in the on-volume snapshots;
+// sessions.json (who is signed in) is never copied.
 import { bookingsCsvText } from "./bookings";
 import { BACKUP_EMAIL_DAYS, BACKUP_HOUR, BACKUP_KEEP, BACKUP_RECIPIENTS, DATA_DIR, HOST_NAME, RESEND_API_KEY } from "./config";
 import {
@@ -45,9 +45,10 @@ const STORES: Record<string, FileStore<any>> = {
 };
 // The resumes and receipts, as "resumes/<file>" or "receipts/<file>"; restoring writes only names like these.
 export const UPLOAD_PATH = /^(resumes|receipts)\/[A-Za-z0-9-]{1,64}\.(pdf|docx|doc|png|jpg|webp|heic)$/;
-// Resend takes 40 MB an email, and the files are base64 twice over (in the JSON, then as an attachment): about 18 MB of
-// files fits with room for the data.
-const EMAIL_UPLOADS_MAX = 18 * 1024 * 1024;
+// The resumes and receipts in one backup email, at most (BACKUP_FILES_MB, default 12). They are base64 twice over (in the
+// JSON, then as an attachment), so 12 MB of files is about 21 MB of email: under the 25 MB many inboxes accept.
+const FILES_MB = Number(Bun.env.BACKUP_FILES_MB);
+const EMAIL_FILES_MAX = (FILES_MB > 0 ? FILES_MB : 12) * 1024 * 1024;
 
 export function backupData(withPush: boolean) {
   return {
@@ -60,8 +61,9 @@ export function backupData(withPush: boolean) {
     },
   };
 }
-// The backup with the resumes and receipts (base64), newest first until max bytes; left counts the files that didn't fit.
-export async function fullBackup(max = Infinity) {
+// The backup with every resume and receipt (base64), split into parts of at most max bytes of files, newest files first.
+// Part 1 has the data and the first files; the other parts have only files. Restoring takes all the parts together.
+export async function backupParts(max = Infinity) {
   const wanted = [
     ...enquiriesStore.data.enquiries.map((v) => ({
       at: v.createdAt,
@@ -74,21 +76,31 @@ export async function fullBackup(max = Infinity) {
       read: () => readReceipt(v.receipt.file),
     })),
   ].sort((a, b) => b.at.localeCompare(a.at));
-  const uploads: Record<string, string> = {};
+  const chunks: Record<string, string>[] = [{}];
+  const seen = new Set<string>();
   let size = 0;
-  let left = 0;
+  let count = 0;
   for (const w of wanted) {
-    if (!UPLOAD_PATH.test(w.path) || w.path in uploads) continue;
+    if (!UPLOAD_PATH.test(w.path) || seen.has(w.path)) continue;
+    seen.add(w.path);
     const bytes = await w.read();
     if (!bytes) continue;
-    if (size + bytes.length > max) {
-      left++;
-      continue;
+    if (size && size + bytes.length > max) {
+      chunks.push({});
+      size = 0;
     }
     size += bytes.length;
-    uploads[w.path] = Buffer.from(bytes).toString("base64");
+    count++;
+    chunks.at(-1)![w.path] = Buffer.from(bytes).toString("base64");
   }
-  return { backup: { ...backupData(false), uploads }, count: Object.keys(uploads).length, left };
+  const data = backupData(false);
+  const parts = chunks.map((uploads, i) => ({
+    ...(i ? { app: data.app, version: data.version, createdAt: data.createdAt } : data),
+    part: i + 1,
+    parts: chunks.length,
+    uploads,
+  }));
+  return { parts, count };
 }
 async function saveSnapshot(day: string) {
   const dir = DATA_DIR + "/backups";
@@ -100,41 +112,71 @@ async function saveSnapshot(day: string) {
     .slice(0, -BACKUP_KEEP);
   for (const f of old) await rm(dir + "/" + f, { force: true });
 }
+// Part 1 goes with the bookings CSV; when the files need more than one email, each other part follows in its own email.
 async function emailBackup(day: string) {
   const all = bookingsStore.data.bookings;
   const upcoming = all.filter((b) => !b.cancelled && Date.parse(b.start) > Date.now()).length;
-  const { backup, count, left } = await fullBackup(EMAIL_UPLOADS_MAX);
-  const body = emailBody({
+  const { parts, count } = await backupParts(EMAIL_FILES_MAX);
+  const n = parts.length;
+  const name = (i: number) => "backup-" + day + (n > 1 ? "-part" + (i + 1) : "") + ".json";
+  const subject = "Backup: " + HOST_NAME + " bookings \u2013 " + day;
+  const attach = (i: number) => ({
+    filename: name(i),
+    content: Buffer.from(JSON.stringify(parts[i], null, 1)).toString("base64"),
+    content_type: "application/json",
+  });
+  const first = emailBody({
     heading: "Weekly backup",
     intro:
       "The " +
       HOST_NAME +
-      " data as of today. Keep this email: if the server's data is ever lost, the backup file is enough to restore everything (admin ⋯ menu → Backup).",
+      " data as of today. Keep this email" +
+      (n > 1 ? " and the " + (n - 1) + " that follow it" : "") +
+      ": if the server's data is ever lost, the backup " +
+      (n > 1 ? "files are" : "file is") +
+      " enough to restore everything (admin ⋯ menu → Backup).",
     rows: [
       ["Date", day],
       ["Bookings", all.length + " in total, " + upcoming + " upcoming"],
       ["Allowed emails", String(allowStore.data.emails.length)],
-      ["Resumes and receipts", count + (left ? " (" + left + " older ones didn't fit in this email; they are still on the server)" : "")],
+      ["Resumes and receipts", String(count) + (n > 1 ? " (split across " + n + " emails, to keep each one small enough)" : "")],
     ],
-    note: "bookings.csv opens in Excel or Google Sheets. backup.json is the full data, with the resumes and receipts, for restoring. It contains candidate details: don't forward it.",
+    note:
+      "bookings.csv opens in Excel or Google Sheets. " +
+      (n > 1 ? "The backup-…-part files together are" : "backup.json is") +
+      " the full data, with the resumes and receipts, for restoring: choose " +
+      (n > 1 ? "all of them" : "it") +
+      " at once. It contains candidate details: don't forward it.",
   });
-  return sendEmail({
+  const sent = await sendEmail({
     to: BACKUP_RECIPIENTS,
-    subject: "Backup: " + HOST_NAME + " bookings \u2013 " + day,
-    ...body,
+    subject: subject + (n > 1 ? " (1 of " + n + ")" : ""),
+    ...first,
     files: [
       {
         filename: "bookings-" + day + ".csv",
         content: Buffer.from(bookingsCsvText()).toString("base64"),
         content_type: "text/csv; charset=utf-8",
       },
-      {
-        filename: "backup-" + day + ".json",
-        content: Buffer.from(JSON.stringify(backup, null, 1)).toString("base64"),
-        content_type: "application/json",
-      },
+      attach(0),
     ],
   });
+  // the other parts are sent once; one that fails is logged, and next week's backup carries every file again
+  if (sent)
+    for (let i = 1; i < n; i++) {
+      const body = emailBody({
+        heading: "Weekly backup, part " + (i + 1) + " of " + n,
+        intro: "More resumes and receipts from the " + day + " backup. Keep this email with the others from that day.",
+        rows: [["Files in this part", String(Object.keys(parts[i]!.uploads).length)]],
+        note:
+          "Restore by choosing every backup-" +
+          day +
+          "-part file together (admin ⋯ menu → Backup). It contains candidate details: don't forward it.",
+      });
+      if (!(await sendEmail({ to: BACKUP_RECIPIENTS, subject: subject + " (" + (i + 1) + " of " + n + ")", ...body, files: [attach(i)] })))
+        console.log("backup: part " + (i + 1) + " of " + n + " not emailed");
+    }
+  return sent;
 }
 // Whether the weekly email is due: none sent yet, or the last one was BACKUP_EMAIL_DAYS or more days ago.
 const emailDue = (day: string, last: string) => !last || Date.parse(day) - Date.parse(last) >= BACKUP_EMAIL_DAYS * 86400000;

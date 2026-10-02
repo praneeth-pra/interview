@@ -1,19 +1,23 @@
-// Restores a backup JSON (from the weekly email, /admin/backup.json or DATA_DIR/backups) into a data folder.
-// Usage: bun run scripts/restore.ts <backup.json> <data dir>   then restart the service.
+// Restores a backup (from the weekly email, /admin/backup.json or DATA_DIR/backups) into a data folder. When the email
+// split the resumes and receipts over several parts, pass every part file; the one with the data can come first or last.
+// Usage: bun run scripts/restore.ts <backup.json> [more part files...] <data dir>   then restart the service.
 // Files being replaced are first copied to <name>.pre-restore.
 import { copyFile, mkdir, writeFile } from "node:fs/promises";
 import { existsSync, readFileSync } from "node:fs";
 
-const [file, dir] = process.argv.slice(2);
-if (!file || !dir) {
-  console.error("Usage: bun run scripts/restore.ts <backup.json> <data dir>");
+const args = process.argv.slice(2);
+const dir = args.pop();
+if (!args.length || !dir) {
+  console.error("Usage: bun run scripts/restore.ts <backup.json> [more part files...] <data dir>");
   process.exit(1);
 }
-const backup = JSON.parse(readFileSync(file, "utf8"));
-if (backup?.app !== "booking-form" || typeof backup.files !== "object") {
-  console.error("That file isn't a booking-form backup.");
+const all = args.map((f) => JSON.parse(readFileSync(f, "utf8")));
+const backup = all.find((b) => typeof b?.files === "object" && b.files);
+if (!backup || all.some((b) => b?.app !== "booking-form" || b.createdAt !== backup.createdAt)) {
+  console.error("Those aren't the files of one booking-form backup (the one with the data is needed).");
   process.exit(1);
 }
+backup.uploads = Object.assign({}, ...all.map((b) => b.uploads ?? {}));
 for (const [name, data] of Object.entries(backup.files)) {
   if (!/^[a-z-]+\.json$/.test(name)) continue;
   const path = dir.replace(/\/+$/, "") + "/" + name;

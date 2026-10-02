@@ -96,17 +96,17 @@ NODE_PATH=$(npm root -g) node tests/a11y.cjs             # accessibility: WCAG 2
 
 Every day after `BACKUP_HOUR` (IST) the server writes a data snapshot to `/data/backups/YYYY-MM-DD.json` (the last 14 days are kept). These live on the volume, so they don't survive losing it.
 
-Once a week (7 days after the last one) it also emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with all the data and the resumes and payment receipts, except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device) and `sessions.json` (who is signed in). If the files don't fit in one email (about 18 MB), the newest go in and the email says how many were left out.
+Once a week (7 days after the last one) it also emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with all the data and the resumes and payment receipts, except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device) and `sessions.json` (who is signed in). Each email carries at most `BACKUP_FILES_MB` (default 12) of files, about 21 MB of email, under the 25 MB many inboxes accept; when there are more, the rest follow in more emails that day ("(2 of 3)"), each with a `backup-YYYY-MM-DD-partN.json`. Every weekly backup carries all the files, so the latest one is always complete.
 
 `/data/backup-state.json` remembers the last snapshot and email days, so restarts don't send duplicates; a failed email is retried every 15 minutes. Owners can download the same full backup any time from the admin's ⋯ menu → Backup (`/admin/backup.json`).
 
-To restore, an owner opens ⋯ menu → Backup, chooses the `backup-YYYY-MM-DD.json` file from the latest email and confirms. The data is replaced (each replaced file is kept as `<name>.pre-restore`), then each resume and receipt is uploaded. Owners stay signed in.
+To restore, an owner opens ⋯ menu → Backup, chooses the `backup-YYYY-MM-DD.json` file from the latest email (or all its part files together) and confirms. The data is replaced (each replaced file is kept as `<name>.pre-restore`), then each resume and receipt is uploaded. Owners stay signed in.
 
 Without the admin page, copy a backup JSON into the running service and run the restore script, then restart the service:
 
 ```bash
 railway ssh --service booking-form          # or upload the file with: railway service files upload
-bun run scripts/restore.ts /tmp/backup.json /data
+bun run scripts/restore.ts /tmp/backup.json /data   # with parts: /tmp/backup-part1.json /tmp/backup-part2.json /data
 ```
 
 The script keeps each replaced file as `<name>.pre-restore`.

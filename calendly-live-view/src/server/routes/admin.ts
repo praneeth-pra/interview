@@ -3,7 +3,7 @@
 import { changeAllowlist, allowView } from "../allowlist";
 import { analyticsCsv, analyticsView } from "../analytics";
 import { adminsView, sessionOf, setAdmins } from "../auth";
-import { fullBackup, restoreData, restoreUpload } from "../backup";
+import { backupParts, restoreData, restoreUpload } from "../backup";
 import { bookingsCsv, cancelBooking, createBooking, moveBooking, setRoundStatus } from "../bookings";
 import { DURATIONS, LOGIN_ON, MAX_BODY } from "../config";
 import { bookingsStore, isOwner } from "../data";
@@ -87,7 +87,7 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
   if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
   if (path === "/admin/backup.json" && method === "GET")
-    return new Response(JSON.stringify((await fullBackup()).backup, null, 1), {
+    return new Response(JSON.stringify((await backupParts()).parts[0], null, 1), {
       headers: {
         ...BASE_HEADERS,
         "Content-Type": "application/json",

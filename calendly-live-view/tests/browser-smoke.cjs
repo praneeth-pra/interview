@@ -299,8 +299,19 @@ const checks = [
     const backup = await p.evaluate(() => fetch("/admin/backup.json").then((r) => r.text()));
     await p.setInputFiles("#bkFile", { name: "not-a-backup.json", mimeType: "application/json", buffer: Buffer.from("{}") });
     await p.locator("#pbody .msg.err", { hasText: "isn't a backup" }).waitFor();
-    await p.setInputFiles("#bkFile", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backup) });
+    // a backup split over two emails: the second part alone isn't enough, both together are
+    const part2 = JSON.stringify({ app: "booking-form", version: 1, createdAt: JSON.parse(backup).createdAt, part: 2, parts: 2, uploads: {} });
+    await p.setInputFiles("#bkFile", { name: "backup-part2.json", mimeType: "application/json", buffer: Buffer.from(part2) });
+    await p.locator("#pbody .msg.err", { hasText: "with the data too" }).waitFor();
+    const part1 = JSON.stringify({ ...JSON.parse(backup), part: 1, parts: 2 });
+    await p.setInputFiles("#bkFile", { name: "backup-part1.json", mimeType: "application/json", buffer: Buffer.from(part1) });
+    await p.locator("#pbody .bksum", { hasText: "came in 2 emails" }).waitFor();
+    await p.setInputFiles("#bkFile", [
+      { name: "backup-part1.json", mimeType: "application/json", buffer: Buffer.from(part1) },
+      { name: "backup-part2.json", mimeType: "application/json", buffer: Buffer.from(part2) },
+    ]);
     await p.locator("#pbody .bksum", { hasText: "bookings" }).waitFor();
+    if (await p.locator("#pbody .bksum", { hasText: "came in" }).count()) throw new Error("both parts chosen, still asks for more");
     await p.locator("#pbody .danger", { hasText: "Replace all data" }).click();
     await p.locator("#pbody .msg", { hasText: "Restored" }).waitFor();
     await p.locator("#pclose").click();

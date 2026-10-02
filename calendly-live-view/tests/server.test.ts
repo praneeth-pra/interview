@@ -1118,6 +1118,40 @@ describe("backups", () => {
     expect((await get(srv, "/admin/api/enquiries/" + ENQ.id + "/resume", { cookie })).status).toBe(200);
   });
 
+  test("big backups are split over several emails, and the restore script takes all the parts", async () => {
+    // two resumes and room for one per email: the data and the newer resume, then the older resume
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-"));
+    seed(dir);
+    const second = { ...ENQ, id: "40000000-0000-0000-0000-000000000002", resume: { ...ENQ.resume, file: "40000000-0000-0000-0000-000000000002.pdf" } };
+    writeFileSync(
+      join(dir, "enquiries.json"),
+      JSON.stringify({ enquiries: [{ ...ENQ, createdAt: new Date(Date.now() - HOUR).toISOString() }, { ...second, createdAt: new Date().toISOString() }], seen: {} }),
+    );
+    mkdirSync(join(dir, "resumes"));
+    for (const e of [ENQ, second]) writeFileSync(join(dir, "resumes", e.resume.file), RESUME);
+    const before = sent.length;
+    const big = await start(4317, { ...env, BACKUP_FILES_MB: String(RESUME.length / 1024 / 1024) }, dir);
+    try {
+      await waitFor(() => sent.length >= before + 2);
+      const mails = sent.slice(before);
+      expect(mails.map((m) => m.subject)).toEqual([1, 2].map((i) => "Backup: Hi-Techie bookings \u2013 " + istDay() + " (" + i + " of 2)"));
+      const parts = mails.map((m) => JSON.parse(Buffer.from(m.attachments.find((a: any) => a.filename.endsWith(".json")).content, "base64").toString("utf8")));
+      expect(mails[0].attachments.map((a: any) => a.filename).sort()).toEqual(["backup-" + istDay() + "-part1.json", "bookings-" + istDay() + ".csv"]);
+      expect(parts.map((p) => [p.part, p.parts, !!p.files, Object.keys(p.uploads)])).toEqual([
+        [1, 2, true, ["resumes/" + second.resume.file]],
+        [2, 2, false, ["resumes/" + ENQ.resume.file]],
+      ]);
+      const out = mkdtempSync(join(tmpdir(), "booking-form-restore-"));
+      const files = parts.map((p, i) => (writeFileSync(join(out, "p" + i + ".json"), JSON.stringify(p)), join(out, "p" + i + ".json")));
+      const proc = Bun.spawn(["bun", "run", join(ROOT, "scripts/restore.ts"), files[1]!, files[0]!, out], { stdout: "ignore", stderr: "inherit" });
+      expect(await proc.exited).toBe(0);
+      for (const e of [ENQ, second]) expect(existsSync(join(out, "resumes", e.resume.file))).toBe(true);
+      expect(JSON.parse(readFileSync(join(out, "enquiries.json"), "utf8")).enquiries.length).toBe(2);
+    } finally {
+      big.proc.kill();
+    }
+  });
+
   test("scripts/restore.ts puts a backup back into a data folder", async () => {
     const dir = mkdtempSync(join(tmpdir(), "booking-form-restore-"));
     writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [] }));
