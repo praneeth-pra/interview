@@ -19,8 +19,6 @@ export const SW_JS = readFileSync(join(import.meta.dir, "sw.js"), "utf8");
 const safeJson = (x: unknown) => JSON.stringify(x).replace(/</g, "\\u003c");
 const fill = (html: string, vals: Record<string, string>) => html.replace(/__([A-Z]+)__/g, (m, k) => (k in vals ? vals[k] : m));
 const HOST_HTML = Bun.escapeHTML(HOST_NAME);
-// The wordmark (landing, booking, enquiry and payment pages) sets the part of the name before the first hyphen apart (orange italic "Hi" in "Hi-Techie").
-const BRAND_HTML = HOST_HTML.replace(/^([^-]+)-/, "<em>$1</em>-");
 // Link previews (Open Graph) for the pages people share: the landing, booking and enquiry pages. Previews need full
 // addresses, so they use PUBLIC_URL (without www), or hi-techie.dev when it isn't set.
 const SITE = (PUBLIC_URL || "https://hi-techie.dev").replace("://www.", "://");
@@ -141,7 +139,6 @@ export const adminShell = (tab: "cal" | "allow", owner: boolean) => ADMIN_PAGES[
 export const ENQUIRY = shell(
   fill(template("enquiry"), {
     HOST: HOST_HTML,
-    BRAND: BRAND_HTML,
     OG: og(
       "Interview support · " + HOST_NAME,
       "Tell us what you're looking for and send your resume. We'll get back to you soon.",
@@ -150,17 +147,11 @@ export const ENQUIRY = shell(
   }),
   CSP.page,
 );
-export const PAYMENT = shell(
-  fill(template("payment"), { HOST: HOST_HTML, BRAND: BRAND_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }),
-  CSP.page,
-);
+export const PAYMENT = shell(fill(template("payment"), { HOST: HOST_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }), CSP.page);
 // the landing page is the one page search engines may list
 const HOME_TEXT = "A rewritten resume, interview support and help all the way to your offer letter.";
 export const HOME = {
-  ...shell(
-    fill(template("home"), { HOST: HOST_HTML, BRAND: BRAND_HTML, OG: og(HOST_NAME + " · Job assistance", HOME_TEXT, "/") }),
-    CSP.page,
-  ),
+  ...shell(fill(template("home"), { HOST: HOST_HTML, OG: og(HOST_NAME + " · Job assistance", HOME_TEXT, "/") }), CSP.page),
   index: true,
 };
 export const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);

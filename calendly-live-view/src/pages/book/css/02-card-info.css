@@ -67,21 +67,41 @@
   mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E")
     center / contain no-repeat;
 }
-/* The name as on the landing page: the headline italic, "Hi" in the accent; it links back to the landing page. */
+/* The logo as on the landing page, an italic H whose crossbar climbs (posts in ink, bar in the accent, drawn with two
+   masks), then the name; it links back to the landing page. */
 .host {
-  display: inline-block;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   margin: 0;
   color: var(--ink);
-  font-family: "Instrument Serif", Georgia, "Times New Roman", serif;
-  font-size: 27px;
-  font-style: italic;
-  font-weight: 400;
+  font-size: 18px;
+  font-weight: 800;
   line-height: 1;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.015em;
   text-decoration: none;
 }
-.host em {
-  color: var(--wm);
+.mark {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  flex: none;
+}
+.mark::before,
+.mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Crect%20x='4.5'%20y='3'%20width='3.6'%20height='18'%20rx='1.8'/%3E%3Crect%20x='15.9'%20y='3'%20width='3.6'%20height='18'%20rx='1.8'/%3E%3C/g%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Crect%20x='4.5'%20y='3'%20width='3.6'%20height='18'%20rx='1.8'/%3E%3Crect%20x='15.9'%20y='3'%20width='3.6'%20height='18'%20rx='1.8'/%3E%3C/g%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.mark::after {
+  background: var(--wm);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Cpolygon%20points='8.1,13.6%2015.9,9%2015.9,12.6%208.1,17.2'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Cpolygon%20points='8.1,13.6%2015.9,9%2015.9,12.6%208.1,17.2'/%3E%3C/g%3E%3C/svg%3E");
 }
 .ev {
   font-family: "Instrument Serif", Georgia, "Times New Roman", serif;

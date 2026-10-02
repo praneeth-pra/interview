@@ -189,17 +189,35 @@ h2 em {
   letter-spacing: -0.01em;
   text-decoration: none;
 }
-/* The logo: the name in the headline italic, "Hi" in the accent colour. */
-.wm {
-  font-family: var(--serif);
-  font-size: 31px;
-  font-style: italic;
-  font-weight: 400;
-  line-height: 1;
-  letter-spacing: -0.01em;
+/* The logo: an italic H whose crossbar climbs (posts in ink, bar in the accent, drawn with two masks), then the name. */
+.mark {
+  position: relative;
+  width: 30px;
+  height: 30px;
+  flex: none;
 }
-.wm em {
-  color: var(--accent);
+.mark::before,
+.mark::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--ink);
+  -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Crect%20x='4.5'%20y='3'%20width='3.6'%20height='18'%20rx='1.8'/%3E%3Crect%20x='15.9'%20y='3'%20width='3.6'%20height='18'%20rx='1.8'/%3E%3C/g%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Crect%20x='4.5'%20y='3'%20width='3.6'%20height='18'%20rx='1.8'/%3E%3Crect%20x='15.9'%20y='3'%20width='3.6'%20height='18'%20rx='1.8'/%3E%3C/g%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.mark::after {
+  background: var(--accent);
+  -webkit-mask-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Cpolygon%20points='8.1,13.6%2015.9,9%2015.9,12.6%208.1,17.2'/%3E%3C/g%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%3E%3Cg%20transform='translate%282.55%200%29%20skewX%28-12%29'%3E%3Cpolygon%20points='8.1,13.6%2015.9,9%2015.9,12.6%208.1,17.2'/%3E%3C/g%3E%3C/svg%3E");
+}
+.wm {
+  white-space: nowrap;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.015em;
 }
 .links {
   display: flex;
@@ -1234,6 +1252,16 @@ h1.rise {
   .lget {
     display: none;
   }
+  .mark {
+    width: 26px;
+    height: 26px;
+  }
+  .brand {
+    gap: 8px;
+  }
+  .wm {
+    font-size: 18px;
+  }
   .flinks {
     gap: 10px 22px;
   }
@@ -1265,19 +1293,20 @@ h1.rise {
     font-size: 60px;
   }
 }
+/* phones up to 420 px: room for the logo, Tracks and Enquire on one line */
+@media (max-width: 419px) {
+  .lhow {
+    display: none;
+  }
+}
 /* smallest phones (320 px) */
 @media (max-width: 359px) {
   .wrap {
     padding: 0 16px;
   }
-  /* room for Enquire beside the name on the smallest phones */
-  .lhow {
-    display: none;
-  }
   .links {
     gap: 14px;
   }
-  .wm,
   .links a {
     white-space: nowrap;
   }
