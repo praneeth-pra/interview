@@ -22,9 +22,9 @@ import { type Fields, DATE_KEY } from "../util";
 // Enquiries, payments and revenue are for owners only; other admins don't see their tabs, and these APIs refuse them.
 const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|$)/;
 // What only owners open from the ⋯ menu (added admins have no ⋯ menu): who can sign in, unavailable times, the interview
-// supporters' names, the Candidates list and the bookings download. Added admins still record who supported each
-// interview (PUT /admin/api/interviewers).
-const OWNER_SETTINGS = /^\/admin\/(api\/(admins|unavailable|interviewer-names|allowlist)(\/|$)|export\.csv$)/;
+// supporters' names, the Candidates list, the bookings download and the backup (which holds all of those, and the key that
+// signs candidates' manage links). Added admins still record who supported each interview (PUT /admin/api/interviewers).
+const OWNER_SETTINGS = /^\/admin\/(api\/(admins|unavailable|interviewer-names|allowlist)(\/|$)|export\.csv$|backup\.json$)/;
 
 export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Response | null> {
   const path = url.pathname;
@@ -86,7 +86,7 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
   if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
   if (path === "/admin/backup.json" && method === "GET")
-    return new Response(JSON.stringify(backupData(false, owner), null, 1), {
+    return new Response(JSON.stringify(backupData(false), null, 1), {
       headers: {
         ...BASE_HEADERS,
         "Content-Type": "application/json",

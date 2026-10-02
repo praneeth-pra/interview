@@ -11,7 +11,7 @@ export function setupAlerts() {
   const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
   let reg: ServiceWorkerRegistration | null = null;
   let mine: PushSubscription | null = null;
-  // the server's key and the devices it sends alerts to (yours: this admin's own)
+  // the server's key, this admin's own devices and how many devices get alerts in all
   let info: PushInfo = {
     key: "",
     endpoints: [],
@@ -109,7 +109,7 @@ export function setupAlerts() {
       html +=
         '<p>Get a banner on this device whenever a candidate books, reschedules or cancels, with their name, company, round and time.</p><div class="pp-row"><button type="button" class="pp-btn primary" data-a="on">Turn on for this device</button></div>';
     }
-    const count = info.endpoints.length;
+    const count = info.devices ?? info.endpoints.length;
     html +=
       '<p class="pp-n">' +
       (count ? count + (count > 1 ? " devices get" : " device gets") + " alerts." : "No devices get alerts yet.") +

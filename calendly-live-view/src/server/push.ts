@@ -109,13 +109,13 @@ export function alertAdmins(kind: "booked" | "moved" | "cancelled", b: Booking) 
     url: "/admin?date=" + new Intl.DateTimeFormat("en-CA", { timeZone: TZ }).format(new Date(b.start)),
   });
 }
-// yours: the devices recorded for this admin; a device turned on before that was recorded (or by someone else) signs up
-// again, so enquiry and payment alerts reach only the owners' devices
-export const pushView = (email: string) => ({
-  key: pushStore.data.pub,
-  endpoints: pushStore.data.subs.map((x) => x.endpoint),
-  yours: pushStore.data.subs.filter((x) => x.email === email).map((x) => x.endpoint),
-});
+// Only this admin's own devices are listed (a device's address is all it takes to turn its alerts off), with how many
+// devices get alerts in all. A device turned on before its admin was recorded (or by someone else) signs up again, so
+// enquiry and payment alerts reach only the owners' devices.
+export function pushView(email: string) {
+  const yours = pushStore.data.subs.filter((x) => x.email === email).map((x) => x.endpoint);
+  return { key: pushStore.data.pub, endpoints: yours, yours, devices: pushStore.data.subs.length };
+}
 // The server's own key pair for signing notifications, made once and kept in push.json.
 export async function ensurePushKeys() {
   if (pushStore.data.pub && pushStore.data.priv) return;
@@ -126,6 +126,7 @@ export async function ensurePushKeys() {
   await saveStore(pushStore).catch(() => {});
 }
 // POST /admin/api/push/<act> from an admin's device: turn alerts on (subscribe) or off (unsubscribe), or send a test.
+// Turning off and testing work only on the admin's own devices.
 export async function changePush(act: string, body: Fields, email: string): Promise<Response> {
   const endpoint = String(body?.endpoint ?? "");
   const before = pushStore.data.subs;
@@ -139,9 +140,9 @@ export async function changePush(act: string, body: Fields, email: string): Prom
     subs.push({ endpoint, p256dh, auth, label: String(body?.label ?? "Browser").slice(0, 40), addedAt: new Date().toISOString(), email });
     pushStore.data.subs = subs;
   } else if (act === "unsubscribe") {
-    pushStore.data.subs = before.filter((x) => x.endpoint !== endpoint);
+    pushStore.data.subs = before.filter((x) => x.endpoint !== endpoint || x.email !== email);
   } else if (act === "test") {
-    const sub = before.find((x) => x.endpoint === endpoint);
+    const sub = before.find((x) => x.endpoint === endpoint && x.email === email);
     if (!sub) return json({ error: "Alerts aren't on for this device. Turn them on first." }, 404);
     const code = await pushTo(sub, {
       title: "Test notification",
