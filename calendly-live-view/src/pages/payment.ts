@@ -9,8 +9,8 @@ const fileInput = document.getElementById("rc") as HTMLInputElement;
 const button = document.getElementById("go") as HTMLButtonElement;
 const errorBox = document.getElementById("err") as HTMLElement;
 const fields = {
-  email: document.getElementById("em") as HTMLInputElement,
   name: document.getElementById("nm") as HTMLInputElement,
+  email: document.getElementById("em") as HTMLInputElement,
   installment: document.getElementById("in") as HTMLSelectElement,
   amount: document.getElementById("am") as HTMLInputElement,
 };
@@ -61,8 +61,8 @@ function check() {
       problems.push({ input: input, text: text });
     }
   }
-  need(fields.email, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.value.trim()), "Enter a valid email address.");
   need(fields.name, fields.name.value.trim().length >= 2, "Enter your full name.");
+  need(fields.email, /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(fields.email.value.trim()), "Enter a valid email address.");
   need(fields.installment, !!fields.installment.value, "Choose which installment this is.");
   const amount = amountValue();
   need(fields.amount, amount > 0 && amount <= 10000000, "Enter the amount you paid, in rupees.");

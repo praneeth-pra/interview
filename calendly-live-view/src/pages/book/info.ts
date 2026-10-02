@@ -34,24 +34,10 @@ export function renderInfo() {
       }),
     );
   }
+  // the name as on the landing page ("Hi" in the accent), linking back to it
+  const cut = hostName.indexOf("-");
   section.appendChild(
-    el(
-      "p",
-      {
-        class: "host",
-      },
-      [
-        el(
-          "span",
-          {
-            class: "mark",
-            "aria-hidden": "true",
-          },
-          [],
-        ),
-        hostName,
-      ],
-    ),
+    el("a", { class: "host", href: "/" }, cut > 0 ? [el("em", { text: hostName.slice(0, cut) }), hostName.slice(cut)] : [hostName]),
   );
   section.appendChild(
     el(

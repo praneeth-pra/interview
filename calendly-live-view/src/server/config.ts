@@ -16,7 +16,9 @@ export const MEETING_LINK = (Bun.env.MEETING_LINK ?? "").trim();
 export const EVENT_LOCATION = (
   Bun.env.EVENT_LOCATION ?? "#775, 2nd floor, 2nd cross, Tulsi theatre road, Marathahalli, Bengaluru, 560037."
 ).trim();
-export const EVENT_DESCRIPTION = (Bun.env.EVENT_DESCRIPTION ?? "Please block the time only if the interview mail is received.").trim();
+export const EVENT_DESCRIPTION = (
+  Bun.env.EVENT_DESCRIPTION ?? "Only book a slot once you have the interview email from the company."
+).trim();
 export const PUBLIC_URL = (Bun.env.PUBLIC_URL ?? "").trim().replace(/\/+$/, "");
 // One-time cleanup: "Name@YYYY-MM-DD" entries (IST date), comma separated. Matching bookings are deleted on start.
 export const REMOVE_BOOKINGS = (Bun.env.REMOVE_BOOKINGS ?? "")
