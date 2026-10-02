@@ -285,6 +285,17 @@ function setupSearch(body: HTMLElement) {
   search.addEventListener("blur", close);
   body.appendChild(el("div", { class: "paybar" }, [el("div", { class: "srch rv-srch" }, [search, list])]));
 }
+// Phones and tablets that can share files get the PDF through the share sheet (Save to Files, Mail, WhatsApp...): on an
+// iPhone, and above all in the home-screen app, a downloaded PDF opens in a viewer with no way to save or send it.
+// Desktops keep the plain download.
+function sharesFiles() {
+  try {
+    const probe = new File([""], "report.pdf", { type: "application/pdf" });
+    return matchMedia("(pointer: coarse)").matches && !!navigator.canShare && navigator.canShare({ files: [probe] });
+  } catch (e) {
+    return false;
+  }
+}
 // The PDF report's month picker: the last twelve India months, newest first, with last month (the one the monthly email
 // is about) picked. The PDF covers everyone, whatever the search box says.
 function setupPdfMonths(pick: HTMLSelectElement) {
@@ -296,9 +307,38 @@ function setupPdfMonths(pick: HTMLSelectElement) {
     pick.appendChild(el("option", { value: key, text: monthName(key, true) }));
   }
   pick.value = pick.options[1].value;
+  const share = sharesFiles();
+  // Safari only opens the share sheet straight from the tap, so the file is fetched as soon as the month is picked
+  let file: File | null = null;
   const update = function () {
-    link.href = "/admin/api/revenue.pdf?month=" + pick.value;
+    const key = pick.value;
+    link.href = "/admin/api/revenue.pdf?month=" + key;
+    file = null;
+    if (!share) {
+      return;
+    }
+    fetch(link.href, { credentials: "same-origin" })
+      .then(function (r) {
+        return r.ok ? r.blob() : Promise.reject(new Error(String(r.status)));
+      })
+      .then(function (blob) {
+        if (pick.value === key) {
+          file = new File([blob], "revenue-report-" + key + ".pdf", { type: "application/pdf" });
+        }
+      })
+      .catch(function () {
+        // the link still downloads it
+      });
   };
+  link.addEventListener("click", function (event) {
+    if (!file) {
+      return;
+    }
+    event.preventDefault();
+    navigator.share({ files: [file], title: "Revenue report, " + monthName(pick.value, true) }).catch(function () {
+      // closed without sharing
+    });
+  });
   pick.addEventListener("change", update);
   update();
 }
@@ -317,8 +357,6 @@ function showRevenue() {
   if (!pick.options.length) {
     setupPdfMonths(pick);
   }
-  // the CSV narrows to the same candidates
-  byId<HTMLAnchorElement>("revDl").href = "/admin/api/revenue.csv" + (query ? "?q=" + encodeURIComponent(query) : "");
   return request<Summary>("/admin/api/revenue" + (query ? "?q=" + encodeURIComponent(query) : ""))
     .then(function (data: Summary) {
       if (ask !== loading) {
