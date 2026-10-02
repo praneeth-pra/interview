@@ -231,7 +231,13 @@ export const backupStateStore = fileStore<{ saved: string; emailed: string }>(
     emailed: typeof x?.emailed === "string" ? x.emailed : "",
   }),
 );
-// Loads every store except backup-state.json, which the backup job loads once the server is listening.
+// The last monthly revenue report sent ("YYYY-MM", an India month), so restarts neither skip nor repeat one.
+export const reportStateStore = fileStore<{ sent: string }>(
+  "report-state.json",
+  () => ({ sent: "" }),
+  (x) => ({ sent: typeof x?.sent === "string" ? x.sent : "" }),
+);
+// Loads every store except backup-state.json and report-state.json, which their jobs load once the server is listening.
 export async function loadStores() {
   const all: FileStore<unknown>[] = [
     bookingsStore,

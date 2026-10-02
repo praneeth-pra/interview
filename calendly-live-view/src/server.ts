@@ -2,6 +2,7 @@
 // The code lives in src/server/: routes/ for the URLs, one module per feature, data.ts for what is stored.
 import { assetList, compressed } from "./assets";
 import { startBackups } from "./server/backup";
+import { startReports } from "./server/report";
 import { removeListedBookings } from "./server/bookings";
 import { cleanupContacts } from "./server/cleanup";
 import { ADMIN_OPEN, LOGIN_ON, OWNER_EMAILS, PORT, PUBLIC_URL, RESEND_API_KEY, EMAIL_FROM, MAX_BODY } from "./server/config";
@@ -45,4 +46,5 @@ const server = Bun.serve({
   },
 });
 await startBackups();
+await startReports();
 console.log("booking-form listening on " + server.port + (bookingsStore.ok ? "" : " (no persistent storage attached)"));
