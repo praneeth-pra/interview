@@ -290,6 +290,21 @@ const checks = [
     await p.keyboard.press("Escape");
     if (await p.locator("#dlMenu").isVisible()) throw new Error("menu did not close");
   }],
+  ["admin backup: download link, then restore the same data from a file", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    await p.locator("#mBak").click();
+    await p.locator("#ptitle", { hasText: "Backup" }).waitFor();
+    await p.locator("#pbody a.bkdl[href='/admin/backup.json']").waitFor();
+    const backup = await p.evaluate(() => fetch("/admin/backup.json").then((r) => r.text()));
+    await p.setInputFiles("#bkFile", { name: "not-a-backup.json", mimeType: "application/json", buffer: Buffer.from("{}") });
+    await p.locator("#pbody .msg.err", { hasText: "isn't a backup" }).waitFor();
+    await p.setInputFiles("#bkFile", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backup) });
+    await p.locator("#pbody .bksum", { hasText: "bookings" }).waitFor();
+    await p.locator("#pbody .danger", { hasText: "Replace all data" }).click();
+    await p.locator("#pbody .msg", { hasText: "Restored" }).waitFor();
+    await p.locator("#pclose").click();
+  }],
   ["admin unavailable times from the menu", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();

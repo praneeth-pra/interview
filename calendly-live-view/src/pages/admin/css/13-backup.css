@@ -1,0 +1,21 @@
+/* Backup (⋯ menu → Backup): download now, then restore from a backup file. */
+.bkview > .bkdl {
+  width: 100%;
+}
+.bkview input[type="file"] {
+  width: 100%;
+  font: inherit;
+  font-size: 14px;
+  color: var(--ink2);
+}
+.bksum {
+  margin: 12px 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.bkview > .danger {
+  width: 100%;
+}
+.bkview > .f {
+  margin-top: 14px;
+}

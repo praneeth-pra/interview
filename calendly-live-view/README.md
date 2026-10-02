@@ -89,19 +89,20 @@ NODE_PATH=$(npm root -g) node tests/a11y.cjs             # accessibility: WCAG 2
 | `DAY_START_HOUR`, `DAY_END_HOUR`, `BOOKING_DAYS` | Booking window (default 9-21 IST, 7 days) |
 | `PUBLIC_URL` | Base URL for links in emails. Set it on Railway (`https://hi-techie.dev`): without it, links come from the request's host headers, which a visitor can set, and the server logs a warning at startup |
 | `REMOVE_BOOKINGS` | One-time cleanup on start: `Name@YYYY-MM-DD`, comma separated |
-| `BACKUP_EMAIL` | Where the daily backup email goes (comma separated; falls back to `HOST_EMAIL`) |
-| `BACKUP_HOUR` | Hour (IST) after which the daily backup runs, default `2` |
+| `BACKUP_EMAIL` | Where the weekly backup email goes (comma separated; falls back to `HOST_EMAIL`) |
+| `BACKUP_HOUR` | Hour (IST) after which the daily snapshot and the weekly email run, default `2` |
 
 ## Backups
 
-Every day after `BACKUP_HOUR` (IST) the server:
+Every day after `BACKUP_HOUR` (IST) the server writes a data snapshot to `/data/backups/YYYY-MM-DD.json` (the last 14 days are kept). These live on the volume, so they don't survive losing it.
 
-1. writes a full snapshot to `/data/backups/YYYY-MM-DD.json` (the last 14 days are kept), and
-2. emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with all the data except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device) and `sessions.json` (who is signed in; a restore signs everyone out).
+Once a week (7 days after the last one) it also emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with all the data and the resumes and payment receipts, except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device) and `sessions.json` (who is signed in). If the files don't fit in one email (about 18 MB), the newest go in and the email says how many were left out.
 
-`/data/backup-state.json` remembers the last day done, so restarts don't send duplicates; a failed email is retried every 15 minutes that day. The admin's ⋯ menu has the bookings CSV; the full backup is still at `/admin/backup.json` for a signed-in admin.
+`/data/backup-state.json` remembers the last snapshot and email days, so restarts don't send duplicates; a failed email is retried every 15 minutes. Owners can download the same full backup any time from the admin's ⋯ menu → Backup (`/admin/backup.json`).
 
-To restore, copy a backup JSON into the running service and run the restore script, then restart the service:
+To restore, an owner opens ⋯ menu → Backup, chooses the `backup-YYYY-MM-DD.json` file from the latest email and confirms. The data is replaced (each replaced file is kept as `<name>.pre-restore`), then each resume and receipt is uploaded. Owners stay signed in.
+
+Without the admin page, copy a backup JSON into the running service and run the restore script, then restart the service:
 
 ```bash
 railway ssh --service booking-form          # or upload the file with: railway service files upload

@@ -3,9 +3,9 @@
 import { changeAllowlist, allowView } from "../allowlist";
 import { analyticsCsv, analyticsView } from "../analytics";
 import { adminsView, sessionOf, setAdmins } from "../auth";
-import { backupData } from "../backup";
+import { fullBackup, restoreData, restoreUpload } from "../backup";
 import { bookingsCsv, cancelBooking, createBooking, moveBooking, setRoundStatus } from "../bookings";
-import { DURATIONS, LOGIN_ON } from "../config";
+import { DURATIONS, LOGIN_ON, MAX_BODY } from "../config";
 import { bookingsStore, isOwner } from "../data";
 import { deleteEnquiry, enquiriesList, enquiriesSeen, resumeFile } from "../enquiries";
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
@@ -22,9 +22,10 @@ import { type Fields, DATE_KEY } from "../util";
 // Enquiries, payments and revenue are for owners only; other admins don't see their tabs, and these APIs refuse them.
 const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|$)/;
 // What only owners open from the ⋯ menu (added admins have no ⋯ menu): who can sign in, unavailable times, the interview
-// supporters' names, the Candidates list, the bookings download and the backup (which holds all of those, and the key that
-// signs candidates' manage links). Added admins still record who supported each interview (PUT /admin/api/interviewers).
-const OWNER_SETTINGS = /^\/admin\/(api\/(admins|unavailable|interviewer-names|allowlist)(\/|$)|export\.csv$|backup\.json$)/;
+// supporters' names, the Candidates list, the bookings download and the backup download and restore (which hold all of
+// those, and the key that signs candidates' manage links). Added admins still record who supported each interview (PUT /admin/api/interviewers).
+const OWNER_SETTINGS =
+  /^\/admin\/(api\/(admins|unavailable|interviewer-names|allowlist)(\/|$)|export\.csv$|backup\.json$|api\/restore(-file)?$)/;
 
 export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Response | null> {
   const path = url.pathname;
@@ -86,13 +87,16 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
   if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
   if (path === "/admin/backup.json" && method === "GET")
-    return new Response(JSON.stringify(backupData(false), null, 1), {
+    return new Response(JSON.stringify((await fullBackup()).backup, null, 1), {
       headers: {
         ...BASE_HEADERS,
         "Content-Type": "application/json",
         "Content-Disposition": 'attachment; filename="backup-' + istDate(new Date().toISOString()) + '.json"',
       },
     });
+  // restoring a backup (owner's ⋯ menu → Backup): the data, then each resume and receipt
+  if (path === "/admin/api/restore" && method === "POST") return withBody(MAX_BODY, restoreData);
+  if (path === "/admin/api/restore-file" && method === "POST") return restoreUpload(req, q("path"));
   if (path === "/admin/api/slots" && method === "GET") {
     const key = q("date");
     const duration = Number(url.searchParams.get("duration"));

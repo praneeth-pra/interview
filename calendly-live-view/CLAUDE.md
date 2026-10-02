@@ -18,7 +18,7 @@ Read README.md first for layout, commands and deploy.
 - The server is split by feature under `src/server/` (see README); `src/server.ts` only starts it. `bun run typecheck` checks the server in strict mode, so run `bun install` once for the dev tools.
 - Admin sign-in fails closed: without `ADMIN_EMAILS` the admin page is locked. Local servers and test harnesses set `ADMIN_OPEN=1` to open it; never set that on Railway.
 - Per-network limits use `clientIp()` (Railway's `X-Real-IP`); tests that need a different network send `x-real-ip`.
-- Backups (`runBackup` in `src/server/backup.ts`) email candidate data (resumes in `DATA_DIR/resumes` stay on the volume). Keep `push.json` and `sessions.json` (admin sign-in sessions) out of anything that leaves the volume.
+- Backups (`runBackup` in `src/server/backup.ts`) email candidate data weekly, with the resumes and receipts. Keep `push.json` and `sessions.json` (admin sign-in sessions) out of anything that leaves the volume; restoring (⋯ menu → Backup) never replaces them.
 - Admin sign-in (`ADMIN_EMAILS`, `admins.json`): codes are emailed (printed in the log only when email is off). Never log or return a session token, and give the same answers whether or not an email is an admin.
 
 ## Before pushing
