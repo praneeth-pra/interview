@@ -92,11 +92,11 @@ const bookHtml = (manage: unknown, preload: string) =>
   });
 // The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
 export const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>'), CSP.page);
-// Two versions of each admin page: an owner's, and one without the Enquiries, Payments and Analytics tabs for the admins
+// Two versions of each admin page: an owner's, and one without the Enquiries, Payments and Revenue tabs for the admins
 // owners add.
 // The bottom bar's b3 class gives its three remaining buttons the full width.
 const ADMIN_NOT_OWNER = ADMIN_TPL.replace(
-  /<button (id="tab(?:Enq|Pay|Rev)"|type="button" data-go="(?:enq|pay)"|type="button" id="mRev")/g,
+  /<button (id="tab(?:Enq|Pay|Rev)"|type="button" data-go="(?:enq|rev)"|type="button" id="m(?:Pay|Rev)")/g,
   "<button hidden $1",
 ).replace('<nav class="bnav"', '<nav class="bnav b3"');
 const adminPage = (tab: string, owner: boolean) =>

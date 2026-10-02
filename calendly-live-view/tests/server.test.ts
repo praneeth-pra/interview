@@ -681,7 +681,8 @@ describe("admin", () => {
     expect(page).toContain('<button hidden id="tabRev"');
     expect(page).toContain('<button hidden type="button" id="mRev"');
     expect(page).toContain('<button hidden type="button" data-go="enq"');
-    expect(page).toContain('<button hidden type="button" data-go="pay"');
+    expect(page).toContain('<button hidden type="button" id="mPay"');
+    expect(page).toContain('<button hidden type="button" data-go="rev"');
     expect(page).toContain('<nav class="bnav b3"');
     expect(boot(await (await get(locked, "/admin/allowlist", { cookie: aide })).text()).owner).toBe(false);
     const ownerPage = await (await get(locked, "/admin", { cookie })).text();

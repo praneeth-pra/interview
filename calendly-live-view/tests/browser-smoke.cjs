@@ -129,14 +129,21 @@ const checks = [
       if (await m.evaluate(() => scrollY) !== 0) throw new Error("the page moved");
       if ((await pull(195, 250, 195, 290)).includes("/admin/api/state")) throw new Error("a short pull refreshed");
       if ((await pull(320, 300, 80, 330)).includes("/admin/api/state")) throw new Error("a sideways swipe refreshed");
-      await m.locator(".bnav [data-go=pay]").click();
+      // phones have Revenue in the bottom bar, and Payments in the ⋯ menu, opening in the bottom sheet
+      await m.locator(".bnav [data-go=rev]").click();
       await m.waitForTimeout(400);
-      const list = await m.locator("#payBody .enqlist").elementHandle();
-      if (!(await pull(195, 250, 195, 430)).includes("/admin/api/payments")) throw new Error("pulling on Payments didn't fetch the payments");
-      if (await list.evaluate((n) => n.isConnected)) throw new Error("Payments wasn't redrawn");
+      if (await m.locator("#viewRev").isHidden()) throw new Error("the bottom bar's Revenue didn't open Revenue");
+      if (!(await pull(195, 250, 195, 430)).includes("/admin/api/revenue")) throw new Error("pulling on Revenue didn't fetch the revenue");
       await m.locator("#dlBtn").click();
       await m.waitForTimeout(300);
       if ((await pull(195, 120, 195, 330)).includes("/admin/api/state")) throw new Error("pulling with the ⋯ menu open refreshed");
+      // that swipe closed the menu; open it again for Payments
+      if (!(await m.locator("#dlMenu").isVisible())) await m.locator("#dlBtn").click();
+      await m.locator("#mPay").click();
+      await m.locator("#panel #payBody .enqlist").waitFor();
+      if ((await m.locator("#ptitle").textContent()) !== "Payments") throw new Error("the ⋯ menu's Payments didn't open the sheet");
+      await m.locator("#pclose").click();
+      if ((await m.locator("#viewPay #payBody").count()) !== 1) throw new Error("closing the sheet didn't put Payments back");
       if (errors.length) throw new Error(errors.join("; "));
     } finally {
       await ctx.close();

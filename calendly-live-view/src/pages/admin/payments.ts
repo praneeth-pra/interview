@@ -202,38 +202,57 @@ export function showPayments(quiet?: boolean): Promise<void> {
     if (!typing) {
       search.value = paymentsQuery;
     }
-    const controls: HTMLElement[] = [
-      el("div", { class: "paysw", role: "group", "aria-label": "Show payments" }, [
-        modeButton("people", "By candidate"),
-        modeButton("table", "Table"),
-        modeButton("list", "List"),
+    // the view switch and the search on one row; the status chips, with how many payments each has, under them
+    bar.appendChild(
+      el("div", { class: "payrow" }, [
+        el("div", { class: "paysw", role: "group", "aria-label": "Show payments" }, [
+          modeButton("people", "By candidate"),
+          modeButton("table", "Table"),
+          modeButton("list", "List"),
+        ]),
+        search,
       ]),
-    ];
-    controls.push(search);
+    );
     if (paymentsMode !== "people") {
-      const status = el(
-        "select",
-        {
-          class: "payfilter",
-          "aria-label": "Show payments by status",
-          onchange: function () {
-            paymentsStatus = status.value;
-            draw();
-          },
-        },
-        [
-          el("option", { value: "", text: "Pending and confirmed" }),
-          el("option", { value: "pending", text: "Pending" }),
-          el("option", { value: "confirmed", text: "Confirmed" }),
-          el("option", { value: "discarded", text: "Discarded" }),
-        ],
+      const counts: Record<string, number> = { "": 0, pending: 0, confirmed: 0, discarded: 0 };
+      payments.forEach(function (item) {
+        if (!found.some((p) => p.email === item.email)) {
+          return;
+        }
+        const state = item.decision || "pending";
+        counts[state]++;
+        if (state !== "discarded") {
+          counts[""]++;
+        }
+      });
+      bar.appendChild(
+        el(
+          "div",
+          { class: "paychips", role: "group", "aria-label": "Show payments by status" },
+          [
+            ["", "All"],
+            ["pending", "Pending"],
+            ["confirmed", "Confirmed"],
+            ["discarded", "Discarded"],
+          ].map(function (pair) {
+            return el(
+              "button",
+              {
+                type: "button",
+                class: "paychip",
+                "aria-pressed": String(paymentsStatus === pair[0]),
+                title: pair[0] ? null : "Pending and confirmed",
+                onclick: function () {
+                  paymentsStatus = pair[0];
+                  draw();
+                },
+              },
+              [pair[1] + " ", el("span", { text: String(counts[pair[0]]) })],
+            );
+          }),
+        ),
       );
-      status.value = paymentsStatus;
-      controls.push(status);
     }
-    controls.forEach(function (c) {
-      bar.appendChild(c);
-    });
     if (typing) {
       search.focus();
     }
@@ -541,7 +560,8 @@ export function refreshPayments() {
   });
   byId("tabPay").setAttribute("aria-label", pending ? "Payments, " + pending + " pending" : "Payments");
   const key = (state.payments || 0) + "/" + pending;
-  if (!byId("viewPay").hidden && paymentsShown >= 0 && key !== paymentsKey) {
+  const open = !byId("viewPay").hidden || (!byId("panel").hidden && byId("panel").contains(byId("payBody")));
+  if (open && paymentsShown >= 0 && key !== paymentsKey) {
     showPayments();
   }
   // a new or decided payment changes the numbers in Revenue too

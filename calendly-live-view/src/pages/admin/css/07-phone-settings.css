@@ -197,9 +197,10 @@
     background: var(--bg);
   }
 }
-/* Revenue in the phone sheet keeps one height, so the sheet doesn't jump while a search redraws the figures. */
+/* Revenue and Payments in the phone sheet keep one height, so the sheet doesn't jump while a search redraws them. */
 @media (max-width: 760px) {
-  .panel:has(> .pbody.rv) {
+  .panel:has(> .pbody.rv),
+  .panel:has(> .pbody.pay) {
     height: 88vh;
   }
 }

@@ -1,6 +1,7 @@
 // Section tabs (Calendar is the week grid, Agenda the day's timeline, then Contacts, Enquiries, Payments and Revenue) in the
 // header and the phone bottom bar, the phone section title, and the bottom-sheet panel, which can be swiped down to close.
-// Phones keep five buttons in the bottom bar, so Revenue opens from the ⋯ menu there, in the bottom sheet (main.ts).
+// Phones keep five buttons in the bottom bar: Revenue is one of them, and Payments opens from the ⋯ menu, in the bottom
+// sheet (main.ts).
 import { byId } from "./dom";
 
 export function setupNav() {
@@ -181,6 +182,10 @@ export function setupNav() {
     if (byId("tabPay").hidden) {
       return;
     }
+    // the phone sheet holds the page's contents while it's open, so close it first
+    if (!byId("panel").hidden && byId("panel").contains(byId("payBody"))) {
+      byId("pclose").click();
+    }
     // keep ?pay= from a payment alert, so the tab can open that payment
     const pay = new URLSearchParams(location.search).get("pay");
     setUrl("/admin?view=payments" + (pay ? "&pay=" + encodeURIComponent(pay) : ""), "pay");
@@ -266,8 +271,8 @@ export function setupNav() {
       showEnq();
       return;
     }
-    if (target === "pay") {
-      showPay();
+    if (target === "rev") {
+      showRev();
       return;
     }
     byId(target === "ag" ? "tabAg" : "tabCal").click();
@@ -278,11 +283,21 @@ export function setupNav() {
   } else if (startView === "enquiries") {
     setTimeout(showEnq, 0);
   } else if (startView === "payments") {
-    setTimeout(showPay, 0);
-  } else if (startView === "revenue") {
-    // phones open Revenue in the bottom sheet, as the ⋯ menu does
+    // phones open Payments in the bottom sheet, as the ⋯ menu does (a payment alert's ?pay= is already read)
     setTimeout(function () {
-      if (matchMedia("(max-width: 900px)").matches) {
+      if (matchMedia("(max-width: 760px)").matches) {
+        try {
+          history.replaceState(history.state, "", "/admin");
+        } catch (e) {}
+        byId("mPay").click();
+      } else {
+        showPay();
+      }
+    }, 0);
+  } else if (startView === "revenue") {
+    // phones have Revenue in the bottom bar; narrow windows open it in the sheet, as the ⋯ menu does
+    setTimeout(function () {
+      if (matchMedia("(min-width: 761px) and (max-width: 900px)").matches) {
         byId("mRev").click();
       } else {
         showRev();

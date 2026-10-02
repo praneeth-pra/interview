@@ -20,6 +20,11 @@ export function parkAllow() {
   if (revenue.parentElement !== byId("viewRev")) {
     byId("viewRev").appendChild(revenue);
   }
+  // and so does the Payments sheet, on phones
+  const payments = byId("payBody").closest(".enqview")!;
+  if (payments.parentElement !== byId("viewPay")) {
+    byId("viewPay").appendChild(payments);
+  }
 }
 export function openPanel(title: string, subtitle?: string, keepFocus?: boolean) {
   parkAllow();
@@ -32,7 +37,7 @@ export function openPanel(title: string, subtitle?: string, keepFocus?: boolean)
   panel.bookingId = "";
   const body = byId("pbody");
   body.textContent = "";
-  body.classList.remove("grp", "rv");
+  body.classList.remove("grp", "rv", "pay");
   byId("panel").hidden = false;
   byId("pback").hidden = false;
   if (!keepFocus) {
