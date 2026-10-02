@@ -90,6 +90,12 @@
   background: var(--tint);
   color: var(--link);
 }
+/* the orange link colour is 4.25:1 on the dark tint; a lighter orange reads at 4.9:1 */
+@media (prefers-color-scheme: dark) {
+  .bk-st {
+    color: #e8925f;
+  }
+}
 .bk-st.st-completed {
   background: color-mix(in srgb, var(--green) 14%, transparent);
   color: var(--green-ink);

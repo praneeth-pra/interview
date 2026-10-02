@@ -17,8 +17,33 @@
 /* the page title is in the header, so only the download button sits above the revenue */
 .rv-head {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 14px;
+}
+/* the month of the PDF report (the whole monthly report, as emailed on the 1st), last month unless picked */
+.rv-mon {
+  flex: none;
+  width: auto;
+  border-radius: 18px;
+  padding: 0 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+/* the picker and both downloads fit one row on a phone */
+@media (max-width: 420px) {
+  .rv-head {
+    gap: 6px;
+  }
+  .rv-mon,
+  .rv-head .rv-dl {
+    padding: 0 12px;
+  }
+  /* "PDF" and "CSV" next to the month say enough here */
+  .rv-dw {
+    display: none;
+  }
 }
 .rv-dl {
   flex: none;
