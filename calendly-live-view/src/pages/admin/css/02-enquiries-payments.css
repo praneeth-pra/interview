@@ -168,9 +168,19 @@
   gap: 10px;
   width: 100%;
 }
-/* the search fills the rest of the row, with a magnifier inside it */
-.payrow .paysearch {
+/* the search fills the rest of the row, with a magnifier inside it; its suggestions open under it, as wide as the box */
+.payrow .paysrch {
   flex: 1 1 240px;
+  min-width: 0;
+}
+.paysrch .drop {
+  left: 0;
+  right: auto;
+  width: 100%;
+  max-width: none;
+}
+.payrow .paysearch {
+  width: 100%;
   max-width: none;
   height: 40px;
   padding-left: 40px;

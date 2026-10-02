@@ -270,13 +270,18 @@ const checks = [
     await p.locator(".paysw button", { hasText: "By candidate" }).click();
     await p.locator(".paytbl tbody tr", { hasText: "Kiran Kumar" }).click();
     if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("candidate total is wrong");
-    // search by part of a name: one candidate found shows their total; no match says so
+    // typing part of a name suggests candidates without narrowing the list; picking one shows their total
+    await p.locator(".paysw button", { hasText: "List" }).click();
     await p.locator(".paysearch").fill("");
     await p.locator(".paysearch").pressSequentially("kir");
     if ((await p.locator(".paysearch").inputValue()) !== "kir") throw new Error("typing in search was interrupted");
-    if (!(await p.locator(".paytbl tfoot .num").textContent()).includes("12,500")) throw new Error("search didn't find the candidate");
+    await p.locator("#payDrop li", { hasText: "Kiran Kumar" }).waitFor();
+    if (await p.locator("#viewPay .paysum").count()) throw new Error("typing narrowed the payments before a pick");
+    await p.locator("#payDrop li", { hasText: "Kiran Kumar" }).click();
+    if (!(await p.locator("#viewPay .paysum").textContent()).includes("12,500")) throw new Error("picking didn't narrow to the candidate");
+    if ((await p.locator(".paysearch").inputValue()) !== "Kiran Kumar") throw new Error("the picked name isn't in the box");
     await p.fill(".paysearch", "nobody");
-    await p.locator("#viewPay .sub", { hasText: "No candidate matches" }).waitFor();
+    await p.locator("#payDrop li", { hasText: "No matching candidates" }).waitFor();
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");
