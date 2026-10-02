@@ -1,4 +1,4 @@
-// Interview supporters (⋯ menu): the names an admin can record against a started interview, renamed or reordered here.
+// Supporters (⋯ menu): the names an admin can record against a started interview, renamed or reordered here.
 import { el, setMessage, toast } from "./dom";
 import { request } from "./api";
 import { colorClass, state } from "./state";
@@ -6,7 +6,7 @@ import { closePanel, openPanel, panel } from "./panel";
 
 export function showInterviewers() {
   panel.refresh = null;
-  const body = openPanel("Interview supporters", "Rename, add or remove. Renaming also updates interviews already recorded.");
+  const body = openPanel("Supporters", "Rename, add or remove. Renaming also updates interviews already recorded.");
   const rows = el("div");
   const msg = el("p", {
     class: "msg",
@@ -24,7 +24,7 @@ export function showInterviewers() {
       const input = el("input", {
         type: "text",
         maxlength: "30",
-        "aria-label": "Interview supporter " + (index + 1) + " name",
+        "aria-label": "Supporter " + (index + 1) + " name",
       });
       input.value = entry.to;
       input.oninput = function () {
@@ -87,7 +87,7 @@ export function showInterviewers() {
       })
         .then(function () {
           closePanel();
-          toast("Interview supporters saved");
+          toast("Supporters saved");
         })
         .catch(function (error) {
           saveButton.disabled = false;

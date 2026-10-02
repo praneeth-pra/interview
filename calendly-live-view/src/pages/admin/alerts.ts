@@ -93,7 +93,7 @@ export function setupAlerts() {
     btn.lastChild!.textContent = isOn() ? "Alerts on" : "Alerts";
     const menuSub = document.getElementById("mAlertsSub");
     if (menuSub) {
-      menuSub.textContent = isOn() ? "On for this device" : "Booking notifications on this device";
+      menuSub.textContent = isOn() ? "On for this device" : "Off for this device";
     }
   }
   function render(msg?: string) {

@@ -41,7 +41,7 @@ function saveInterviewer(booking: Booking, name: string, msg: HTMLElement) {
     "PUT",
   )
     .then(function () {
-      toast(name ? "Interview supporter saved" : "Interview supporter cleared");
+      toast(name ? "Supporter saved" : "Supporter cleared");
     })
     .catch(function (error) {
       setMessage(msg, error.message, true);
