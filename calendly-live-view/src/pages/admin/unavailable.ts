@@ -1,4 +1,4 @@
-// Time off (⋯ menu): days or hours candidates can't book, with an optional note only admins see. Interviews already
+// Unavailability (⋯ menu): days or hours candidates can't book, with an optional note only admins see. Interviews already
 // booked in that time stay as they are; saving says how many there are. The list shows times that haven't ended.
 import { el, setMessage, toast } from "./dom";
 import { request } from "./api";
@@ -10,7 +10,7 @@ import type { Block } from "./types";
 let wholeDays = true; // the kind of time last picked, kept while the page is open
 
 export function showUnavailable() {
-  const body = openPanel("Time off", "Candidates can't book these times. Interviews already booked stay as they are.");
+  const body = openPanel("Unavailability", "Candidates can't book these times. Interviews already booked stay as they are.");
   const today = dayKeyOf(new Date());
   const msg = el("p", { class: "msg", role: "status" });
   const list = el("div", { class: "unl" });
@@ -73,7 +73,7 @@ export function showUnavailable() {
   kindHours.onclick = function () {
     setKind(false);
   };
-  const add = el("button", { type: "button", class: "pri", text: "Add time off" }) as HTMLButtonElement;
+  const add = el("button", { type: "button", class: "pri", text: "Add unavailability" }) as HTMLButtonElement;
   add.onclick = function () {
     setMessage(msg, "");
     const day = fromDate.value;
@@ -87,7 +87,7 @@ export function showUnavailable() {
     request<{ clashes: number }>("/admin/api/unavailable", { startMs: startMs, endMs: endMs, note: note.value })
       .then(function (result) {
         note.value = "";
-        toast("Time off added");
+        toast("Unavailability added");
         if (result.clashes) {
           setMessage(
             msg,
@@ -105,7 +105,7 @@ export function showUnavailable() {
   };
   body.appendChild(
     el("div", { class: "unform" }, [
-      el("div", { class: "paysw", role: "group", "aria-label": "Time off for" }, [kindDays, kindHours]),
+      el("div", { class: "paysw", role: "group", "aria-label": "Unavailable for" }, [kindDays, kindHours]),
       dateRow,
       toRow,
       field("unNote", "Note (only admins see it)", note),

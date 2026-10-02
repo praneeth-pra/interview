@@ -95,7 +95,7 @@ export function renderAgenda() {
         text: items.length
           ? items.length + (items.length === 1 ? " interview" : " interviews")
           : dayBlocks(shown!, 0, 1440).length
-            ? "Time off"
+            ? "Unavailable"
             : "No interviews",
       }),
     ]),

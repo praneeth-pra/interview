@@ -20,7 +20,7 @@ export function dayBlocks(day: string, firstMin: number, lastMin: number) {
 }
 // A hatched band behind the interviews; px: the height of an hour.
 export function blockBand(band: { from: number; to: number; note: string }, firstMin: number, px: number, className: string) {
-  const box = el("div", { class: className }, [el("span", { text: "Time off" + (band.note ? " · " + band.note : "") })]);
+  const box = el("div", { class: className }, [el("span", { text: "Unavailable" + (band.note ? " · " + band.note : "") })]);
   box.style.top = ((band.from - firstMin) / 60) * px + "px";
   box.style.height = ((band.to - band.from) / 60) * px + "px";
   return box;
