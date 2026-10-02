@@ -3,7 +3,21 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { layoutColumns, type Item } from "../src/pages/admin/layout";
 import { byWhom, plural, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
-import { addDays, dayKeyOf, formatDay, formatRange, formatTime, hourLabel, minutesOfDay, shortDate, timeAgo, weekStart } from "../src/pages/admin/time";
+import {
+  addDays,
+  blockLabel,
+  blockSpan,
+  dayKeyOf,
+  formatDay,
+  formatRange,
+  formatTime,
+  hourLabel,
+  istMs,
+  minutesOfDay,
+  shortDate,
+  timeAgo,
+  weekStart,
+} from "../src/pages/admin/time";
 import type { Booking } from "../src/pages/admin/types";
 import { api } from "../src/pages/analytics/api";
 import { sameCompany } from "../src/same-company";
@@ -49,6 +63,30 @@ describe("admin dates (always IST)", () => {
     expect(weekStart("2026-09-25")).toBe("2026-09-21"); // Friday → Monday
     expect(weekStart("2026-09-27")).toBe("2026-09-21"); // Sunday belongs to the week before
     expect(weekStart("2026-09-21")).toBe("2026-09-21");
+  });
+});
+
+describe("unavailable times (IST)", () => {
+  const iso = (ms: number) => new Date(ms).toISOString();
+  test("a day key and minutes become the moment in India", () => {
+    expect(iso(istMs("2026-10-05", 0))).toBe("2026-10-04T18:30:00.000Z");
+    expect(iso(istMs("2026-10-05", 14 * 60))).toBe("2026-10-05T08:30:00.000Z");
+  });
+  test("labels: one whole day, several days, some hours, and hours across midnight", () => {
+    const day = (d: string, n = 1) => ({ start: iso(istMs(d, 0)), end: iso(istMs(addDays(d, n), 0)) });
+    expect(blockLabel(day("2026-10-05"))).toBe("Mon, Oct 5");
+    expect(blockLabel(day("2026-10-05", 3))).toBe("Mon, Oct 5 – Wed, Oct 7");
+    expect(blockLabel({ start: iso(istMs("2026-10-05", 840)), end: iso(istMs("2026-10-05", 1020)) })).toBe("Mon, Oct 5, 2:00pm – 5:00pm");
+    expect(blockLabel({ start: iso(istMs("2026-10-05", 1200)), end: iso(istMs("2026-10-06", 0)) })).toBe("Mon, Oct 5, 8:00pm – midnight");
+    expect(blockLabel({ start: iso(istMs("2026-10-05", 1200)), end: iso(istMs("2026-10-06", 600)) })).toBe(
+      "Mon, Oct 5, 8:00pm – Tue, Oct 6, 10:00am",
+    );
+  });
+  test("the part of a block on each day", () => {
+    const block = { start: iso(istMs("2026-10-05", 1200)), end: iso(istMs("2026-10-06", 600)) };
+    expect(blockSpan(block, "2026-10-05")).toEqual({ from: 1200, to: 1440 });
+    expect(blockSpan(block, "2026-10-06")).toEqual({ from: 0, to: 600 });
+    expect(blockSpan(block, "2026-10-07")).toBeNull();
   });
 });
 

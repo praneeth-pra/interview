@@ -12,7 +12,7 @@ src/server/          the server, one module per feature:
                      routes/ (public.ts, auth.ts, admin.ts: every URL, who may use it, and reading the request),
                      config.ts (environment variables), data.ts (what is stored, one JSON file each) and store.ts
                      (reading and writing them), bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts,
-                     payments.ts, allowlist.ts (the Candidates list), interviewers.ts (interview supporters),
+                     payments.ts, allowlist.ts (the Candidates list), unavailable.ts (times candidates can't book), interviewers.ts (interview supporters),
                      analytics.ts (owners' Revenue tab data), auth.ts (sign-in codes, sessions and the admin list),
                      email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin updates),
                      backup.ts, pages.ts (page shells), http.ts (headers, limits, file downloads), sw.js (service worker)
@@ -29,7 +29,7 @@ src/pages/admin/     the admin page: main.ts (start-up, tabs, live updates, relo
                      week.ts, agenda.ts and summary.ts; search.ts; state.ts (boot data, live state, the week on screen,
                      render()); panel.ts (the side panel) and booking-panel.ts (one booking: details, supporter, round
                      status, cancel, reschedule; lists of bookings); bookings.ts (every booking, for search); the ⋯ menu's
-                     interviewers.ts, admins.ts, allowlist.ts (Candidates); the owners' enquiries.ts, payments.ts,
+                     interviewers.ts, admins.ts, allowlist.ts (Candidates), unavailable.ts; the owners' enquiries.ts, payments.ts,
                      revenue.ts; alerts.ts, nav.ts, stats-frame.ts, download-menu.ts, theme-switch.ts; and helpers
                      time.ts, dom.ts, api.ts, labels.ts, types.ts
 src/pages/analytics/ the Analytics tab (framed in admin): main.ts (people picker, company progress, timeline, insights),
@@ -40,6 +40,8 @@ public/icon.png      app icon (admin home-screen app and browser alerts)
 tests/               bun tests for the server, a Chromium smoke test, and visual.cjs (screen-by-screen comparison with main)
 scripts/restore.ts   puts a backup back into a data folder
 ```
+
+Admins mark days or hours as unavailable from the ⋯ menu (Unavailable, saved in `unavailable.json`): the booking page, booking and candidate reschedules leave those times out, while the admin's own booking form still offers them. Interviews already booked in that time stay; the calendar and agenda show the time as a hatched band.
 
 Bookings and settings live as JSON files on the Railway volume mounted at `/data` (`DATA_DIR`), not in this repo.
 

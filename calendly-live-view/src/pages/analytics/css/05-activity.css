@@ -36,7 +36,8 @@
   min-width: 0;
 }
 .aitem.upcoming .awhat {
-  color: var(--m);
+  /* the darker orange: --m on the page background is under 4.5:1 */
+  color: var(--o);
   font-weight: 600;
 }
 .aitem.canceled .awhat,

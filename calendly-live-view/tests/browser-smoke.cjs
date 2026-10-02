@@ -278,6 +278,24 @@ const checks = [
     await p.keyboard.press("Escape");
     if (await p.locator("#dlMenu").isVisible()) throw new Error("menu did not close");
   }],
+  ["admin unavailable times from the menu", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#dlBtn").click();
+    await p.locator("#mUn").click();
+    await p.locator("#ptitle", { hasText: "Unavailable" }).waitFor();
+    await p.locator("#pbody .sub", { hasText: "Nothing marked" }).waitFor();
+    await p.locator("#pbody .paysw button", { hasText: "Some hours" }).click();
+    if (await p.locator("#unTo").isVisible()) throw new Error("the end date shows for some hours");
+    const day = await p.locator("#unFrom").inputValue();
+    const next = new Date(Date.parse(day + "T12:00:00Z") + 86400000).toISOString().slice(0, 10);
+    await p.fill("#unFrom", next);
+    await p.fill("#unNote", "Dentist");
+    await p.locator("#pbody .pri", { hasText: "Mark unavailable" }).click();
+    await p.locator("#pbody .unrow", { hasText: "Dentist" }).waitFor();
+    await p.locator("#pbody .unrow .rm").click();
+    await p.locator("#pbody .sub", { hasText: "Nothing marked" }).waitFor();
+    await p.locator("#pclose").click();
+  }],
   ["admin candidates from the menu", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();

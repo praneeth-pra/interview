@@ -13,6 +13,7 @@ import { boot, forget, remember, render, setRender, setState, state, view } from
 import { closePanel, openPanel, panel } from "./panel";
 import { showInterviewers } from "./interviewers";
 import { showAdmins } from "./admins";
+import { showUnavailable } from "./unavailable";
 import { renderEnquiryBadge, setupEnquiries, showEnquiries } from "./enquiries";
 import { refreshPayments, showPayments } from "./payments";
 import { setupAllowlist, showCandidates, syncAllow } from "./allowlist";
@@ -84,6 +85,7 @@ byId("tabCal").onclick = function () {
   showTab("cal");
 };
 byId("mCand").onclick = showCandidates;
+byId("mUn").onclick = showUnavailable;
 // Revenue on phones (owners only): the ⋯ menu opens it in the bottom sheet, like Candidates, rather than as a page.
 // The desktop header tab still opens the page.
 function showRevenueSheet() {

@@ -1,0 +1,66 @@
+/* Unavailable times (⋯ menu → Unavailable): grey hatched bands on the calendar and agenda, behind the interviews. */
+.blk {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  pointer-events: none;
+  background: repeating-linear-gradient(-45deg, var(--line) 0 1px, transparent 1px 8px);
+  background-color: color-mix(in srgb, var(--ink) 4%, transparent);
+  border-top: 1px dashed var(--field);
+}
+.blk span {
+  display: inline-block;
+  max-width: calc(100% - 8px);
+  margin: 4px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--sub);
+  color: var(--ink2);
+  font-size: 11.5px;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ag-blk {
+  border-radius: 8px;
+}
+/* the sheet: the form, then the times coming up */
+.unform .paysw {
+  margin-bottom: 14px;
+}
+.unform .two {
+  margin-bottom: 0;
+}
+.unform > .pri {
+  width: 100%;
+}
+.unh {
+  margin: 22px 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink2);
+}
+.unrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.unt {
+  flex: 1;
+  min-width: 0;
+}
+.unt b {
+  display: block;
+  font-size: 14.5px;
+}
+.unt span {
+  display: block;
+  font-size: 13px;
+  color: var(--ink2);
+  overflow-wrap: anywhere;
+}

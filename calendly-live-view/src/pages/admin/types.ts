@@ -23,6 +23,8 @@ export type Booking = {
   outcomeAt?: string;
   outcomeBy?: "next-round" | ""; // "next-round": set to Cleared when the candidate booked their next round
 };
+// A time an admin marked unavailable (⋯ menu → Unavailable): candidates can't book in it.
+export type Block = { id: string; start: string; end: string; note: string };
 // A cancellation or reschedule in the last 30 days.
 export type Change = Booking & { kind: "cancelled" | "rescheduled"; at: string };
 export type State = {
@@ -30,6 +32,7 @@ export type State = {
   build?: string; // the server's deploy; see checkForUpdate() in main.ts
   events: Booking[];
   changes: Change[];
+  blocks?: Block[]; // unavailable times: ones not over yet, and the last 60 days', earliest first
   iv: { names: string[]; assign: Record<string, string> };
   allow: { enabled: boolean; count: number };
   owner?: boolean; // owners see Enquiries and Payments; the admins they add don't

@@ -111,8 +111,36 @@ function hourLabel(hour: number) {
   }
 }
 
+// The moment a day key and minutes since midnight stand for in India (India has no daylight saving).
+function istMs(day: string, minutes: number) {
+  return Date.parse(day + "T00:00:00Z") + (minutes - 330) * 60000;
+}
+// The part of an unavailable time that falls on a day, in minutes since that day's midnight; null when none does.
+function blockSpan(block: { start: string; end: string }, day: string) {
+  const from = Math.max(Date.parse(block.start), istMs(day, 0));
+  const to = Math.min(Date.parse(block.end), istMs(day, 1440));
+  return to > from ? { from: (from - istMs(day, 0)) / 60000, to: (to - istMs(day, 0)) / 60000 } : null;
+}
+// "Mon, Oct 5" for a whole day, "Mon, Oct 5 – Wed, Oct 7" for whole days, "Mon, Oct 5, 2:00pm – 5:00pm" for hours.
+function blockLabel(block: { start: string; end: string }) {
+  const start = Date.parse(block.start);
+  const end = Date.parse(block.end);
+  const midnight = (ms: number) => minutesOfDay(ms) === 0;
+  if (midnight(start) && midnight(end)) {
+    const last = end - 86400000;
+    return shortDate(block.start) + (dayKeyOf(last) > dayKeyOf(start) ? " – " + shortDate(new Date(last).toISOString()) : "");
+  }
+  if (dayKeyOf(start) === dayKeyOf(end - 1)) {
+    return shortDate(block.start) + ", " + formatTime(start) + " – " + (midnight(end) ? "midnight" : formatTime(end));
+  }
+  return shortDate(block.start) + ", " + formatTime(start) + " – " + shortDate(block.end) + ", " + formatTime(end);
+}
+
 export {
   TIME_ZONE,
+  istMs,
+  blockSpan,
+  blockLabel,
   formatIst,
   dayKeyOf,
   formatTime,

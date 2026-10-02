@@ -1,12 +1,30 @@
 // The week grid: seven days of hour rows, each booking a block sized to its length, overlaps side by side.
 import { byId, el } from "./dom";
-import { addDays, dayKeyOf, formatDay, hourLabel, minutesOfDay } from "./time";
+import { addDays, blockSpan, dayKeyOf, formatDay, hourLabel, minutesOfDay } from "./time";
 import { missedLabel, statusPill, titleCase } from "./labels";
 import { colorClass, state, view } from "./state";
 import { layoutColumns, type Item } from "./layout";
 import { showBooking } from "./booking-panel";
 
 const HOUR_PX = 64;
+// The unavailable times on a day, as bands in minutes since midnight, cut to the hours from firstMin to lastMin.
+export function dayBlocks(day: string, firstMin: number, lastMin: number) {
+  const out: { from: number; to: number; note: string }[] = [];
+  (state.blocks || []).forEach(function (block) {
+    const span = blockSpan(block, day);
+    if (span && span.to > firstMin && span.from < lastMin) {
+      out.push({ from: Math.max(firstMin, span.from), to: Math.min(lastMin, span.to), note: block.note });
+    }
+  });
+  return out;
+}
+// A hatched band behind the interviews; px: the height of an hour.
+export function blockBand(band: { from: number; to: number; note: string }, firstMin: number, px: number, className: string) {
+  const box = el("div", { class: className }, [el("span", { text: "Unavailable" + (band.note ? " · " + band.note : "") })]);
+  box.style.top = ((band.from - firstMin) / 60) * px + "px";
+  box.style.height = ((band.to - band.from) / 60) * px + "px";
+  return box;
+}
 export function dayItems(day: string): Item[] {
   return state.events
     .filter(function (booking) {
@@ -120,6 +138,9 @@ export function renderWeek() {
       class: "col" + (day === today ? " today" : ""),
     });
     column.style.height = height + "px";
+    dayBlocks(day, firstHour * 60, lastHour * 60).forEach(function (band) {
+      column.appendChild(blockBand(band, firstHour * 60, HOUR_PX, "blk"));
+    });
     layoutColumns(itemsByDay[index]);
     itemsByDay[index].forEach(function (item) {
       const booking = item.booking;

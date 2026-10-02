@@ -131,7 +131,7 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
     const duration = Number(url.searchParams.get("duration"));
     if (!DATE_KEY.test(key) || !DURATIONS.includes(duration)) return json({ error: "Bad request." }, 400);
     const [y, mo, d] = key.split("-").map(Number);
-    return json({ slots: slotsFor(y, mo, d, duration, ignoreId).filter((s) => s < bookingLimitMs()) });
+    return json({ slots: slotsFor(y, mo, d, duration, ignoreId, true).filter((s) => s < bookingLimitMs()) });
   }
   if (path === "/api/book" && method === "POST") {
     // a person books a round or two; 20 an hour from one network keeps a script from filling every free time

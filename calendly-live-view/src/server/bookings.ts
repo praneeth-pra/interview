@@ -7,7 +7,7 @@ import { BASE_HEADERS, json } from "./http";
 import { baseUrl, manageUrl, tokenOk } from "./links";
 import { broadcastState } from "./live";
 import { alertAdmins } from "./push";
-import { bookingLimitMs, overlapsExisting, slotOk } from "./schedule";
+import { bookingLimitMs, isBlocked, overlapsExisting, slotOk } from "./schedule";
 import { saveStore } from "./store";
 import { sameCompany } from "../same-company";
 import { istDate, t12 } from "./time";
@@ -81,7 +81,11 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     return json({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" }, 403);
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   const endMs = startMs + duration * 60000;
-  if (!slotOk(startMs, duration) || overlapsExisting(startMs, endMs) || (!source && startMs >= bookingLimitMs()))
+  if (
+    !slotOk(startMs, duration) ||
+    overlapsExisting(startMs, endMs) ||
+    (!source && (startMs >= bookingLimitMs() || isBlocked(startMs, endMs)))
+  )
     return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
   const booking: Booking = {
     id: crypto.randomUUID(),
@@ -139,7 +143,11 @@ export async function moveBooking(
   if (startMs === Date.parse(b.start) && duration === b.duration)
     return json({ error: "That's already the interview time. Pick a different time." }, 400);
   const endMs = startMs + duration * 60000;
-  if (!slotOk(startMs, duration) || overlapsExisting(startMs, endMs, b.id) || (by === "candidate" && startMs >= bookingLimitMs()))
+  if (
+    !slotOk(startMs, duration) ||
+    overlapsExisting(startMs, endMs, b.id) ||
+    (by === "candidate" && (startMs >= bookingLimitMs() || isBlocked(startMs, endMs)))
+  )
     return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
   const prev = { ...b };
   Object.assign(b, {

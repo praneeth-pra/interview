@@ -53,6 +53,18 @@ writeFileSync(
     seen: {},
   }),
 );
+// Unavailable times: tomorrow evening (a band on the calendar) and a whole day later in the week.
+const istDay = (days) => new Date(Date.now() + 330 * 60000 + days * day).toISOString().slice(0, 10);
+const istAt = (days, minutes) => new Date(Date.parse(istDay(days) + "T00:00:00Z") + (minutes - 330) * 60000).toISOString();
+writeFileSync(
+  join(dir, "unavailable.json"),
+  JSON.stringify({
+    blocks: [
+      { id: "u1", start: istAt(1, 17 * 60), end: istAt(1, 20 * 60), note: "Dentist", createdAt: new Date().toISOString(), by: "" },
+      { id: "u2", start: istAt(3, 0), end: istAt(4, 0), note: "", createdAt: new Date().toISOString(), by: "" },
+    ],
+  }),
+);
 const receipt = { file: "p1.png", name: "gpay.png", type: "image/png", size: 1000 };
 writeFileSync(
   join(dir, "payments.json"),
@@ -100,6 +112,15 @@ const screens = [
     async (p) => {
       await p.locator("#agenda .ag-i").first().click();
       await p.locator("#panel:not([hidden])").waitFor();
+    },
+  ],
+  [
+    "admin: unavailable",
+    BASE + "/admin",
+    async (p) => {
+      await p.locator("#dlBtn").click();
+      await p.locator("#mUn").click();
+      await p.locator("#pbody .unrow").first().waitFor();
     },
   ],
   ["admin: enquiries", BASE + "/admin?view=enquiries", async (p) => p.locator("#enqBody .enqitem, #enqBody .enqlist").first().waitFor()],
