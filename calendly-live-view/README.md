@@ -15,7 +15,7 @@ src/server/          the server, one module per feature:
                      payments.ts, allowlist.ts (the Candidates list), unavailable.ts (times candidates can't book), interviewers.ts (interview supporters),
                      analytics.ts (owners' Revenue tab data), auth.ts (sign-in codes, sessions and the admin list),
                      email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin updates),
-                     backup.ts, pages.ts (page shells), http.ts (headers, limits, file downloads), sw.js (service worker)
+                     backup.ts, report.ts (the owners' monthly revenue email), pages.ts (page shells), http.ts (headers, limits, file downloads), sw.js (service worker)
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
 src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|ts   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
@@ -91,6 +91,8 @@ NODE_PATH=$(npm root -g) node tests/a11y.cjs             # accessibility: WCAG 2
 | `REMOVE_BOOKINGS` | One-time cleanup on start: `Name@YYYY-MM-DD`, comma separated |
 | `BACKUP_EMAIL` | Where the weekly backup email goes (comma separated; falls back to `HOST_EMAIL`) |
 | `BACKUP_HOUR` | Hour (IST) after which the daily snapshot and the weekly email run, default `2` |
+| `REPORT_HOUR` | Hour (IST) on the 1st after which the monthly revenue report goes out, default `9` |
+| `MONTHLY_REPORT` | `off` turns the monthly revenue report off (the test servers do) |
 
 ## Backups
 
@@ -112,6 +114,10 @@ bun run scripts/restore.ts /tmp/backup.json /data   # with parts: /tmp/backup-pa
 The script keeps each replaced file as `<name>.pre-restore`.
 
 If a data file and its `.bak` copy both fail to read at startup, the log says `store unreadable, not saving until it is fixed` and that store runs in memory only, so the files are left as they are for you to repair or restore.
+
+## Monthly revenue report
+
+On the 1st of every month after `REPORT_HOUR` (IST), `src/server/report.ts` emails the owners (`ADMIN_EMAILS`) a report on the month that just ended: confirmed revenue against the month before, a chart by day and one of the last twelve months, who paid, and what still waits for a decision, with that month's payments attached as a CSV. It counts like the Revenue tab (confirmed payments, in the India month they were made). The charts are coloured table cells, since mail apps drop SVG and scripts. `/data/report-state.json` remembers the last month sent, so restarts neither skip nor repeat one; if the server was down on the 1st, it sends the report when it is back, and a failed email is retried every 15 minutes.
 
 ## Deploying
 
