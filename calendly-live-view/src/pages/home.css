@@ -1,29 +1,31 @@
 /* The home page (/): job assistance, with links to the enquiry form and the booking page. Warm and editorial:
-   Instrument Serif headlines, Figtree text, stone-grey paper with a fine grain, the brand terracotta (#d97757) in a soft
+   Instrument Serif headlines, Figtree text, warm linen paper with a fine grain, the burnt orange (#b8460d) as the one accent, no
    glow, a fan of three cards (resume, offer letter, interview), a dark "how it works" band, tracks that drift past
-   and a brand-orange closing panel. Light and dark; every animation stops with reduced motion. */
+   and a near-black closing panel. Light and dark; every animation stops with reduced motion. */
 :root {
   color-scheme: light;
-  --bg: #f5f5f4;
-  --paper: #ffffff;
-  --sand: #eceae8;
-  --ink: #1c1917;
-  --ink2: #57534e;
-  --line: rgba(28, 25, 23, 0.1);
-  --line2: rgba(28, 25, 23, 0.18);
-  --accent: #d97757;
+  --bg: #f3f0e8;
+  --paper: #faf8f3;
+  --sand: #e9e4d9;
+  --ink: #181511;
+  --ink2: #554e45;
+  --line: #dcd4c5;
+  --line2: #bfb5a2;
+  --accent: #b8460d;
   /* the accent for large text (3:1) and for small text (4.5:1) on the page */
-  --accent-big: #c4623f;
-  --accent-ink: #a94e2c;
-  --glow1: rgba(217, 119, 87, 0.1);
+  --accent-big: #b8460d;
+  --accent-ink: #a53e0b;
+  /* the accent on the dark band and panel */
+  --accent-on-dark: #e0834f;
+  --glow1: transparent;
   --glow2: transparent;
-  --glow3: rgba(217, 119, 87, 0.05);
+  --glow3: transparent;
   /* the dark band and the closing panel */
-  --band: #1c1917;
-  --band-ink: #f5f5f4;
-  --band-ink2: #a8a29e;
-  --band-line: rgba(245, 245, 244, 0.12);
-  --shadow: 0 1px 2px rgba(28, 25, 23, 0.05), 0 16px 32px -16px rgba(28, 25, 23, 0.2);
+  --band: #181511;
+  --band-ink: #f3f0e8;
+  --band-ink2: #b5ab9c;
+  --band-line: rgba(243, 240, 232, 0.12);
+  --shadow: 0 1px 2px rgba(24, 21, 17, 0.05), 0 20px 40px -24px rgba(42, 33, 22, 0.3);
   --serif: "Instrument Serif", Georgia, "Times New Roman", serif;
   --ease: cubic-bezier(0.2, 0.7, 0.2, 1);
   --grain: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .5 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
@@ -31,21 +33,21 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --bg: #141413;
-    --paper: #1f1e1c;
-    --sand: #1a1918;
-    --ink: #f5f5f4;
-    --ink2: #a8a29e;
-    --line: rgba(245, 245, 244, 0.1);
-    --line2: rgba(245, 245, 244, 0.2);
-    --accent: #d97757;
-    --accent-big: #d97757;
-    --accent-ink: #e08a6d;
-    --glow1: rgba(217, 119, 87, 0.12);
+    --bg: #161410;
+    --paper: #211e19;
+    --sand: #1b1915;
+    --ink: #f3f0e8;
+    --ink2: #b5ab9c;
+    --line: rgba(243, 240, 232, 0.1);
+    --line2: rgba(243, 240, 232, 0.2);
+    --accent: #e0834f;
+    --accent-big: #e0834f;
+    --accent-ink: #e0834f;
+    --glow1: transparent;
     --glow2: transparent;
-    --glow3: rgba(217, 119, 87, 0.06);
-    --band: #1f1e1c;
-    --band-line: rgba(245, 245, 244, 0.1);
+    --glow3: transparent;
+    --band: #211e19;
+    --band-line: rgba(243, 240, 232, 0.1);
     --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 28px 56px -20px rgba(0, 0, 0, 0.75);
   }
 }
@@ -127,8 +129,8 @@ h2 em,
   padding: 0 26px;
   border: 1px solid transparent;
   border-radius: 999px;
-  background: var(--ink);
-  color: var(--bg);
+  background: #b8460d;
+  color: #fffaf3;
   font-weight: 700;
   font-size: 15.5px;
   text-decoration: none;
@@ -192,7 +194,7 @@ h2 em,
   width: 30px;
   height: 30px;
   flex: none;
-  background: #d97757;
+  background: var(--accent);
   -webkit-mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E");
   mask: url("data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2024%2024'%20fill='none'%20stroke='%23000'%20stroke-width='2'%20stroke-linecap='round'%20stroke-linejoin='round'%3E%3Cpath%20d='M16.5%206V5A2.5%202.5%200%200%200%2014%202.5H4.5A2.5%202.5%200%200%200%202%205v7a2.5%202.5%200%200%200%202.5%202.5H10M6.5%2014.5l-2%203'/%3E%3Ccircle%20cx='8'%20cy='6.9'%20r='1.5'/%3E%3Cpath%20d='M5.5%2011.4a2.5%202.5%200%200%201%205%200z'/%3E%3Ccircle%20cx='17.2'%20cy='11.6'%20r='2.7'/%3E%3Cpath%20d='M13%2021.5v-1.6a3%203%200%200%201%203-3h2.4a3%203%200%200%201%203%203v1.6z'/%3E%3C/svg%3E");
 }
@@ -240,7 +242,7 @@ h2 em,
   inset: 0;
   z-index: -1;
   background-image: var(--grain);
-  opacity: 0.04;
+  opacity: 0.12;
   mix-blend-mode: multiply;
   pointer-events: none;
 }
@@ -554,15 +556,16 @@ h1.rise {
   color: var(--band-ink);
 }
 @media (prefers-color-scheme: dark) {
-  .how {
+  .how,
+  .panel {
     border: 1px solid var(--band-line);
   }
 }
 .how .eyebrow {
-  color: #d97757;
+  color: var(--accent-on-dark);
 }
 .how h2 em {
-  color: #d97757;
+  color: var(--accent-on-dark);
 }
 .shead h2 {
   font-size: clamp(42px, 5.4vw, 68px);
@@ -591,8 +594,8 @@ h1.rise {
   width: 11px;
   height: 11px;
   border-radius: 50%;
-  background: #d97757;
-  box-shadow: 0 0 0 5px rgba(217, 119, 87, 0.18);
+  background: var(--accent-on-dark);
+  box-shadow: 0 0 0 5px rgba(224, 131, 79, 0.18);
 }
 .num {
   display: block;
@@ -601,7 +604,7 @@ h1.rise {
   font-family: var(--serif);
   font-size: 104px;
   line-height: 0.8;
-  -webkit-text-stroke: 1.5px #d97757;
+  -webkit-text-stroke: 1.5px var(--accent-on-dark);
 }
 .steps h3 {
   font-size: 34px;
@@ -665,7 +668,7 @@ h1.rise {
     transform: translateX(calc(-50% - 7px));
   }
 }
-/* closing: a solid brand-orange panel with charcoal type */
+/* closing: a near-black panel with the orange button */
 .close {
   padding: 120px 0;
 }
@@ -675,8 +678,8 @@ h1.rise {
   overflow: hidden;
   padding: 96px 32px;
   border-radius: 36px;
-  background: #d97757;
-  color: #1c1917;
+  background: var(--band);
+  color: var(--band-ink);
   text-align: center;
 }
 .panel:after {
@@ -696,26 +699,26 @@ h1.rise {
   line-height: 1;
 }
 .panel .motto em {
-  color: #1c1917;
+  color: var(--accent-on-dark);
 }
 .closep {
   max-width: 520px;
   margin: 24px auto 40px;
-  color: #2a211c;
+  color: var(--band-ink2);
   font-size: 18.5px;
 }
 .btn.light {
-  background: #1c1917;
-  color: #f5f5f4;
+  background: #b8460d;
+  color: #fffaf3;
 }
 .btn.line {
-  border-color: rgba(28, 25, 23, 0.45);
+  border-color: rgba(243, 240, 232, 0.3);
   background: transparent;
-  color: #1c1917;
+  color: var(--band-ink);
 }
 @media (hover: hover) {
   .btn.line:hover {
-    border-color: #1c1917;
+    border-color: var(--band-ink);
     box-shadow: none;
   }
 }
