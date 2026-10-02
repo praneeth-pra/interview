@@ -28,7 +28,8 @@ export function setupAlerts() {
   btn.setAttribute("aria-label", "Booking alerts");
   btn.innerHTML =
     '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M4 11V7a4 4 0 0 1 8 0v4l1.2 1.3H2.8z" stroke-linejoin="round"/><path d="M6.6 14h2.8" stroke-linecap="round"/></svg><span>Alerts</span>';
-  topRight.insertBefore(btn, document.getElementById("qbtn"));
+  // the bell sits beside the theme switch, on phones too
+  topRight.insertBefore(btn, document.getElementById("thBtn"));
   const pop = document.createElement("div");
   pop.className = "pushpop";
   pop.hidden = true;
@@ -91,10 +92,6 @@ export function setupAlerts() {
   function paint() {
     btn.classList.toggle("on", isOn());
     btn.lastChild!.textContent = isOn() ? "Alerts on" : "Alerts";
-    const menuSub = document.getElementById("mAlertsSub");
-    if (menuSub) {
-      menuSub.textContent = isOn() ? "On for this device" : "Off for this device";
-    }
   }
   function render(msg?: string) {
     let html = "<h3>Booking notifications</h3>";

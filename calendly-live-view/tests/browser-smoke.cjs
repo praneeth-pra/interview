@@ -339,14 +339,15 @@ const checks = [
     await p.locator("#tabCal").click();
     await p.locator("#week .grid").waitFor();
   }],
-  ["admin phone: Alerts in the menu, Calendar and Agenda in the bottom bar", async (p) => {
+  ["admin phone: Alerts bell in the header, Calendar and Agenda in the bottom bar", async (p) => {
     await p.setViewportSize({ width: 390, height: 844 });
     await p.goto(BASE + "/admin");
     await p.locator("#dlBtn").click();
     if (await p.locator("#dlMenu").getByText("New booking").count()) throw new Error("New booking should be gone from the menu");
-    await p.locator("#mAlerts").click();
+    if (await p.locator("#dlMenu").getByText("Alerts").count()) throw new Error("Alerts should be gone from the menu");
+    await p.keyboard.press("Escape");
+    await p.locator("#pushBtn").click();
     await p.locator(".pushpop h3", { hasText: "Booking notifications" }).waitFor();
-    if (await p.locator("#dlMenu").isVisible()) throw new Error("menu stayed open behind Alerts");
     await p.keyboard.press("Escape");
     if (await p.locator(".bnav").getByText("New booking").count()) throw new Error("New booking should be gone from the bottom bar");
     await p.locator(".bnav [data-go='cal']").click();

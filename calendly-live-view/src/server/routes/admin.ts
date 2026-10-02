@@ -21,6 +21,10 @@ import { type Fields, DATE_KEY } from "../util";
 
 // Enquiries, payments and revenue are for owners only; other admins don't see their tabs, and these APIs refuse them.
 const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|$)/;
+// What only owners open from the ⋯ menu (added admins have no ⋯ menu): who can sign in, unavailable times, the interview
+// supporters' names, the Candidates list and the bookings download. Added admins still record who supported each
+// interview (PUT /admin/api/interviewers).
+const OWNER_SETTINGS = /^\/admin\/(api\/(admins|unavailable|interviewer-names|allowlist)(\/|$)|export\.csv$)/;
 
 export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Response | null> {
   const path = url.pathname;
@@ -41,12 +45,13 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   // ---- pages
   if ((path === "/admin" || path === "/admin/allowlist") && method === "GET") {
     if (!authed) return sendShell(req, LOGIN);
-    return sendShell(req, adminShell(path === "/admin" ? "cal" : "allow", owner));
+    return sendShell(req, adminShell(path === "/admin" || !owner ? "cal" : "allow", owner));
   }
   if (path === "/admin/analytics" && method === "GET")
     return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
   if (!authed) return json({ error: "Sign in again." }, 401);
   if (!owner && OWNER_ONLY.test(path)) return json({ error: "Only the owner can see enquiries, payments and revenue." }, 403);
+  if (!owner && OWNER_SETTINGS.test(path)) return json({ error: "Only the owner can open this." }, 403);
 
   // ---- owners: revenue, enquiries, payments
   if (path === "/admin/api/revenue" && method === "GET") return json(analyticsView(q("q").slice(0, 100)));
@@ -62,11 +67,10 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   if (path === "/admin/api/payments/decide" && method === "POST")
     return withBody(1000, (b) => decidePayment(String(b?.id ?? ""), b?.decision, email));
 
-  // ---- who can sign in: every admin sees the list; only owners change it
+  // ---- who can sign in (owners only)
   if (path === "/admin/api/admins" && method === "GET") return json(adminsView(email));
   if (path === "/admin/api/admins" && method === "POST") {
     if (!me) return json({ error: "Admin sign-in is off, so there is no admin list." }, 409);
-    if (!owner) return json({ error: "Only the owner can add or remove admins." }, 403);
     return withBody(10000, (b) => setAdmins(b?.emails, me.email));
   }
 
@@ -107,11 +111,11 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     });
   if (path === "/admin/api/round-status" && method === "POST") return withBody(1000, (b) => setRoundStatus(String(b?.id ?? ""), b?.status));
 
-  // ---- unavailable times (they come with the live state)
+  // ---- unavailable times (owners only; they come with the live state)
   if (path === "/admin/api/unavailable" && method === "POST") return withBody(2000, (b) => addBlock(b, email));
   if (path === "/admin/api/unavailable/delete" && method === "POST") return withBody(1000, (b) => removeBlock(String(b?.id ?? "")));
 
-  // ---- Candidates list and interview supporters
+  // ---- Candidates list and interview supporters (only owners rename them)
   if (path === "/admin/api/allowlist") {
     if (method === "GET") return json({ state: allowView() });
     if (method !== "POST") return json({ error: "Method not allowed." }, 405);
