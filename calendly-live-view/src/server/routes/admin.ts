@@ -14,13 +14,14 @@ import { adminState, openStream, pub } from "../live";
 import { ANALYTICS, LOGIN, adminShell } from "../pages";
 import { decidePayment, paymentsList, receiptFile } from "../payments";
 import { changePush, pushView } from "../push";
+import { reportPdfResponse } from "../report-pdf";
 import { slotsFor } from "../schedule";
 import { istDate } from "../time";
 import { addBlock, removeBlock } from "../unavailable";
 import { type Fields, DATE_KEY } from "../util";
 
 // Enquiries, payments and revenue are for owners only; other admins don't see their tabs, and these APIs refuse them.
-const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|$)/;
+const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|\.pdf$|$)/;
 // What only owners open from the ⋯ menu (added admins have no ⋯ menu): who can sign in, unavailable times, the interview
 // supporters' names, the Candidates list, the bookings download and the backup download and restore (which hold all of
 // those, and the key that signs candidates' manage links). Added admins still record who supported each interview (PUT /admin/api/interviewers).
@@ -57,6 +58,7 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   // ---- owners: revenue, enquiries, payments
   if (path === "/admin/api/revenue" && method === "GET") return json(analyticsView(q("q").slice(0, 100)));
   if (path === "/admin/api/revenue.csv" && method === "GET") return analyticsCsv(q("q").slice(0, 100));
+  if (path === "/admin/api/revenue.pdf" && method === "GET") return reportPdfResponse(q("month"));
   if (path === "/admin/api/enquiries" && method === "GET") return json(enquiriesList());
   const resume = path.match(/^\/admin\/api\/enquiries\/([0-9a-f-]{36})\/resume$/);
   if (resume && method === "GET") return resumeFile(resume[1], q("download") === "1");

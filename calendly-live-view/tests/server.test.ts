@@ -46,6 +46,15 @@ function seed(dir: string) {
   writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, ...many] }));
 }
 
+// The text of a PDF, read with pdftotext (poppler-utils, which the Docker image and CI install for receipts).
+function pdfText(pdf: Buffer) {
+  const file = join(mkdtempSync(join(tmpdir(), "booking-form-pdf-")), "r.pdf");
+  writeFileSync(file, pdf);
+  const r = Bun.spawnSync(["pdftotext", "-layout", file, "-"]);
+  expect(r.exitCode).toBe(0);
+  return r.stdout.toString();
+}
+
 // Sign-in codes go out by email; a stand-in for the email API keeps them so the tests can read them.
 const OWNER = "owner@example.com";
 const mails: any[] = [];
@@ -472,6 +481,17 @@ describe("payments", () => {
     expect((await (await get(open, "/admin/api/revenue.csv?q=meena")).text()).trim().split("\r\n")).toHaveLength(1);
     expect((await get(locked, "/admin/api/revenue")).status).toBe(401);
     expect((await get(locked, "/admin/api/revenue.csv")).status).toBe(401);
+    // the monthly report as a PDF, for the month asked for (a month that isn't one falls back to last month)
+    const thisMonth = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date()).slice(0, 7);
+    const pdf = await get(open, "/admin/api/revenue.pdf?month=" + thisMonth);
+    expect(pdf.headers.get("content-type")).toBe("application/pdf");
+    expect(pdf.headers.get("content-disposition")).toBe('attachment; filename="revenue-report-' + thisMonth + '.pdf"');
+    const text = pdfText(Buffer.from(await pdf.arrayBuffer()));
+    expect(text).toContain("MONTHLY REVENUE REPORT");
+    expect(text).toContain("\u20b912,500");
+    expect(text).toContain("Kiran Kumar");
+    expect((await get(open, "/admin/api/revenue.pdf?month=junk")).headers.get("content-disposition")).not.toContain(thisMonth);
+    expect((await get(locked, "/admin/api/revenue.pdf")).status).toBe(401);
   });
 });
 
@@ -662,7 +682,7 @@ describe("admin", () => {
     const aide = await signIn(locked, "aide@example.com");
     const id = "00000000-0000-0000-0000-00000000abcd";
     // every enquiry and payment API refuses them, before looking anything up
-    const gets = ["/admin/api/revenue", "/admin/api/revenue.csv", "/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/enquiries/" + id + "/resume", "/admin/api/payments", "/admin/api/payments/" + id + "/receipt?download=1"];
+    const gets = ["/admin/api/revenue", "/admin/api/revenue.csv", "/admin/api/revenue.pdf", "/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/enquiries/" + id + "/resume", "/admin/api/payments", "/admin/api/payments/" + id + "/receipt?download=1"];
     for (const path of gets) {
       const r = await get(locked, path, { cookie: aide });
       expect(r.status).toBe(403);
@@ -671,7 +691,7 @@ describe("admin", () => {
     for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide"])
       expect((await postJson(locked, path, { id }, { cookie: aide })).status).toBe(403);
     // the owner still gets them (the made-up id isn't there, so its file is a 404, not a 403)
-    for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments", "/admin/api/revenue", "/admin/api/revenue.csv"])
+    for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments", "/admin/api/revenue", "/admin/api/revenue.csv", "/admin/api/revenue.pdf"])
       expect((await get(locked, path, { cookie })).status).toBe(200);
     expect((await get(locked, "/admin/api/enquiries/" + id + "/resume", { cookie })).status).toBe(404);
     expect((await get(locked, "/admin/api/payments/" + id + "/receipt", { cookie })).status).toBe(404);
@@ -1221,7 +1241,11 @@ describe("monthly revenue report", () => {
     expect(mail.html).not.toContain("<script");
     expect(mail.text).toContain("Confirmed since the first payment: \u20b975,000");
     expect(mail.text).toContain("Best day: " + last.toLocaleString("en-US", { month: "short", timeZone: "UTC" }) + " 17, \u20b925,000");
-    expect(mail.attachments.map((a: any) => a.filename)).toEqual(["payments-" + key(last) + ".csv"]);
+    expect(mail.attachments.map((a: any) => a.filename)).toEqual(["payments-" + key(last) + ".csv", "revenue-report-" + key(last) + ".pdf"]);
+    const pdf = pdfText(Buffer.from(mail.attachments[1].content, "base64"));
+    expect(pdf).toContain(name(last));
+    expect(pdf).toContain("\u20b945,000");
+    expect(pdf).toContain("Meena");
     const csv = Buffer.from(mail.attachments[0].content, "base64").toString("utf8").trim().split("\r\n");
     expect(csv.length).toBe(5); // the header, three confirmed payments and the pending one
     expect(JSON.parse(readFileSync(join(srv.dir, "report-state.json"), "utf8"))).toEqual({ sent: key(last) });

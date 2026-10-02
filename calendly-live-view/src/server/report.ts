@@ -10,25 +10,26 @@ import { analyticsCsvText, monthKey } from "./analytics";
 import { OWNER_EMAILS, PUBLIC_URL, REPORT_HOUR, REPORT_ON, RESEND_API_KEY } from "./config";
 import { paymentsStore, reportStateStore } from "./data";
 import { sendEmail } from "./email";
+import { reportPdf } from "./report-pdf";
 import { loadStore, saveStore } from "./store";
 import { istParts } from "./time";
 import { normEmail, pad } from "./util";
 
 const SITE = (PUBLIC_URL || "https://hi-techie.dev").replace("://www.", "://");
-const INK = "#181511";
-const MUTED = "#6b6359";
-const ACCENT = "#b8460d";
+export const INK = "#181511";
+export const MUTED = "#6b6359";
+export const ACCENT = "#b8460d";
 const PAPER = "#f3f0e8";
-const CARD = "#fbfaf6";
-const LINE = "#e4ddcf";
-const BAR = "#d9cebc";
-const UP = "#2f6b3f";
+export const CARD = "#fbfaf6";
+export const LINE = "#e4ddcf";
+export const BAR = "#d9cebc";
+export const UP = "#2f6b3f";
 
-const monthIndex = (key: string) => Number(key.slice(0, 4)) * 12 + Number(key.slice(5, 7)) - 1;
-const keyOf = (i: number) => Math.floor(i / 12) + "-" + pad((i % 12) + 1);
-const monthName = (key: string, o: Intl.DateTimeFormatOptions = { month: "long", year: "numeric" }) =>
+export const monthIndex = (key: string) => Number(key.slice(0, 4)) * 12 + Number(key.slice(5, 7)) - 1;
+export const keyOf = (i: number) => Math.floor(i / 12) + "-" + pad((i % 12) + 1);
+export const monthName = (key: string, o: Intl.DateTimeFormatOptions = { month: "long", year: "numeric" }) =>
   new Intl.DateTimeFormat("en-US", { ...o, timeZone: "UTC" }).format(new Date(Date.UTC(+key.slice(0, 4), +key.slice(5, 7) - 1, 15)));
-const rupees = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
+export const rupees = (n: number) => "₹" + Math.round(n).toLocaleString("en-IN");
 // the month before this one (India time): the one a report sent today is about
 export const lastMonthKey = (now = Date.now()) => {
   const p = istParts(now);
@@ -107,7 +108,7 @@ export function monthReport(key: string) {
 }
 
 // "▲ 24% from ₹1,00,000 in August", or the like
-function change(r: ReturnType<typeof monthReport>) {
+export function change(r: ReturnType<typeof monthReport>) {
   const prev = monthName(keyOf(monthIndex(r.key) - 1), { month: "long" });
   if (r.total === r.previous) return { text: "Same as " + prev + " (" + rupees(r.previous) + ")", color: MUTED };
   if (!r.previous) return { text: "▲ Up from " + rupees(0) + " in " + prev, color: UP };
@@ -231,7 +232,7 @@ export function reportEmail(key: string) {
     `<tr><td style="padding:24px 32px 0;font-size:14px;color:${INK}">Confirmed since the first payment: <b>${e(rupees(r.toDate))}</b></td></tr>` +
     `<tr><td style="padding:22px 32px 0"><a href="${e(SITE + "/admin?view=revenue")}" style="display:inline-block;padding:11px 22px;border-radius:40px;background:${INK};color:${PAPER};text-decoration:none;font-weight:600;font-size:15px">Open Revenue</a></td></tr>` +
     `<tr><td style="padding:22px 32px 28px;font-size:12px;line-height:1.5;color:${MUTED}">Counts confirmed payments only, in the month they were made (India time), as of when this was sent. ` +
-    `The attached CSV lists every payment of the month that isn't discarded. Sent to the owners on the 1st of every month.</td></tr>` +
+    `The attached PDF is this report to keep or print, and the CSV lists every payment of the month that isn't discarded. Sent to the owners on the 1st of every month.</td></tr>` +
     `</table></td></tr></table></body></html>`;
 
   const text = [
@@ -259,6 +260,11 @@ export function reportEmail(key: string) {
         filename: "payments-" + key + ".csv",
         content: Buffer.from(analyticsCsvText("", key)).toString("base64"),
         content_type: "text/csv; charset=utf-8",
+      },
+      {
+        filename: "revenue-report-" + key + ".pdf",
+        content: reportPdf(key).toString("base64"),
+        content_type: "application/pdf",
       },
     ],
   };

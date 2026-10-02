@@ -15,7 +15,7 @@ src/server/          the server, one module per feature:
                      payments.ts, allowlist.ts (the Candidates list), unavailable.ts (times candidates can't book), interviewers.ts (interview supporters),
                      analytics.ts (owners' Revenue tab data), auth.ts (sign-in codes, sessions and the admin list),
                      email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin updates),
-                     backup.ts, report.ts (the owners' monthly revenue email), pages.ts (page shells), http.ts (headers, limits, file downloads), sw.js (service worker)
+                     backup.ts, report.ts (the owners' monthly revenue email), report-pdf.ts and pdf.ts (the same report as a PDF), pages.ts (page shells), http.ts (headers, limits, file downloads), sw.js (service worker)
 src/assets.ts        fingerprints, compresses and serves everything below at startup (no build step)
 src/pages/*.html     page shells (book, admin, analytics, login)
 src/pages/*.css|ts   page styles and scripts (readable; scripts are bundled and minified at startup), served as /assets/<name>.<hash>.<ext>
@@ -117,7 +117,9 @@ If a data file and its `.bak` copy both fail to read at startup, the log says `s
 
 ## Monthly revenue report
 
-On the 1st of every month after `REPORT_HOUR` (IST), `src/server/report.ts` emails the owners (`ADMIN_EMAILS`) a report on the month that just ended: confirmed revenue against the month before, a chart by day and one of the last twelve months, who paid, and what still waits for a decision, with that month's payments attached as a CSV. It counts like the Revenue tab (confirmed payments, in the India month they were made). The charts are coloured table cells, since mail apps drop SVG and scripts. `/data/report-state.json` remembers the last month sent, so restarts neither skip nor repeat one; if the server was down on the 1st, it sends the report when it is back, and a failed email is retried every 15 minutes.
+On the 1st of every month after `REPORT_HOUR` (IST), `src/server/report.ts` emails the owners (`ADMIN_EMAILS`) a report on the month that just ended: confirmed revenue against the month before, a chart by day and one of the last twelve months, who paid, and what still waits for a decision, with that month's payments attached as a CSV and the report itself as a PDF. It counts like the Revenue tab (confirmed payments, in the India month they were made). The charts are coloured table cells, since mail apps drop SVG and scripts. `/data/report-state.json` remembers the last month sent, so restarts neither skip nor repeat one; if the server was down on the 1st, it sends the report when it is back, and a failed email is retried every 15 minutes.
+
+The Revenue tab's **Download PDF** gives the same report for any of the last twelve months (last month is picked), from `/admin/api/revenue.pdf?month=YYYY-MM` (owners only). `src/server/pdf.ts` writes the PDF itself, with no dependencies: text in the embedded fonts in `src/fonts/pdf/` (static, subset TrueType copies of Figtree 400 and 700, which has the ₹ sign, and Instrument Serif Italic, made from the site's woff2 files with fontTools), and the charts as filled shapes.
 
 ## Deploying
 

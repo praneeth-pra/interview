@@ -285,6 +285,23 @@ function setupSearch(body: HTMLElement) {
   search.addEventListener("blur", close);
   body.appendChild(el("div", { class: "paybar" }, [el("div", { class: "srch rv-srch" }, [search, list])]));
 }
+// The PDF report's month picker: the last twelve India months, newest first, with last month (the one the monthly email
+// is about) picked. The PDF covers everyone, whatever the search box says.
+function setupPdfMonths(pick: HTMLSelectElement) {
+  const now = new Date(Date.now() + 330 * 60000);
+  const link = byId<HTMLAnchorElement>("revPdf");
+  for (let i = 0; i < 12; i++) {
+    const m = now.getUTCFullYear() * 12 + now.getUTCMonth() - i;
+    const key = Math.floor(m / 12) + "-" + String((m % 12) + 1).padStart(2, "0");
+    pick.appendChild(el("option", { value: key, text: monthName(key, true) }));
+  }
+  pick.value = pick.options[1].value;
+  const update = function () {
+    link.href = "/admin/api/revenue.pdf?month=" + pick.value;
+  };
+  pick.addEventListener("change", update);
+  update();
+}
 function showRevenue() {
   const body = byId("revBody");
   let figures = byId("revFigures");
@@ -296,6 +313,10 @@ function showRevenue() {
   }
   const query = revenueQuery.trim();
   const ask = ++loading;
+  const pick = byId<HTMLSelectElement>("revMon");
+  if (!pick.options.length) {
+    setupPdfMonths(pick);
+  }
   // the CSV narrows to the same candidates
   byId<HTMLAnchorElement>("revDl").href = "/admin/api/revenue.csv" + (query ? "?q=" + encodeURIComponent(query) : "");
   return request<Summary>("/admin/api/revenue" + (query ? "?q=" + encodeURIComponent(query) : ""))
