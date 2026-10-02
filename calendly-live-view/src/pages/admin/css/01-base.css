@@ -1,18 +1,18 @@
 :root {
   color-scheme: light;
-  --ink: #1a1a1a;
-  --ink2: rgba(26, 26, 26, 0.72);
-  --ink3: rgba(26, 26, 26, 0.6);
-  --line: rgba(26, 26, 26, 0.1);
-  --bg: #f4f2ec;
-  --card: #fff;
-  --sub: #f8f7f3;
-  --blue: #bc5935;
-  --blue-d: #a64b2a;
-  --link: #a94e2c;
-  --tab-on: #b0502c;
-  --tint: rgba(217, 119, 87, 0.1);
-  --today: rgba(217, 119, 87, 0.045);
+  --ink: #181511;
+  --ink2: rgba(24, 21, 17, 0.72);
+  --ink3: rgba(24, 21, 17, 0.6);
+  --line: rgba(24, 21, 17, 0.1);
+  --bg: #f3f0e8;
+  --card: #faf8f3;
+  --sub: #f6f3ec;
+  --blue: #b8460d;
+  --blue-d: #a53e0b;
+  --link: #a53e0b;
+  --tab-on: #a53e0b;
+  --tint: rgba(184, 70, 13, 0.1);
+  --today: rgba(184, 70, 13, 0.045);
   --field: #b2b2b2;
   --green: #0a8a3d;
   --green-ink: #066b2f; /* green text on green tints: 4.5:1 or more */
@@ -26,19 +26,19 @@
 @media (prefers-color-scheme: dark) {
   :root {
     color-scheme: dark;
-    --ink: #f2f2f2;
+    --ink: #f3f0e8;
     --ink2: #b3b3b3;
     --ink3: #8a8a8a;
-    --line: #2d2d2d;
-    --bg: #141414;
-    --card: #1d1d1d;
-    --sub: #232323;
-    --blue: #bc5935;
-    --blue-d: #a64b2a;
-    --link: #e89a7f;
-    --tab-on: #e89a7f;
-    --tint: rgba(224, 138, 109, 0.15);
-    --today: rgba(224, 138, 109, 0.05);
+    --line: #2e2a24;
+    --bg: #161410;
+    --card: #211e19;
+    --sub: #26231d;
+    --blue: #b8460d;
+    --blue-d: #a53e0b;
+    --link: #e0834f;
+    --tab-on: #e0834f;
+    --tint: rgba(224, 131, 79, 0.15);
+    --today: rgba(224, 131, 79, 0.05);
     --field: #555;
     --green: #3ecf7a;
     --green-ink: #3ecf7a;

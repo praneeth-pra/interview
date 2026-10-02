@@ -5,7 +5,7 @@
 import { BASE_HEADERS } from "./http";
 import { csvCell } from "./bookings";
 import { INSTALLMENT_NAMES, paymentsStore } from "./data";
-import { istDate, istParts } from "./time";
+import { istDate, istParts, istToUtcMs } from "./time";
 import { normEmail, pad } from "./util";
 
 const MONTHS = 12;
@@ -35,6 +35,12 @@ export function analyticsView(query = "", now = Date.now()) {
   const months = lastMonths(now);
   const month = (key: string) => months.indexOf(key);
   const byMonth = months.map(() => 0);
+  // "This month" is compared with last month up to the same point (Oct 1-2 against Sep 1-2), not with all of last month
+  const p = istParts(now);
+  const thisStart = istToUtcMs(p.y, p.mo, 1, 0);
+  const lastStart = istToUtcMs(p.mo === 1 ? p.y - 1 : p.y, p.mo === 1 ? 12 : p.mo - 1, 1, 0);
+  const lastCutoff = Math.min(thisStart, lastStart + (now - thisStart));
+  let lastToDate = 0;
   const paidByMonth = months.map(() => 0);
   // confirmed before the first month shown, so the cumulative line starts from what was already paid
   let before = 0;
@@ -66,6 +72,7 @@ export function analyticsView(query = "", now = Date.now()) {
     payers.add(email);
     const key = monthKey(v.createdAt);
     const i = month(key);
+    if (i === months.length - 2 && Date.parse(v.createdAt) < lastCutoff) lastToDate += v.amount;
     if (i >= 0) {
       byMonth[i] += v.amount;
       paidByMonth[i]++;
@@ -76,7 +83,7 @@ export function analyticsView(query = "", now = Date.now()) {
     .map((p) => ({ name: p.name, email: p.email, total: p.total }));
   return {
     months,
-    revenue: { total, count, pending, pendingCount, payers: payers.size, before, byMonth, paidByMonth },
+    revenue: { total, count, pending, pendingCount, payers: payers.size, before, byMonth, paidByMonth, lastToDate },
     candidates,
     found: query.trim() ? candidates.filter(mine).map((p) => ({ name: p.name, email: p.email })) : [],
   };

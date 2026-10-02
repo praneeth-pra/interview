@@ -219,6 +219,13 @@ h2 em {
     color: var(--ink);
   }
 }
+/* the enquiry form, the one link that leaves the page: in the accent, underlined */
+.links .lenq {
+  color: var(--accent-ink);
+  text-decoration: underline;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 4px;
+}
 /* hero: a slow terracotta glow and a fine grain behind a centred headline */
 .hero {
   position: relative;
@@ -619,7 +626,9 @@ h1.rise {
 .marquee {
   display: grid;
   gap: 14px;
-  margin-top: 52px;
+  /* no wider than one set of chips, so the same track never shows twice at once on a wide screen */
+  max-width: 1440px;
+  margin: 52px auto 0;
   overflow: hidden;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
   mask-image: linear-gradient(90deg, transparent, #000 12%, #000 88%, transparent);
@@ -628,11 +637,11 @@ h1.rise {
   display: flex;
   gap: 14px;
   width: max-content;
-  animation: slide 48s linear infinite;
+  animation: slide 60s linear infinite;
 }
 .mrow.rev {
   animation-direction: reverse;
-  animation-duration: 56s;
+  animation-duration: 70s;
 }
 .mrow span {
   display: inline-flex;
@@ -1260,6 +1269,10 @@ h1.rise {
 @media (max-width: 359px) {
   .wrap {
     padding: 0 16px;
+  }
+  /* room for Enquire beside the name on the smallest phones */
+  .lhow {
+    display: none;
   }
   .links {
     gap: 14px;

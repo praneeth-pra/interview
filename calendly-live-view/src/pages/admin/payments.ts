@@ -10,6 +10,11 @@ import type { Payment } from "./types";
 
 // One candidate in By candidate: confirmed payments added up, pending ones counted, the latest date.
 type PayPerson = { email: string; name: string; count: number; total: number; last: string; pending: number };
+// An email that wraps after its "@" on a narrow screen rather than mid-word (ananya@ / example.com, not ananya@example.co / m)
+function atBreak(email: string) {
+  const at = email.lastIndexOf("@") + 1;
+  return at ? [email.slice(0, at), el("wbr"), email.slice(at)] : [email];
+}
 // The Payments tab: what people sent from the public /payment page, newest first. Each receipt opens in a new tab; the
 // icon beside it saves it, named after the payer. A new payment is Pending until an owner confirms or discards it, and
 // that's final. Totals count confirmed payments only; discarded ones are kept but hidden unless the status filter asks.
@@ -390,7 +395,7 @@ export function showPayments(quiet?: boolean): Promise<void> {
     if (who) {
       list.appendChild(
         el("div", { class: "paysum" }, [
-          el("div", null, [el("b", { text: who.name }), el("small", { text: who.email })]),
+          el("div", null, [el("b", { text: who.name }), el("small", null, atBreak(who.email))]),
           el("div", { class: "num" }, [
             el("b", { text: rupees(who.total) }),
             el("small", { text: plural(who.count, "confirmed payment") + (who.pending ? " \u00B7 " + who.pending + " pending" : "") }),
@@ -448,7 +453,7 @@ export function showPayments(quiet?: boolean): Promise<void> {
               [
                 el("td", null, [
                   el("span", { class: "pn", text: p.name }),
-                  el("small", { text: p.email }),
+                  el("small", null, atBreak(p.email)),
                   p.pending ? el("span", { class: "pst wait", text: p.pending + " pending" }) : null,
                 ]),
                 el("td", { class: "num", text: String(p.count) + "\u00D7" }),

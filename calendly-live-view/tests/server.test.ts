@@ -447,6 +447,8 @@ describe("payments", () => {
     expect(v.revenue).toMatchObject({ total: 12500, count: 1, pending: 5000, pendingCount: 1, payers: 1 });
     expect(v.revenue.byMonth.at(-1)).toBe(12500);
     expect(v.revenue.before).toBe(0);
+    // nothing last month, so "This month" has nothing to compare with
+    expect(v.revenue.lastToDate).toBe(0);
     expect(v.found).toEqual([]);
     // the suggestions: everyone with a payment that wasn't discarded, with what they've paid (confirmed only)
     expect(v.candidates).toEqual([{ name: "Kiran Kumar", email: "kiran@example.com", total: 12500 }]);
@@ -953,6 +955,22 @@ test("the tab icon is served from public/favicon.png at /favicon.png and /favico
     expect(r.headers.get("content-type")).toBe("image/png");
     expect(Buffer.from(await r.arrayBuffer()).equals(png)).toBe(true);
   }
+});
+
+test("shared links of the landing, booking and enquiry pages get a preview with the picture at /og.jpg", async () => {
+  for (const [path, title] of [
+    ["/", "Hi&lt;Techie&gt; · Job assistance"],
+    ["/booking", "Book an interview slot"],
+    ["/enquiry", "Interview support"],
+  ]) {
+    const html = await (await get(open, path)).text();
+    expect(html).toContain('<meta property="og:image" content="https://hi-techie.dev/og.jpg">');
+    expect(html).toContain(title);
+    expect(html).not.toContain("__OG__");
+  }
+  const r = await get(open, "/og.jpg");
+  expect(r.headers.get("content-type")).toBe("image/jpeg");
+  expect(Buffer.from(await r.arrayBuffer()).equals(readFileSync(join(ROOT, "public/og.jpg")))).toBe(true);
 });
 
 describe("backups", () => {
