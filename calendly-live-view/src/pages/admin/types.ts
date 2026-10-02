@@ -49,7 +49,7 @@ export type AllowAdded = AllowAnswer & { added: number; existing: number; invali
 // Who can sign in (/admin/api/admins): the owners from ADMIN_EMAILS, the admins they added, and who is asking.
 export type AdminsView = { owners: string[]; emails: string[]; me: string };
 // Browser alerts (/admin/api/push): the server's key, every device's endpoint, and this admin's own devices.
-export type PushInfo = { key: string; endpoints: string[]; yours?: string[] };
+export type PushInfo = { key: string; endpoints: string[]; yours?: string[]; devices?: number };
 // A payment as /admin/api/payments sends it (paymentView() in src/server/payments.ts); "" where not set.
 export type Payment = {
   id: string;

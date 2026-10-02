@@ -26,8 +26,7 @@ import { pad } from "./util";
 import { readdir, rm } from "node:fs/promises";
 import { mkdir } from "node:fs/promises";
 
-// owner: false leaves out enquiries and payments, for an admin who isn't an owner downloading it from the admin page
-export function backupData(withPush: boolean, owner = true) {
+export function backupData(withPush: boolean) {
   return {
     app: "booking-form",
     version: 1,
@@ -37,7 +36,8 @@ export function backupData(withPush: boolean, owner = true) {
       "interviewers.json": ivStore.data,
       "allowlist.json": allowStore.data,
       "admins.json": adminsStore.data,
-      ...(owner ? { "enquiries.json": enquiriesStore.data, "payments.json": paymentsStore.data } : {}),
+      "enquiries.json": enquiriesStore.data,
+      "payments.json": paymentsStore.data,
       "results.json": resultsStore.data,
       "unavailable.json": blocksStore.data,
       "secret.json": secretStore.data,

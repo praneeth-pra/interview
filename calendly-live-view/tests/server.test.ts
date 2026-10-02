@@ -712,20 +712,23 @@ describe("admin", () => {
     expect(first).not.toContain('"enquiries"');
     expect(first).not.toContain('"payments"');
     await reader.cancel();
-    // the backup they can download has no enquiries or payments; the owner's has both
-    const backup = await (await get(locked, "/admin/backup.json", { cookie: aide })).json();
-    expect(Object.keys(backup.files)).not.toContain("enquiries.json");
-    expect(Object.keys(backup.files)).not.toContain("payments.json");
-    expect(Object.keys(backup.files)).toContain("bookings.json");
+    // they can't download the backup at all; the owner's has enquiries and payments
+    expect((await get(locked, "/admin/backup.json", { cookie: aide })).status).toBe(403);
     const full = await (await get(locked, "/admin/backup.json", { cookie })).json();
     expect(Object.keys(full.files)).toEqual(expect.arrayContaining(["enquiries.json", "payments.json"]));
     // a device's alerts are recorded for the admin who turned them on, so enquiry and payment alerts go only to owners'
     const endpoint = "https://fcm.googleapis.com/fcm/send/aide-device";
     const sub = { endpoint, keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) }, label: "Test" };
     const view = await (await postJson(locked, "/admin/api/push/subscribe", sub, { cookie: aide })).json();
-    expect(view.endpoints).toContain(endpoint);
+    expect(view.endpoints).toEqual([endpoint]);
     expect(view.yours).toEqual([endpoint]);
-    expect((await (await get(locked, "/admin/api/push", { cookie })).json()).yours).not.toContain(endpoint);
+    // other admins' devices aren't listed, only counted, and can't be turned off or tested by anyone else
+    const ownerView = await (await get(locked, "/admin/api/push", { cookie })).json();
+    expect(ownerView.yours).not.toContain(endpoint);
+    expect(ownerView.endpoints).not.toContain(endpoint);
+    expect(ownerView.devices).toBe(view.devices);
+    expect((await postJson(locked, "/admin/api/push/test", { endpoint }, { cookie })).status).toBe(404);
+    await postJson(locked, "/admin/api/push/unsubscribe", { endpoint }, { cookie });
     expect(JSON.parse(readFileSync(join(locked.dir, "push.json"), "utf8")).subs.find((x: any) => x.endpoint === endpoint).email).toBe("aide@example.com");
     await postJson(locked, "/admin/api/push/unsubscribe", { endpoint }, { cookie: aide });
     expect((await postJson(locked, "/admin/api/admins", { emails: [] }, { cookie })).status).toBe(200);
