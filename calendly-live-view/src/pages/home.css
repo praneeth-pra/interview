@@ -100,8 +100,7 @@ h3 {
   line-height: 1;
 }
 h1 em,
-h2 em,
-.motto em {
+h2 em {
   font-style: italic;
   color: var(--accent-big);
 }
@@ -227,18 +226,6 @@ h2 em,
   font-weight: 600;
   text-decoration: none;
   transition: color 0.15s;
-}
-.navcta {
-  display: inline-flex;
-  align-items: center;
-  min-height: 40px;
-  padding: 0 18px;
-  border-radius: 999px;
-  background: var(--ink);
-  color: var(--bg);
-  font-size: 14.5px;
-  font-weight: 700;
-  text-decoration: none;
 }
 @media (hover: hover) {
   .links a:hover {
@@ -573,8 +560,7 @@ h1.rise {
   color: var(--band-ink);
 }
 @media (prefers-color-scheme: dark) {
-  .how,
-  .panel {
+  .how {
     border: 1px solid var(--band-line);
   }
 }
@@ -632,7 +618,7 @@ h1.rise {
 }
 /* tracks: two rows drifting in opposite directions; the plain list is for screen readers and reduced motion */
 .tracks {
-  padding: 120px 0 0;
+  padding: 120px 0;
 }
 .tlist {
   position: absolute;
@@ -683,60 +669,6 @@ h1.rise {
 @keyframes slide {
   to {
     transform: translateX(calc(-50% - 7px));
-  }
-}
-/* closing: a near-black panel with the orange button */
-.close {
-  padding: 120px 0;
-}
-.panel {
-  position: relative;
-  isolation: isolate;
-  overflow: hidden;
-  padding: 96px 32px;
-  border-radius: 36px;
-  background: var(--band);
-  color: var(--band-ink);
-  text-align: center;
-}
-.panel:after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background-image: var(--grain);
-  opacity: 0;
-  mix-blend-mode: overlay;
-}
-.motto {
-  margin: 0;
-  font-family: var(--serif);
-  font-size: clamp(52px, 8vw, 104px);
-  letter-spacing: -0.02em;
-  line-height: 1;
-}
-.panel .motto em {
-  color: var(--accent-on-dark);
-}
-.closep {
-  max-width: 520px;
-  margin: 24px auto 40px;
-  color: var(--band-ink2);
-  font-size: 18.5px;
-}
-.btn.light {
-  background: #b8460d;
-  color: #fffaf3;
-}
-.btn.line {
-  border-color: rgba(243, 240, 232, 0.3);
-  background: transparent;
-  color: var(--band-ink);
-}
-@media (hover: hover) {
-  .btn.line:hover {
-    border-color: var(--band-ink);
-    box-shadow: none;
   }
 }
 /* what you get: a bento of four tiles, each with a small picture of the thing */
@@ -1171,9 +1103,6 @@ h1.rise {
     min-height: 58px;
     gap: 16px;
   }
-  .navcta {
-    display: none;
-  }
   .links {
     gap: 20px;
   }
@@ -1258,7 +1187,7 @@ h1.rise {
     font-size: 30px;
   }
   .tracks {
-    padding-top: 88px;
+    padding: 88px 0;
   }
   .marquee {
     margin-top: 40px;
@@ -1266,16 +1195,6 @@ h1.rise {
   .mrow span {
     padding: 11px 18px;
     font-size: 15px;
-  }
-  .close {
-    padding: 88px 0;
-  }
-  .panel {
-    padding: 72px 22px;
-    border-radius: 28px;
-  }
-  .closep {
-    font-size: 16.5px;
   }
   .get {
     padding-top: 88px;
@@ -1349,9 +1268,6 @@ h1.rise {
     grid-row: span 2;
     margin: 0;
     font-size: 60px;
-  }
-  .motto {
-    font-size: 44px;
   }
 }
 /* smallest phones (320 px) */
