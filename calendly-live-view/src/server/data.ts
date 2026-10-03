@@ -145,6 +145,29 @@ export const enquiriesStore = fileStore<{ enquiries: Enquiry[]; seen: Record<str
     seen: Object.fromEntries(Object.entries(x?.seen ?? {}).filter(([, v]) => typeof v === "string")) as Record<string, string>,
   }),
 );
+// Onboarding forms from the public /onboarding page. The details are in onboarding.json; each Aadhaar and PAN card is a
+// file in DATA_DIR/id-cards (kept in memory when there is no data folder).
+export type IdCard = { file: string; name: string; type: string; size: number };
+export type Onboarding = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  tech: string;
+  experience: string;
+  createdAt: string;
+  aadhaar: IdCard;
+  pan: IdCard;
+};
+export const onboardingStore = fileStore<{ forms: Onboarding[] }>(
+  "onboarding.json",
+  () => ({ forms: [] }),
+  (x) => ({
+    forms: Array.isArray(x?.forms)
+      ? x.forms.filter((v: unknown) => typeof asFields(v).id === "string" && !!asFields(v).aadhaar && !!asFields(v).pan)
+      : [],
+  }),
+);
 // Payments from the public /payment page. The details are in payments.json; each receipt is a file in DATA_DIR/receipts
 // (kept in memory when there is no data folder).
 // What the payment form offers. "1" is the first installment (its key from when the form offered 1st, 2nd and 3rd).
@@ -249,6 +272,7 @@ export async function loadStores() {
     adminsStore,
     enquiriesStore,
     paymentsStore,
+    onboardingStore,
     sessionsStore,
     blocksStore,
   ];

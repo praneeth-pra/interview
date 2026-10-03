@@ -13,7 +13,7 @@ const BASE = "http://127.0.0.1:" + PORT;
 const LOCKED = "http://127.0.0.1:" + (PORT + 1);
 const KEY = "ef".repeat(32);
 
-// A few bookings around today, an enquiry and a payment, so every view has something in it.
+// A few bookings around today, an enquiry, a payment and an onboarding form, so every view has something in it.
 const dir = mkdtempSync(join(tmpdir(), "booking-form-a11y-"));
 const day = 86400000;
 const at = (days, hour) => {
@@ -74,6 +74,15 @@ writeFileSync(
     ],
   }),
 );
+const card = (file, name, type) => ({ file, name, type, size: 1000 });
+writeFileSync(
+  join(dir, "onboarding.json"),
+  JSON.stringify({
+    forms: [
+      { id: "o0000000-0000-0000-0000-000000000001", name: "Lakshmi Devi", email: "lakshmi@example.com", phone: "9876543210", tech: "Python", experience: "2 years", createdAt: new Date().toISOString(), aadhaar: card("o1-aadhaar.jpg", "aadhaar.jpg", "image/jpeg"), pan: card("o1-pan.pdf", "pan.pdf", "application/pdf") },
+    ],
+  }),
+);
 const manage = "/b/" + bookings[1].id + "?t=" + require("node:crypto").createHmac("sha256", KEY).update("manage:" + bookings[1].id).digest("hex").slice(0, 32);
 
 const env = { ...process.env, RESEND_API_KEY: "" };
@@ -103,6 +112,7 @@ const screens = [
   ["manage link: cancel", BASE + manage + "&a=cancel", null],
   ["enquiry", BASE + "/enquiry", null],
   ["payment", BASE + "/payment", null],
+  ["onboarding", BASE + "/onboarding", null],
   ["sign-in", LOCKED + "/admin", null],
   ["admin: calendar", BASE + "/admin", async (p) => p.locator("#status.live").waitFor({ state: "attached" })],
   ["admin: agenda", BASE + "/admin?view=agenda", async (p) => p.locator("#agenda .ag-grid").waitFor()],
@@ -132,6 +142,15 @@ const screens = [
       const backup = await p.evaluate(() => fetch("/admin/backup.json").then((r) => r.text()));
       await p.setInputFiles("#bkFile", { name: "backup.json", mimeType: "application/json", buffer: Buffer.from(backup) });
       await p.locator("#pbody .bksum").waitFor();
+    },
+  ],
+  [
+    "admin: onboarding",
+    BASE + "/admin",
+    async (p) => {
+      await p.locator("#dlBtn").click();
+      await p.locator("#mOnb").click();
+      await p.locator("#pbody .enq").first().waitFor();
     },
   ],
   ["admin: enquiries", BASE + "/admin?view=enquiries", async (p) => p.locator("#enqBody .enqitem, #enqBody .enqlist").first().waitFor()],

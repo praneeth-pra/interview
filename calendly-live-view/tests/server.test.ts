@@ -366,6 +366,77 @@ describe("enquiries", () => {
   });
 });
 
+describe("onboarding", () => {
+  const JPG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
+  const PDF = new TextEncoder().encode("%PDF-1.5\n% an e-PAN\n");
+  const form = (fields: Record<string, string>, cards: Record<string, { bytes: Uint8Array; name: string }>) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries(fields)) f.set(k, v);
+    for (const [k, c] of Object.entries(cards)) f.set(k, new File([c.bytes], c.name));
+    return f;
+  };
+  const good = { name: "Lakshmi Devi", email: "Lakshmi@Example.com", phone: "98765 43210", tech: "Python", experience: "2 years" };
+  const both = { aadhaar: { bytes: JPG, name: "aadhaar front.jpg" }, pan: { bytes: PDF, name: "pan.pdf" } };
+  const send = (f: FormData, ip = "10.2.0.1") => fetch(open.url + "/api/onboarding", { method: "POST", body: f, headers: { "x-real-ip": ip } });
+
+  test("the page is served with the card limit and kept out of search engines", async () => {
+    const page = await get(open, "/onboarding");
+    expect(page.status).toBe(200);
+    expect(page.headers.get("x-robots-tag")).toBe("noindex, nofollow");
+    const html = await page.text();
+    expect(html).toContain('name="aadhaar"');
+    expect(html).toContain('name="pan"');
+    expect(html).toContain('"max":1572864');
+    expect(html).toContain("<title>Onboarding · Hi&lt;Techie&gt;</title>");
+    const r = await fetch(open.url + "/onboarding/", { redirect: "manual" });
+    expect(r.status).toBe(301);
+    expect(r.headers.get("location")).toBe("/onboarding");
+  });
+
+  test("forms are checked, stored with both cards, listed for owners, downloadable and deletable", async () => {
+    expect((await send(form({ ...good, website: "spam.example" }, both))).status).toBe(200);
+    const noPan = await send(form(good, { aadhaar: both.aadhaar }));
+    expect(noPan.status).toBe(400);
+    expect(await noPan.json()).toEqual({ error: "Add your PAN card.", field: "pan" });
+    const notImage = await send(form(good, { ...both, aadhaar: { bytes: new TextEncoder().encode("hello"), name: "a.jpg" } }));
+    expect(notImage.status).toBe(400);
+    expect((await notImage.json()).error).toBe("Your Aadhaar card must be a photo or a PDF.");
+    expect((await send(form({ ...good, phone: "12" }, both))).status).toBe(400);
+    const big = new Uint8Array(1536 * 1024 + 1);
+    big.set(JPG);
+    const tooBig = await send(form(good, { ...both, pan: { bytes: big, name: "pan.jpg" } }));
+    expect(tooBig.status).toBe(413);
+    expect((await tooBig.json()).error).toBe("Your PAN card file is larger than 1.5 MB. Please upload a smaller file.");
+    expect((await send(form(good, both), "10.2.0.2")).status).toBe(200);
+    const { forms } = await (await get(open, "/admin/api/onboarding")).json();
+    expect(forms.length).toBe(1);
+    const v = forms[0];
+    expect(v).toMatchObject({ name: "Lakshmi Devi", email: "lakshmi@example.com", phone: "98765 43210", tech: "Python", experience: "2 years" });
+    expect(v.aadhaar).toEqual({ name: "aadhaar front.jpg", type: "image/jpeg", size: JPG.length });
+    expect(v.pan).toEqual({ name: "pan.pdf", type: "application/pdf", size: PDF.length });
+    expect((await (await get(open, "/admin/api/state")).json()).onboarding).toBe(1);
+    const aadhaar = await get(open, "/admin/api/onboarding/" + v.id + "/aadhaar");
+    expect(aadhaar.headers.get("content-type")).toBe("image/jpeg");
+    expect(aadhaar.headers.get("content-disposition")).toStartWith("inline;");
+    expect(new Uint8Array(await aadhaar.arrayBuffer())).toEqual(JPG);
+    const pan = await get(open, "/admin/api/onboarding/" + v.id + "/pan?download=1");
+    expect(pan.headers.get("content-disposition")).toBe("attachment; filename=\"Lakshmi Devi PAN card.pdf\"; filename*=UTF-8''Lakshmi%20Devi%20PAN%20card.pdf");
+    expect((await get(open, "/admin/api/onboarding/" + v.id + "/resume")).status).toBe(404);
+    expect(existsSync(join(open.dir, "id-cards", v.id + "-aadhaar.jpg"))).toBe(true);
+    expect(existsSync(join(open.dir, "id-cards", v.id + "-pan.pdf"))).toBe(true);
+    // the backup carries the cards, and restoring accepts them
+    const backup = await (await get(open, "/admin/backup.json")).json();
+    expect(Object.keys(backup.uploads)).toEqual(expect.arrayContaining(["id-cards/" + v.id + "-aadhaar.jpg", "id-cards/" + v.id + "-pan.pdf"]));
+    expect(backup.files["onboarding.json"].forms.length).toBe(1);
+    expect((await postJson(open, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(200);
+    expect((await (await get(open, "/admin/api/onboarding")).json()).forms).toEqual([]);
+    expect(existsSync(join(open.dir, "id-cards", v.id + "-aadhaar.jpg"))).toBe(false);
+    expect((await postJson(open, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(404);
+    // behind sign-in when it is on
+    expect((await get(locked, "/admin/api/onboarding")).status).toBe(401);
+  });
+});
+
 describe("payments", () => {
   const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
   const PDF = new TextEncoder().encode("%PDF-1.4\n% a receipt\n");
@@ -682,13 +753,13 @@ describe("admin", () => {
     const aide = await signIn(locked, "aide@example.com");
     const id = "00000000-0000-0000-0000-00000000abcd";
     // every enquiry and payment API refuses them, before looking anything up
-    const gets = ["/admin/api/revenue", "/admin/api/revenue.csv", "/admin/api/revenue.pdf", "/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/enquiries/" + id + "/resume", "/admin/api/payments", "/admin/api/payments/" + id + "/receipt?download=1"];
+    const gets = ["/admin/api/revenue", "/admin/api/revenue.csv", "/admin/api/revenue.pdf", "/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/enquiries/" + id + "/resume", "/admin/api/payments", "/admin/api/payments/" + id + "/receipt?download=1", "/admin/api/onboarding", "/admin/api/onboarding/" + id + "/aadhaar"];
     for (const path of gets) {
       const r = await get(locked, path, { cookie: aide });
       expect(r.status).toBe(403);
       expect((await r.json()).error).toContain("Only the owner");
     }
-    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide"])
+    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide", "/admin/api/onboarding/delete"])
       expect((await postJson(locked, path, { id }, { cookie: aide })).status).toBe(403);
     // the owner still gets them (the made-up id isn't there, so its file is a 404, not a 403)
     for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments", "/admin/api/revenue", "/admin/api/revenue.csv", "/admin/api/revenue.pdf"])
@@ -704,6 +775,7 @@ describe("admin", () => {
     expect(page).toContain('<button hidden type="button" id="mRev"');
     expect(page).toContain('<button hidden type="button" data-go="enq"');
     expect(page).toContain('<button hidden type="button" id="mPay"');
+    expect(page).toContain('<button hidden type="button" id="mOnb"');
     expect(page).toContain('<button hidden type="button" data-go="rev"');
     // nor the ⋯ menu: the aide class hides it and keeps the Alerts bell in the header
     expect(page).toContain('<body class="aide">');
@@ -721,6 +793,7 @@ describe("admin", () => {
     expect(mine.owner).toBe(false);
     expect(mine.enquiries).toBeUndefined();
     expect(mine.payments).toBeUndefined();
+    expect(mine.onboarding).toBeUndefined();
     const theirs = await (await get(locked, "/admin/api/state", { cookie })).json();
     expect(theirs.owner).toBe(true);
     expect(Array.isArray(theirs.enquiries)).toBe(true);
@@ -735,7 +808,7 @@ describe("admin", () => {
     // they can't download the backup at all; the owner's has enquiries and payments
     expect((await get(locked, "/admin/backup.json", { cookie: aide })).status).toBe(403);
     const full = await (await get(locked, "/admin/backup.json", { cookie })).json();
-    expect(Object.keys(full.files)).toEqual(expect.arrayContaining(["enquiries.json", "payments.json"]));
+    expect(Object.keys(full.files)).toEqual(expect.arrayContaining(["enquiries.json", "payments.json", "onboarding.json"]));
     // a device's alerts are recorded for the admin who turned them on, so enquiry and payment alerts go only to owners'
     const endpoint = "https://fcm.googleapis.com/fcm/send/aide-device";
     const sub = { endpoint, keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) }, label: "Test" };
@@ -1048,7 +1121,7 @@ describe("backups", () => {
     expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
     const data = JSON.parse(files["backup-" + istDay() + ".json"]);
     expect(data.app).toBe("booking-form");
-    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "payments.json", "results.json", "secret.json", "unavailable.json"]);
+    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "onboarding.json", "payments.json", "results.json", "secret.json", "unavailable.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["secret.json"].key).toBe(KEY);
     expect(Object.keys(data.uploads)).toEqual(["resumes/" + ENQ.resume.file]);
@@ -1133,6 +1206,9 @@ describe("backups", () => {
     expect((await post("/admin/api/restore-file?path=resumes/" + ENQ.resume.file, bytes, "text/plain")).status).toBe(415);
     expect((await post("/admin/api/restore-file?path=resumes/" + ENQ.resume.file, bytes, "application/octet-stream")).status).toBe(200);
     expect(readFileSync(join(srv.dir, "resumes", ENQ.resume.file)).equals(Buffer.from(RESUME))).toBe(true);
+    // ID cards from onboarding forms are restored into their own folder
+    expect((await post("/admin/api/restore-file?path=id-cards/" + ENQ.id + "-pan.pdf", bytes, "application/octet-stream")).status).toBe(200);
+    expect(readFileSync(join(srv.dir, "id-cards", ENQ.id + "-pan.pdf")).equals(Buffer.from(RESUME))).toBe(true);
     // the owner is still signed in, and the server serves the restored data
     expect((await (await get(srv, "/admin/api/bookings", { cookie })).json()).bookings.length).toBe(61);
     expect((await get(srv, "/admin/api/enquiries/" + ENQ.id + "/resume", { cookie })).status).toBe(200);

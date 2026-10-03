@@ -294,6 +294,14 @@ export function setupNav() {
         showPay();
       }
     }, 0);
+  } else if (startView === "onboarding") {
+    // an onboarding alert opens the forms in the panel, as the ⋯ menu does
+    setTimeout(function () {
+      try {
+        history.replaceState(history.state, "", "/admin");
+      } catch (e) {}
+      byId("mOnb").click();
+    }, 0);
   } else if (startView === "revenue") {
     // phones have Revenue in the bottom bar; narrow windows open it in the sheet, as the ⋯ menu does
     setTimeout(function () {

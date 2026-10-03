@@ -2,7 +2,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { assetList, encode, template } from "../assets";
-import { EVENT_DESCRIPTION, EVENT_LOCATION, EVENT_NAME, HOST_NAME, LOGIN_ON, PUBLIC_URL, RECEIPT_MAX } from "./config";
+import { EVENT_DESCRIPTION, EVENT_LOCATION, EVENT_NAME, HOST_NAME, ID_CARD_MAX, LOGIN_ON, PUBLIC_URL, RECEIPT_MAX } from "./config";
 import { CSP, sendShell, shell } from "./http";
 import { deflateSync } from "node:zlib";
 
@@ -115,7 +115,7 @@ export const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/da
 // Revenue tabs or the ⋯ menu (the aide class hides it).
 // The bottom bar's b3 class gives its three remaining buttons the full width.
 const ADMIN_NOT_OWNER = ADMIN_TPL.replace(
-  /<button (id="tab(?:Enq|Pay|Rev)"|type="button" data-go="(?:enq|rev)"|type="button" id="m(?:Pay|Rev|Un|Iv)")/g,
+  /<button (id="tab(?:Enq|Pay|Rev)"|type="button" data-go="(?:enq|rev)"|type="button" id="m(?:Pay|Rev|Onb|Un|Iv)")/g,
   "<button hidden $1",
 )
   .replace('<nav class="bnav"', '<nav class="bnav b3"')
@@ -148,6 +148,8 @@ export const ENQUIRY = shell(
   CSP.page,
 );
 export const PAYMENT = shell(fill(template("payment"), { HOST: HOST_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }), CSP.page);
+// shared by link only, like the payment page
+export const ONBOARDING = shell(fill(template("onboarding"), { HOST: HOST_HTML, BOOT: safeJson({ max: ID_CARD_MAX }) }), CSP.page);
 // the landing page is the one page search engines may list
 const HOME_TEXT = "A rewritten resume, interview support and help all the way to your offer letter.";
 export const HOME = {

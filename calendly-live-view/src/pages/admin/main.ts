@@ -15,6 +15,7 @@ import { showInterviewers } from "./interviewers";
 import { showAdmins } from "./admins";
 import { showBackup } from "./backup";
 import { showUnavailable } from "./unavailable";
+import { showOnboarding } from "./onboarding";
 import { renderEnquiryBadge, setupEnquiries, showEnquiries } from "./enquiries";
 import { refreshPayments, showPayments } from "./payments";
 import { setupAllowlist, showCandidates, syncAllow } from "./allowlist";
@@ -88,6 +89,12 @@ byId("tabCal").onclick = function () {
 byId("mCand").onclick = showCandidates;
 byId("mUn").onclick = showUnavailable;
 byId("mBak").onclick = showBackup;
+// Onboarding forms hold ID cards: owners only (the server refuses everyone else too)
+byId("mOnb").onclick = function () {
+  if (!byId("mOnb").hidden) {
+    showOnboarding();
+  }
+};
 // Revenue on phones (owners only): the ⋯ menu opens it in the bottom sheet, like Candidates, rather than as a page.
 // The desktop header tab still opens the page.
 function showRevenueSheet() {

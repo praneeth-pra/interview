@@ -8,6 +8,7 @@ import {
   bookingsStore,
   enquiriesStore,
   ivStore,
+  onboardingStore,
   paymentsStore,
   liveSession,
   sessionsStore,
@@ -85,6 +86,8 @@ export function adminState(owner: boolean) {
           payments: paymentsStore.data.payments.length,
           // how many wait for the owner to confirm or discard them, for the count on the Payments tab
           paymentsPending: paymentsStore.data.payments.filter((v) => !v.decision).length,
+          // how many onboarding forms there are, so an open Onboarding sheet shows a new one straight away
+          onboarding: onboardingStore.data.forms.length,
         }
       : {}),
   };
