@@ -39,6 +39,7 @@ export type State = {
   enquiries?: string[]; // when each enquiry came in (owners only)
   payments?: number; // how many payments there are (owners only)
   paymentsPending?: number; // how many are waiting to be confirmed or discarded (owners only)
+  onboarding?: number; // how many onboarding forms there are (owners only)
   hours: { start: number; end: number };
   email: boolean;
 };
@@ -73,6 +74,21 @@ export type Enquiry = {
   experience: string;
   createdAt: string;
   resume: { name: string; size: number };
+};
+// An onboarding form as /admin/api/onboarding sends it (onboardingList() in src/server/onboarding.ts).
+export type IdCard = { name: string; type: string; size: number };
+export type OnboardingForm = {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  tech: string;
+  experience: string;
+  genuine: "yes" | "no" | ""; // whether they say their experience is genuine
+  linkedin: string; // "" on forms from before it was asked
+  createdAt: string;
+  aadhaar: IdCard;
+  pan: IdCard;
 };
 
 declare global {

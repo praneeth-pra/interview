@@ -113,7 +113,8 @@ const checks = [
       // the page's own requests; the Contacts frame loads quietly in the background and asks for the state too
       m.on("request", (r) => r.frame() === m.mainFrame() && asked.push(new URL(r.url()).pathname));
       await m.goto(BASE + "/admin");
-      await m.locator("#week .ev").first().waitFor();
+      // the live state has arrived (the seeded booking isn't in the phone's three days on some weekdays)
+      await m.locator("#status.live").waitFor({ state: "attached" });
       await m.waitForTimeout(600);
       const cdp = await ctx.newCDPSession(m);
       const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
@@ -282,6 +283,51 @@ const checks = [
     if ((await p.locator(".paysearch").inputValue()) !== "Kiran Kumar") throw new Error("the picked name isn't in the box");
     await p.fill(".paysearch", "nobody");
     await p.locator("#payDrop li", { hasText: "No matching candidates" }).waitFor();
+  }],
+  ["onboarding page: a big phone photo is shrunk to fit, and the form shows in the admin", async (p) => {
+    await p.goto(BASE + "/onboarding");
+    await p.fill("#nm", "Lakshmi Devi");
+    await p.fill("#em", "lakshmi@example.com");
+    await p.fill("#ph", "98765 43210");
+    await p.fill("#tc", "Python");
+    await p.selectOption("#yx", "2 years");
+    await p.selectOption("#gn", "yes");
+    await p.fill("#li", "linkedin.com/in/lakshmi-devi");
+    // a camera-sized photo, far over the limit: random pixels, so it can't compress much
+    await p.evaluate(async () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = canvas.height = 2400;
+      const ctx = canvas.getContext("2d");
+      const img = ctx.createImageData(2400, 2400);
+      for (let i = 0; i < img.data.length; i++) img.data[i] = i % 4 === 3 ? 255 : (Math.random() * 256) | 0;
+      ctx.putImageData(img, 0, 0);
+      const blob = await new Promise((r) => canvas.toBlob(r, "image/png"));
+      const dt = new DataTransfer();
+      dt.items.add(new File([blob], "aadhaar.png", { type: "image/png" }));
+      const input = document.getElementById("ad");
+      input.files = dt.files;
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+    await p.locator("#adbox.has").waitFor();
+    // a PDF over the limit can't be shrunk, so it is refused in the browser
+    await p.setInputFiles("#pn", { name: "pan.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(2 * 1024 * 1024, 0x25) });
+    await p.locator("#pnbox.bad").waitFor();
+    await p.setInputFiles("#pn", { name: "pan.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%%EOF\n") });
+    await p.click("#go");
+    await p.locator("#done:not([hidden])").waitFor();
+    const form = (await (await p.request.get(BASE + "/admin/api/onboarding")).json()).forms[0];
+    if (form.aadhaar.type !== "image/jpeg" || form.aadhaar.size > 1536 * 1024) throw new Error("photo not shrunk: " + JSON.stringify(form.aadhaar));
+    // an onboarding alert opens the forms in the panel
+    await p.goto(BASE + "/admin?view=onboarding");
+    await p.locator("#ptitle", { hasText: "Onboarding" }).waitFor();
+    const card = p.locator("#pbody .enq", { hasText: "Lakshmi Devi" });
+    if ((await card.locator("a", { hasText: "LinkedIn" }).getAttribute("href")) !== "https://linkedin.com/in/lakshmi-devi") throw new Error("no LinkedIn link");
+    if (!(await card.locator(".enqt").textContent()).endsWith("· Genuine")) throw new Error("genuine answer not shown");
+    const [saved] = await Promise.all([p.waitForEvent("download"), card.locator(".bk-act.dl").last().click()]);
+    if (saved.suggestedFilename() !== "Lakshmi Devi PAN card.pdf") throw new Error("PAN saved as " + saved.suggestedFilename());
+    p.once("dialog", (d) => d.accept());
+    await card.locator("button.rm").click();
+    await p.locator("#pbody .sub", { hasText: "No onboarding forms yet" }).waitFor();
   }],
   ["admin download menu", async (p) => {
     await p.goto(BASE + "/admin");

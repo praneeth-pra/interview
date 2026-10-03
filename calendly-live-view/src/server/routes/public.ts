@@ -1,14 +1,15 @@
-// The public site: landing, booking, enquiry and manage-link pages, and their API.
+// The public site: landing, booking, enquiry, payment, onboarding and manage-link pages, and their API.
 import { asset, respond } from "../../assets";
 import { cancelBooking, createBooking, managedBooking, moveBooking } from "../bookings";
 import { companySuggestions, knownName } from "../companies";
 import { DURATIONS, HOST_NAME } from "../config";
 import { bookingsStore, emailAllowed } from "../data";
 import { receiveEnquiry } from "../enquiries";
+import { receiveOnboarding } from "../onboarding";
 import { receivePayment } from "../payments";
 import { BASE_HEADERS, type Srv, json, readJson, sendShell, underLimit, clientIp } from "../http";
 import { siteUrl, tokenOk } from "../links";
-import { BOOK_HOME, ENQUIRY, FAVICON, HOME, ICON, OG_IMAGE, PAYMENT, SW_JS, bookPage, splash } from "../pages";
+import { BOOK_HOME, ENQUIRY, FAVICON, HOME, ICON, OG_IMAGE, ONBOARDING, PAYMENT, SW_JS, bookPage, splash } from "../pages";
 import { bookableDays, bookingLimitMs, slotsFor } from "../schedule";
 import { DATE_KEY, EMAIL_RE, UUID, normEmail } from "../util";
 
@@ -92,6 +93,11 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   if ((path === "/payment/" || path === "/payments" || path === "/pay") && method === "GET")
     return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/payment" } });
   if (path === "/api/payment" && method === "POST") return receivePayment(req, srv);
+  // the onboarding page is shared by link too, and not indexed
+  if (path === "/onboarding" && method === "GET") return sendShell(req, ONBOARDING);
+  if (path === "/onboarding/" && method === "GET")
+    return new Response(null, { status: 301, headers: { ...BASE_HEADERS, Location: "/onboarding" } });
+  if (path === "/api/onboarding" && method === "POST") return receiveOnboarding(req, srv);
   const mm = path.match(/^\/b\/([0-9a-f-]{36})$/i);
   if (mm && method === "GET") {
     const b = bookingsStore.data.bookings.find((x) => x.id === mm[1]);

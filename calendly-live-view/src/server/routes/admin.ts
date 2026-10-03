@@ -12,6 +12,7 @@ import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http"
 import { assignInterviewers, renameInterviewers } from "../interviewers";
 import { adminState, openStream, pub } from "../live";
 import { ANALYTICS, LOGIN, adminShell } from "../pages";
+import { deleteOnboarding, idCardFile, onboardingList } from "../onboarding";
 import { decidePayment, paymentsList, receiptFile } from "../payments";
 import { changePush, pushView } from "../push";
 import { reportPdfResponse } from "../report-pdf";
@@ -20,8 +21,8 @@ import { istDate } from "../time";
 import { addBlock, removeBlock } from "../unavailable";
 import { type Fields, DATE_KEY } from "../util";
 
-// Enquiries, payments and revenue are for owners only; other admins don't see their tabs, and these APIs refuse them.
-const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue)(\/|\.csv$|\.pdf$|$)/;
+// Enquiries, payments, revenue and onboarding forms are for owners only; other admins don't see their tabs, and these APIs refuse them.
+const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue|onboarding)(\/|\.csv$|\.pdf$|$)/;
 // What only owners open from the ⋯ menu (added admins have no ⋯ menu): who can sign in, unavailable times, the interview
 // supporters' names, the Candidates list, the bookings download and the backup download and restore (which hold all of
 // those, and the key that signs candidates' manage links). Added admins still record who supported each interview (PUT /admin/api/interviewers).
@@ -52,10 +53,11 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   if (path === "/admin/analytics" && method === "GET")
     return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
   if (!authed) return json({ error: "Sign in again." }, 401);
-  if (!owner && OWNER_ONLY.test(path)) return json({ error: "Only the owner can see enquiries, payments and revenue." }, 403);
+  if (!owner && OWNER_ONLY.test(path))
+    return json({ error: "Only the owner can see enquiries, payments, revenue and onboarding forms." }, 403);
   if (!owner && OWNER_SETTINGS.test(path)) return json({ error: "Only the owner can open this." }, 403);
 
-  // ---- owners: revenue, enquiries, payments
+  // ---- owners: revenue, enquiries, payments, onboarding
   if (path === "/admin/api/revenue" && method === "GET") return json(analyticsView(q("q").slice(0, 100)));
   if (path === "/admin/api/revenue.csv" && method === "GET") return analyticsCsv(q("q").slice(0, 100));
   if (path === "/admin/api/revenue.pdf" && method === "GET") return reportPdfResponse(q("month"));
@@ -69,6 +71,11 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   if (receipt && method === "GET") return receiptFile(receipt[1], q("download") === "1");
   if (path === "/admin/api/payments/decide" && method === "POST")
     return withBody(1000, (b) => decidePayment(String(b?.id ?? ""), b?.decision, email));
+
+  if (path === "/admin/api/onboarding" && method === "GET") return json(onboardingList());
+  const card = path.match(/^\/admin\/api\/onboarding\/([0-9a-f-]{36})\/(aadhaar|pan)$/);
+  if (card && method === "GET") return idCardFile(card[1], card[2], q("download") === "1");
+  if (path === "/admin/api/onboarding/delete" && method === "POST") return withBody(1000, (b) => deleteOnboarding(String(b?.id ?? "")));
 
   // ---- who can sign in (owners only)
   if (path === "/admin/api/admins" && method === "GET") return json(adminsView(email));
