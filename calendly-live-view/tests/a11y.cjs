@@ -46,6 +46,9 @@ const bookings = [
   };
 });
 writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings }));
+// Praneeth supported the earlier rounds, so the owner's interview sheet has rows
+const assign = Object.fromEntries(bookings.filter((b) => b.outcome).map((b) => [b.id, "Praneeth"]));
+writeFileSync(join(dir, "interviewers.json"), JSON.stringify({ names: ["Praneeth", "Hareesh", "Shiva"], assign }));
 writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
 const resume = { file: "e1.pdf", name: "cv.pdf", type: "application/pdf", size: 1000 };
 writeFileSync(
