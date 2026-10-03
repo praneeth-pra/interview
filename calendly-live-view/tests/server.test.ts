@@ -813,6 +813,10 @@ describe("admin", () => {
       expect(r.status).toBe(403);
       expect((await r.json()).error).toContain("Only the owner");
     }
+    // the owner's interview sheet too; signed out, it shows the sign-in page
+    expect((await get(locked, "/admin/praneeth", { cookie: aide })).status).toBe(403);
+    expect(await (await get(locked, "/admin/praneeth", { cookie })).text()).toContain("Praneeth's interviews");
+    expect(await (await get(locked, "/admin/praneeth")).text()).toContain("/assets/login");
     for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide", "/admin/api/onboarding/delete"])
       expect((await postJson(locked, path, { id }, { cookie: aide })).status).toBe(403);
     // the owner still gets them (the made-up id isn't there, so its file is a 404, not a 403)
@@ -1062,6 +1066,53 @@ describe("admin", () => {
     expect(js).toContain('e.data === "signed-out"');
     expect(js).toContain('self.addEventListener("push"');
     new Function(js); // parses
+  });
+
+  test("/praneeth is a sheet of the interviews Praneeth takes: a row per candidate and company, a cell per round", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-sheet-"));
+    const day = (n: number, h = 10) => new Date(istMidnight() + n * 24 * HOUR + h * HOUR).toISOString();
+    const b = (n: number, name: string, email: string, company: string, round: string, start: string, extra = {}) => ({
+      ...booking, id: "20000000-0000-0000-0000-" + String(n).padStart(12, "0"), name, email, company, round, start, end: start, ...extra,
+    });
+    const rows = [
+      b(1, "Jeevan", "jeevan@example.com", "PwC", "1st round", day(-9), { outcome: "cleared" }),
+      b(2, "Jeevan", "jeevan@example.com", "PwC Pvt Ltd", "2nd round", day(-5, 11.5), { outcome: "hold" }),
+      b(3, "Jeevan", "jeevan@example.com", "PwC", "HR round", day(2)),
+      b(4, "Syam", "syam@example.com", "Trianz", "1st round", day(-3), { outcome: "rejected" }),
+      b(5, "Rohit", "rohit@example.com", "Paytm", "1st round", day(-2)), // only Hareesh's: not listed
+      b(6, "Mohan", "mohan@example.com", "KPMG", "1st round", day(-1), { missed: "noshow" }),
+      b(7, "Mohan", "mohan@example.com", "Ey", "1st round", day(-1), { cancelled: true }),
+      b(8, "Syam", "syam@example.com", "Trianz", "2nd round", day(-2)),
+    ];
+    writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: rows }));
+    const assign = { [rows[0].id]: "Praneeth", [rows[1].id]: "Hareesh", [rows[3].id]: "praneeth", [rows[4].id]: "Hareesh", [rows[7].id]: "Hareesh" };
+    writeFileSync(join(dir, "interviewers.json"), JSON.stringify({ names: ["Praneeth", "Hareesh"], assign }));
+    const srv = await start(4350, {}, dir);
+    try {
+      for (const path of ["/praneeth", "/Praneeth/"]) {
+        const r = await fetch(srv.url + path, { redirect: "manual" });
+        expect(r.status).toBe(302);
+        expect(r.headers.get("location")).toBe("/admin/praneeth");
+      }
+      const r = await get(srv, "/admin/praneeth");
+      expect(r.headers.get("cache-control")).toBe("no-store");
+      const html = await r.text();
+      expect(html).toContain('<script src="/assets/sheet.');
+      const sheet = boot(html);
+      expect(sheet.columns).toBe(3);
+      // newest first; one PwC row for both spellings; Paytm (only Hareesh's) and the cancelled Ey round aren't there
+      expect(sheet.rows.map((x: any) => x.candidate + " · " + x.company)).toEqual(["Jeevan · PwC", "Mohan · KPMG", "Syam · Trianz"]);
+      const [pwc, kpmg, trianz] = sheet.rows;
+      expect(pwc.rounds.map((c: any) => c.result)).toEqual(["cleared", "hold", ""]);
+      expect(pwc.rounds.map((c: any) => c.note)).toEqual(["", "Taken by Hareesh", "Upcoming"]);
+      expect(pwc.rounds[1].when).toMatch(/^\d+(st|nd|rd|th) [A-Z][a-z]+ (\d{4} )?11:30 AM$/);
+      expect(pwc.rounds[0].when).toMatch(/ 10 AM$/);
+      expect(trianz.rounds.map((c: any) => [c.round, c.result, c.note])).toEqual([["1st round", "rejected", ""], ["2nd round", "", "Taken by Hareesh"]]);
+      expect(kpmg.rounds[0].note).toBe("No-show");
+    } finally {
+      srv.proc.kill();
+    }
   });
 
   test("the admin page has the logo link and the frame points at /admin/analytics", async () => {
