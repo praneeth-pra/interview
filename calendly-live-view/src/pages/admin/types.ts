@@ -22,6 +22,10 @@ export type Booking = {
   outcome?: "cleared" | "rejected" | "hold" | ""; // the round's result; none means Scheduled
   outcomeAt?: string;
   outcomeBy?: "next-round" | ""; // "next-round": set to Cleared when the candidate booked their next round
+  invite?: { name: string; type: string; size: number } | null; // the interview invite the candidate uploaded
+  hrEmails?: string[]; // read from the invite
+  hrPhones?: string[];
+  inviteRead?: boolean; // the invite has been read (found something or not)
 };
 // A time an admin marked unavailable (⋯ menu → Unavailability): candidates can't book in it.
 export type Block = { id: string; start: string; end: string; note: string };

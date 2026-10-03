@@ -183,6 +183,40 @@ export function showBooking(id: string, refresh?: boolean) {
     }
   }
   row("mail", "Email", booking.email ? el("a", { href: "mailto:" + booking.email, text: booking.email }) : "");
+  // the company's invite the candidate uploaded, and the HR's email and phone read from it
+  if (booking.invite) {
+    const url = "/admin/api/bookings/" + booking.id + "/invite";
+    row(
+      "invite",
+      "Interview invite",
+      el("span", { class: "bk-inv" }, [
+        el("a", { href: url, target: "_blank", rel: "noopener", text: "Open" }),
+        el("a", {
+          href: url + "?download=1",
+          download: "",
+          "aria-label": "Download the interview invite of " + booking.name,
+          text: "Download",
+        }),
+      ]),
+    );
+    const links = function (items: string[], scheme: string) {
+      return el(
+        "span",
+        { class: "bk-inv" },
+        items.map(function (item) {
+          return el("a", { href: scheme + (scheme === "tel:" ? item.replace(/[^\d+]/g, "") : item), text: item });
+        }),
+      );
+    };
+    if (!booking.inviteRead) {
+      row("mail", "HR contact", "Reading the invite…");
+    } else if (!(booking.hrEmails || []).length && !(booking.hrPhones || []).length) {
+      row("mail", "HR contact", "None found in the invite. Open it to check.");
+    } else {
+      row("mail", "HR email", (booking.hrEmails || []).length ? links(booking.hrEmails!, "mailto:") : "");
+      row("phone", "HR phone", (booking.hrPhones || []).length ? links(booking.hrPhones!, "tel:") : "");
+    }
+  }
   row(
     "clock",
     "Booked",

@@ -7,7 +7,7 @@ type ReceiptCheck = { status: "verified" } | { status: "mismatch"; read: number[
 
 const READ_TIMEOUT_MS = 20000;
 
-async function run(cmd: string[], input: Uint8Array): Promise<string> {
+export async function run(cmd: string[], input: Uint8Array): Promise<string> {
   try {
     const proc = Bun.spawn(cmd, { stdin: input, stdout: "pipe", stderr: "ignore" });
     const timer = setTimeout(() => proc.kill(), READ_TIMEOUT_MS);

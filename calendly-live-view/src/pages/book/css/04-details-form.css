@@ -195,3 +195,70 @@ textarea:focus {
   border-color: var(--blue);
   box-shadow: 0 0 0 1px var(--blue);
 }
+/* the interview invite: the real file input covers the whole box, invisible, so the box is what people tap */
+.inv {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 0;
+  padding: 14px 16px;
+  border: 1.5px dashed var(--field-b);
+  border-radius: 8px;
+  font-weight: 400;
+  cursor: pointer;
+  touch-action: manipulation;
+  transition:
+    background-color 0.15s,
+    border-color 0.15s;
+}
+.inv input {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.inv:focus-within {
+  border-color: var(--blue);
+  border-style: solid;
+}
+.inv.has {
+  border-style: solid;
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 7%, transparent);
+}
+.inv.bad {
+  border-color: var(--red);
+}
+.inv-i {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex: none;
+  border-radius: 50%;
+  background: var(--blue-t);
+  color: var(--blue);
+}
+.inv-i svg {
+  width: 20px;
+  height: 20px;
+}
+.inv-t {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.inv-t b {
+  overflow: hidden;
+  font-size: 15px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.inv-t small {
+  font-size: 13px;
+  color: var(--ink2);
+}

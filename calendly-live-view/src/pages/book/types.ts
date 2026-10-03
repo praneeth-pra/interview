@@ -42,6 +42,7 @@ export type State = {
   err: string;
   fieldErr: Record<string, string>;
   form: { name: string; email: string; company: string; round: string };
+  invite?: File | null; // the interview invite chosen on the details step (not kept in the draft)
   busy: boolean;
   anim?: boolean; // slide the times list in on the next render
   stale?: boolean; // the times shown are the previous day's, kept on screen until the new day's arrive

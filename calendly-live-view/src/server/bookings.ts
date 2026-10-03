@@ -3,6 +3,7 @@ import { earlierSpelling } from "./companies";
 import { DURATIONS, REMOVE_BOOKINGS, RESEND_API_KEY } from "./config";
 import { type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
 import { notifyBooked, notifyCancelled, notifyRescheduled } from "./email";
+import { INVITE_NEEDED, type InviteUpload, inviteRef, readInvite, removeInvite, saveInvite } from "./invites";
 import { BASE_HEADERS, json } from "./http";
 import { baseUrl, manageUrl, tokenOk } from "./links";
 import { broadcastState } from "./live";
@@ -58,7 +59,8 @@ function clearEarlierRound(next: Booking): { round: Booking; before: Booking } |
   return { round, before };
 }
 export const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
-export async function createBooking(body: Fields, req: Request, source?: "admin"): Promise<Response> {
+// invite: the screenshot or PDF of the company's invite, which every booking from the booking page brings
+export async function createBooking(body: Fields, req: Request, source?: "admin", invite?: InviteUpload | null): Promise<Response> {
   const name = String(body?.name ?? "")
     .trim()
     .slice(0, 120);
@@ -87,8 +89,10 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     (!source && (startMs >= bookingLimitMs() || isBlocked(startMs, endMs)))
   )
     return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
+  if (!source && !invite) return json({ error: INVITE_NEEDED, field: "invite" }, 400);
+  const id = crypto.randomUUID();
   const booking: Booking = {
-    id: crypto.randomUUID(),
+    id,
     name,
     email,
     company: earlierSpelling(email, company),
@@ -100,7 +104,13 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     cancelled: false,
     cancelledAt: "",
     ...(source ? { source } : {}),
+    ...(invite ? { invite: inviteRef(id, invite) } : {}),
   };
+  try {
+    if (booking.invite) await saveInvite(booking.invite.file, invite!.bytes);
+  } catch {
+    return json({ error: "Couldn't save the booking. Try again." }, 500);
+  }
   bookingsStore.data.bookings.push(booking);
   const cleared = clearEarlierRound(booking);
   try {
@@ -111,9 +121,11 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
       for (const k of Object.keys(cleared.round)) if (!(k in cleared.before)) delete (cleared.round as Record<string, unknown>)[k];
       Object.assign(cleared.round, cleared.before);
     }
+    if (booking.invite) await removeInvite(booking.invite.file).catch(() => {});
     return json({ error: "Couldn't save the booking. Try again." }, 500);
   }
   broadcastState();
+  if (booking.invite) void readInvite(booking);
   const base = baseUrl(req);
   notifyBooked(booking, base);
   if (!source) alertAdmins("booked", booking);

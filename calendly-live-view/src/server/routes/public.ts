@@ -5,6 +5,7 @@ import { companySuggestions, knownName } from "../companies";
 import { DURATIONS, HOST_NAME } from "../config";
 import { bookingsStore, emailAllowed } from "../data";
 import { receiveEnquiry } from "../enquiries";
+import { bookingForm } from "../invites";
 import { receiveOnboarding } from "../onboarding";
 import { receivePayment } from "../payments";
 import { BASE_HEADERS, type Srv, json, readJson, sendShell, underLimit, clientIp } from "../http";
@@ -145,6 +146,12 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
     // a person books a round or two; 20 an hour from one network keeps a script from filling every free time
     if (!underLimit("book:" + clientIp(req, srv), 20, 3600000))
       return json({ error: "Too many bookings from this network. Try again in an hour." }, 429);
+    // the booking page sends a multipart form with the interview invite; a JSON booking has no invite and is refused
+    if ((req.headers.get("content-type") ?? "").toLowerCase().startsWith("multipart/form-data")) {
+      const sent = await bookingForm(req);
+      if (sent instanceof Response) return sent;
+      return createBooking(sent.fields, req, undefined, sent.invite);
+    }
     const body = await readJson(req);
     if (body instanceof Response) return body;
     return createBooking(body, req);

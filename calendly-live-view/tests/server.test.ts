@@ -62,6 +62,14 @@ const mailServer = Bun.serve({ port: 4315, fetch: async (req) => (mails.push(awa
 const lockedEnv = { ADMIN_EMAILS: OWNER + ", boss@example.com chief@example.com", RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4315/emails" };
 const postJson = (s: Srv, path: string, body: unknown, headers: Record<string, string> = {}) =>
   fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+// A booking from the booking page: a multipart form with the interview invite (a stand-in PNG unless one is given).
+const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
+const bookForm = (s: Srv, body: Record<string, unknown>, headers: Record<string, string> = {}, invite: Blob | null = new Blob([PNG])) => {
+  const form = new FormData();
+  for (const [k, v] of Object.entries(body)) form.set(k, String(v));
+  if (invite) form.set("invite", invite, "invite.png");
+  return fetch(s.url + "/api/book", { method: "POST", headers, body: form });
+};
 const lastCode = (email: string) => {
   const mail = mails.filter((m) => m.to[0] === email).at(-1);
   return mail ? mail.subject.match(/(\d{6})$/)[1] : "";
@@ -151,7 +159,7 @@ describe("booking page", () => {
     const html = await (await get(open, "/booking")).text();
     expect(html).toContain("<title>Interview · Hi&lt;Techie&gt;</title>");
     expect(html).not.toContain("Hi<Techie>");
-    expect(boot(html)).toEqual({ host: "Hi<Techie>", event: "Interview", manage: null, info: expect.objectContaining({ loc: expect.any(String) }) });
+    expect(boot(html)).toEqual({ host: "Hi<Techie>", event: "Interview", manage: null, info: expect.objectContaining({ loc: expect.any(String) }), inviteMax: 1572864 });
   });
 
   test("compresses with brotli or gzip when the browser accepts it", async () => {
@@ -205,12 +213,12 @@ describe("booking flow", () => {
     expect(slots).not.toContain(FUTURE);
     expect(day.slots).toEqual(slots);
     const post = (path: string, body: unknown) => fetch(open.url + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    const made = await (await post("/api/book", { name: "Test Person", email: "test@example.com", company: "Acme", round: "HR", duration: 30, startMs: slots[0] })).json();
+    const made = await (await bookForm(open, { name: "Test Person", email: "test@example.com", company: "Acme", round: "HR", duration: 30, startMs: slots[0] })).json();
     expect(made.booking.manage).toMatch(/\/b\/[0-9a-f-]{36}\?t=[0-9a-f]{32}$/);
-    const noCompany = await post("/api/book", { name: "Other", email: "o@example.com", company: "  ", duration: 30, startMs: slots[2] });
+    const noCompany = await bookForm(open, { name: "Other", email: "o@example.com", company: "  ", duration: 30, startMs: slots[2] });
     expect(noCompany.status).toBe(400);
     expect((await noCompany.json()).field).toBe("company");
-    const clash = await post("/api/book", { name: "Other", email: "o@example.com", company: "Beta", duration: 30, startMs: slots[0] });
+    const clash = await bookForm(open, { name: "Other", email: "o@example.com", company: "Beta", duration: 30, startMs: slots[0] });
     expect(clash.status).toBe(409);
     const t = made.booking.manage.split("t=")[1];
     const moved = await (await post("/api/manage/reschedule", { id: made.booking.id, t, startMs: slots[1], duration: 30 })).json();
@@ -219,6 +227,40 @@ describe("booking flow", () => {
     const state = await (await get(open, "/admin/api/state")).json();
     expect(state.events.find((e: any) => e.id === made.booking.id)).toBeUndefined();
     expect(state.changes[0]).toMatchObject({ id: made.booking.id, kind: "cancelled" });
+  });
+
+  test("candidates' bookings need the interview invite, which admins can open", async () => {
+    const days = await (await get(open, "/api/days?duration=60")).json();
+    const day = days.days.filter((d: any) => d.open).at(-1);
+    const slots = (await (await get(open, `/api/slots?date=${day.key}&duration=60`)).json()).slots;
+    const body = { name: "Invite Test", email: "invite@example.com", company: "Acme", round: "HR", duration: 60, startMs: slots.at(-1) };
+    // without the invite, as JSON or as a form, and with a file that isn't a picture or a PDF
+    for (const r of [await postJson(open, "/api/book", body), await bookForm(open, body, {}, null)]) {
+      expect(r.status).toBe(400);
+      expect(await r.json()).toMatchObject({ field: "invite", error: "Add a screenshot or PDF of your interview invite." });
+    }
+    const text = await bookForm(open, body, {}, new Blob(["just text"]));
+    expect(text.status).toBe(400);
+    expect((await text.json()).field).toBe("invite");
+    const made = await (await bookForm(open, body)).json();
+    const id = made.booking.id;
+    const file = await get(open, "/admin/api/bookings/" + id + "/invite");
+    expect(file.status).toBe(200);
+    expect(file.headers.get("content-type")).toBe("image/png");
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(PNG);
+    expect((await get(open, "/admin/api/bookings/" + id + "/invite?download=1")).headers.get("content-disposition")).toContain(
+      "Invite Test interview invite.png",
+    );
+    // the invite is read after the booking is saved; a stand-in picture has no contacts
+    let saved: any;
+    for (let i = 0; i < 100 && !saved?.inviteRead; i++) {
+      await Bun.sleep(50);
+      saved = (await (await get(open, "/admin/api/bookings")).json()).bookings.find((b: any) => b.id === id);
+    }
+    expect(saved).toMatchObject({ invite: { name: "invite.png", type: "image/png" }, hrEmails: [], hrPhones: [], inviteRead: true });
+    expect((await get(open, "/admin/api/bookings/" + crypto.randomUUID() + "/invite")).status).toBe(404);
+    const t = made.booking.manage.split("t=")[1];
+    expect((await postJson(open, "/api/manage/cancel", { id, t, reason: "test" })).status).toBe(200);
   });
 
   test("unavailable times: candidates can't book or move into them, admins still can, and removing one frees it", async () => {
@@ -246,9 +288,9 @@ describe("booking flow", () => {
     const futureKey = new Date(FUTURE + 330 * 60000).toISOString().slice(0, 10);
     const near = (await (await get(open, `/api/slots?date=${futureKey}&duration=30`)).json()).slots;
     expect(near.filter((s: number) => s >= FUTURE - HOUR && s < FUTURE + 2 * HOUR)).toEqual([]);
-    const refused = await postJson(open, "/api/book", { name: "Ravi", email: "ravi@example.com", company: "Acme", duration: 30, startMs: freeBefore[2] });
+    const refused = await bookForm(open, { name: "Ravi", email: "ravi@example.com", company: "Acme", duration: 30, startMs: freeBefore[2] });
     expect(refused.status).toBe(409);
-    const made = await (await postJson(open, "/api/book", { name: "Ravi", email: "ravi@example.com", company: "Acme", duration: 30, startMs: near.at(-1) })).json();
+    const made = await (await bookForm(open, { name: "Ravi", email: "ravi@example.com", company: "Acme", duration: 30, startMs: near.at(-1) })).json();
     const t = made.booking.manage.split("t=")[1];
     expect((await postJson(open, "/api/manage/reschedule", { id: made.booking.id, t, startMs: freeBefore[3], duration: 30 })).status).toBe(409);
     // admins still see and can book those times
@@ -272,9 +314,8 @@ describe("booking flow", () => {
     const days = await (await get(open, "/api/days?duration=30")).json();
     const open2 = days.days.filter((d: any) => d.open).slice(-2);
     const slots = (await (await get(open, `/api/slots?date=${open2[open2.length - 1].key}&duration=30`)).json()).slots;
-    const post = (body: unknown) => fetch(open.url + "/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const book = async (email: string, company: string, i: number) =>
-      (await (await post({ name: "Round Test", email, company, round: "1st round", duration: 30, startMs: slots[i] })).json()).booking;
+      (await (await bookForm(open, { name: "Round Test", email, company, round: "1st round", duration: 30, startMs: slots[i] })).json()).booking;
     expect((await book("rounds@example.com", "Infosys", 0)).company).toBe("Infosys");
     expect((await book("ROUNDS@example.com", "infosis", 1)).company).toBe("Infosys"); // near-spelling, same email
     expect((await book("rounds@example.com", "Wipro", 2)).company).toBe("Wipro"); // a different company stays
@@ -984,7 +1025,7 @@ describe("admin", () => {
       const days = await (await get(srv, "/api/days?duration=30")).json();
       const slots: number[] = days.days.filter((d: any) => d.open).flatMap((d: any) => d.slots).filter((ms: number) => ms > FUTURE + HOUR);
       const book = async (i: number, email: string, company: string) =>
-        (await postJson(srv, "/api/book", { name: "Someone", email, company, round: "2nd round", duration: 30, startMs: slots[i] })).status;
+        (await bookForm(srv, { name: "Someone", email, company, round: "2nd round", duration: 30, startMs: slots[i] })).status;
       const saved = (n: number) => JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.find((b: any) => b.id === rounds[n - 1].id);
       expect(await book(0, "Asha@Example.com", "google")).toBe(200);
       expect(await book(1, "ravi@example.com", "Infosys")).toBe(200);

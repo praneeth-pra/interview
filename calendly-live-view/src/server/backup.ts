@@ -23,6 +23,7 @@ import {
 } from "./data";
 import { emailBody, sendEmail } from "./email";
 import { readResume, saveResume } from "./enquiries";
+import { readInviteFile, saveInvite } from "./invites";
 import { json } from "./http";
 import { broadcastState } from "./live";
 import { readIdCard, saveIdCard } from "./onboarding";
@@ -46,9 +47,9 @@ const STORES: Record<string, FileStore<any>> = {
   "unavailable.json": blocksStore,
   "secret.json": secretStore,
 };
-// The resumes, receipts and ID cards, as "resumes/<file>", "receipts/<file>" or "id-cards/<file>"; restoring writes only
-// names like these.
-export const UPLOAD_PATH = /^(resumes|receipts|id-cards)\/[A-Za-z0-9-]{1,64}\.(pdf|docx|doc|png|jpg|webp|heic)$/;
+// The resumes, receipts, ID cards and interview invites, as "resumes/<file>", "receipts/<file>", "id-cards/<file>" or
+// "invites/<file>"; restoring writes only names like these.
+export const UPLOAD_PATH = /^(resumes|receipts|id-cards|invites)\/[A-Za-z0-9-]{1,64}\.(pdf|docx|doc|png|jpg|webp|heic)$/;
 // The resumes and receipts in one backup email, at most (BACKUP_FILES_MB, default 12). They are base64 twice over (in the
 // JSON, then as an attachment), so 12 MB of files is about 21 MB of email: under the 25 MB many inboxes accept.
 const FILES_MB = Number(Bun.env.BACKUP_FILES_MB);
@@ -81,6 +82,9 @@ export async function backupParts(max = Infinity) {
     })),
     ...onboardingStore.data.forms.flatMap((v) =>
       [v.aadhaar, v.pan].map((c) => ({ at: v.createdAt, path: "id-cards/" + c.file, read: () => readIdCard(c.file) })),
+    ),
+    ...bookingsStore.data.bookings.flatMap((b) =>
+      b.invite ? [{ at: b.createdAt, path: "invites/" + b.invite.file, read: () => readInviteFile(b.invite!.file) }] : [],
     ),
   ].sort((a, b) => b.at.localeCompare(a.at));
   const chunks: Record<string, string>[] = [{}];
@@ -246,7 +250,13 @@ export async function restoreUpload(req: Request, path: string): Promise<Respons
   const bytes = new Uint8Array(await req.arrayBuffer());
   if (!bytes.length) return json({ error: "Empty file." }, 400);
   const [dir, file] = path.split("/") as [string, string];
-  await (dir === "resumes" ? saveResume(file, bytes) : dir === "id-cards" ? saveIdCard(file, bytes) : saveReceipt(file, bytes));
+  await (dir === "resumes"
+    ? saveResume(file, bytes)
+    : dir === "id-cards"
+      ? saveIdCard(file, bytes)
+      : dir === "invites"
+        ? saveInvite(file, bytes)
+        : saveReceipt(file, bytes));
   return json({ ok: true });
 }
 // Runs the backup now (when it is due) and every 15 minutes after.

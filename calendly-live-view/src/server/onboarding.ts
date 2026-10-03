@@ -16,7 +16,7 @@ const FORMS_PER_DAY = 100;
 export const CARDS = { aadhaar: "Aadhaar card", pan: "PAN card" } as const;
 export type Card = keyof typeof CARDS;
 // what the first bytes of each allowed kind of file look like (HEIC photos have "ftyp" after a 4-byte length)
-const CARD_KINDS = [
+export const CARD_KINDS = [
   { ext: ".pdf", type: "application/pdf", at: 0, magic: [0x25, 0x50, 0x44, 0x46] },
   { ext: ".png", type: "image/png", at: 0, magic: [0x89, 0x50, 0x4e, 0x47] },
   { ext: ".jpg", type: "image/jpeg", at: 0, magic: [0xff, 0xd8, 0xff] },

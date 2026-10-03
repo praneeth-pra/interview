@@ -206,6 +206,12 @@
   font-size: 14.5px;
   overflow-wrap: anywhere;
 }
+/* the interview invite's Open and Download, and the HR emails and phones read from it, side by side */
+.bk-row span.bk-inv {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+}
 .ivc {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));

@@ -52,6 +52,10 @@ export const pub = (b: Booking) => ({
   outcome: b.outcome ?? "",
   outcomeAt: b.outcomeAt ?? "",
   outcomeBy: b.outcomeBy ?? "",
+  invite: b.invite ? { name: b.invite.name, type: b.invite.type, size: b.invite.size } : null,
+  hrEmails: b.hrEmails ?? [],
+  hrPhones: b.hrPhones ?? [],
+  inviteRead: !!b.inviteRead,
 });
 // owner: whether this admin may see enquiries and payments; for everyone else the state leaves them out
 export function adminState(owner: boolean) {

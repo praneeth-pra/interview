@@ -13,6 +13,7 @@ import { assignInterviewers, renameInterviewers } from "../interviewers";
 import { adminState, openStream, pub } from "../live";
 import { ANALYTICS, LOGIN, adminShell } from "../pages";
 import { deleteOnboarding, idCardFile, onboardingList } from "../onboarding";
+import { inviteFile } from "../invites";
 import { decidePayment, paymentsList, receiptFile } from "../payments";
 import { changePush, pushView } from "../push";
 import { reportPdfResponse } from "../report-pdf";
@@ -94,6 +95,8 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   // ---- bookings
   if (path === "/admin/api/bookings" && method === "GET")
     return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
+  const invite = path.match(/^\/admin\/api\/bookings\/([0-9a-f-]{36})\/invite$/);
+  if (invite && method === "GET") return inviteFile(invite[1], q("download") === "1");
   if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
   if (path === "/admin/backup.json" && method === "GET")
     return new Response(JSON.stringify((await backupParts()).parts[0], null, 1), {

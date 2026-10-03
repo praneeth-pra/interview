@@ -28,7 +28,7 @@ for (const [name, data] of Object.entries(backup.files)) {
 // the resumes and receipts (in backups since they went into the weekly email)
 let uploads = 0;
 for (const [name, b64] of Object.entries(backup.uploads ?? {})) {
-  if (!/^(resumes|receipts|id-cards)\/[A-Za-z0-9-]{1,64}\.(pdf|docx|doc|png|jpg|webp|heic)$/.test(name) || typeof b64 !== "string")
+  if (!/^(resumes|receipts|id-cards|invites)\/[A-Za-z0-9-]{1,64}\.(pdf|docx|doc|png|jpg|webp|heic)$/.test(name) || typeof b64 !== "string")
     continue;
   const path = dir.replace(/\/+$/, "") + "/" + name;
   await mkdir(path.slice(0, path.lastIndexOf("/")), { recursive: true });

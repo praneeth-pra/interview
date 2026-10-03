@@ -31,6 +31,12 @@ export type Booking = {
   outcomeAt?: string;
   // "next-round" when the result was set to Cleared because the candidate booked their next round with the company
   outcomeBy?: "next-round";
+  // the interview invite the candidate uploaded (a screenshot or PDF in DATA_DIR/invites), and the HR emails and phone
+  // numbers read from it; inviteRead is set once the reading has run, found or not
+  invite?: IdCard;
+  hrEmails?: string[];
+  hrPhones?: string[];
+  inviteRead?: boolean;
 };
 export const activeBookings = () => bookingsStore.data.bookings.filter((b) => !b.cancelled);
 export const bookingsStore = fileStore<{ bookings: Booking[] }>(
