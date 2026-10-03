@@ -67,6 +67,9 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
     if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS });
     return respond(req, a.body, { ...BASE_HEADERS, "Cache-Control": a.current ? "public, max-age=31536000, immutable" : "no-cache" });
   }
+  // the owner's interview sheet lives under /admin, where the admin sign-in cookie is sent
+  if (path === "/praneeth" && method === "GET")
+    return new Response(null, { status: 302, headers: { ...BASE_HEADERS, Location: "/admin/praneeth" } });
   if (path === "/" && method === "GET") return sendShell(req, HOME, undefined, { Link: "<" + siteUrl(req) + '/>; rel="canonical"' });
   // For search engines: the landing page is listed; the admin, the API and candidates' manage links are not crawled.
   if (path === "/robots.txt" && method === "GET")
