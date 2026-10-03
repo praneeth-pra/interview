@@ -12,7 +12,7 @@ src/server/          the server, one module per feature:
                      routes/ (public.ts, auth.ts, admin.ts: every URL, who may use it, and reading the request),
                      config.ts (environment variables), data.ts (what is stored, one JSON file each) and store.ts
                      (reading and writing them), bookings.ts, schedule.ts (free times), companies.ts, enquiries.ts,
-                     payments.ts, invites.ts and invite-read.ts (the booking's interview invite), allowlist.ts (the Candidates list), unavailable.ts (times candidates can't book), interviewers.ts (interview supporters),
+                     payments.ts, onboarding.ts, uploads.ts (what the upload forms share), invites.ts and invite-read.ts (the booking's interview invite), allowlist.ts (the Candidates list), unavailable.ts (times candidates can't book), interviewers.ts (interview supporters),
                      analytics.ts (owners' Revenue tab data), auth.ts (sign-in codes, sessions and the admin list),
                      email.ts (Resend and calendar invites), push.ts (browser alerts), live.ts (live admin updates),
                      backup.ts, report.ts (the owners' monthly revenue email), report-pdf.ts and pdf.ts (the same report as a PDF), pages.ts (page shells), http.ts (headers, limits, file downloads), sw.js (service worker)

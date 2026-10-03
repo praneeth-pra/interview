@@ -3,7 +3,8 @@ import { earlierSpelling } from "./companies";
 import { DURATIONS, REMOVE_BOOKINGS, RESEND_API_KEY } from "./config";
 import { type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
 import { notifyBooked, notifyCancelled, notifyRescheduled } from "./email";
-import { INVITE_NEEDED, type InviteUpload, inviteRef, readInvite, removeInvite, saveInvite } from "./invites";
+import { INVITE_NEEDED, type InviteUpload, inviteRef, readInvite } from "./invites";
+import { invites } from "./uploads";
 import { BASE_HEADERS, json } from "./http";
 import { baseUrl, manageUrl, tokenOk } from "./links";
 import { broadcastState } from "./live";
@@ -112,7 +113,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     ...(invite ? { invite: inviteRef(id, invite) } : {}),
   };
   try {
-    if (booking.invite) await saveInvite(booking.invite.file, invite!.bytes);
+    if (booking.invite) await invites.save(booking.invite.file, invite!.bytes);
   } catch {
     return json({ error: "Couldn't save the booking. Try again." }, 500);
   }
@@ -126,7 +127,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
       for (const k of Object.keys(cleared.round)) if (!(k in cleared.before)) delete (cleared.round as Record<string, unknown>)[k];
       Object.assign(cleared.round, cleared.before);
     }
-    if (booking.invite) await removeInvite(booking.invite.file).catch(() => {});
+    if (booking.invite) await invites.remove(booking.invite.file).catch(() => {});
     return json({ error: "Couldn't save the booking. Try again." }, 500);
   }
   broadcastState();

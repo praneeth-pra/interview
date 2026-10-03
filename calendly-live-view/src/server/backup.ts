@@ -22,14 +22,11 @@ import {
   secretStore,
 } from "./data";
 import { emailBody, sendEmail } from "./email";
-import { readResume, saveResume } from "./enquiries";
-import { readInviteFile, saveInvite } from "./invites";
 import { json } from "./http";
 import { broadcastState } from "./live";
-import { readIdCard, saveIdCard } from "./onboarding";
-import { readReceipt, saveReceipt } from "./payments";
 import { type FileStore, loadStore, saveStore } from "./store";
 import { istParts } from "./time";
+import { PDF_OR_WORD, PHOTO_OR_PDF, idCards, invites, kindOf, receipts, resumes } from "./uploads";
 import { type Fields, asFields, pad } from "./util";
 import { copyFile, readdir, rm } from "node:fs/promises";
 import { mkdir } from "node:fs/promises";
@@ -73,18 +70,18 @@ export async function backupParts(max = Infinity) {
     ...enquiriesStore.data.enquiries.map((v) => ({
       at: v.createdAt,
       path: "resumes/" + v.resume.file,
-      read: () => readResume(v.resume.file),
+      read: () => resumes.read(v.resume.file),
     })),
     ...paymentsStore.data.payments.map((v) => ({
       at: v.createdAt,
       path: "receipts/" + v.receipt.file,
-      read: () => readReceipt(v.receipt.file),
+      read: () => receipts.read(v.receipt.file),
     })),
     ...onboardingStore.data.forms.flatMap((v) =>
-      [v.aadhaar, v.pan].map((c) => ({ at: v.createdAt, path: "id-cards/" + c.file, read: () => readIdCard(c.file) })),
+      [v.aadhaar, v.pan].map((c) => ({ at: v.createdAt, path: "id-cards/" + c.file, read: () => idCards.read(c.file) })),
     ),
     ...bookingsStore.data.bookings.flatMap((b) =>
-      b.invite ? [{ at: b.createdAt, path: "invites/" + b.invite.file, read: () => readInviteFile(b.invite!.file) }] : [],
+      b.invite ? [{ at: b.createdAt, path: "invites/" + b.invite.file, read: () => invites.read(b.invite!.file) }] : [],
     ),
   ].sort((a, b) => b.at.localeCompare(a.at));
   const chunks: Record<string, string>[] = [{}];
@@ -244,19 +241,22 @@ export async function restoreData(b: Fields): Promise<Response> {
   return json({ ok: true, restored: names.length, bookings: bookingsStore.data.bookings.length });
 }
 // POST /admin/api/restore-file?path=resumes/<file>: one resume or receipt from a backup's "uploads", as raw bytes.
+const FOLDERS = {
+  resumes: [resumes, PDF_OR_WORD],
+  receipts: [receipts, PHOTO_OR_PDF],
+  "id-cards": [idCards, PHOTO_OR_PDF],
+  invites: [invites, PHOTO_OR_PDF],
+} as const;
 export async function restoreUpload(req: Request, path: string): Promise<Response> {
   if (!UPLOAD_PATH.test(path)) return json({ error: "Bad file name." }, 400);
   if ((req.headers.get("content-type") ?? "").toLowerCase() !== "application/octet-stream") return json({ error: "Bad request." }, 415);
   const bytes = new Uint8Array(await req.arrayBuffer());
   if (!bytes.length) return json({ error: "Empty file." }, 400);
-  const [dir, file] = path.split("/") as [string, string];
-  await (dir === "resumes"
-    ? saveResume(file, bytes)
-    : dir === "id-cards"
-      ? saveIdCard(file, bytes)
-      : dir === "invites"
-        ? saveInvite(file, bytes)
-        : saveReceipt(file, bytes));
+  const [dir, file] = path.split("/") as [keyof typeof FOLDERS, string];
+  const [folder, kinds] = FOLDERS[dir];
+  // only a file of a kind the form takes, under its own extension, so a restore can't add anything a form wouldn't
+  if (kindOf(bytes, kinds)?.ext !== file.slice(file.lastIndexOf("."))) return json({ error: "That file isn't what its name says." }, 400);
+  await folder.save(file, bytes);
   return json({ ok: true });
 }
 // Runs the backup now (when it is due) and every 15 minutes after.

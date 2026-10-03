@@ -1,40 +1,26 @@
 // The interview invite a candidate uploads with a booking (a screenshot or PDF of the company's invite email), and the
 // HR emails and phone numbers read from it (invite-read.ts). Reading runs after the booking is saved, so a slow read
 // never holds up the booking; admins see the results in the booking panel.
-import { DATA_DIR, ID_CARD_MAX } from "./config";
+import { ID_CARD_MAX } from "./config";
 import { type Booking, type IdCard, bookingsStore, onboardingStore } from "./data";
 import { json, storedFile } from "./http";
 import { broadcastState } from "./live";
-import { CARD_KINDS } from "./onboarding";
+import { PHOTO_OR_PDF, invites, kindOf, lastDay, mb, uploadedName } from "./uploads";
 import { inviteContacts, inviteText } from "./invite-read";
 import { saveStore } from "./store";
 import { type Fields, normEmail } from "./util";
-import { mkdir, rm } from "node:fs/promises";
 
 export const INVITE_NEEDED = "Add a screenshot or PDF of your interview invite.";
 export type InviteUpload = { ext: string; type: string; name: string; bytes: Uint8Array };
-// The invites are files in DATA_DIR/invites (kept in memory when there is no data folder).
-const invitesInMemory = new Map<string, Uint8Array>();
-export async function saveInvite(file: string, bytes: Uint8Array) {
-  if (!DATA_DIR) return void invitesInMemory.set(file, bytes);
-  await mkdir(DATA_DIR + "/invites", { recursive: true });
-  await Bun.write(DATA_DIR + "/invites/" + file, bytes);
-}
-export async function readInviteFile(file: string): Promise<Uint8Array | null> {
-  if (!DATA_DIR) return invitesInMemory.get(file) ?? null;
-  const f = Bun.file(DATA_DIR + "/invites/" + file);
-  return (await f.exists()) ? new Uint8Array(await f.arrayBuffer()) : null;
-}
-export async function removeInvite(file: string) {
-  if (!DATA_DIR) return void invitesInMemory.delete(file);
-  await rm(DATA_DIR + "/invites/" + file, { force: true });
-}
 // A booking sent from the booking page as a multipart form: its fields, and the invite (a photo or a PDF, checked by its
 // first bytes) when one was attached.
 export async function bookingForm(req: Request): Promise<{ fields: Fields; invite: InviteUpload | null } | Response> {
   const length = Number(req.headers.get("content-length") ?? NaN);
   if (!(length > 0)) return json({ error: "Bad request." }, 411);
   if (length > ID_CARD_MAX + 64 * 1024) return json({ error: tooBig(), field: "invite" }, 413);
+  // at most 100 invites saved in any 24 hours from everyone together, like the other upload forms
+  if (lastDay(bookingsStore.data.bookings.filter((b) => b.invite)) >= 100)
+    return json({ error: "We're getting a lot of bookings right now. Try again tomorrow." }, 429);
   let form: FormData;
   try {
     form = await req.formData();
@@ -49,17 +35,12 @@ export async function bookingForm(req: Request): Promise<{ fields: Fields; invit
   if (!(upload instanceof Blob) || !upload.size) return { fields, invite: null };
   if (upload.size > ID_CARD_MAX) return json({ error: tooBig(), field: "invite" }, 413);
   const bytes = new Uint8Array(await upload.arrayBuffer());
-  const kind = CARD_KINDS.find((k) => k.magic.every((b, i) => bytes[k.at + i] === b));
+  const kind = kindOf(bytes, PHOTO_OR_PDF);
   if (!kind) return json({ error: "The invite must be a screenshot, a photo or a PDF.", field: "invite" }, 400);
-  const name =
-    (upload instanceof File ? upload.name : "")
-      .replace(/[\u0000-\u001f"\\/]/g, "")
-      .trim()
-      .slice(-120) || "invite" + kind.ext;
+  const name = uploadedName(upload, "invite" + kind.ext);
   return { fields, invite: { ext: kind.ext, type: kind.type, name, bytes } };
 }
-const tooBig = () =>
-  "Your invite file is larger than " + Math.round((ID_CARD_MAX / 1048576) * 10) / 10 + " MB. Please upload a smaller screenshot.";
+const tooBig = () => "Your invite file is larger than " + mb(ID_CARD_MAX) + " MB. Please upload a smaller screenshot.";
 export const inviteRef = (id: string, u: InviteUpload): IdCard => ({
   file: id + "-invite" + u.ext,
   name: u.name,
@@ -70,7 +51,7 @@ export const inviteRef = (id: string, u: InviteUpload): IdCard => ({
 // Reads a booking's invite and saves what it found. The candidate's own phone comes from their onboarding form.
 export async function readInvite(b: Booking) {
   if (!b.invite) return;
-  const bytes = await readInviteFile(b.invite.file);
+  const bytes = await invites.read(b.invite.file);
   const text = bytes ? await inviteText(bytes, b.invite.type) : "";
   const email = normEmail(b.email);
   const phone = [...onboardingStore.data.forms].reverse().find((f) => normEmail(f.email) === email)?.phone;
@@ -90,7 +71,7 @@ export async function readInvite(b: Booking) {
 // A booking's invite: opens in the browser, or with download saves as "<candidate> interview invite.jpg".
 export async function inviteFile(id: string, download: boolean): Promise<Response> {
   const b = bookingsStore.data.bookings.find((x) => x.id === id);
-  const bytes = b?.invite ? await readInviteFile(b.invite.file) : null;
+  const bytes = b?.invite ? await invites.read(b.invite.file) : null;
   if (!b?.invite || !bytes) return json({ error: "That file isn't there any more." }, 404);
   return storedFile(bytes, b.invite, download, b.name, "Candidate", "interview invite");
 }
@@ -107,7 +88,7 @@ export async function dropInvites(email: string) {
     mine.forEach((b, i) => (b.invite = refs[i]));
     return 0;
   }
-  for (const r of refs) await removeInvite(r.file).catch(() => {});
+  for (const r of refs) await invites.remove(r.file).catch(() => {});
   broadcastState();
   return refs.length;
 }

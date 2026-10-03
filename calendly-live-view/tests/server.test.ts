@@ -1318,6 +1318,11 @@ describe("backups", () => {
     // ID cards from onboarding forms are restored into their own folder
     expect((await post("/admin/api/restore-file?path=id-cards/" + ENQ.id + "-pan.pdf", bytes, "application/octet-stream")).status).toBe(200);
     expect(readFileSync(join(srv.dir, "id-cards", ENQ.id + "-pan.pdf")).equals(Buffer.from(RESUME))).toBe(true);
+    // a file that isn't what its name says (or a kind its form doesn't take) is refused
+    expect((await post("/admin/api/restore-file?path=id-cards/" + ENQ.id + "-pan.jpg", bytes, "application/octet-stream")).status).toBe(400);
+    expect((await post("/admin/api/restore-file?path=resumes/x.png", Buffer.from([0x89, 0x50, 0x4e, 0x47]), "application/octet-stream")).status).toBe(
+      400,
+    );
     // the owner is still signed in, and the server serves the restored data
     expect((await (await get(srv, "/admin/api/bookings", { cookie })).json()).bookings.length).toBe(61);
     expect((await get(srv, "/admin/api/enquiries/" + ENQ.id + "/resume", { cookie })).status).toBe(200);
