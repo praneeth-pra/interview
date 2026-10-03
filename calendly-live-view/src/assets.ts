@@ -52,7 +52,9 @@ export function respond(req: Request, body: Encoded, headers: Record<string, str
     data = body.gz;
     h["Content-Encoding"] = "gzip";
   }
-  return new Response(req.method === "HEAD" ? null : (data as Uint8Array<ArrayBuffer>), { status, headers: h });
+  // link-preview fetchers (WhatsApp...) may ask with HEAD first and skip a picture whose size reads as 0
+  if (req.method === "HEAD") return new Response(null, { status, headers: { ...h, "Content-Length": String(data.length) } });
+  return new Response(data as Uint8Array<ArrayBuffer>, { status, headers: h });
 }
 
 const fingerprint = (name: string, data: Buffer) => {

@@ -15,7 +15,8 @@ import { DATE_KEY, EMAIL_RE, UUID, normEmail } from "../util";
 
 export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Response | null> {
   const path = url.pathname;
-  const method = req.method;
+  // HEAD is answered like GET (respond() drops the body): link-preview fetchers check pages and pictures with it
+  const method = req.method === "HEAD" ? "GET" : req.method;
 
   if (path === "/healthz") return new Response("ok", { headers: BASE_HEADERS });
   if (path === "/sw.js")
@@ -49,7 +50,7 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
       }),
       { headers: { ...BASE_HEADERS, "Content-Type": "application/manifest+json", "Cache-Control": "no-cache" } },
     );
-  if (path.startsWith("/splash/") && (method === "GET" || method === "HEAD")) {
+  if (path.startsWith("/splash/") && method === "GET") {
     const body = splash(path.slice(8));
     return body
       ? respond(req, body, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" })
@@ -60,7 +61,7 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
     return respond(req, FAVICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
   if (path === "/icon.png" || path === "/apple-touch-icon.png" || path === "/apple-touch-icon-precomposed.png")
     return respond(req, ICON, { ...BASE_HEADERS, "Cache-Control": "public, max-age=86400" });
-  if (path.startsWith("/assets/") && (method === "GET" || method === "HEAD")) {
+  if (path.startsWith("/assets/") && method === "GET") {
     const a = asset(path);
     if (!a) return new Response("Not found", { status: 404, headers: BASE_HEADERS });
     return respond(req, a.body, { ...BASE_HEADERS, "Cache-Control": a.current ? "public, max-age=31536000, immutable" : "no-cache" });
