@@ -7,7 +7,7 @@ type ReceiptCheck = { status: "verified" } | { status: "mismatch"; read: number[
 
 const READ_TIMEOUT_MS = 20000;
 
-export async function run(cmd: string[], input: Uint8Array): Promise<string> {
+async function run(cmd: string[], input: Uint8Array): Promise<string> {
   try {
     const proc = Bun.spawn(cmd, { stdin: input, stdout: "pipe", stderr: "ignore" });
     const timer = setTimeout(() => proc.kill(), READ_TIMEOUT_MS);
@@ -21,7 +21,7 @@ export async function run(cmd: string[], input: Uint8Array): Promise<string> {
 // psm 11 (scattered text) reads app screenshots best; psm 6 (one block) reads tilted photos and tables that 11 gets
 // wrong, so it is the second pass when the first doesn't find the typed amount.
 const OCR_PASSES = ["11", "6"];
-async function receiptText(bytes: Uint8Array, type: string, pass = 0): Promise<string> {
+export async function receiptText(bytes: Uint8Array, type: string, pass = 0): Promise<string> {
   if (type === "application/pdf") return pass ? "" : run(["pdftotext", "-l", "3", "-layout", "-", "-"], bytes);
   // HEIC photos can't be read by tesseract; they are left for an admin
   if (type === "image/heic" || pass >= OCR_PASSES.length) return "";

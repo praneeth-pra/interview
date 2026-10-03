@@ -1,15 +1,10 @@
 // Reading an interview invite: its text (pdftotext for PDFs, tesseract OCR for pictures, on this server like receipts)
 // and the HR emails and phone numbers in it.
-import { run } from "./receipt-check";
+import { receiptText } from "./receipt-check";
 
-// The invite's text: a PDF's own text, or both OCR passes of a picture (one reads app screenshots best, the other
-// blocks of text). HEIC photos can't be read.
+// The invite's text: a PDF's own text, or both of the receipt reader's OCR passes over a picture.
 export async function inviteText(bytes: Uint8Array, type: string) {
-  if (type === "application/pdf") return run(["pdftotext", "-l", "3", "-layout", "-", "-"], bytes);
-  if (type === "image/heic") return "";
-  let text = "";
-  for (const psm of ["6", "11"]) text += "\n" + (await run(["tesseract", "stdin", "stdout", "-l", "eng", "--psm", psm], bytes));
-  return text;
+  return (await receiptText(bytes, type, 0)) + "\n" + (await receiptText(bytes, type, 1));
 }
 // Addresses that send mail but aren't a person: no-reply senders, calendar and meeting services, and this site.
 const NOT_HR =

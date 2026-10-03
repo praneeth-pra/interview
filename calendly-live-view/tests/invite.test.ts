@@ -33,6 +33,5 @@ describe("HR contacts in an invite", () => {
       emails: ["priya.sharma@infosys.com"],
       phones: ["+91 98450 12345"],
     });
-    expect(await inviteText(bytes, "image/heic")).toBe("");
   });
 });

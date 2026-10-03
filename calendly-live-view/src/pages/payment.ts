@@ -2,6 +2,7 @@
 // as one multipart request to /api/payment, which also checks that the amount is the one on the receipt. The receipt's
 // size limit comes from the server (the boot block) and is only mentioned when a file is too big. The same rules are
 // checked again on the server.
+import { sizeText } from "./shared/upload";
 const MAX_BYTES = JSON.parse(document.getElementById("boot")!.textContent).max;
 const MAX_TEXT = Math.round((MAX_BYTES / 1048576) * 10) / 10 + " MB";
 const form = document.getElementById("f") as HTMLFormElement;
@@ -30,9 +31,6 @@ function fileProblem(file: File | undefined) {
   } else {
     return "";
   }
-}
-function sizeText(bytes: number) {
-  return bytes < 1048576 ? Math.max(1, Math.round(bytes / 1024)) + " KB" : Math.round((bytes / 1048576) * 10) / 10 + " MB";
 }
 function showFile() {
   const file = fileInput.files![0];

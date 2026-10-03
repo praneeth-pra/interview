@@ -56,12 +56,36 @@ export function deviceName(req: Request) {
           : "";
   return app ? os + " · " + app : os;
 }
-// Sign-in codes live in memory for 10 minutes; five wrong tries end a code. Asking is limited per email (one code
-// every 30 seconds, five an hour) and per network address, the same whether or not the email is an admin.
+// Emailed codes (signing in, deleting an onboarding form) live in memory for 10 minutes; five wrong tries end a code.
+// Asking for a sign-in code is limited per email (one code every 30 seconds, five an hour) and per network address,
+// the same whether or not the email is an admin.
 export const CODE_MINUTES = 10;
 const pendingCodes = new Map<string, { hash: string; exp: number; tries: number }>();
 const codeAsks = new Map<string, number[]>();
-const codeHash = (email: string, code: string) => sha256(email + ":" + code);
+const codeHash = (key: string, code: string) => sha256(key + ":" + code);
+// A new 6-digit code for key (an email, or what it unlocks), replacing any earlier one.
+export function newCode(key: string) {
+  const code = String(randomInt(0, 1000000)).padStart(6, "0");
+  pendingCodes.set(key, { hash: codeHash(key, code), exp: Date.now() + CODE_MINUTES * 60000, tries: 0 });
+  return code;
+}
+export function checkCode(key: string, code: string): "ok" | "wrong" | "expired" | "tries" {
+  const p = pendingCodes.get(key);
+  if (!p || p.exp < Date.now()) {
+    pendingCodes.delete(key);
+    return "expired";
+  }
+  if (p.tries >= 5) {
+    pendingCodes.delete(key);
+    return "tries";
+  }
+  if (!safeEq(codeHash(key, code), p.hash)) {
+    p.tries++;
+    return "wrong";
+  }
+  pendingCodes.delete(key);
+  return "ok";
+}
 export async function sendSignInCode(email: string): Promise<"ok" | "wait" | "limit" | "failed"> {
   const now = Date.now();
   const asks = (codeAsks.get(email) ?? []).filter((t) => t > now - 3600000);
@@ -70,8 +94,7 @@ export async function sendSignInCode(email: string): Promise<"ok" | "wait" | "li
   asks.push(now);
   codeAsks.set(email, asks);
   if (!isAdmin(email)) return "ok";
-  const code = String(randomInt(0, 1000000)).padStart(6, "0");
-  pendingCodes.set(email, { hash: codeHash(email, code), exp: now + CODE_MINUTES * 60000, tries: 0 });
+  const code = newCode(email);
   if (!RESEND_API_KEY) {
     console.log("sign-in code for " + email + ": " + code + " (email is off, so it is only shown here)");
     return "ok";
@@ -85,23 +108,7 @@ export async function sendSignInCode(email: string): Promise<"ok" | "wait" | "li
   // the subject shows the code in the phone's notification; sendEmail logs only the part before the colon
   return (await sendEmail({ to: [email], subject: "Sign-in code: " + code, ...body })) ? "ok" : "failed";
 }
-export function checkSignInCode(email: string, code: string): "ok" | "wrong" | "expired" | "tries" {
-  const p = pendingCodes.get(email);
-  if (!p || p.exp < Date.now()) {
-    pendingCodes.delete(email);
-    return "expired";
-  }
-  if (p.tries >= 5) {
-    pendingCodes.delete(email);
-    return "tries";
-  }
-  if (!safeEq(codeHash(email, code), p.hash)) {
-    p.tries++;
-    return "wrong";
-  }
-  pendingCodes.delete(email);
-  return "ok";
-}
+export const checkSignInCode = checkCode;
 export const adminsView = (me: string) => ({ owners: [...OWNER_EMAILS].sort(), emails: [...adminsStore.data.emails].sort(), me });
 // POST /admin/api/admins from an owner: the full list of added admins. Owners (ADMIN_EMAILS) stay whatever the list says;
 // anyone taken off it is signed out on every device.
