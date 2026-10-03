@@ -8,6 +8,8 @@ import { state } from "./state";
 import { icon, openPanel, panel } from "./panel";
 import type { IdCard, OnboardingForm } from "./types";
 
+// what the candidate said about their experience, after the years
+const GENUINE = { yes: " · Genuine", no: " · Not genuine", "": "" };
 const kb = (card: IdCard) => Math.max(1, Math.round(card.size / 1024)) + " KB";
 
 export function showOnboarding() {
@@ -69,10 +71,12 @@ export function showOnboarding() {
             el("b", { text: titleCase(item.name) }),
             el("small", { text: formatIst({ month: "short", day: "numeric" }, when) + ", " + formatTime(when) }),
           ]),
-          el("p", { class: "enqt", text: item.tech + " · " + item.experience }),
+          el("p", { class: "enqt", text: item.tech + " · " + item.experience + GENUINE[item.genuine] }),
           el("p", { class: "enqc" }, [
             el("a", { href: "mailto:" + item.email, text: item.email }),
             el("a", { href: "tel:" + item.phone.replace(/[^\d+]/g, ""), text: item.phone }),
+            // the server only keeps https addresses on linkedin.com
+            item.linkedin ? el("a", { href: item.linkedin, target: "_blank", rel: "noopener", text: "LinkedIn" }) : null,
           ]),
           el("div", { class: "onba" }, [
             cardLinks(item, "aadhaar", "Aadhaar"),

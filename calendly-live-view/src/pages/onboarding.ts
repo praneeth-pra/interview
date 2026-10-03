@@ -1,4 +1,4 @@
-// The public onboarding form (/onboarding): name, email, phone, technology, experience and the candidate's Aadhaar and
+// The public onboarding form (/onboarding): name, email, phone, technology, experience, whether that experience is genuine, a LinkedIn profile and the candidate's Aadhaar and
 // PAN cards (each a photo or a PDF), sent as one multipart request to /api/onboarding. Phone photos are often several MB,
 // so a photo bigger than the server's limit (the boot block) is shrunk to a JPEG first; a PDF can't be, and is only
 // refused when too big. The same rules are checked again on the server.
@@ -13,6 +13,8 @@ const fields = {
   phone: document.getElementById("ph") as HTMLInputElement,
   tech: document.getElementById("tc") as HTMLInputElement,
   experience: document.getElementById("yx") as HTMLSelectElement,
+  genuine: document.getElementById("gn") as HTMLSelectElement,
+  linkedin: document.getElementById("li") as HTMLInputElement,
 };
 // each card: its form field, the input's id and its name in messages
 const CARDS = [
@@ -75,6 +77,12 @@ function check() {
   need(fields.phone, digits.length >= 10 && digits.length <= 15, "Enter a valid phone number.");
   need(fields.tech, fields.tech.value.trim().length >= 2, "Tell us your technology.");
   need(fields.experience, !!fields.experience.value, "Choose your years of experience.");
+  need(fields.genuine, !!fields.genuine.value, "Tell us whether your experience is genuine.");
+  need(
+    fields.linkedin,
+    /^(https?:\/\/)?([a-z]{2,3}\.)?linkedin\.com\/\S+$/i.test(fields.linkedin.value.trim()),
+    "Enter your LinkedIn profile link, like linkedin.com/in/your-name.",
+  );
   CARDS.forEach(function (card) {
     const text = fileProblem(inputOf(card.id).files![0], card.label);
     document.getElementById(card.id + "box")!.classList.toggle("bad", !!text);

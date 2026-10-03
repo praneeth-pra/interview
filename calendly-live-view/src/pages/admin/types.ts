@@ -84,6 +84,8 @@ export type OnboardingForm = {
   phone: string;
   tech: string;
   experience: string;
+  genuine: "yes" | "no" | ""; // whether they say their experience is genuine
+  linkedin: string; // "" on forms from before it was asked
   createdAt: string;
   aadhaar: IdCard;
   pan: IdCard;

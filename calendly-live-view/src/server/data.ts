@@ -155,6 +155,8 @@ export type Onboarding = {
   phone: string;
   tech: string;
   experience: string;
+  genuine?: "yes" | "no"; // whether the candidate says their experience is genuine (missing on the first forms)
+  linkedin?: string; // a https://linkedin.com/... address (missing on the first forms)
   createdAt: string;
   aadhaar: IdCard;
   pan: IdCard;

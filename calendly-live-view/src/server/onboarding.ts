@@ -39,6 +39,17 @@ async function removeIdCard(file: string) {
   if (!DATA_DIR) return void cardsInMemory.delete(file);
   await rm(DATA_DIR + "/id-cards/" + file, { force: true });
 }
+// The LinkedIn profile as a full https address on linkedin.com, or "" when what was typed isn't one.
+export function linkedinUrl(typed: string): string {
+  let url: URL;
+  try {
+    url = new URL(/^https?:\/\//i.test(typed) ? typed : "https://" + typed);
+  } catch {
+    return "";
+  }
+  if (!/^([a-z]{2,3}\.)?linkedin\.com$/i.test(url.hostname) || url.pathname.length < 2) return "";
+  return "https://" + url.hostname.toLowerCase() + url.pathname + url.search;
+}
 // POST /api/onboarding, a multipart form from the /onboarding page. Five an hour per network address and 100 a day in
 // all; a hidden "website" field that only bots fill in gets a thank-you and is dropped.
 export async function receiveOnboarding(req: Request, srv: Srv): Promise<Response> {
@@ -67,12 +78,16 @@ export async function receiveOnboarding(req: Request, srv: Srv): Promise<Respons
   const phone = text("phone", 20);
   const tech = text("tech", 100);
   const experience = text("experience", 40);
+  const genuine = text("genuine", 3);
+  const linkedin = linkedinUrl(text("linkedin", 200));
   if (name.length < 2) return json({ error: "Enter your full name.", field: "name" }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address.", field: "email" }, 400);
   const digits = phone.replace(/\D/g, "").length;
   if (digits < 10 || digits > 15 || /[^\d\s+()-]/.test(phone)) return json({ error: "Enter a valid phone number.", field: "phone" }, 400);
   if (tech.length < 2) return json({ error: "Tell us your technology.", field: "tech" }, 400);
   if (!experience) return json({ error: "Choose your years of experience.", field: "experience" }, 400);
+  if (genuine !== "yes" && genuine !== "no") return json({ error: "Tell us whether your experience is genuine.", field: "genuine" }, 400);
+  if (!linkedin) return json({ error: "Enter your LinkedIn profile link, like linkedin.com/in/your-name.", field: "linkedin" }, 400);
   const id = crypto.randomUUID();
   const files: Partial<Record<Card, { ref: IdCard; bytes: Uint8Array }>> = {};
   for (const card of Object.keys(CARDS) as Card[]) {
@@ -96,6 +111,8 @@ export async function receiveOnboarding(req: Request, srv: Srv): Promise<Respons
     phone,
     tech,
     experience,
+    genuine: genuine as "yes" | "no",
+    linkedin,
     createdAt: new Date().toISOString(),
     aadhaar: files.aadhaar!.ref,
     pan: files.pan!.ref,
@@ -136,6 +153,8 @@ export const onboardingList = () => ({
       phone: v.phone,
       tech: v.tech,
       experience: v.experience,
+      genuine: v.genuine ?? "",
+      linkedin: v.linkedin ?? "",
       createdAt: v.createdAt,
       aadhaar: cardView(v.aadhaar),
       pan: cardView(v.pan),

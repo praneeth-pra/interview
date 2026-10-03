@@ -291,6 +291,8 @@ const checks = [
     await p.fill("#ph", "98765 43210");
     await p.fill("#tc", "Python");
     await p.selectOption("#yx", "2 years");
+    await p.selectOption("#gn", "yes");
+    await p.fill("#li", "linkedin.com/in/lakshmi-devi");
     // a camera-sized photo, far over the limit: random pixels, so it can't compress much
     await p.evaluate(async () => {
       const canvas = document.createElement("canvas");
@@ -319,6 +321,8 @@ const checks = [
     await p.goto(BASE + "/admin?view=onboarding");
     await p.locator("#ptitle", { hasText: "Onboarding" }).waitFor();
     const card = p.locator("#pbody .enq", { hasText: "Lakshmi Devi" });
+    if ((await card.locator("a", { hasText: "LinkedIn" }).getAttribute("href")) !== "https://linkedin.com/in/lakshmi-devi") throw new Error("no LinkedIn link");
+    if (!(await card.locator(".enqt").textContent()).endsWith("· Genuine")) throw new Error("genuine answer not shown");
     const [saved] = await Promise.all([p.waitForEvent("download"), card.locator(".bk-act.dl").last().click()]);
     if (saved.suggestedFilename() !== "Lakshmi Devi PAN card.pdf") throw new Error("PAN saved as " + saved.suggestedFilename());
     p.once("dialog", (d) => d.accept());

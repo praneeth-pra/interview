@@ -79,7 +79,7 @@ writeFileSync(
   join(dir, "onboarding.json"),
   JSON.stringify({
     forms: [
-      { id: "o0000000-0000-0000-0000-000000000001", name: "Lakshmi Devi", email: "lakshmi@example.com", phone: "9876543210", tech: "Python", experience: "2 years", createdAt: new Date().toISOString(), aadhaar: card("o1-aadhaar.jpg", "aadhaar.jpg", "image/jpeg"), pan: card("o1-pan.pdf", "pan.pdf", "application/pdf") },
+      { id: "o0000000-0000-0000-0000-000000000001", name: "Lakshmi Devi", email: "lakshmi@example.com", phone: "9876543210", tech: "Python", experience: "2 years", genuine: "yes", linkedin: "https://linkedin.com/in/lakshmi-devi", createdAt: new Date().toISOString(), aadhaar: card("o1-aadhaar.jpg", "aadhaar.jpg", "image/jpeg"), pan: card("o1-pan.pdf", "pan.pdf", "application/pdf") },
     ],
   }),
 );

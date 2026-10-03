@@ -375,7 +375,7 @@ describe("onboarding", () => {
     for (const [k, c] of Object.entries(cards)) f.set(k, new File([c.bytes], c.name));
     return f;
   };
-  const good = { name: "Lakshmi Devi", email: "Lakshmi@Example.com", phone: "98765 43210", tech: "Python", experience: "2 years" };
+  const good = { name: "Lakshmi Devi", email: "Lakshmi@Example.com", phone: "98765 43210", tech: "Python", experience: "2 years", genuine: "yes", linkedin: "https://www.linkedin.com/in/lakshmi-devi" };
   const both = { aadhaar: { bytes: JPG, name: "aadhaar front.jpg" }, pan: { bytes: PDF, name: "pan.pdf" } };
   const send = (f: FormData, ip = "10.2.0.1") => fetch(open.url + "/api/onboarding", { method: "POST", body: f, headers: { "x-real-ip": ip } });
 
@@ -402,19 +402,30 @@ describe("onboarding", () => {
     expect(notImage.status).toBe(400);
     expect((await notImage.json()).error).toBe("Your Aadhaar card must be a photo or a PDF.");
     expect((await send(form({ ...good, phone: "12" }, both))).status).toBe(400);
+    // every field is required
+    expect(await (await send(form({ ...good, genuine: "" }, both))).json()).toEqual({ error: "Tell us whether your experience is genuine.", field: "genuine" });
+    expect((await (await send(form({ ...good, linkedin: "" }, both), "10.2.0.3")).json()).field).toBe("linkedin");
+    const badLink = await send(form({ ...good, linkedin: "facebook.com/lakshmi" }, both), "10.2.0.3");
+    expect(await badLink.json()).toEqual({ error: "Enter your LinkedIn profile link, like linkedin.com/in/your-name.", field: "linkedin" });
     const big = new Uint8Array(1536 * 1024 + 1);
     big.set(JPG);
-    const tooBig = await send(form(good, { ...both, pan: { bytes: big, name: "pan.jpg" } }));
+    const tooBig = await send(form(good, { ...both, pan: { bytes: big, name: "pan.jpg" } }), "10.2.0.3");
     expect(tooBig.status).toBe(413);
     expect((await tooBig.json()).error).toBe("Your PAN card file is larger than 1.5 MB. Please upload a smaller file.");
     expect((await send(form(good, both), "10.2.0.2")).status).toBe(200);
+    // a LinkedIn address typed without https:// is kept as a full address
+    expect((await send(form({ ...good, name: "Arjun Reddy", genuine: "no", linkedin: "www.LinkedIn.com/in/arjun-reddy" }, both), "10.2.0.2")).status).toBe(200);
     const { forms } = await (await get(open, "/admin/api/onboarding")).json();
-    expect(forms.length).toBe(1);
-    const v = forms[0];
+    expect(forms.length).toBe(2);
+    expect(forms[0]).toMatchObject({ name: "Arjun Reddy", genuine: "no", linkedin: "https://www.linkedin.com/in/arjun-reddy" });
+    expect((await postJson(open, "/admin/api/onboarding/delete", { id: forms[0].id })).status).toBe(200);
+    const v = forms[1];
+    expect(v).toMatchObject({ genuine: "yes", linkedin: "https://www.linkedin.com/in/lakshmi-devi" });
     expect(v).toMatchObject({ name: "Lakshmi Devi", email: "lakshmi@example.com", phone: "98765 43210", tech: "Python", experience: "2 years" });
     expect(v.aadhaar).toEqual({ name: "aadhaar front.jpg", type: "image/jpeg", size: JPG.length });
     expect(v.pan).toEqual({ name: "pan.pdf", type: "application/pdf", size: PDF.length });
     expect((await (await get(open, "/admin/api/state")).json()).onboarding).toBe(1);
+    expect(existsSync(join(open.dir, "id-cards", forms[0].id + "-pan.pdf"))).toBe(false);
     const aadhaar = await get(open, "/admin/api/onboarding/" + v.id + "/aadhaar");
     expect(aadhaar.headers.get("content-type")).toBe("image/jpeg");
     expect(aadhaar.headers.get("content-disposition")).toStartWith("inline;");
