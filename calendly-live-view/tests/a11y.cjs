@@ -24,8 +24,11 @@ const at = (days, hour) => {
 const bookings = [
   ["Priya Sharma", "priya@example.com", "Google", "1st round", 0, 11],
   ["Rahul Verma", "rahul@example.com", "Microsoft", "HR", 1, 14],
-  ["Ananya Iyer", "ananya@example.com", "Amazon", "Final", -1, 10],
-].map(([name, email, company, round, days, hour], i) => {
+  ["Ananya Iyer", "ananya@example.com", "Amazon", "Final", -1, 10, "hold"],
+  // earlier rounds with results, for the colours on the owner's interview sheet
+  ["Ananya Iyer", "ananya@example.com", "Amazon", "1st round", -6, 12, "cleared"],
+  ["Rahul Verma", "rahul@example.com", "Microsoft", "1st round", -4, 15, "rejected"],
+].map(([name, email, company, round, days, hour, outcome], i) => {
   const start = at(days, hour);
   return {
     id: "00000000-0000-0000-0000-00000000000" + (i + 1),
@@ -39,6 +42,7 @@ const bookings = [
     createdAt: new Date(+start - 2 * day).toISOString(),
     cancelled: false,
     cancelledAt: "",
+    ...(outcome ? { outcome } : {}),
   };
 });
 writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings }));
@@ -113,6 +117,7 @@ const screens = [
   ["enquiry", BASE + "/enquiry", null],
   ["payment", BASE + "/payment", null],
   ["onboarding", BASE + "/onboarding", null],
+  ["interview sheet", BASE + "/admin/praneeth", async (p) => p.locator("#tw table").waitFor()],
   ["sign-in", LOCKED + "/admin", null],
   ["admin: calendar", BASE + "/admin", async (p) => p.locator("#status.live").waitFor({ state: "attached" })],
   ["admin: agenda", BASE + "/admin?view=agenda", async (p) => p.locator("#agenda .ag-grid").waitFor()],

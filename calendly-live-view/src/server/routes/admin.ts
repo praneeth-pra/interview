@@ -11,7 +11,8 @@ import { deleteEnquiry, enquiriesList, enquiriesSeen, resumeFile } from "../enqu
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
 import { assignInterviewers, renameInterviewers } from "../interviewers";
 import { adminState, openStream, pub } from "../live";
-import { ANALYTICS, LOGIN, adminShell } from "../pages";
+import { ANALYTICS, LOGIN, adminShell, sheetPage } from "../pages";
+import { MY_SUPPORTER, mySheet } from "../my-interviews";
 import { deleteOnboarding, idCardFile, onboardingList } from "../onboarding";
 import { decidePayment, paymentsList, receiptFile } from "../payments";
 import { changePush, pushView } from "../push";
@@ -49,6 +50,12 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   if ((path === "/admin" || path === "/admin/allowlist") && method === "GET") {
     if (!authed) return sendShell(req, LOGIN);
     return sendShell(req, adminShell(path === "/admin" || !owner ? "cal" : "allow", owner));
+  }
+  // the owner's interview sheet (hi-techie.dev/praneeth sends people here, where the sign-in cookie is sent)
+  if (path === "/admin/praneeth" && method === "GET") {
+    if (!authed) return sendShell(req, LOGIN);
+    if (!owner) return new Response("Only the owner can open this page.", { status: 403, headers: BASE_HEADERS });
+    return sheetPage(req, MY_SUPPORTER, mySheet());
   }
   if (path === "/admin/analytics" && method === "GET")
     return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });

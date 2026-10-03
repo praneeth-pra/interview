@@ -175,6 +175,17 @@ export const HOME = {
 };
 export const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
 export const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
+// The owner's interview sheet carries candidates' names, so it is built per request and never cached.
+const SHEET_TPL = template("sheet");
+export const sheetPage = (req: Request, who: string, data: unknown) =>
+  sendShell(
+    req,
+    {
+      body: encode(fill(SHEET_TPL, { HOST: HOST_HTML, WHO: Bun.escapeHTML(who), BOOT: safeJson(data) }), "text/html; charset=utf-8", true),
+      csp: CSP.page,
+    },
+    "no-store",
+  );
 // A manage link carries the candidate's booking, so that page is built per request and never cached.
 export const bookPage = (req: Request, manage: unknown) =>
   sendShell(req, { body: encode(bookHtml(manage, ""), "text/html; charset=utf-8", true), csp: CSP.page }, "no-store");

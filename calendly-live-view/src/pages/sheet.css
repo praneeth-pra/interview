@@ -1,0 +1,169 @@
+/* The owner's interview sheet: the enquiry page's card, wider, with a spreadsheet-like table. Each round's cell is
+   tinted by its result: green Cleared, orange On hold, pale red Rejected. */
+:root {
+  --cleared: #cfe8c4;
+  --hold: #f8dcae;
+  --rejected: #f7d6d2;
+  --grid: rgba(24, 21, 17, 0.12);
+  --sub: rgba(24, 21, 17, 0.72);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --cleared: #24402a;
+    --hold: #4a3618;
+    --rejected: #4a2724;
+    --grid: #38332b;
+    --sub: #c9c4bb;
+  }
+}
+.eq.sh {
+  max-width: 1120px;
+  padding: 28px 28px 30px;
+}
+.sh .lead {
+  margin-bottom: 14px;
+}
+.key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  margin: 0 0 20px;
+  padding: 0;
+  list-style: none;
+  font-size: 14px;
+}
+.key li {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.key li::before {
+  content: "";
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--grid);
+  border-radius: 4px;
+  background: var(--card);
+}
+.key .r-cleared::before {
+  background: var(--cleared);
+}
+.key .r-hold::before {
+  background: var(--hold);
+}
+.key .r-rejected::before {
+  background: var(--rejected);
+}
+/* the table scrolls sideways on phones, with the candidate's name kept in view */
+.tw {
+  overflow-x: auto;
+  border: 1px solid var(--grid);
+  border-radius: 8px;
+  -webkit-overflow-scrolling: touch;
+}
+.tw:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.tw table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 14.5px;
+  line-height: 1.35;
+}
+.tw th,
+.tw td {
+  padding: 8px 12px;
+  border-right: 1px solid var(--grid);
+  border-bottom: 1px solid var(--grid);
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.tw tr > :last-child {
+  border-right: 0;
+}
+.tw tbody tr:last-child > * {
+  border-bottom: 0;
+}
+.tw thead th {
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  font-size: 13px;
+  font-weight: 800;
+  font-style: italic;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+.tw tbody th {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--card);
+  font-weight: 600;
+}
+.tw thead th:first-child {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+.rd {
+  position: relative; /* holds the hidden result text, so it can't widen the page */
+  min-width: 150px;
+}
+.rd .w,
+.rd .s {
+  display: block;
+}
+.rd .s {
+  margin-top: 1px;
+  color: var(--sub);
+  font-size: 12.5px;
+}
+.rd.r-cleared {
+  background: var(--cleared);
+}
+.rd.r-hold {
+  background: var(--hold);
+}
+.rd.r-rejected {
+  background: var(--rejected);
+}
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+@media (max-width: 600px) {
+  body {
+    padding: 20px 12px 28px;
+  }
+  .eq.sh {
+    padding: 20px 14px 22px;
+  }
+  .sh h1 {
+    font-size: 34px;
+  }
+  .tw table {
+    font-size: 14px;
+  }
+  .tw th,
+  .tw td {
+    padding: 7px 10px;
+  }
+  .rd {
+    min-width: 132px;
+  }
+  /* names and companies wrap, so the rounds come into view sooner */
+  .tw tbody th,
+  .tw tbody td:nth-child(2) {
+    min-width: 96px;
+    max-width: 120px;
+    white-space: normal;
+  }
+}
