@@ -8,7 +8,8 @@ import { deflateSync } from "node:zlib";
 
 export const ICON = encode(readFileSync(join(import.meta.dir, "../../public/icon.png")), "image/png");
 // The browser-tab icon: the same drawing in orange with no tile, which reads on light and dark tab bars.
-// The picture shown when a page's link is shared (WhatsApp, LinkedIn, X...): 1200x630, the landing's headline.
+// The picture shown when a page's link is shared (WhatsApp, LinkedIn, X...): 1200x630, the top of the landing page.
+// Chat apps cache it by address, so bump ?v= in og() when the picture changes.
 export const OG_IMAGE = encode(readFileSync(join(import.meta.dir, "../../public/og.jpg")), "image/jpeg");
 export const FAVICON = encode(readFileSync(join(import.meta.dir, "../../public/favicon.png")), "image/png");
 // The service worker shows booking alerts, and makes the home-screen app open instantly and offline: admin pages are
@@ -19,7 +20,7 @@ export const SW_JS = readFileSync(join(import.meta.dir, "sw.js"), "utf8");
 const safeJson = (x: unknown) => JSON.stringify(x).replace(/</g, "\\u003c");
 const fill = (html: string, vals: Record<string, string>) => html.replace(/__([A-Z]+)__/g, (m, k) => (k in vals ? vals[k] : m));
 const HOST_HTML = Bun.escapeHTML(HOST_NAME);
-// Link previews (Open Graph) for the pages people share: the landing, booking and enquiry pages. Previews need full
+// Link previews (Open Graph) for the pages people share: landing, booking, enquiry, payment and onboarding. Previews need full
 // addresses, so they use PUBLIC_URL (without www), or hi-techie.dev when it isn't set.
 const SITE = (PUBLIC_URL || "https://hi-techie.dev").replace("://www.", "://");
 const og = (title: string, text: string, path: string) =>
@@ -29,7 +30,9 @@ const og = (title: string, text: string, path: string) =>
     ["og:title", title],
     ["og:description", text],
     ["og:url", SITE + path],
-    ["og:image", SITE + "/og.jpg"],
+    ["og:image", SITE + "/og.jpg?v=2"],
+    ["og:image:type", "image/jpeg"],
+    ["og:image:alt", HOST_NAME + " home page"],
     ["og:image:width", "1200"],
     ["og:image:height", "630"],
   ]
@@ -147,9 +150,23 @@ export const ENQUIRY = shell(
   }),
   CSP.page,
 );
-export const PAYMENT = shell(fill(template("payment"), { HOST: HOST_HTML, BOOT: safeJson({ max: RECEIPT_MAX }) }), CSP.page);
+export const PAYMENT = shell(
+  fill(template("payment"), {
+    HOST: HOST_HTML,
+    OG: og("Payment · " + HOST_NAME, "Send your payment receipt to " + HOST_NAME + ".", "/payment"),
+    BOOT: safeJson({ max: RECEIPT_MAX }),
+  }),
+  CSP.page,
+);
 // shared by link only, like the payment page
-export const ONBOARDING = shell(fill(template("onboarding"), { HOST: HOST_HTML, BOOT: safeJson({ max: ID_CARD_MAX }) }), CSP.page);
+export const ONBOARDING = shell(
+  fill(template("onboarding"), {
+    HOST: HOST_HTML,
+    OG: og("Onboarding · " + HOST_NAME, "Share your details to get started with " + HOST_NAME + ".", "/onboarding"),
+    BOOT: safeJson({ max: ID_CARD_MAX }),
+  }),
+  CSP.page,
+);
 // the landing page is the one page search engines may list
 const HOME_TEXT = "A rewritten resume, interview support and help all the way to your offer letter.";
 export const HOME = {

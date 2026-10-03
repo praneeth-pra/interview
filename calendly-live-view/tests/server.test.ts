@@ -1064,20 +1064,29 @@ test("the tab icon is served from public/favicon.png at /favicon.png and /favico
   }
 });
 
-test("shared links of the landing, booking and enquiry pages get a preview with the picture at /og.jpg", async () => {
+test("shared links of every public page get a preview with the picture at /og.jpg, also when asked with HEAD", async () => {
   for (const [path, title] of [
     ["/", "Hi&lt;Techie&gt; · Job assistance"],
     ["/booking", "Book an interview slot"],
     ["/enquiry", "Interview support"],
+    ["/payment", "Payment · "],
+    ["/onboarding", "Onboarding · "],
   ]) {
     const html = await (await get(open, path)).text();
-    expect(html).toContain('<meta property="og:image" content="https://hi-techie.dev/og.jpg">');
+    expect(html).toContain('<meta property="og:image" content="https://hi-techie.dev/og.jpg?v=2">');
     expect(html).toContain(title);
     expect(html).not.toContain("__OG__");
+    const head = await fetch(open.url + path, { method: "HEAD" });
+    expect(head.status).toBe(200);
+    expect(await head.text()).toBe("");
   }
-  const r = await get(open, "/og.jpg");
+  const file = readFileSync(join(ROOT, "public/og.jpg"));
+  const r = await get(open, "/og.jpg?v=2");
   expect(r.headers.get("content-type")).toBe("image/jpeg");
-  expect(Buffer.from(await r.arrayBuffer()).equals(readFileSync(join(ROOT, "public/og.jpg")))).toBe(true);
+  expect(Buffer.from(await r.arrayBuffer()).equals(file)).toBe(true);
+  const head = await fetch(open.url + "/og.jpg", { method: "HEAD" });
+  expect(head.status).toBe(200);
+  expect(head.headers.get("content-length")).toBe(String(file.length));
 });
 
 describe("backups", () => {
