@@ -24,3 +24,26 @@
   width: 18px;
   height: 18px;
 }
+/* the emailed code to delete a form, in a row under it */
+.onbcode {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+}
+.onbcode .sub {
+  margin: 0 0 8px;
+}
+.onbcr {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.onbcr input {
+  flex: 1 1 120px;
+  min-width: 0;
+  max-width: 180px;
+  font-variant-numeric: tabular-nums;
+}
+.onbcr input:not(:placeholder-shown) {
+  letter-spacing: 0.2em;
+}

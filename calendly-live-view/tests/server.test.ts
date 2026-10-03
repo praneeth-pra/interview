@@ -1574,3 +1574,56 @@ describe("data safety", () => {
     expect((await postJson(s, "/api/book", {}, { "x-real-ip": "10.7.0.2" })).status).toBe(400);
   });
 });
+
+describe("deleting an onboarding form", () => {
+  test("needs a code emailed to the owner, and takes the candidate's invite screenshots with it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-delete-"));
+    seed(dir);
+    const card = (id: string, kind: string) => ({ file: id + "-" + kind + ".jpg", name: kind + ".jpg", type: "image/jpeg", size: 3 });
+    const formId = "20000000-0000-0000-0000-000000000001";
+    writeFileSync(
+      join(dir, "onboarding.json"),
+      JSON.stringify({
+        forms: [{ id: formId, name: "Ravi Kumar", email: "ravi@example.com", phone: "98450 12345", tech: "Java", experience: "3 years", createdAt: new Date().toISOString(), aadhaar: card(formId, "aadhaar"), pan: card(formId, "pan") }],
+      }),
+    );
+    const bookingsFile = join(dir, "bookings.json");
+    const all = JSON.parse(readFileSync(bookingsFile, "utf8"));
+    const inviteOf = (id: string) => ({ file: id + "-invite.png", name: "invite.png", type: "image/png", size: PNG.length });
+    const mine = { ...booking, id: "30000000-0000-0000-0000-000000000001", email: "Ravi@Example.com", invite: inviteOf("30000000-0000-0000-0000-000000000001"), hrEmails: ["hr@acme.com"], inviteRead: true };
+    const other = { ...booking, id: "30000000-0000-0000-0000-000000000002", email: "someone@example.com", invite: inviteOf("30000000-0000-0000-0000-000000000002") };
+    all.bookings.push(mine, other);
+    writeFileSync(bookingsFile, JSON.stringify(all));
+    mkdirSync(join(dir, "invites"));
+    for (const b of [mine, other]) writeFileSync(join(dir, "invites", b.invite.file), PNG);
+    const s = await start(4351, lockedEnv, dir);
+    try {
+      const cookie = await signIn(s, OWNER);
+      const send = (path: string, body: unknown) => postJson(s, path, body, { cookie });
+      // no code, or a code nobody asked for, deletes nothing
+      expect((await send("/admin/api/onboarding/delete", { id: formId })).status).toBe(403);
+      const asked = await (await send("/admin/api/onboarding/delete-code", { id: formId })).json();
+      expect(asked).toEqual({ needed: true, to: "ow…@example.com" });
+      const mail = mails.filter((m) => m.to[0] === OWNER).at(-1);
+      expect(mail.subject).toMatch(/^Delete code: \d{6}$/);
+      const code = mail.subject.slice(-6);
+      const wrong = await send("/admin/api/onboarding/delete", { id: formId, code: code === "000000" ? "111111" : "000000" });
+      expect(wrong.status).toBe(403);
+      expect((await wrong.json()).error).toContain("isn't right");
+      expect(existsSync(join(dir, "invites", mine.invite.file))).toBe(true);
+      expect((await send("/admin/api/onboarding/delete", { id: formId, code })).status).toBe(200);
+      // the form and the candidate's invite are gone; the HR details read from it and other candidates' invites stay
+      expect(JSON.parse(readFileSync(join(dir, "onboarding.json"), "utf8")).forms).toEqual([]);
+      expect(existsSync(join(dir, "invites", mine.invite.file))).toBe(false);
+      expect(existsSync(join(dir, "invites", other.invite.file))).toBe(true);
+      const saved = JSON.parse(readFileSync(bookingsFile, "utf8")).bookings;
+      expect(saved.find((b: any) => b.id === mine.id)).toMatchObject({ hrEmails: ["hr@acme.com"] });
+      expect(saved.find((b: any) => b.id === mine.id).invite).toBeUndefined();
+      expect(saved.find((b: any) => b.id === other.id).invite).toEqual(other.invite);
+      // a used code doesn't work twice
+      expect((await send("/admin/api/onboarding/delete", { id: formId, code })).status).toBe(404);
+    } finally {
+      s.proc.kill();
+    }
+  });
+});

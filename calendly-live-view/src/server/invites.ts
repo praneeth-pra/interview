@@ -94,3 +94,20 @@ export async function inviteFile(id: string, download: boolean): Promise<Respons
   if (!b?.invite || !bytes) return json({ error: "That file isn't there any more." }, 404);
   return storedFile(bytes, b.invite, download, b.name, "Candidate", "interview invite");
 }
+// When a candidate's onboarding form is deleted, their interview invite screenshots go too, to free the space. The HR
+// emails and phone numbers read from them stay on the bookings.
+export async function dropInvites(email: string) {
+  const mine = bookingsStore.data.bookings.filter((b) => b.invite && normEmail(b.email) === normEmail(email));
+  if (!mine.length) return 0;
+  const refs = mine.map((b) => b.invite!);
+  for (const b of mine) delete b.invite;
+  try {
+    await saveStore(bookingsStore);
+  } catch {
+    mine.forEach((b, i) => (b.invite = refs[i]));
+    return 0;
+  }
+  for (const r of refs) await removeInvite(r.file).catch(() => {});
+  broadcastState();
+  return refs.length;
+}

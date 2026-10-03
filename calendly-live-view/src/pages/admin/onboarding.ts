@@ -86,24 +86,91 @@ export function showOnboarding() {
               class: "rm",
               text: "Delete",
               "aria-label": "Delete the onboarding form from " + item.name,
-              onclick: function () {
-                if (!confirm("Delete the onboarding form from " + item.name + ", with their ID cards? This can't be undone.")) {
-                  return;
-                }
-                request("/admin/api/onboarding/delete", { id: item.id })
-                  .then(function () {
-                    toast("Form deleted");
-                    load();
-                  })
-                  .catch(function (error) {
-                    setMessage(msg, error.message, true);
-                  });
+              onclick: function (event: Event) {
+                askToDelete(item, (event.currentTarget as HTMLElement).closest(".enq") as HTMLElement);
               },
             }),
           ]),
         ]),
       );
     });
+  }
+  // Deleting asks for a code emailed to the owner, typed in a row under the form; the form, its ID cards and the
+  // candidate's interview invite screenshots go once it is right.
+  function askToDelete(item: OnboardingForm, card: HTMLElement) {
+    if (
+      !confirm(
+        "Delete the onboarding form from " + item.name + ", with their ID cards and interview invite screenshots? This can't be undone.",
+      )
+    ) {
+      return;
+    }
+    setMessage(msg, "");
+    request<{ needed: boolean; to?: string }>("/admin/api/onboarding/delete-code", { id: item.id })
+      .then(function (result) {
+        if (!result.needed) {
+          remove("");
+          return;
+        }
+        const old = card.querySelector(".onbcode");
+        if (old) {
+          old.remove();
+        }
+        const note = el("p", { class: "sub", id: "onbc-" + item.id, text: "We emailed a 6-digit code to " + result.to + "." });
+        const input = el("input", {
+          type: "text",
+          inputmode: "numeric",
+          autocomplete: "one-time-code",
+          maxlength: 6,
+          placeholder: "Code",
+          "aria-label": "Code from the email",
+          "aria-describedby": "onbc-" + item.id,
+        });
+        const go = el("button", { type: "submit", class: "danger", text: "Delete form" });
+        const row = el(
+          "form",
+          {
+            class: "onbcode",
+            onsubmit: function (event: SubmitEvent) {
+              event.preventDefault();
+              go.disabled = true;
+              remove(input.value.replace(/\D/g, "")).finally(function () {
+                go.disabled = false;
+              });
+            },
+          },
+          [
+            note,
+            el("div", { class: "onbcr" }, [
+              input,
+              go,
+              el("button", {
+                type: "button",
+                class: "ghost",
+                text: "Cancel",
+                onclick: function () {
+                  row.remove();
+                },
+              }),
+            ]),
+          ],
+        );
+        card.appendChild(row);
+        input.focus();
+      })
+      .catch(function (error) {
+        setMessage(msg, error.message, true);
+      });
+    function remove(code: string) {
+      return request("/admin/api/onboarding/delete", { id: item.id, code: code })
+        .then(function () {
+          toast("Form deleted");
+          load();
+        })
+        .catch(function (error) {
+          setMessage(msg, error.message, true);
+        });
+    }
   }
   let shown = state.onboarding ?? 0;
   function load() {
