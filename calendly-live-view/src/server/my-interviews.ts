@@ -3,13 +3,12 @@
 // A row is listed when Praneeth supported at least one of its rounds, or a round has no supporter recorded yet (upcoming
 // or not filled in); rounds another supporter took show their name, as the sheet's "Taken by others".
 import { sameCompany } from "../same-company";
-import { TZ } from "./config";
 import { type Booking, bookingsStore, ivStore } from "./data";
+import { istParts, t12 } from "./time";
 import { normEmail } from "./util";
 
 export const MY_SUPPORTER = "Praneeth";
 export type SheetCell = {
-  id: string;
   when: string;
   round: string;
   // the round's result; "" while there's none (upcoming, or not set yet)
@@ -18,17 +17,12 @@ export type SheetCell = {
 };
 export type SheetRow = { candidate: string; company: string; rounds: SheetCell[] };
 
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const ord = (d: number) => d + (d % 10 === 1 && d !== 11 ? "st" : d % 10 === 2 && d !== 12 ? "nd" : d % 10 === 3 && d !== 13 ? "rd" : "th");
-// "15th Jul 10 AM", "22nd Jul 3:30 PM", as in the sheet; the year is added when it isn't this year
+// "15th Jul 10am", "22nd Jul 3:30pm"; the year is added when it isn't this year
 export function sheetWhen(iso: string, now = Date.now()) {
-  const part = (o: Intl.DateTimeFormatOptions, at: number | string = iso) =>
-    new Intl.DateTimeFormat("en-GB", { timeZone: TZ, ...o }).format(new Date(at));
-  const year = part({ year: "numeric" });
-  const time = new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", minute: "2-digit", hour12: true })
-    .format(new Date(iso))
-    .replace(":00", "");
-  const thisYear = year === part({ year: "numeric" }, now);
-  return ord(Number(part({ day: "numeric" }))) + " " + part({ month: "short" }) + (thisYear ? "" : " " + year) + " " + time;
+  const p = istParts(Date.parse(iso));
+  return ord(p.d) + " " + MONTHS[p.mo - 1] + (p.y === istParts(now).y ? "" : " " + p.y) + " " + t12(iso).replace(":00", "");
 }
 
 function cell(b: Booking, by: string, me: string, now: number): SheetCell {
@@ -42,7 +36,7 @@ function cell(b: Booking, by: string, me: string, now: number): SheetCell {
           : Date.parse(b.start) > now
             ? "Upcoming"
             : "";
-  return { id: b.id, when: sheetWhen(b.start, now), round: b.round, result: b.missed ? "" : (b.outcome ?? ""), note };
+  return { when: sheetWhen(b.start, now), round: b.round, result: b.missed ? "" : (b.outcome ?? ""), note };
 }
 
 export function mySheet(me = MY_SUPPORTER, now = Date.now()): { rows: SheetRow[]; columns: number } {

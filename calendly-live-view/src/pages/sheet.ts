@@ -2,7 +2,7 @@
 // company, one cell per round, coloured by the round's result.
 import { byId, el } from "./shared/dom";
 
-type Cell = { id: string; when: string; round: string; result: "cleared" | "hold" | "rejected" | ""; note: string };
+type Cell = { when: string; round: string; result: "cleared" | "hold" | "rejected" | ""; note: string };
 type Row = { candidate: string; company: string; rounds: Cell[] };
 const boot: { rows: Row[]; columns: number } = JSON.parse(byId("boot").textContent || "{}");
 const rows = boot.rows || [];

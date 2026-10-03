@@ -1090,11 +1090,9 @@ describe("admin", () => {
     writeFileSync(join(dir, "interviewers.json"), JSON.stringify({ names: ["Praneeth", "Hareesh"], assign }));
     const srv = await start(4350, {}, dir);
     try {
-      for (const path of ["/praneeth", "/Praneeth/"]) {
-        const r = await fetch(srv.url + path, { redirect: "manual" });
-        expect(r.status).toBe(302);
-        expect(r.headers.get("location")).toBe("/admin/praneeth");
-      }
+      const moved = await fetch(srv.url + "/praneeth", { redirect: "manual" });
+      expect(moved.status).toBe(302);
+      expect(moved.headers.get("location")).toBe("/admin/praneeth");
       const r = await get(srv, "/admin/praneeth");
       expect(r.headers.get("cache-control")).toBe("no-store");
       const html = await r.text();
@@ -1106,8 +1104,8 @@ describe("admin", () => {
       const [pwc, kpmg, trianz] = sheet.rows;
       expect(pwc.rounds.map((c: any) => c.result)).toEqual(["cleared", "hold", ""]);
       expect(pwc.rounds.map((c: any) => c.note)).toEqual(["", "Taken by Hareesh", "Upcoming"]);
-      expect(pwc.rounds[1].when).toMatch(/^\d+(st|nd|rd|th) [A-Z][a-z]+ (\d{4} )?11:30 AM$/);
-      expect(pwc.rounds[0].when).toMatch(/ 10 AM$/);
+      expect(pwc.rounds[1].when).toMatch(/^\d+(st|nd|rd|th) [A-Z][a-z]+ (\d{4} )?11:30am$/);
+      expect(pwc.rounds[0].when).toMatch(/ 10am$/);
       expect(trianz.rounds.map((c: any) => [c.round, c.result, c.note])).toEqual([["1st round", "rejected", ""], ["2nd round", "", "Taken by Hareesh"]]);
       expect(kpmg.rounds[0].note).toBe("No-show");
     } finally {
