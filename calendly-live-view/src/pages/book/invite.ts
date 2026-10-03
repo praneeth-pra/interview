@@ -7,6 +7,7 @@ import { boot, state } from "./app";
 const MAX_BYTES: number = boot.inviteMax;
 const MAX_TEXT = Math.round((MAX_BYTES / 1048576) * 10) / 10 + " MB";
 export const INVITE_NEEDED = "Add a screenshot or PDF of your interview invite.";
+export const HR_NEEDED = "Tick this once the HR's details show in your invite.";
 const isImage = (file: File) => /^image\//.test(file.type) || /\.(png|jpe?g|webp|heic|heif)$/i.test(file.name);
 const isPdf = (file: File) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 // What is wrong with the chosen file before it is sent ("" when nothing). Big photos are fine: they are shrunk.
@@ -32,7 +33,7 @@ export function inviteField() {
   const name = el("b", { text: file ? file.name : "Upload a screenshot of your invite" });
   const hint = el("small", {
     id: "finvh",
-    text: file ? sizeText(file.size) + " · tap to change" : "The email or message the company sent you, as a screenshot or PDF",
+    text: file ? sizeText(file.size) + " · tap to change" : "The company's email or message, with the HR's details in it",
   });
   const box = el("label", { class: "inv" + (error ? " bad" : file ? " has" : ""), for: "finv" }, [
     el("span", {
@@ -78,10 +79,34 @@ export function inviteField() {
     }
   });
   box.insertBefore(input, box.firstChild);
+  // the candidate confirms the HR's name, email or phone number shows in what they uploaded
+  const hrError = state.fieldErr.inviteHr;
+  const tick = el("input", {
+    id: "finvhr",
+    type: "checkbox",
+    name: "hrVisible",
+    "aria-invalid": hrError ? "true" : null,
+    "aria-describedby": hrError ? "finvhre" : null,
+  });
+  tick.checked = !!state.inviteHr;
+  tick.addEventListener("change", function () {
+    state.inviteHr = tick.checked;
+    if (tick.checked && state.fieldErr.inviteHr) {
+      delete state.fieldErr.inviteHr;
+      tick.removeAttribute("aria-invalid");
+      tick.removeAttribute("aria-describedby");
+      const old = document.getElementById("finvhre");
+      if (old) {
+        old.remove();
+      }
+    }
+  });
   return el("div", { class: "f" }, [
     el("label", { for: "finv" }, ["Interview invite *"]),
     box,
     error ? el("div", { class: "ferr", id: "finve", text: error }) : null,
+    el("label", { class: "invok", for: "finvhr" }, [tick, el("span", { text: "The HR's contact details are visible in it" })]),
+    hrError ? el("div", { class: "ferr", id: "finvhre", text: hrError }) : null,
   ]);
 }
 // A photo over the limit, drawn smaller as a JPEG until it fits. A photo the browser can't open (HEIC outside Safari)

@@ -207,10 +207,49 @@
   overflow-wrap: anywhere;
 }
 /* the interview invite's Open and Download, and the HR emails and phones read from it, side by side */
-.bk-row span.bk-inv {
+.bk-row span.bk-inv,
+.bk-card > .bk-inv {
   display: flex;
   flex-wrap: wrap;
   gap: 4px 16px;
+  font-size: 14.5px;
+}
+/* the invite screenshot in its card: the top of it (where the subject and sender are), fading out, tap for full size */
+.bk-shot {
+  position: relative;
+  display: block;
+  height: 300px;
+  margin: 0 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #fff;
+}
+.bk-shot img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+.bk-shot::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: 72px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.35));
+}
+.bk-shot span {
+  position: absolute;
+  z-index: 1;
+  right: 10px;
+  bottom: 10px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.62);
 }
 .ivc {
   display: grid;

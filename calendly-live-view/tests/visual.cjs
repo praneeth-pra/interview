@@ -263,7 +263,10 @@ const CASES = [
       }
       await p.keyboard.press("Escape");
       // the interview invite (the form has no such field before it was added)
-      if (await p.locator("#finv").count()) await p.setInputFiles("#finv", path.join(__dirname, "invites/infosys-invite.png"));
+      if (await p.locator("#finv").count()) {
+        await p.setInputFiles("#finv", path.join(__dirname, "invites/infosys-invite.png"));
+        await p.check("#finvhr");
+      }
       await wait(p, 300);
       await p.click("#submitb");
       await wait(p, 1500);

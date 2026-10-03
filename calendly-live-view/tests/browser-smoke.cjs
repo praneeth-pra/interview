@@ -81,6 +81,7 @@ const checks = [
     }
     await p.keyboard.press("Escape");
     await p.setInputFiles("#finv", join(__dirname, "invites/infosys-invite.png"));
+    await p.check("#finvhr");
     await p.click("#submitb");
     await p.locator('a[href*="/b/"]').first().waitFor();
     const manage = await p.locator('a[href*="/b/"]').first().getAttribute("href");

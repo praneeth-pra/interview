@@ -93,6 +93,8 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   )
     return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
   if (!source && !invite) return json({ error: INVITE_NEEDED, field: "invite" }, 400);
+  if (!source && body?.hrVisible !== "yes")
+    return json({ error: "Tick this once the HR's details show in your invite.", field: "inviteHr" }, 400);
   const id = crypto.randomUUID();
   const booking: Booking = {
     id,

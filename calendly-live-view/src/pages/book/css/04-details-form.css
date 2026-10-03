@@ -267,3 +267,24 @@ textarea:focus {
   font-size: 13px;
   color: var(--ink2);
 }
+/* "the HR's details are visible" tick under the invite */
+.invok {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 12px 0 0;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}
+.invok input {
+  width: 20px;
+  height: 20px;
+  flex: none;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--blue);
+}
+.invok span {
+  padding-top: 1px;
+}

@@ -77,7 +77,7 @@ const postJson = (s: Srv, path: string, body: unknown, headers: Record<string, s
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const bookForm = (s: Srv, body: Record<string, unknown>, headers: Record<string, string> = {}, invite: Blob | null = new Blob([PNG])) => {
   const form = new FormData();
-  for (const [k, v] of Object.entries(body)) form.set(k, String(v));
+  for (const [k, v] of Object.entries({ hrVisible: "yes", ...body })) form.set(k, String(v));
   if (invite) form.set("invite", invite, "invite.png");
   return fetch(s.url + "/api/book", { method: "POST", headers, body: form });
 };
@@ -250,6 +250,8 @@ describe("booking flow", () => {
       expect(r.status).toBe(400);
       expect(await r.json()).toMatchObject({ field: "invite", error: "Add a screenshot or PDF of your interview invite." });
     }
+    const unticked = await bookForm(open, { ...body, hrVisible: "" });
+    expect(await unticked.json()).toMatchObject({ field: "inviteHr" });
     const text = await bookForm(open, body, {}, new Blob(["just text"]));
     expect(text.status).toBe(400);
     expect((await text.json()).field).toBe("invite");
