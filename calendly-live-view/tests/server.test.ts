@@ -523,7 +523,10 @@ describe("onboarding", () => {
   test("with the Candidates list on, an email books only after an accepted onboarding form; admins can book anyone", async () => {
     const days = await (await get(srv, "/api/days?duration=30")).json();
     const slots: number[] = days.days.filter((d: any) => d.open).flatMap((d: any) => d.slots).slice(-6);
-    const book = (email: string, i: number, path = "/api/book") => postJson(srv, path, { name: "New Person", email, company: "Acme", duration: 30, startMs: slots[i] }, { "x-real-ip": "10.3.0.1" });
+    const book = (email: string, i: number, path = "/api/book") => {
+      const body = { name: "New Person", email, company: "Acme", duration: 30, startMs: slots[i] };
+      return path === "/api/book" ? bookForm(srv, body, { "x-real-ip": "10.3.0.1" }) : postJson(srv, path, body, { "x-real-ip": "10.3.0.1" });
+    };
     expect((await postJson(srv, "/admin/api/allowlist", { action: "add", text: "listed@example.com" })).status).toBe(200);
     expect((await postJson(srv, "/admin/api/allowlist", { action: "enable", on: true })).status).toBe(200);
     try {
