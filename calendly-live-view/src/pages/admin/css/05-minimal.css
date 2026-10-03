@@ -242,6 +242,10 @@
     padding: 12px 14px;
     font-size: 15px;
   }
+  /* P asked for Export to be left out of the phone menu; it stays on desktop. */
+  .dlmenu #mExp {
+    display: none;
+  }
   body.dm-open {
     overflow: hidden;
   }
