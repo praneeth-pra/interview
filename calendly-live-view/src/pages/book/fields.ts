@@ -5,6 +5,15 @@ import { state } from "./app";
 import { markPreviousCompany } from "./returning";
 import type { FieldOptions, State } from "./types";
 
+// A field's error, with "the onboarding form" (the server's answer to a new email) as a link to that page.
+function errorParts(error: string) {
+  const at = error.indexOf("the onboarding form");
+  if (at < 0) {
+    return [error];
+  }
+  const link = el("a", { href: "/onboarding", text: "the onboarding form" });
+  return [error.slice(0, at), link, error.slice(at + "the onboarding form".length)];
+}
 export function textField(id: string, key: keyof State["form"], label: string, type: string, opts?: FieldOptions) {
   opts = opts || {};
   const error = state.fieldErr[key];
@@ -50,7 +59,7 @@ export function textField(id: string, key: keyof State["form"], label: string, t
           class: "ferr",
           id: id + "e",
         },
-        [error],
+        errorParts(error),
       ),
     );
   }

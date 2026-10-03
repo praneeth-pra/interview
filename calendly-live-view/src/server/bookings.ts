@@ -58,6 +58,10 @@ function clearEarlierRound(next: Booking): { round: Booking; before: Booking } |
   Object.assign(round, { outcome: "cleared", outcomeAt: next.createdAt, outcomeBy: "next-round" });
   return { round, before };
 }
+// what an email that isn't on the Candidates list is told on the booking page, which links "the onboarding form" to
+// /onboarding (sending it, after a confirmed payment, adds the email)
+export const ONBOARDING_FIRST =
+  "This email isn't registered yet. Please fill in the onboarding form with this email first, then book your slot.";
 export const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
 // invite: the screenshot or PDF of the company's invite, which every booking from the booking page brings
 export async function createBooking(body: Fields, req: Request, source?: "admin", invite?: InviteUpload | null): Promise<Response> {
@@ -79,8 +83,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
   // candidates must say which company the interview is for; the admin form may leave it empty
   if (!source && !company) return json({ error: "Enter the company you're interviewing with.", field: "company" }, 400);
-  if (!source && !emailAllowed(email))
-    return json({ error: "This email isn't on the invite list. Use the email address your invitation was sent to.", field: "email" }, 403);
+  if (!source && !emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   const endMs = startMs + duration * 60000;
   if (

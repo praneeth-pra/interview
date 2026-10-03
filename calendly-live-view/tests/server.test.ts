@@ -40,6 +40,17 @@ async function start(port: number, env: Record<string, string>, existing?: strin
   }
   throw new Error("server did not start");
 }
+// A payment from this email through /payment, confirmed (or discarded, or left waiting with null) by an owner
+async function paidFor(srv: Srv, email: string, ip: string, decision: "confirm" | "discard" | null = "confirm") {
+  const d = new FormData();
+  for (const [k, v] of Object.entries({ email, name: "Paid Person", installment: "advance", amount: "500" })) d.set(k, v);
+  d.set("receipt", new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7])], "r.png"));
+  expect((await fetch(srv.url + "/api/payment", { method: "POST", body: d, headers: { "x-real-ip": ip } })).status).toBe(200);
+  if (!decision) return;
+  const { payments } = await (await get(srv, "/admin/api/payments")).json();
+  const id = payments.find((p: any) => p.email === email.toLowerCase() && !p.decision).id;
+  expect((await postJson(srv, "/admin/api/payments/decide", { id, decision })).status).toBe(200);
+}
 function seed(dir: string) {
   writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
   const many = Array.from({ length: 60 }, (_, i) => ({ ...booking, id: "10000000-0000-0000-0000-" + String(i).padStart(12, "0"), cancelled: true, start: new Date(FUTURE - (i + 1) * 24 * HOUR).toISOString() }));
@@ -408,6 +419,12 @@ describe("enquiries", () => {
 });
 
 describe("onboarding", () => {
+  // its own server, so the payments these tests confirm don't change the payment and Revenue totals tested below
+  let srv: Srv;
+  beforeAll(async () => {
+    srv = await start(4344, { HOST_NAME: "Hi<Techie>" });
+  });
+  afterAll(() => srv?.proc.kill());
   const JPG = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]);
   const PDF = new TextEncoder().encode("%PDF-1.5\n% an e-PAN\n");
   const form = (fields: Record<string, string>, cards: Record<string, { bytes: Uint8Array; name: string }>) => {
@@ -418,10 +435,22 @@ describe("onboarding", () => {
   };
   const good = { name: "Lakshmi Devi", email: "Lakshmi@Example.com", phone: "98765 43210", tech: "Python", experience: "2 years", genuine: "yes", linkedin: "https://www.linkedin.com/in/lakshmi-devi" };
   const both = { aadhaar: { bytes: JPG, name: "aadhaar front.jpg" }, pan: { bytes: PDF, name: "pan.pdf" } };
-  const send = (f: FormData, ip = "10.2.0.1") => fetch(open.url + "/api/onboarding", { method: "POST", body: f, headers: { "x-real-ip": ip } });
+  const send = (f: FormData, ip = "10.2.0.1") => fetch(srv.url + "/api/onboarding", { method: "POST", body: f, headers: { "x-real-ip": ip } });
+
+  test("a form is accepted only from an email with a confirmed payment", async () => {
+    const unpaid = await send(form({ ...good, email: "unpaid@example.com" }, both), "10.2.0.4");
+    expect(unpaid.status).toBe(403);
+    expect(await unpaid.json()).toEqual({ error: "We couldn't find a payment from this email. Use the email you paid with.", field: "email", payment: "none" });
+    await paidFor(srv, "pending@example.com", "10.2.0.5", null);
+    const pending = await send(form({ ...good, email: "Pending@example.com" }, both), "10.2.0.4");
+    expect(pending.status).toBe(403);
+    expect(await pending.json()).toEqual({ error: "We're still checking your payment. Please send this form once it's confirmed.", field: "email", payment: "pending" });
+    await paidFor(srv, "discarded@example.com", "10.2.0.5", "discard");
+    expect((await (await send(form({ ...good, email: "discarded@example.com" }, both), "10.2.0.4")).json()).payment).toBe("none");
+  });
 
   test("the page is served with the card limit and kept out of search engines", async () => {
-    const page = await get(open, "/onboarding");
+    const page = await get(srv, "/onboarding");
     expect(page.status).toBe(200);
     expect(page.headers.get("x-robots-tag")).toBe("noindex, nofollow");
     const html = await page.text();
@@ -429,12 +458,13 @@ describe("onboarding", () => {
     expect(html).toContain('name="pan"');
     expect(html).toContain('"max":1572864');
     expect(html).toContain("<title>Onboarding · Hi&lt;Techie&gt;</title>");
-    const r = await fetch(open.url + "/onboarding/", { redirect: "manual" });
+    const r = await fetch(srv.url + "/onboarding/", { redirect: "manual" });
     expect(r.status).toBe(301);
     expect(r.headers.get("location")).toBe("/onboarding");
   });
 
   test("forms are checked, stored with both cards, listed for owners, downloadable and deletable", async () => {
+    await paidFor(srv, good.email, "10.2.0.6");
     expect((await send(form({ ...good, website: "spam.example" }, both))).status).toBe(200);
     const noPan = await send(form(good, { aadhaar: both.aadhaar }));
     expect(noPan.status).toBe(400);
@@ -456,36 +486,65 @@ describe("onboarding", () => {
     expect((await send(form(good, both), "10.2.0.2")).status).toBe(200);
     // a LinkedIn address typed without https:// is kept as a full address
     expect((await send(form({ ...good, name: "Arjun Reddy", genuine: "no", linkedin: "www.LinkedIn.com/in/arjun-reddy" }, both), "10.2.0.2")).status).toBe(200);
-    const { forms } = await (await get(open, "/admin/api/onboarding")).json();
-    expect(forms.length).toBe(2);
+    // the newest first, after the seeded forms and any from the booking tests
+    const all = (await (await get(srv, "/admin/api/onboarding")).json()).forms;
+    const forms = all.slice(0, 2);
+    expect(forms.map((x: any) => x.name)).toEqual(["Arjun Reddy", "Lakshmi Devi"]);
     expect(forms[0]).toMatchObject({ name: "Arjun Reddy", genuine: "no", linkedin: "https://www.linkedin.com/in/arjun-reddy" });
-    expect((await postJson(open, "/admin/api/onboarding/delete", { id: forms[0].id })).status).toBe(200);
+    expect((await postJson(srv, "/admin/api/onboarding/delete", { id: forms[0].id })).status).toBe(200);
     const v = forms[1];
     expect(v).toMatchObject({ genuine: "yes", linkedin: "https://www.linkedin.com/in/lakshmi-devi" });
     expect(v).toMatchObject({ name: "Lakshmi Devi", email: "lakshmi@example.com", phone: "98765 43210", tech: "Python", experience: "2 years" });
     expect(v.aadhaar).toEqual({ name: "aadhaar front.jpg", type: "image/jpeg", size: JPG.length });
     expect(v.pan).toEqual({ name: "pan.pdf", type: "application/pdf", size: PDF.length });
-    expect((await (await get(open, "/admin/api/state")).json()).onboarding).toBe(1);
-    expect(existsSync(join(open.dir, "id-cards", forms[0].id + "-pan.pdf"))).toBe(false);
-    const aadhaar = await get(open, "/admin/api/onboarding/" + v.id + "/aadhaar");
+    expect((await (await get(srv, "/admin/api/state")).json()).onboarding).toBe(all.length - 1);
+    expect(existsSync(join(srv.dir, "id-cards", forms[0].id + "-pan.pdf"))).toBe(false);
+    const aadhaar = await get(srv, "/admin/api/onboarding/" + v.id + "/aadhaar");
     expect(aadhaar.headers.get("content-type")).toBe("image/jpeg");
     expect(aadhaar.headers.get("content-disposition")).toStartWith("inline;");
     expect(new Uint8Array(await aadhaar.arrayBuffer())).toEqual(JPG);
-    const pan = await get(open, "/admin/api/onboarding/" + v.id + "/pan?download=1");
+    const pan = await get(srv, "/admin/api/onboarding/" + v.id + "/pan?download=1");
     expect(pan.headers.get("content-disposition")).toBe("attachment; filename=\"Lakshmi Devi PAN card.pdf\"; filename*=UTF-8''Lakshmi%20Devi%20PAN%20card.pdf");
-    expect((await get(open, "/admin/api/onboarding/" + v.id + "/resume")).status).toBe(404);
-    expect(existsSync(join(open.dir, "id-cards", v.id + "-aadhaar.jpg"))).toBe(true);
-    expect(existsSync(join(open.dir, "id-cards", v.id + "-pan.pdf"))).toBe(true);
+    expect((await get(srv, "/admin/api/onboarding/" + v.id + "/resume")).status).toBe(404);
+    expect(existsSync(join(srv.dir, "id-cards", v.id + "-aadhaar.jpg"))).toBe(true);
+    expect(existsSync(join(srv.dir, "id-cards", v.id + "-pan.pdf"))).toBe(true);
     // the backup carries the cards, and restoring accepts them
-    const backup = await (await get(open, "/admin/backup.json")).json();
+    const backup = await (await get(srv, "/admin/backup.json")).json();
     expect(Object.keys(backup.uploads)).toEqual(expect.arrayContaining(["id-cards/" + v.id + "-aadhaar.jpg", "id-cards/" + v.id + "-pan.pdf"]));
-    expect(backup.files["onboarding.json"].forms.length).toBe(1);
-    expect((await postJson(open, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(200);
-    expect((await (await get(open, "/admin/api/onboarding")).json()).forms).toEqual([]);
-    expect(existsSync(join(open.dir, "id-cards", v.id + "-aadhaar.jpg"))).toBe(false);
-    expect((await postJson(open, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(404);
+    expect(backup.files["onboarding.json"].forms.length).toBe(all.length - 1);
+    expect((await postJson(srv, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(200);
+    expect((await (await get(srv, "/admin/api/onboarding")).json()).forms.length).toBe(all.length - 2);
+    expect(existsSync(join(srv.dir, "id-cards", v.id + "-aadhaar.jpg"))).toBe(false);
+    expect((await postJson(srv, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(404);
     // behind sign-in when it is on
     expect((await get(locked, "/admin/api/onboarding")).status).toBe(401);
+  });
+
+  test("with the Candidates list on, an email books only after an accepted onboarding form; admins can book anyone", async () => {
+    const days = await (await get(srv, "/api/days?duration=30")).json();
+    const slots: number[] = days.days.filter((d: any) => d.open).flatMap((d: any) => d.slots).slice(-6);
+    const book = (email: string, i: number, path = "/api/book") => postJson(srv, path, { name: "New Person", email, company: "Acme", duration: 30, startMs: slots[i] }, { "x-real-ip": "10.3.0.1" });
+    expect((await postJson(srv, "/admin/api/allowlist", { action: "add", text: "listed@example.com" })).status).toBe(200);
+    expect((await postJson(srv, "/admin/api/allowlist", { action: "enable", on: true })).status).toBe(200);
+    try {
+      const refused = await book("brand-new@example.com", 0);
+      expect(refused.status).toBe(403);
+      expect(await refused.json()).toEqual({ error: "This email isn't registered yet. Please fill in the onboarding form with this email first, then book your slot.", field: "email", onboarding: true });
+      // an admin can book anyone
+      expect((await book("admin-booked@example.com", 1, "/admin/api/book")).status).toBe(200);
+      // a confirmed payment alone doesn't let them book; the onboarding form after it does (any capitals)
+      await paidFor(srv, "Brand-New@example.com", "10.3.0.3");
+      expect((await book("brand-new@example.com", 0)).status).toBe(403);
+      const f = new FormData();
+      for (const [k, v] of Object.entries({ name: "New Person", email: "Brand-New@example.com", phone: "9876543210", tech: "Java", experience: "1 year", genuine: "yes", linkedin: "linkedin.com/in/new" })) f.set(k, v);
+      f.set("aadhaar", new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "a.jpg"));
+      f.set("pan", new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "p.jpg"));
+      expect((await fetch(srv.url + "/api/onboarding", { method: "POST", body: f, headers: { "x-real-ip": "10.3.0.2" } })).status).toBe(200);
+      expect((await (await get(srv, "/admin/api/allowlist")).json()).state.emails).toContain("brand-new@example.com");
+      expect((await book("brand-new@example.com", 2)).status).toBe(200);
+    } finally {
+      await postJson(srv, "/admin/api/allowlist", { action: "enable", on: false });
+    }
   });
 });
 
@@ -652,7 +711,7 @@ describe("payments: the amount on the receipt", () => {
 });
 
 describe("payments and the invite list", () => {
-  test("payments are open to any email; confirming an email's first payment adds it to the Candidates list", async () => {
+  test("payments are open to any email; confirming one doesn't add the email to the Candidates list", async () => {
     const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]);
     const f = (email: string) => {
       const d = new FormData();
@@ -669,28 +728,12 @@ describe("payments and the invite list", () => {
     try {
       // anyone can send a payment, listed or not
       expect((await send("Stranger@Example.com")).status).toBe(200);
-      expect((await send("Listed@Example.com")).status).toBe(200);
-      // confirming the stranger's payment puts their email on the list, so they can book
+      // confirming it leaves the list alone: the onboarding form adds the email
       const allow = async () => (await (await get(open, "/admin/api/allowlist")).json()).state.emails;
-      expect(await allow()).not.toContain("stranger@example.com");
       const { payments } = await (await get(open, "/admin/api/payments")).json();
       const id = payments.find((p: any) => p.email === "stranger@example.com").id;
-      const confirmed = await (await postJson(open, "/admin/api/payments/decide", { id, decision: "confirm" })).json();
-      expect(confirmed.allowed).toBe(true);
-      expect(await allow()).toContain("stranger@example.com");
-      // only an email's first confirmed payment adds it: removed from the list, a later one doesn't bring it back
-      await postJson(open, "/admin/api/allowlist", { action: "remove", email: "stranger@example.com" });
-      expect((await fetch(open.url + "/api/payment", { method: "POST", body: f("stranger@example.com"), headers: { "x-real-ip": "10.1.9.2" } })).status).toBe(200);
-      const later = (await (await get(open, "/admin/api/payments")).json()).payments.find((p: any) => p.email === "stranger@example.com" && !p.decision).id;
-      expect((await (await postJson(open, "/admin/api/payments/decide", { id: later, decision: "confirm" })).json()).allowed).toBeUndefined();
+      expect(await (await postJson(open, "/admin/api/payments/decide", { id, decision: "confirm" })).json()).not.toHaveProperty("allowed");
       expect(await allow()).not.toContain("stranger@example.com");
-      // a discarded payment adds nothing
-      const other = payments.find((p: any) => p.email === "listed@example.com").id;
-      await postJson(open, "/admin/api/allowlist", { action: "remove", email: "listed@example.com" });
-      await postJson(open, "/admin/api/allowlist", { action: "add", text: "keep@example.com" });
-      const discarded = await (await postJson(open, "/admin/api/payments/decide", { id: other, decision: "discard" })).json();
-      expect(discarded.allowed).toBeUndefined();
-      expect(await allow()).not.toContain("listed@example.com");
       // one email can't pile up payments waiting for a decision
       for (const ip of ["10.1.9.3", "10.1.9.4", "10.1.9.5"])
         expect((await fetch(open.url + "/api/payment", { method: "POST", body: f("pile@example.com"), headers: { "x-real-ip": ip } })).status).toBe(200);

@@ -375,6 +375,25 @@ form[hidden] {
   margin: 0;
   color: var(--ink2);
 }
+/* the onboarding thank-you's way on to the booking page, shaped like the Submit button */
+.done .next {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 50px;
+  margin-top: 20px;
+  padding: 0 32px;
+  border-radius: 25px;
+  background: var(--blue);
+  color: #fff;
+  font-weight: 700;
+  text-decoration: none;
+}
+@media (hover: hover) {
+  .done .next:hover {
+    background: var(--blue-d);
+  }
+}
 @media (max-width: 600px) {
   body {
     padding: 16px 12px 32px;

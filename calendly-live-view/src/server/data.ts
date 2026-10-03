@@ -208,6 +208,13 @@ export const paymentsStore = fileStore<{ payments: Payment[] }>(
       : [],
   }),
 );
+// Where an email's payments stand, for the onboarding form: "confirmed" once an owner confirmed any of them, "pending"
+// while one waits for a decision, else "none" (no payment, or only discarded ones).
+export const paymentStatus = (email: string): "confirmed" | "pending" | "none" => {
+  const e = normEmail(email);
+  const mine = paymentsStore.data.payments.filter((p) => normEmail(p.email) === e);
+  return mine.some((p) => p.decision === "confirmed") ? "confirmed" : mine.some((p) => !p.decision) ? "pending" : "none";
+};
 // Times the team is away (⋯ menu → Unavailability): candidates can't book or move an interview into them. start and end
 // are ISO times; a whole day runs from midnight to midnight IST. by: the admin who added it ("" with sign-in off).
 export type Block = { id: string; start: string; end: string; note: string; createdAt: string; by: string };

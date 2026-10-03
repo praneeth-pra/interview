@@ -1,7 +1,6 @@
 // Payments from the public /payment page, with their receipts.
 import { DATA_DIR, RECEIPT_MAX } from "./config";
 import { INSTALLMENTS, INSTALLMENT_NAMES, type Installment, type Payment, paymentsStore, pushStore } from "./data";
-import { allowEmail } from "./allowlist";
 import { type Srv, json, saveOrUndo, storedFile, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
@@ -157,16 +156,13 @@ export async function receiptFile(id: string, download: boolean): Promise<Respon
   return storedFile(bytes, v.receipt, download, v.name, "Payment", "receipt");
 }
 // Confirm or discard a payment waiting for a decision. Either is final: a decided payment can't be changed or deleted.
-// Confirming an email's first payment also adds it to the Candidates list, so they can book (allowed: whether they now
-// can). Later confirmed payments from that email leave the list alone, so removing someone from it sticks.
+// Confirming doesn't add anyone to the Candidates list: the onboarding form does, once the email has a confirmed payment.
 export async function decidePayment(id: string, choice: unknown, by: string): Promise<Response> {
   const decision = choice === "confirm" ? "confirmed" : choice === "discard" ? "discarded" : "";
   if (!decision) return json({ error: "Bad request." }, 400);
   const v = paymentsStore.data.payments.find((x) => x.id === id);
   if (!v) return json({ error: "That payment isn't there any more." }, 404);
   if (v.decision) return json({ error: "This payment was already " + v.decision + ". It can't be changed." }, 409);
-  const email = normEmail(v.email);
-  const first = !paymentsStore.data.payments.some((x) => x.decision === "confirmed" && normEmail(x.email) === email);
   v.decision = decision;
   v.decidedAt = new Date().toISOString();
   v.decidedBy = by;
@@ -176,7 +172,6 @@ export async function decidePayment(id: string, choice: unknown, by: string): Pr
     delete v.decidedBy;
   });
   if (failed) return failed;
-  const allowed = decision === "confirmed" && first ? await allowEmail(v.email) : undefined;
   broadcastState();
-  return json({ ok: true, payment: paymentView(v), ...(allowed === undefined ? {} : { allowed }) });
+  return json({ ok: true, payment: paymentView(v) });
 }
