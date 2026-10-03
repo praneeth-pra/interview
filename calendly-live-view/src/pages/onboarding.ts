@@ -140,7 +140,11 @@ form.addEventListener("submit", function (event) {
     .then(function () {
       form.hidden = true;
       document.getElementById("donetxt")!.textContent =
-        "Thanks, " + fields.name.value.trim().split(/\s+/)[0] + ". We've received your details, and you can now book your slot.";
+        "Thanks, " +
+        fields.name.value.trim().split(/\s+/)[0] +
+        ". We've received your details, and you can now book your slot. Always book with " +
+        fields.email.value.trim() +
+        ".";
       document.getElementById("done")!.hidden = false;
       window.scrollTo(0, 0);
     })
