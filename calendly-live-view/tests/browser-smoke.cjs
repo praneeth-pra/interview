@@ -113,7 +113,8 @@ const checks = [
       // the page's own requests; the Contacts frame loads quietly in the background and asks for the state too
       m.on("request", (r) => r.frame() === m.mainFrame() && asked.push(new URL(r.url()).pathname));
       await m.goto(BASE + "/admin");
-      await m.locator("#week .ev").first().waitFor();
+      // the live state has arrived (the seeded booking isn't in the phone's three days on some weekdays)
+      await m.locator("#status.live").waitFor({ state: "attached" });
       await m.waitForTimeout(600);
       const cdp = await ctx.newCDPSession(m);
       const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
