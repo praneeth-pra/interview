@@ -2,7 +2,7 @@
 // company, one cell per round, coloured by the round's result.
 import { byId, el } from "./shared/dom";
 
-type Cell = { when: string; round: string; result: "cleared" | "hold" | "rejected" | ""; note: string };
+type Cell = { when: string; round: string; result: "cleared" | "hold" | "rejected" | "" };
 type Row = { candidate: string; company: string; rounds: Cell[] };
 const boot: { rows: Row[]; columns: number } = JSON.parse(byId("boot").textContent || "{}");
 const rows = boot.rows || [];
@@ -30,10 +30,9 @@ if (rows.length) {
       ...Array.from({ length: columns }, (_, i) => {
         const c = r.rounds[i];
         if (!c) return el("td", { class: "rd" });
-        const sub = [c.round, c.note].filter(Boolean).join(" · ");
         return el("td", { class: "rd r-" + (c.result || "none") }, [
           el("span", { class: "w" }, [c.when]),
-          sub ? el("span", { class: "s" }, [sub]) : null,
+          c.round ? el("span", { class: "s" }, [c.round]) : null,
           c.result ? el("span", { class: "vh" }, [", " + RESULT[c.result]]) : null,
         ]);
       }),

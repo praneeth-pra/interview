@@ -1,7 +1,6 @@
 // The owner's own interview sheet (/praneeth): one row per candidate and company, one cell per round with its date and
 // time, coloured by the round's result. Laid out like the spreadsheet Praneeth kept before the app.
-// A row is listed when Praneeth supported at least one of its rounds, or a round has no supporter recorded yet (upcoming
-// or not filled in); rounds another supporter took show their name, as the sheet's "Taken by others".
+// Only the rounds recorded with Praneeth as the interview supporter are listed (a supporter is recorded once a round starts).
 import { sameCompany } from "../same-company";
 import { type Booking, bookingsStore, ivStore } from "./data";
 import { istParts, t12 } from "./time";
@@ -13,7 +12,6 @@ export type SheetCell = {
   round: string;
   // the round's result; "" while there's none (upcoming, or not set yet)
   result: "cleared" | "hold" | "rejected" | "";
-  note: string;
 };
 export type SheetRow = { candidate: string; company: string; rounds: SheetCell[] };
 
@@ -25,38 +23,24 @@ export function sheetWhen(iso: string, now = Date.now()) {
   return ord(p.d) + " " + MONTHS[p.mo - 1] + (p.y === istParts(now).y ? "" : " " + p.y) + " " + t12(iso).replace(":00", "");
 }
 
-function cell(b: Booking, by: string, me: string, now: number): SheetCell {
-  const note =
-    b.missed === "noshow"
-      ? "No-show"
-      : b.missed
-        ? "Didn't happen"
-        : by && by.toLowerCase() !== me.toLowerCase()
-          ? "Taken by " + by
-          : Date.parse(b.start) > now
-            ? "Upcoming"
-            : "";
-  return { when: sheetWhen(b.start, now), round: b.round, result: b.missed ? "" : (b.outcome ?? ""), note };
-}
-
 export function mySheet(me = MY_SUPPORTER, now = Date.now()): { rows: SheetRow[]; columns: number } {
   const assign = ivStore.data.assign;
   const groups: { email: string; company: string; candidate: string; list: Booking[] }[] = [];
-  const active = bookingsStore.data.bookings.filter((b) => !b.cancelled).sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
-  for (const b of active) {
+  const mine = bookingsStore.data.bookings
+    .filter((b) => !b.cancelled && assign[b.id]?.toLowerCase() === me.toLowerCase())
+    .sort((a, b) => Date.parse(a.start) - Date.parse(b.start));
+  for (const b of mine) {
     const email = normEmail(b.email);
     let g = groups.find((x) => x.email === email && sameCompany(x.company, b.company));
     if (!g) groups.push((g = { email, company: b.company, candidate: b.name, list: [] }));
     g.list.push(b);
     g.candidate = b.name;
   }
-  const mine = (b: Booking) => !assign[b.id] || assign[b.id].toLowerCase() === me.toLowerCase();
   const rows = groups
-    .filter((g) => g.list.some(mine))
     .map((g) => ({
       candidate: g.candidate,
       company: g.company,
-      rounds: g.list.map((b) => cell(b, assign[b.id] ?? "", me, now)),
+      rounds: g.list.map((b): SheetCell => ({ when: sheetWhen(b.start, now), round: b.round, result: b.outcome ?? "" })),
       latest: Date.parse(g.list[g.list.length - 1].start),
     }))
     // newest first, so the latest interviews are on top without scrolling

@@ -1132,7 +1132,7 @@ describe("admin", () => {
     ];
     writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
     writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: rows }));
-    const assign = { [rows[0].id]: "Praneeth", [rows[1].id]: "Hareesh", [rows[3].id]: "praneeth", [rows[4].id]: "Hareesh", [rows[7].id]: "Hareesh" };
+    const assign = { [rows[0].id]: "Praneeth", [rows[1].id]: "Praneeth", [rows[3].id]: "praneeth", [rows[4].id]: "Hareesh", [rows[6].id]: "Praneeth", [rows[7].id]: "Hareesh" };
     writeFileSync(join(dir, "interviewers.json"), JSON.stringify({ names: ["Praneeth", "Hareesh"], assign }));
     const srv = await start(4350, {}, dir);
     try {
@@ -1144,16 +1144,15 @@ describe("admin", () => {
       const html = await r.text();
       expect(html).toContain('<script src="/assets/sheet.');
       const sheet = boot(html);
-      expect(sheet.columns).toBe(3);
-      // newest first; one PwC row for both spellings; Paytm (only Hareesh's) and the cancelled Ey round aren't there
-      expect(sheet.rows.map((x: any) => x.candidate + " · " + x.company)).toEqual(["Jeevan · PwC", "Mohan · KPMG", "Syam · Trianz"]);
-      const [pwc, kpmg, trianz] = sheet.rows;
-      expect(pwc.rounds.map((c: any) => c.result)).toEqual(["cleared", "hold", ""]);
-      expect(pwc.rounds.map((c: any) => c.note)).toEqual(["", "Taken by Hareesh", "Upcoming"]);
+      expect(sheet.columns).toBe(3) // always at least three round columns, like the sheet;
+      // only Praneeth's rounds, newest first, one PwC row for both spellings: Hareesh's rounds, rounds with no supporter
+      // recorded (the upcoming HR round, Mohan's no-show) and the cancelled Ey round aren't there
+      expect(sheet.rows.map((x: any) => x.candidate + " · " + x.company)).toEqual(["Syam · Trianz", "Jeevan · PwC"]);
+      const [trianz, pwc] = sheet.rows;
+      expect(pwc.rounds.map((c: any) => c.result)).toEqual(["cleared", "hold"]);
       expect(pwc.rounds[1].when).toMatch(/^\d+(st|nd|rd|th) [A-Z][a-z]+ (\d{4} )?11:30am$/);
       expect(pwc.rounds[0].when).toMatch(/ 10am$/);
-      expect(trianz.rounds.map((c: any) => [c.round, c.result, c.note])).toEqual([["1st round", "rejected", ""], ["2nd round", "", "Taken by Hareesh"]]);
-      expect(kpmg.rounds[0].note).toBe("No-show");
+      expect(trianz.rounds).toEqual([{ when: expect.any(String), round: "1st round", result: "rejected" }]);
     } finally {
       srv.proc.kill();
     }
