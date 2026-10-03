@@ -1,7 +1,10 @@
 // Onboarding forms from the public /onboarding page: the candidate's details with photos or PDFs of their Aadhaar and PAN
-// cards. These are ID documents, so only owners see them (like enquiries and payments).
+// cards. These are ID documents, so only owners see them (like enquiries and payments). It's the way in for candidates:
+// a form is accepted only from an email with a confirmed payment, and accepting it adds the email to the Candidates
+// list, so they can book.
+import { allowEmail } from "./allowlist";
 import { DATA_DIR, ID_CARD_MAX } from "./config";
-import { type IdCard, type Onboarding, onboardingStore, pushStore } from "./data";
+import { type IdCard, type Onboarding, onboardingStore, paymentStatus, pushStore } from "./data";
 import { type Srv, json, saveOrUndo, storedFile, underLimit, clientIp } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
@@ -88,6 +91,14 @@ export async function receiveOnboarding(req: Request, srv: Srv): Promise<Respons
   if (!experience) return json({ error: "Choose your years of experience.", field: "experience" }, 400);
   if (genuine !== "yes" && genuine !== "no") return json({ error: "Tell us whether your experience is genuine.", field: "genuine" }, 400);
   if (!linkedin) return json({ error: "Enter your LinkedIn profile link, like linkedin.com/in/your-name.", field: "linkedin" }, 400);
+  const paid = paymentStatus(email);
+  if (paid === "pending")
+    return json(
+      { error: "We're still checking your payment. Please send this form once it's confirmed.", field: "email", payment: paid },
+      403,
+    );
+  if (paid === "none")
+    return json({ error: "We couldn't find a payment from this email. Use the email you paid with.", field: "email", payment: paid }, 403);
   const id = crypto.randomUUID();
   const files: Partial<Record<Card, { ref: IdCard; bytes: Uint8Array }>> = {};
   for (const card of Object.keys(CARDS) as Card[]) {
@@ -126,6 +137,8 @@ export async function receiveOnboarding(req: Request, srv: Srv): Promise<Respons
     for (const f of Object.values(files)) await removeIdCard(f.ref.file).catch(() => {});
     return json({ error: "Couldn't save your details. Try again." }, 500);
   }
+  // the form is saved either way; if the list is full or can't be saved, an owner adds the email by hand
+  if (!(await allowEmail(email))) console.error("onboarding: couldn't add the email to the Candidates list");
   console.log("onboarding form received (" + onboardingStore.data.forms.length + " in total)");
   broadcastState();
   if (pushStore.data.subs.length)

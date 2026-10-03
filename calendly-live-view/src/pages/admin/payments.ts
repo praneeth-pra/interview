@@ -533,17 +533,9 @@ export function showPayments(quiet?: boolean): Promise<void> {
       if (!confirm(question)) {
         return;
       }
-      request<{ ok: boolean; payment: Payment; allowed?: boolean }>("/admin/api/payments/decide", { id: item.id, decision: decision })
+      request<{ ok: boolean; payment: Payment }>("/admin/api/payments/decide", { id: item.id, decision: decision })
         .then(function (result) {
-          toast(
-            decision === "discard"
-              ? "Payment discarded"
-              : result.allowed === undefined
-                ? "Payment confirmed"
-                : result.allowed
-                  ? "Payment confirmed · " + result.payment.email + " can book"
-                  : "Payment confirmed · couldn't add the email to Candidates",
-          );
+          toast(decision === "discard" ? "Payment discarded" : "Payment confirmed");
           payments = payments.map(function (p) {
             return p.id === item.id ? result.payment : p;
           });

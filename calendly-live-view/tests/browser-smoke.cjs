@@ -284,7 +284,7 @@ const checks = [
     await p.fill(".paysearch", "nobody");
     await p.locator("#payDrop li", { hasText: "No matching candidates" }).waitFor();
   }],
-  ["onboarding page: a big phone photo is shrunk to fit, and the form shows in the admin", async (p) => {
+  ["onboarding page: a big phone photo is shrunk to fit, an unpaid email is refused, and the form shows in the admin", async (p) => {
     await p.goto(BASE + "/onboarding");
     await p.fill("#nm", "Lakshmi Devi");
     await p.fill("#em", "lakshmi@example.com");
@@ -313,8 +313,21 @@ const checks = [
     await p.setInputFiles("#pn", { name: "pan.pdf", mimeType: "application/pdf", buffer: Buffer.alloc(2 * 1024 * 1024, 0x25) });
     await p.locator("#pnbox.bad").waitFor();
     await p.setInputFiles("#pn", { name: "pan.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\n%%EOF\n") });
+    // without a confirmed payment from this email, the form is refused and the email is marked
+    p.refusals = 1;
+    await p.click("#go");
+    await p.locator("#err", { hasText: "couldn't find a payment" }).waitFor();
+    await p.locator('#em[aria-invalid="true"]').waitFor();
+    const receipt = { name: "r.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7]) };
+    const paid = await p.request.post(BASE + "/api/payment", { multipart: { email: "lakshmi@example.com", name: "Lakshmi Devi", installment: "advance", amount: "500", receipt } });
+    if (!paid.ok()) throw new Error("payment not sent: " + paid.status());
+    const pay = (await (await p.request.get(BASE + "/admin/api/payments")).json()).payments.find((x) => x.email === "lakshmi@example.com");
+    await p.request.post(BASE + "/admin/api/payments/decide", { data: { id: pay.id, decision: "confirm" } });
     await p.click("#go");
     await p.locator("#done:not([hidden])").waitFor();
+    await p.locator('#done a.next[href="/booking"]').waitFor();
+    const listed = (await (await p.request.get(BASE + "/admin/api/allowlist")).json()).state.emails;
+    if (!listed.includes("lakshmi@example.com")) throw new Error("onboarded email not added to Candidates");
     const form = (await (await p.request.get(BASE + "/admin/api/onboarding")).json()).forms[0];
     if (form.aadhaar.type !== "image/jpeg" || form.aadhaar.size > 1536 * 1024) throw new Error("photo not shrunk: " + JSON.stringify(form.aadhaar));
     // an onboarding alert opens the forms in the panel
@@ -444,7 +457,13 @@ const checks = [
     const page = await browser.newPage();
     const problems = [];
     page.on("pageerror", (e) => problems.push("script error: " + e.message));
-    page.on("console", (m) => m.type() === "error" && problems.push("console: " + m.text()));
+    // a check that expects the server to refuse something sets page.refusals to how many 403s it expects
+    page.refusals = 0;
+    page.on("console", (m) => {
+      if (m.type() !== "error") return;
+      if (page.refusals > 0 && /status of 403/.test(m.text())) return void page.refusals--;
+      problems.push("console: " + m.text());
+    });
     try { await run(page); await page.waitForTimeout(500); } catch (e) { problems.push(e.message.split("\n")[0]); }
     console.log((problems.length ? "FAIL " : "ok   ") + name + (problems.length ? "\n  " + problems.join("\n  ") : ""));
     failed += problems.length ? 1 : 0;
