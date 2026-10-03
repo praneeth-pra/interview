@@ -172,7 +172,7 @@ form.addEventListener("submit", function (event) {
     .then(function () {
       form.hidden = true;
       document.getElementById("donetxt")!.textContent =
-        "Thanks, " + fields.name.value.trim().split(/\s+/)[0] + ". We've received your details and ID cards.";
+        "Thanks, " + fields.name.value.trim().split(/\s+/)[0] + ". We've received your details, and you can now book your slot.";
       document.getElementById("done")!.hidden = false;
       window.scrollTo(0, 0);
     })

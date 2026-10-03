@@ -170,13 +170,6 @@ export const onboardingStore = fileStore<{ forms: Onboarding[] }>(
       : [],
   }),
 );
-// Whether an email may book: it has booked before (any booking, even cancelled), or it sent the onboarding form.
-export const onboarded = (email: string) => {
-  const e = normEmail(email);
-  return (
-    bookingsStore.data.bookings.some((b) => normEmail(b.email) === e) || onboardingStore.data.forms.some((v) => normEmail(v.email) === e)
-  );
-};
 // Payments from the public /payment page. The details are in payments.json; each receipt is a file in DATA_DIR/receipts
 // (kept in memory when there is no data folder).
 // What the payment form offers. "1" is the first installment (its key from when the form offered 1st, 2nd and 3rd).
@@ -209,6 +202,13 @@ export const paymentsStore = fileStore<{ payments: Payment[] }>(
       : [],
   }),
 );
+// Where an email's payments stand, for the onboarding form: "confirmed" once an owner confirmed any of them, "pending"
+// while one waits for a decision, else "none" (no payment, or only discarded ones).
+export const paymentStatus = (email: string): "confirmed" | "pending" | "none" => {
+  const e = normEmail(email);
+  const mine = paymentsStore.data.payments.filter((p) => normEmail(p.email) === e);
+  return mine.some((p) => p.decision === "confirmed") ? "confirmed" : mine.some((p) => !p.decision) ? "pending" : "none";
+};
 // Times the team is away (⋯ menu → Unavailability): candidates can't book or move an interview into them. start and end
 // are ISO times; a whole day runs from midnight to midnight IST. by: the admin who added it ("" with sign-in off).
 export type Block = { id: string; start: string; end: string; note: string; createdAt: string; by: string };
