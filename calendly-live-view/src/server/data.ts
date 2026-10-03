@@ -170,6 +170,13 @@ export const onboardingStore = fileStore<{ forms: Onboarding[] }>(
       : [],
   }),
 );
+// Whether an email may book: it has booked before (any booking, even cancelled), or it sent the onboarding form.
+export const onboarded = (email: string) => {
+  const e = normEmail(email);
+  return (
+    bookingsStore.data.bookings.some((b) => normEmail(b.email) === e) || onboardingStore.data.forms.some((v) => normEmail(v.email) === e)
+  );
+};
 // Payments from the public /payment page. The details are in payments.json; each receipt is a file in DATA_DIR/receipts
 // (kept in memory when there is no data folder).
 // What the payment form offers. "1" is the first installment (its key from when the form offered 1st, 2nd and 3rd).

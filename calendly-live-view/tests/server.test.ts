@@ -44,6 +44,10 @@ function seed(dir: string) {
   writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
   const many = Array.from({ length: 60 }, (_, i) => ({ ...booking, id: "10000000-0000-0000-0000-" + String(i).padStart(12, "0"), cancelled: true, start: new Date(FUTURE - (i + 1) * 24 * HOUR).toISOString() }));
   writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, ...many] }));
+  // the candidates the booking tests book for, as if they had sent the onboarding form (new emails need it to book)
+  const card = { file: "x.pdf", name: "x.pdf", type: "application/pdf", size: 1 };
+  const onboarded = ["test@example.com", "o@example.com", "ravi@example.com", "rounds@example.com", "someone-else@example.com", "tcs@example.com", "typo@example.com"];
+  writeFileSync(join(dir, "onboarding.json"), JSON.stringify({ forms: onboarded.map((email, i) => ({ id: "o-" + i, name: "Seeded", email, phone: "9876543210", tech: "Java", experience: "1 year", createdAt: new Date().toISOString(), aadhaar: card, pan: card })) }));
 }
 
 // The text of a PDF, read with pdftotext (poppler-utils, which the Docker image and CI install for receipts).
@@ -285,6 +289,26 @@ describe("booking flow", () => {
     expect((await book("typo@example.com", "Infosys", 7)).company).toBe("Infosys"); // a known name is never replaced by a typo
   });
 
+  test("a new email books only after sending the onboarding form; returning candidates and admins aren't asked", async () => {
+    const days = await (await get(open, "/api/days?duration=30")).json();
+    const slots: number[] = days.days.filter((d: any) => d.open).flatMap((d: any) => d.slots).slice(-6);
+    const book = (email: string, i: number, path = "/api/book") => postJson(open, path, { name: "New Person", email, company: "Acme", duration: 30, startMs: slots[i] }, { "x-real-ip": "10.3.0.1" });
+    const refused = await book("brand-new@example.com", 0);
+    expect(refused.status).toBe(403);
+    expect(await refused.json()).toEqual({ error: "Please fill in the onboarding form with this email first, then book your slot.", field: "email", onboarding: true });
+    // someone who has booked before (Priya, even with different capitals) books as before
+    expect((await book("Priya@Example.com", 0)).status).toBe(200);
+    // an admin can book anyone
+    expect((await book("admin-booked@example.com", 1, "/admin/api/book")).status).toBe(200);
+    // once the form is in, the same email books (any capitals)
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ name: "New Person", email: "Brand-New@example.com", phone: "9876543210", tech: "Java", experience: "1 year", genuine: "yes", linkedin: "linkedin.com/in/new" })) f.set(k, v);
+    f.set("aadhaar", new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "a.jpg"));
+    f.set("pan", new File([new Uint8Array([0xff, 0xd8, 0xff, 0xe0])], "p.jpg"));
+    expect((await fetch(open.url + "/api/onboarding", { method: "POST", body: f, headers: { "x-real-ip": "10.3.0.2" } })).status).toBe(200);
+    expect((await book("brand-new@example.com", 2)).status).toBe(200);
+  });
+
   test("large API answers are compressed", async () => {
     const r = await get(open, "/admin/api/bookings", { "accept-encoding": "gzip" });
     expect(r.headers.get("content-encoding")).toBe("gzip");
@@ -415,8 +439,10 @@ describe("onboarding", () => {
     expect((await send(form(good, both), "10.2.0.2")).status).toBe(200);
     // a LinkedIn address typed without https:// is kept as a full address
     expect((await send(form({ ...good, name: "Arjun Reddy", genuine: "no", linkedin: "www.LinkedIn.com/in/arjun-reddy" }, both), "10.2.0.2")).status).toBe(200);
-    const { forms } = await (await get(open, "/admin/api/onboarding")).json();
-    expect(forms.length).toBe(2);
+    // the newest first, after the seeded forms and any from the booking tests
+    const all = (await (await get(open, "/admin/api/onboarding")).json()).forms;
+    const forms = all.slice(0, 2);
+    expect(forms.map((x: any) => x.name)).toEqual(["Arjun Reddy", "Lakshmi Devi"]);
     expect(forms[0]).toMatchObject({ name: "Arjun Reddy", genuine: "no", linkedin: "https://www.linkedin.com/in/arjun-reddy" });
     expect((await postJson(open, "/admin/api/onboarding/delete", { id: forms[0].id })).status).toBe(200);
     const v = forms[1];
@@ -424,7 +450,7 @@ describe("onboarding", () => {
     expect(v).toMatchObject({ name: "Lakshmi Devi", email: "lakshmi@example.com", phone: "98765 43210", tech: "Python", experience: "2 years" });
     expect(v.aadhaar).toEqual({ name: "aadhaar front.jpg", type: "image/jpeg", size: JPG.length });
     expect(v.pan).toEqual({ name: "pan.pdf", type: "application/pdf", size: PDF.length });
-    expect((await (await get(open, "/admin/api/state")).json()).onboarding).toBe(1);
+    expect((await (await get(open, "/admin/api/state")).json()).onboarding).toBe(all.length - 1);
     expect(existsSync(join(open.dir, "id-cards", forms[0].id + "-pan.pdf"))).toBe(false);
     const aadhaar = await get(open, "/admin/api/onboarding/" + v.id + "/aadhaar");
     expect(aadhaar.headers.get("content-type")).toBe("image/jpeg");
@@ -438,9 +464,9 @@ describe("onboarding", () => {
     // the backup carries the cards, and restoring accepts them
     const backup = await (await get(open, "/admin/backup.json")).json();
     expect(Object.keys(backup.uploads)).toEqual(expect.arrayContaining(["id-cards/" + v.id + "-aadhaar.jpg", "id-cards/" + v.id + "-pan.pdf"]));
-    expect(backup.files["onboarding.json"].forms.length).toBe(1);
+    expect(backup.files["onboarding.json"].forms.length).toBe(all.length - 1);
     expect((await postJson(open, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(200);
-    expect((await (await get(open, "/admin/api/onboarding")).json()).forms).toEqual([]);
+    expect((await (await get(open, "/admin/api/onboarding")).json()).forms.length).toBe(all.length - 2);
     expect(existsSync(join(open.dir, "id-cards", v.id + "-aadhaar.jpg"))).toBe(false);
     expect((await postJson(open, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(404);
     // behind sign-in when it is on

@@ -80,6 +80,11 @@ const checks = [
       if (v) await inp.fill(v);
     }
     await p.keyboard.press("Escape");
+    p.refusals = 1;
+    await p.click("#submitb");
+    // a new email is sent to the onboarding form first; someone who has booked before (Priya) books straight away
+    await p.locator('#femaile a[href="/onboarding"]').waitFor();
+    await p.fill("#femail", "priya@example.com");
     await p.click("#submitb");
     await p.locator('a[href*="/b/"]').first().waitFor();
     const manage = await p.locator('a[href*="/b/"]').first().getAttribute("href");
@@ -444,7 +449,13 @@ const checks = [
     const page = await browser.newPage();
     const problems = [];
     page.on("pageerror", (e) => problems.push("script error: " + e.message));
-    page.on("console", (m) => m.type() === "error" && problems.push("console: " + m.text()));
+    // a check that expects the server to refuse something sets page.refusals to how many 403s it expects
+    page.refusals = 0;
+    page.on("console", (m) => {
+      if (m.type() !== "error") return;
+      if (page.refusals > 0 && /status of 403/.test(m.text())) return void page.refusals--;
+      problems.push("console: " + m.text());
+    });
     try { await run(page); await page.waitForTimeout(500); } catch (e) { problems.push(e.message.split("\n")[0]); }
     console.log((problems.length ? "FAIL " : "ok   ") + name + (problems.length ? "\n  " + problems.join("\n  ") : ""));
     failed += problems.length ? 1 : 0;

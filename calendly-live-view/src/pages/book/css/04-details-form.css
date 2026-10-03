@@ -49,6 +49,11 @@ input[aria-invalid="true"] {
   margin-top: 6px;
   font-weight: 500;
 }
+/* "the onboarding form" in the error a new email gets */
+.ferr a {
+  color: inherit;
+  font-weight: 700;
+}
 .row2 {
   display: flex;
   gap: 16px;
