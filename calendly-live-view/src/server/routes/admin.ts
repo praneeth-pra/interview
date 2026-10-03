@@ -6,7 +6,7 @@ import { adminsView, sessionOf, setAdmins } from "../auth";
 import { backupParts, restoreData, restoreUpload } from "../backup";
 import { bookingsCsv, cancelBooking, createBooking, moveBooking, setRoundStatus } from "../bookings";
 import { DURATIONS, LOGIN_ON, MAX_BODY } from "../config";
-import { bookingsStore, isOwner } from "../data";
+import { bookingsStore, isOwner, onboardingStore } from "../data";
 import { deleteEnquiry, enquiriesList, enquiriesSeen, resumeFile } from "../enquiries";
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
 import { assignInterviewers, renameInterviewers } from "../interviewers";
@@ -14,6 +14,8 @@ import { adminState, openStream, pub } from "../live";
 import { ANALYTICS, LOGIN, adminShell, sheetPage } from "../pages";
 import { MY_SUPPORTER, mySheet } from "../my-interviews";
 import { deleteOnboarding, idCardFile, onboardingList } from "../onboarding";
+import { dropInvites, inviteFile } from "../invites";
+import { checkDeleteCode, sendDeleteCode } from "../delete-code";
 import { decidePayment, paymentsList, receiptFile } from "../payments";
 import { changePush, pushView } from "../push";
 import { reportPdfResponse } from "../report-pdf";
@@ -82,7 +84,20 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   if (path === "/admin/api/onboarding" && method === "GET") return json(onboardingList());
   const card = path.match(/^\/admin\/api\/onboarding\/([0-9a-f-]{36})\/(aadhaar|pan)$/);
   if (card && method === "GET") return idCardFile(card[1], card[2], q("download") === "1");
-  if (path === "/admin/api/onboarding/delete" && method === "POST") return withBody(1000, (b) => deleteOnboarding(String(b?.id ?? "")));
+  // deleting a form takes a code emailed to the owner; the candidate's interview invites go with it
+  if (path === "/admin/api/onboarding/delete-code" && method === "POST")
+    return withBody(1000, (b) => sendDeleteCode(String(b?.id ?? ""), email));
+  if (path === "/admin/api/onboarding/delete" && method === "POST")
+    return withBody(1000, async (b) => {
+      const id = String(b?.id ?? "");
+      const form = onboardingStore.data.forms.find((x) => x.id === id);
+      if (!form) return json({ error: "That form was already deleted." }, 404);
+      const refused = checkDeleteCode(id, email, String(b?.code ?? "").trim());
+      if (refused) return refused;
+      const done = await deleteOnboarding(id);
+      if (done.ok) await dropInvites(form.email);
+      return done;
+    });
 
   // ---- who can sign in (owners only)
   if (path === "/admin/api/admins" && method === "GET") return json(adminsView(email));
@@ -101,6 +116,8 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   // ---- bookings
   if (path === "/admin/api/bookings" && method === "GET")
     return json({ bookings: [...bookingsStore.data.bookings].sort((a, b) => Date.parse(b.start) - Date.parse(a.start)).map(pub) });
+  const invite = path.match(/^\/admin\/api\/bookings\/([0-9a-f-]{36})\/invite$/);
+  if (invite && method === "GET") return inviteFile(invite[1], q("download") === "1");
   if (path === "/admin/export.csv" && method === "GET") return bookingsCsv();
   if (path === "/admin/backup.json" && method === "GET")
     return new Response(JSON.stringify((await backupParts()).parts[0], null, 1), {

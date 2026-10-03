@@ -21,7 +21,7 @@ export const PDF_OR_WORD: Kind[] = [
 export const kindOf = (bytes: Uint8Array, kinds: readonly Kind[]) => kinds.find((k) => k.magic.every((b, i) => bytes[k.at + i] === b));
 export const mb = (n: number) => String(Math.round((n / 1048576) * 10) / 10);
 
-// One folder of uploads: "resumes", "receipts" or "id-cards".
+// One folder of uploads: "resumes", "receipts", "id-cards" or "invites".
 export function uploadFolder(dir: string) {
   const inMemory = new Map<string, Uint8Array>();
   return {
@@ -44,6 +44,7 @@ export function uploadFolder(dir: string) {
 export const resumes = uploadFolder("resumes");
 export const receipts = uploadFolder("receipts");
 export const idCards = uploadFolder("id-cards");
+export const invites = uploadFolder("invites");
 
 // A public multipart form: refused when it isn't one, is bigger than maxBytes (tooBig answers), comes more than five
 // times an hour from one network (key names the form) or when sentToday has reached 100 in all. The text() it gives

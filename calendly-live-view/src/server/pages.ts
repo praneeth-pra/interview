@@ -110,7 +110,13 @@ const bookHtml = (manage: unknown, preload: string) =>
     HOST: HOST_HTML,
     PRELOAD: preload,
     OG: og("Book an interview slot · " + HOST_NAME, "Pick a date and time for your interview.", "/booking"),
-    BOOT: safeJson({ host: HOST_NAME, event: EVENT_NAME, manage, info: { loc: EVENT_LOCATION, desc: EVENT_DESCRIPTION } }),
+    BOOT: safeJson({
+      host: HOST_NAME,
+      event: EVENT_NAME,
+      manage,
+      info: { loc: EVENT_LOCATION, desc: EVENT_DESCRIPTION },
+      inviteMax: ID_CARD_MAX,
+    }),
   });
 // The booking page asks for the 30-minute days list as soon as it starts; the preload starts that request with the HTML.
 export const BOOK_HOME = shell(bookHtml(null, '<link rel="preload" href="/api/days?duration=30" as="fetch" crossorigin>'), CSP.page);

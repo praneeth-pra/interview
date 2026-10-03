@@ -1,0 +1,41 @@
+// Reading an interview invite: its text (pdftotext for PDFs, tesseract OCR for pictures, on this server like receipts)
+// and the HR emails and phone numbers in it.
+import { receiptText } from "./receipt-check";
+
+// The invite's text: a PDF's own text, or both of the receipt reader's OCR passes over a picture.
+export async function inviteText(bytes: Uint8Array, type: string) {
+  return (await receiptText(bytes, type, 0)) + "\n" + (await receiptText(bytes, type, 1));
+}
+// Addresses that send mail but aren't a person: no-reply senders, calendar and meeting services, and this site.
+const NOT_HR =
+  /^(no-?reply|do-?not-?reply|donotreply|mailer-daemon|notifications?|calendar|invites?|meetings?|alerts?)[@.+-]|@(.*\.)?(hi-techie\.dev|google\.com|zoom\.us|microsoft\.com|teams\.microsoft\.com|calendly\.com|naukri\.com|webex\.com)$/i;
+// Lines about joining a meeting (ids, passcodes, dial-in numbers) don't hold the HR's phone number.
+const MEETING_LINE = /meeting\s*id|conference\s*id|passcode|password|\bpin\b|dial[\s-]?in|toll|webinar\s*id|access\s*code/i;
+const PHONE_WORD = /phone|mobile|\bmob\b|\bph\b|\btel\b|contact|call|whats\s*app|\bcell\b/i;
+// The HR emails and phone numbers in an invite's text, at most three of each, leaving out the candidate's own.
+// Mobile numbers (10 digits from 6 to 9, with or without +91 or 0) count anywhere; other 10-digit numbers (landlines)
+// only on a line that says phone, mobile, contact and the like.
+export function inviteContacts(text: string, own: { email?: string; phone?: string } = {}) {
+  const emails: string[] = [];
+  const ownEmail = (own.email ?? "").trim().toLowerCase();
+  for (const m of text.matchAll(/[a-z0-9][a-z0-9._%+-]*@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi)) {
+    const email = m[0].replace(/[.]+$/, "").toLowerCase();
+    if (email !== ownEmail && !NOT_HR.test(email) && !emails.includes(email)) emails.push(email);
+  }
+  const phones: string[] = [];
+  const ownPhone = (own.phone ?? "").replace(/\D/g, "").slice(-10);
+  for (const line of text.split("\n")) {
+    if (MEETING_LINE.test(line)) continue;
+    // digits with spaces, dashes, dots or brackets between them, not part of a longer number, an email or a link
+    for (const m of line.matchAll(/(?<![\w@./:])\+?\(?\d[\d\s().-]{8,16}\d(?![\w@])/g)) {
+      let digits = m[0].replace(/\D/g, "");
+      if (digits.length === 12 && digits.startsWith("91")) digits = digits.slice(2);
+      else if (digits.length === 11 && digits.startsWith("0")) digits = digits.slice(1);
+      if (digits.length !== 10 || digits === ownPhone) continue;
+      if (!/^[6-9]/.test(digits) && !PHONE_WORD.test(line)) continue;
+      const shown = "+91 " + digits.slice(0, 5) + " " + digits.slice(5);
+      if (!phones.includes(shown)) phones.push(shown);
+    }
+  }
+  return { emails: emails.slice(0, 3), phones: phones.slice(0, 3) };
+}

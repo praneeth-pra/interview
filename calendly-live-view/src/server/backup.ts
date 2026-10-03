@@ -26,7 +26,7 @@ import { json } from "./http";
 import { broadcastState } from "./live";
 import { type FileStore, loadStore, saveStore } from "./store";
 import { istParts } from "./time";
-import { PDF_OR_WORD, PHOTO_OR_PDF, idCards, kindOf, receipts, resumes } from "./uploads";
+import { PDF_OR_WORD, PHOTO_OR_PDF, idCards, invites, kindOf, receipts, resumes } from "./uploads";
 import { type Fields, asFields, pad } from "./util";
 import { copyFile, readdir, rm } from "node:fs/promises";
 import { mkdir } from "node:fs/promises";
@@ -44,9 +44,9 @@ const STORES: Record<string, FileStore<any>> = {
   "unavailable.json": blocksStore,
   "secret.json": secretStore,
 };
-// The resumes, receipts and ID cards, as "resumes/<file>", "receipts/<file>" or "id-cards/<file>"; restoring writes only
-// names like these.
-export const UPLOAD_PATH = /^(resumes|receipts|id-cards)\/[A-Za-z0-9-]{1,64}\.(pdf|docx|doc|png|jpg|webp|heic)$/;
+// The resumes, receipts, ID cards and interview invites, as "resumes/<file>", "receipts/<file>", "id-cards/<file>" or
+// "invites/<file>"; restoring writes only names like these.
+export const UPLOAD_PATH = /^(resumes|receipts|id-cards|invites)\/[A-Za-z0-9-]{1,64}\.(pdf|docx|doc|png|jpg|webp|heic)$/;
 // The resumes and receipts in one backup email, at most (BACKUP_FILES_MB, default 12). They are base64 twice over (in the
 // JSON, then as an attachment), so 12 MB of files is about 21 MB of email: under the 25 MB many inboxes accept.
 const FILES_MB = Number(Bun.env.BACKUP_FILES_MB);
@@ -79,6 +79,9 @@ export async function backupParts(max = Infinity) {
     })),
     ...onboardingStore.data.forms.flatMap((v) =>
       [v.aadhaar, v.pan].map((c) => ({ at: v.createdAt, path: "id-cards/" + c.file, read: () => idCards.read(c.file) })),
+    ),
+    ...bookingsStore.data.bookings.flatMap((b) =>
+      b.invite ? [{ at: b.createdAt, path: "invites/" + b.invite.file, read: () => invites.read(b.invite!.file) }] : [],
     ),
   ].sort((a, b) => b.at.localeCompare(a.at));
   const chunks: Record<string, string>[] = [{}];
@@ -238,7 +241,12 @@ export async function restoreData(b: Fields): Promise<Response> {
   return json({ ok: true, restored: names.length, bookings: bookingsStore.data.bookings.length });
 }
 // POST /admin/api/restore-file?path=resumes/<file>: one resume or receipt from a backup's "uploads", as raw bytes.
-const FOLDERS = { resumes: [resumes, PDF_OR_WORD], receipts: [receipts, PHOTO_OR_PDF], "id-cards": [idCards, PHOTO_OR_PDF] } as const;
+const FOLDERS = {
+  resumes: [resumes, PDF_OR_WORD],
+  receipts: [receipts, PHOTO_OR_PDF],
+  "id-cards": [idCards, PHOTO_OR_PDF],
+  invites: [invites, PHOTO_OR_PDF],
+} as const;
 export async function restoreUpload(req: Request, path: string): Promise<Response> {
   if (!UPLOAD_PATH.test(path)) return json({ error: "Bad file name." }, 400);
   if ((req.headers.get("content-type") ?? "").toLowerCase() !== "application/octet-stream") return json({ error: "Bad request." }, 415);

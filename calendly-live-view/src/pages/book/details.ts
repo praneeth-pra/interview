@@ -1,9 +1,10 @@
-// The details step: name, email, company and round, then sending the booking.
+// The details step: name, email, company, round and the interview invite, then sending the booking.
 import { el } from "../shared/dom";
 import { loadCompanies } from "./companies";
 import { render, state } from "./app";
 import { clearSlots, loadDays, showSlots } from "./slots";
 import { companyField, roundField, textField } from "./fields";
+import { HR_NEEDED, bookingForm, inviteField, inviteProblem } from "./invite";
 import { WELCOME_BACK, prefillName, previousCompanies, rememberBooking, setNameHint, showPreviousCompanies } from "./returning";
 
 let lookupTimer: ReturnType<typeof setTimeout> | null = null; // clearTimeout(null) does nothing, so the calls below pass it as is
@@ -98,6 +99,7 @@ export function renderDetails() {
       [companyField(), roundField()],
     ),
   );
+  form.appendChild(inviteField());
   form.appendChild(
     el(
       "button",
@@ -124,11 +126,19 @@ function submitBooking() {
   if (!form.company.trim()) {
     errors.company = "Enter the company you're interviewing with.";
   }
+  const invite = state.invite;
+  const inviteError = inviteProblem(invite);
+  if (inviteError) {
+    errors.invite = inviteError;
+  }
+  if (!state.inviteHr) {
+    errors.inviteHr = HR_NEEDED;
+  }
   state.fieldErr = errors;
   state.err = "";
-  if (Object.keys(errors).length) {
+  if (Object.keys(errors).length || !invite) {
     render();
-    const firstInvalid = document.getElementById(errors.email ? "femail" : errors.name ? "fname" : "fcompany");
+    const firstInvalid = document.getElementById(errors.email ? "femail" : errors.name ? "fname" : errors.company ? "fcompany" : "finv");
     if (firstInvalid) {
       firstInvalid.focus();
     }
@@ -136,20 +146,21 @@ function submitBooking() {
   }
   state.busy = true;
   render();
-  fetch("/api/book", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
+  bookingForm(
+    {
       name: form.name.trim(),
       email: form.email.trim(),
       company: form.company.trim(),
       round: form.round.trim(),
       duration: state.dur,
-      startMs: state.slot,
-    }),
-  })
+      startMs: state.slot!,
+      hrVisible: "yes",
+    },
+    invite,
+  )
+    .then(function (body) {
+      return fetch("/api/book", { method: "POST", body: body });
+    })
     .then(function (res) {
       return res.json().then(function (body) {
         return {
@@ -169,12 +180,14 @@ function submitBooking() {
         window.scrollTo(0, 0);
         return;
       }
-      if (result.j.field === "email" || result.j.field === "company") {
+      if (result.j.field === "email" || result.j.field === "company" || result.j.field === "invite") {
         state.fieldErr = {
           [result.j.field]: result.j.error,
         };
         render();
-        const badInput = document.getElementById(result.j.field === "email" ? "femail" : "fcompany");
+        const badInput = document.getElementById(
+          result.j.field === "email" ? "femail" : result.j.field === "company" ? "fcompany" : "finv",
+        );
         if (badInput) {
           badInput.focus();
         }

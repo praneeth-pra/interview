@@ -2,6 +2,7 @@
 // PAN cards (each a photo or a PDF), sent as one multipart request to /api/onboarding. Phone photos are often several MB,
 // so a photo bigger than the server's limit (the boot block) is shrunk to a JPEG first; a PDF can't be, and is only
 // refused when too big. The same rules are checked again on the server.
+import { isImage, isPdf, sentName, shrink, sizeText } from "./shared/upload";
 const MAX_BYTES: number = JSON.parse(document.getElementById("boot")!.textContent).max;
 const MAX_TEXT = Math.round((MAX_BYTES / 1048576) * 10) / 10 + " MB";
 const form = document.getElementById("f") as HTMLFormElement;
@@ -22,8 +23,6 @@ const CARDS = [
   { key: "pan", id: "pn", label: "PAN card" },
 ];
 const inputOf = (id: string) => document.getElementById(id) as HTMLInputElement;
-const isImage = (file: File) => /^image\//.test(file.type) || /\.(png|jpe?g|webp|heic|heif)$/i.test(file.name);
-const isPdf = (file: File) => file.type === "application/pdf" || /\.pdf$/i.test(file.name);
 // What is wrong with a chosen file before it is sent. Big photos are fine here: they are shrunk on the way.
 function fileProblem(file: File | undefined, label: string) {
   if (!file) {
@@ -37,9 +36,6 @@ function fileProblem(file: File | undefined, label: string) {
   } else {
     return "";
   }
-}
-function sizeText(bytes: number) {
-  return bytes < 1048576 ? Math.max(1, Math.round(bytes / 1024)) + " KB" : Math.round((bytes / 1048576) * 10) / 10 + " MB";
 }
 function showFile(card: (typeof CARDS)[number]) {
   const file = inputOf(card.id).files![0];
@@ -92,40 +88,12 @@ function check() {
   });
   return problems;
 }
-// A photo over the limit, drawn smaller as a JPEG until it fits. A photo the browser can't open (HEIC outside Safari)
-// is sent as it is, and the server answers if it is too big.
-async function shrink(file: File): Promise<Blob> {
-  if (!isImage(file) || file.size <= MAX_BYTES) {
-    return file;
-  }
-  let image: ImageBitmap;
-  try {
-    image = await createImageBitmap(file);
-  } catch {
-    return file;
-  }
-  let side = 2000;
-  for (let i = 0; i < 4; i++, side = Math.round(side * 0.75)) {
-    const scale = Math.min(1, side / Math.max(image.width, image.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.round(image.width * scale);
-    canvas.height = Math.round(image.height * scale);
-    canvas.getContext("2d")!.drawImage(image, 0, 0, canvas.width, canvas.height);
-    const blob = await new Promise<Blob | null>(function (resolve) {
-      canvas.toBlob(resolve, "image/jpeg", 0.85);
-    });
-    if (blob && blob.size <= MAX_BYTES) {
-      return blob;
-    }
-  }
-  return file;
-}
 async function formData() {
   const data = new FormData(form);
   for (const card of CARDS) {
     const file = inputOf(card.id).files![0];
-    const sent = await shrink(file);
-    data.set(card.key, sent, sent === file ? file.name : file.name.replace(/\.[^.]*$/, "") + ".jpg");
+    const sent = await shrink(file, MAX_BYTES);
+    data.set(card.key, sent, sentName(file, sent));
   }
   return data;
 }

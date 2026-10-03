@@ -67,6 +67,8 @@ const ICON: Record<string, string> = {
   x: "M6 6l12 12M18 6 6 18",
   note: "M5 4h14v16H5zM8.5 9h7M8.5 13h7M8.5 17h4",
   download: "M12 4v11M7.5 10.5 12 15l4.5-4.5M5 19.5h14",
+  phone: "M8 3.5h8v17H8zM11 17.5h2",
+  invite: "M6 3.5h8l4 4v13H6zM14 3.5v4h4M9 12h6M9 16h6",
 };
 export function icon(name: string) {
   const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");

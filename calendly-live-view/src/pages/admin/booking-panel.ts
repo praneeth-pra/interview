@@ -183,6 +183,27 @@ export function showBooking(id: string, refresh?: boolean) {
     }
   }
   row("mail", "Email", booking.email ? el("a", { href: "mailto:" + booking.email, text: booking.email }) : "");
+  // the company's invite the candidate uploaded, and the HR's email and phone read from it
+  const inviteUrl = "/admin/api/bookings/" + booking.id + "/invite";
+  if (booking.invite) {
+    const links = function (items: string[], scheme: string) {
+      return el(
+        "span",
+        { class: "bk-inv" },
+        items.map(function (item) {
+          return el("a", { href: scheme + (scheme === "tel:" ? item.replace(/[^\d+]/g, "") : item), text: item });
+        }),
+      );
+    };
+    if (!booking.inviteRead) {
+      row("mail", "HR contact", "Reading the invite…");
+    } else if (!(booking.hrEmails || []).length && !(booking.hrPhones || []).length) {
+      row("mail", "HR contact", "None found. Check the invite below.");
+    } else {
+      row("mail", "HR email", (booking.hrEmails || []).length ? links(booking.hrEmails!, "mailto:") : "");
+      row("phone", "HR phone", (booking.hrPhones || []).length ? links(booking.hrPhones!, "tel:") : "");
+    }
+  }
   row(
     "clock",
     "Booked",
@@ -202,6 +223,30 @@ export function showBooking(id: string, refresh?: boolean) {
     row("note", "Reason", booking.cancelReason);
   }
   body.appendChild(details);
+  // the invite itself: a screenshot or photo shows here (tap for full size); a PDF or HEIC photo opens in a new tab
+  if (booking.invite) {
+    const shown = /^image\/(png|jpeg|webp)$/.test(booking.invite.type);
+    body.appendChild(
+      el("div", { class: "bk-card" }, [
+        el("h3", { text: "Interview invite" }),
+        shown
+          ? el("a", { class: "bk-shot", href: inviteUrl, target: "_blank", rel: "noopener" }, [
+              el("img", { src: inviteUrl, alt: "Interview invite " + titleCase(booking.name) + " uploaded", loading: "lazy" }),
+              el("span", { text: "Tap to see it all", "aria-hidden": "true" }),
+            ])
+          : null,
+        el("span", { class: "bk-inv" }, [
+          el("a", { href: inviteUrl, target: "_blank", rel: "noopener", text: shown ? "Open full size" : "Open the invite" }),
+          el("a", {
+            href: inviteUrl + "?download=1",
+            download: "",
+            "aria-label": "Download the interview invite of " + booking.name,
+            text: "Download",
+          }),
+        ]),
+      ]),
+    );
+  }
 
   // Interview support (not for an interview marked as a no-show or didn't happen: its status card says so)
   if (!booking.cancelled && !booking.missed) {
