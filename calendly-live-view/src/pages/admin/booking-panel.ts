@@ -120,14 +120,17 @@ function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: 
       setMessage(msg, error.message, true);
     });
 }
-// the invite screenshot, tap for full size. It fades in once loaded, over a shimmer in the card's colours, rather
-// than a white box the image then pops into. Shown again (a refresh of the panel), it comes from the cache already
-// loaded and shows at once.
-function inviteShot(url: string, alt: string) {
+// the invite screenshot, tap for full size, with Download beside "Tap to see it all". It fades in once loaded, over a
+// shimmer in the card's colours, rather than a white box the image then pops into. Shown again (a refresh of the
+// panel), it comes from the cache already loaded and shows at once.
+function inviteShot(url: string, alt: string, downloadLabel: string) {
   const img = el("img", { src: url, alt: alt, decoding: "async" });
-  const shot = el("a", { class: "bk-shot", href: url, target: "_blank", rel: "noopener", onclick: viewInvite(url, alt) }, [
-    img,
-    el("span", { text: "Tap to see it all", "aria-hidden": "true" }),
+  const shot = el("div", { class: "bk-shot" }, [
+    el("a", { class: "bk-open", href: url, target: "_blank", rel: "noopener", onclick: viewInvite(url, alt) }, [img]),
+    el("div", { class: "bk-pills" }, [
+      el("a", { href: url + "?download=1", download: "", "aria-label": downloadLabel, text: "Download" }),
+      el("span", { text: "Tap to see it all", "aria-hidden": "true" }),
+    ]),
   ]);
   if (img.complete && img.naturalWidth) {
     shot.classList.add("ld");
@@ -301,22 +304,21 @@ export function showBooking(id: string, refresh?: boolean) {
     body.appendChild(
       el("div", { class: "bk-card" }, [
         el("h3", { text: "Interview invite" }),
-        shown ? inviteShot(inviteUrl, "Interview invite " + titleCase(booking.name) + " uploaded") : null,
-        el("span", { class: "bk-inv" }, [
-          el("a", {
-            href: inviteUrl,
-            target: "_blank",
-            rel: "noopener",
-            text: shown ? "Open full size" : "Open the invite",
-            onclick: shown ? viewInvite(inviteUrl, "Interview invite " + titleCase(booking.name) + " uploaded") : null,
-          }),
-          el("a", {
-            href: inviteUrl + "?download=1",
-            download: "",
-            "aria-label": "Download the interview invite of " + booking.name,
-            text: "Download",
-          }),
-        ]),
+        shown
+          ? inviteShot(
+              inviteUrl,
+              "Interview invite " + titleCase(booking.name) + " uploaded",
+              "Download the interview invite of " + booking.name,
+            )
+          : el("span", { class: "bk-inv" }, [
+              el("a", { href: inviteUrl, target: "_blank", rel: "noopener", text: "Open the invite" }),
+              el("a", {
+                href: inviteUrl + "?download=1",
+                download: "",
+                "aria-label": "Download the interview invite of " + booking.name,
+                text: "Download",
+              }),
+            ]),
       ]),
     );
   }
