@@ -5,6 +5,7 @@ import { ROUND_STATUSES, type RoundStatus, byWhom, plural, roundStatus, statusPi
 import { request } from "./api";
 import { colorClass, render, state, view } from "./state";
 import { closePanel, icon, initials, openPanel, panel, setPanelAvatar } from "./panel";
+import { shareOnTap } from "./share";
 import type { Booking } from "./types";
 import { allBookings, findBooking, loadAllBookings } from "./bookings";
 import { sameCompany } from "../../same-company";
@@ -123,14 +124,11 @@ function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: 
 // the invite screenshot, tap for full size, with Download beside "Tap to see it all". It fades in once loaded, over a
 // shimmer in the card's colours, rather than a white box the image then pops into. Shown again (a refresh of the
 // panel), it comes from the cache already loaded and shows at once.
-function inviteShot(url: string, alt: string, downloadLabel: string) {
+function inviteShot(url: string, alt: string, download: HTMLAnchorElement) {
   const img = el("img", { src: url, alt: alt, decoding: "async" });
   const shot = el("div", { class: "bk-shot" }, [
     el("a", { class: "bk-open", href: url, target: "_blank", rel: "noopener", onclick: viewInvite(url, alt) }, [img]),
-    el("div", { class: "bk-pills" }, [
-      el("a", { href: url + "?download=1", download: "", "aria-label": downloadLabel, text: "Download" }),
-      el("span", { text: "Tap to see it all", "aria-hidden": "true" }),
-    ]),
+    el("div", { class: "bk-pills" }, [download, el("span", { text: "Tap to see it all", "aria-hidden": "true" })]),
   ]);
   if (img.complete && img.naturalWidth) {
     shot.classList.add("ld");
@@ -301,23 +299,21 @@ export function showBooking(id: string, refresh?: boolean) {
   // the invite itself: a screenshot or photo shows here (tap for full size); a PDF or HEIC photo opens in a new tab
   if (booking.invite) {
     const shown = /^image\/(png|jpeg|webp)$/.test(booking.invite.type);
+    const inviteDownload = el("a", {
+      href: inviteUrl + "?download=1",
+      download: "",
+      "aria-label": "Download the interview invite of " + booking.name,
+      text: "Download",
+    });
+    shareOnTap(inviteDownload, booking.invite.type, "Interview invite of " + titleCase(booking.name));
     body.appendChild(
       el("div", { class: "bk-card" }, [
         el("h3", { text: "Interview invite" }),
         shown
-          ? inviteShot(
-              inviteUrl,
-              "Interview invite " + titleCase(booking.name) + " uploaded",
-              "Download the interview invite of " + booking.name,
-            )
+          ? inviteShot(inviteUrl, "Interview invite " + titleCase(booking.name) + " uploaded", inviteDownload)
           : el("span", { class: "bk-inv" }, [
               el("a", { href: inviteUrl, target: "_blank", rel: "noopener", text: "Open the invite" }),
-              el("a", {
-                href: inviteUrl + "?download=1",
-                download: "",
-                "aria-label": "Download the interview invite of " + booking.name,
-                text: "Download",
-              }),
+              inviteDownload,
             ]),
       ]),
     );
