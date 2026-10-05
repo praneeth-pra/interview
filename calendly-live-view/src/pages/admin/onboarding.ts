@@ -2,14 +2,12 @@
 // side panel (a bottom sheet on phones). A new form shows up while it is open.
 import { el, setMessage, toast } from "./dom";
 import { formatIst, formatTime } from "./time";
-import { titleCase } from "./labels";
+import { GENUINE, titleCase } from "./labels";
 import { request } from "./api";
 import { state } from "./state";
 import { icon, openPanel, panel } from "./panel";
 import type { IdCard, OnboardingForm } from "./types";
 
-// what the candidate said about their experience, after the years
-const GENUINE = { yes: " · Genuine", no: " · Not genuine", "": "" };
 const kb = (card: IdCard) => Math.max(1, Math.round(card.size / 1024)) + " KB";
 
 export function showOnboarding() {

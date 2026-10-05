@@ -73,3 +73,5 @@ function plural(count: number, word: string) {
 
 export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural, ROUND_STATUSES, roundStatus, statusPill };
 export type { RoundStatus };
+// what the candidate said about their experience (enquiries and onboarding), after the years
+export const GENUINE = { yes: " · Genuine", no: " · Not genuine", "": "" };

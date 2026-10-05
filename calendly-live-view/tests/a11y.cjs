@@ -55,7 +55,7 @@ writeFileSync(
   join(dir, "enquiries.json"),
   JSON.stringify({
     enquiries: [
-      { id: "e0000000-0000-0000-0000-000000000001", name: "Asha Rao", email: "asha@example.com", phone: "9876543210", tech: "Java", experience: "3 years", createdAt: new Date().toISOString(), resume },
+      { id: "e0000000-0000-0000-0000-000000000001", name: "Asha Rao", email: "asha@example.com", phone: "9876543210", tech: "Java", experience: "3 years", genuine: "yes", createdAt: new Date().toISOString(), resume },
     ],
     seen: {},
   }),

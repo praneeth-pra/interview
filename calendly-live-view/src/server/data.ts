@@ -137,6 +137,7 @@ export type Enquiry = {
   phone: string;
   tech: string;
   experience: string;
+  genuine?: "yes" | "no"; // whether the candidate says their recent experience is genuine (missing on older enquiries)
   createdAt: string;
   resume: { file: string; name: string; type: string; size: number };
 };
