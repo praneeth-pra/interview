@@ -120,6 +120,27 @@ function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: 
       setMessage(msg, error.message, true);
     });
 }
+// the invite screenshot, tap for full size. It fades in once loaded, over a shimmer in the card's colours, rather
+// than a white box the image then pops into. Shown again (a refresh of the panel), it comes from the cache already
+// loaded and shows at once.
+function inviteShot(url: string, alt: string) {
+  const img = el("img", { src: url, alt: alt, decoding: "async" });
+  const shot = el("a", { class: "bk-shot", href: url, target: "_blank", rel: "noopener" }, [
+    img,
+    el("span", { text: "Tap to see it all", "aria-hidden": "true" }),
+  ]);
+  if (img.complete && img.naturalWidth) {
+    shot.classList.add("ld");
+  } else {
+    const loaded = function () {
+      shot.classList.add("ld");
+    };
+    img.addEventListener("load", loaded, { once: true });
+    img.addEventListener("error", loaded, { once: true });
+  }
+  return shot;
+}
+
 export function showBooking(id: string, refresh?: boolean) {
   const booking = findBooking(id);
   if (!booking) {
@@ -229,12 +250,7 @@ export function showBooking(id: string, refresh?: boolean) {
     body.appendChild(
       el("div", { class: "bk-card" }, [
         el("h3", { text: "Interview invite" }),
-        shown
-          ? el("a", { class: "bk-shot", href: inviteUrl, target: "_blank", rel: "noopener" }, [
-              el("img", { src: inviteUrl, alt: "Interview invite " + titleCase(booking.name) + " uploaded", loading: "lazy" }),
-              el("span", { text: "Tap to see it all", "aria-hidden": "true" }),
-            ])
-          : null,
+        shown ? inviteShot(inviteUrl, "Interview invite " + titleCase(booking.name) + " uploaded") : null,
         el("span", { class: "bk-inv" }, [
           el("a", { href: inviteUrl, target: "_blank", rel: "noopener", text: shown ? "Open full size" : "Open the invite" }),
           el("a", {
