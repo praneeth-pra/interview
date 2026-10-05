@@ -54,7 +54,8 @@ export async function receiveOnboarding(req: Request, srv: Srv): Promise<Respons
   if (digits < 10 || digits > 15 || /[^\d\s+()-]/.test(phone)) return json({ error: "Enter a valid phone number.", field: "phone" }, 400);
   if (tech.length < 2) return json({ error: "Tell us your technology.", field: "tech" }, 400);
   if (!experience) return json({ error: "Choose your years of experience.", field: "experience" }, 400);
-  if (genuine !== "yes" && genuine !== "no") return json({ error: "Tell us whether your experience is genuine.", field: "genuine" }, 400);
+  if (genuine !== "yes" && genuine !== "no")
+    return json({ error: "Tell us whether your recent experience is genuine.", field: "genuine" }, 400);
   if (!linkedin) return json({ error: "Enter your LinkedIn profile link, like linkedin.com/in/your-name.", field: "linkedin" }, 400);
   const paid = paymentStatus(email);
   if (paid === "pending")

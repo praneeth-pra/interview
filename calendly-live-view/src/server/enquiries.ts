@@ -29,12 +29,14 @@ export async function receiveEnquiry(req: Request, srv: Srv): Promise<Response> 
   const phone = text("phone", 20);
   const tech = text("tech", 100);
   const experience = text("experience", 40);
+  const genuine = text("genuine", 3);
   if (name.length < 2) return json({ error: "Enter your full name." }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
   const digits = phone.replace(/\D/g, "").length;
   if (digits < 10 || digits > 15 || /[^\d\s+()-]/.test(phone)) return json({ error: "Enter a valid phone number." }, 400);
   if (tech.length < 2) return json({ error: "Tell us the technology you're looking for." }, 400);
   if (!experience) return json({ error: "Choose your years of experience." }, 400);
+  if (genuine !== "yes" && genuine !== "no") return json({ error: "Tell us whether your recent experience is genuine." }, 400);
   const resume = form.get("resume");
   if (!(resume instanceof Blob) || !resume.size) return json({ error: "Add your resume." }, 400);
   if (resume.size > RESUME_MAX) return json({ error: RESUME_TOO_BIG }, 413);
@@ -50,6 +52,7 @@ export async function receiveEnquiry(req: Request, srv: Srv): Promise<Response> 
     phone,
     tech,
     experience,
+    genuine,
     createdAt: new Date().toISOString(),
     resume: { file: id + kind.ext, name: original, type: kind.type, size: bytes.length },
   };
@@ -83,6 +86,7 @@ export const enquiryView = (v: Enquiry) => ({
   phone: v.phone,
   tech: v.tech,
   experience: v.experience,
+  genuine: v.genuine ?? "",
   createdAt: v.createdAt,
   resume: { name: v.resume.name, size: v.resume.size },
 });

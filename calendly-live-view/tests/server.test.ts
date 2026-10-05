@@ -355,7 +355,7 @@ describe("enquiries", () => {
     if (file) f.set("resume", new File([file.bytes], file.name));
     return f;
   };
-  const good = { name: "Asha Rao", email: "Asha@Example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years" };
+  const good = { name: "Asha Rao", email: "Asha@Example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years", genuine: "yes" };
   const send = (f: FormData) => fetch(open.url + "/api/enquiry", { method: "POST", body: f });
 
   test("the page is served and its old spellings redirect to it", async () => {
@@ -373,6 +373,14 @@ describe("enquiries", () => {
     // a bot filling the hidden field is thanked and dropped
     expect((await send(form({ ...good, website: "spam.example" }, { bytes: PDF, name: "cv.pdf" }))).status).toBe(200);
     expect((await send(form({ ...good, name: "" }, { bytes: PDF, name: "cv.pdf" }))).status).toBe(400);
+    // from another network, so the hourly limit stays for the checks below
+    const notSaid = await fetch(open.url + "/api/enquiry", {
+      method: "POST",
+      body: form({ ...good, genuine: "maybe" }, { bytes: PDF, name: "cv.pdf" }),
+      headers: { "x-real-ip": "203.0.113.9" },
+    });
+    expect(notSaid.status).toBe(400);
+    expect((await notSaid.json()).error).toBe("Tell us whether your recent experience is genuine.");
     const notPdf = await send(form(good, { bytes: new TextEncoder().encode("hello"), name: "cv.pdf" }));
     expect(notPdf.status).toBe(400);
     expect((await notPdf.json()).error).toContain("PDF or Word");
@@ -386,7 +394,7 @@ describe("enquiries", () => {
     const { enquiries } = await (await get(open, "/admin/api/enquiries")).json();
     expect(enquiries.length).toBe(1);
     const e = enquiries[0];
-    expect(e).toMatchObject({ name: "Asha Rao", email: "asha@example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years" });
+    expect(e).toMatchObject({ name: "Asha Rao", email: "asha@example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years", genuine: "yes" });
     expect(e.resume).toEqual({ name: "Asha Rao résumé.pdf", size: PDF.length });
     const file = await get(open, "/admin/api/enquiries/" + e.id + "/resume");
     expect(file.headers.get("content-type")).toBe("application/pdf");
@@ -476,7 +484,7 @@ describe("onboarding", () => {
     expect((await notImage.json()).error).toBe("Your Aadhaar card must be a photo or a PDF.");
     expect((await send(form({ ...good, phone: "12" }, both))).status).toBe(400);
     // every field is required
-    expect(await (await send(form({ ...good, genuine: "" }, both))).json()).toEqual({ error: "Tell us whether your experience is genuine.", field: "genuine" });
+    expect(await (await send(form({ ...good, genuine: "" }, both))).json()).toEqual({ error: "Tell us whether your recent experience is genuine.", field: "genuine" });
     expect((await (await send(form({ ...good, linkedin: "" }, both), "10.2.0.3")).json()).field).toBe("linkedin");
     const badLink = await send(form({ ...good, linkedin: "facebook.com/lakshmi" }, both), "10.2.0.3");
     expect(await badLink.json()).toEqual({ error: "Enter your LinkedIn profile link, like linkedin.com/in/your-name.", field: "linkedin" });
@@ -1503,7 +1511,7 @@ describe("hardening", () => {
   const PDF = new TextEncoder().encode("%PDF-1.4\n% a tiny resume\n");
   const enquiry = (headers: Record<string, string> = {}) => {
     const f = new FormData();
-    for (const [k, v] of Object.entries({ name: "Asha Rao", email: "asha@example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years" })) f.set(k, v);
+    for (const [k, v] of Object.entries({ name: "Asha Rao", email: "asha@example.com", phone: "+91 98765 43210", tech: "Java", experience: "3 years", genuine: "yes" })) f.set(k, v);
     f.set("resume", new File([PDF], "cv.pdf"));
     return fetch(bare.url + "/api/enquiry", { method: "POST", body: f, headers });
   };

@@ -1,7 +1,7 @@
 // Enquiries (owners only): the tab listing what people sent from /enquiry, and its red count of new ones.
 import { byId, el, setMessage, toast } from "./dom";
 import { formatIst, formatTime } from "./time";
-import { titleCase } from "./labels";
+import { GENUINE, titleCase } from "./labels";
 import { request } from "./api";
 import { SEEN_KEY, boot, state } from "./state";
 import { icon } from "./panel";
@@ -59,7 +59,7 @@ export function showEnquiries(quiet?: boolean): Promise<void> {
             el("b", { text: titleCase(item.name) }),
             el("small", { text: formatIst({ month: "short", day: "numeric" }, when) + ", " + formatTime(when) }),
           ]),
-          el("p", { class: "enqt", text: item.tech + " · " + item.experience }),
+          el("p", { class: "enqt", text: item.tech + " · " + item.experience + GENUINE[item.genuine] }),
           el("p", { class: "enqc" }, [
             el("a", { href: "mailto:" + item.email, text: item.email }),
             el("a", { href: "tel:" + item.phone.replace(/[^\d+]/g, ""), text: item.phone }),

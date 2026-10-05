@@ -1,4 +1,4 @@
-// The public enquiry form (/enquiry): name, email, phone, technology, experience and a resume (PDF or Word, 200 KB at most),
+// The public enquiry form (/enquiry): name, email, phone, technology, experience, whether that recent experience is genuine and a resume (PDF or Word, 200 KB at most),
 // sent as one multipart request to /api/enquiry. The same rules are checked again on the server.
 const MAX_BYTES = 200 * 1024;
 const form = document.getElementById("f") as HTMLFormElement;
@@ -11,6 +11,7 @@ const fields = {
   phone: document.getElementById("ph") as HTMLInputElement,
   tech: document.getElementById("tc") as HTMLInputElement,
   experience: document.getElementById("yx") as HTMLSelectElement,
+  genuine: document.getElementById("gn") as HTMLSelectElement,
 };
 function fileProblem(file: File | undefined) {
   if (!file) {
@@ -56,6 +57,7 @@ function check() {
   need(fields.phone, digits.length >= 10 && digits.length <= 15, "Enter a valid phone number.");
   need(fields.tech, fields.tech.value.trim().length >= 2, "Tell us the technology you're looking for.");
   need(fields.experience, !!fields.experience.value, "Choose your years of experience.");
+  need(fields.genuine, !!fields.genuine.value, "Tell us whether your recent experience is genuine.");
   const fileText = fileProblem(fileInput.files![0]);
   document.getElementById("dropbox")!.classList.toggle("bad", !!fileText);
   if (fileText) {

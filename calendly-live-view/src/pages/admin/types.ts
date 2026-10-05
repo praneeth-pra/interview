@@ -76,6 +76,7 @@ export type Enquiry = {
   phone: string;
   tech: string;
   experience: string;
+  genuine: "yes" | "no" | ""; // whether they say their recent experience is genuine ("" on older enquiries)
   createdAt: string;
   resume: { name: string; size: number };
 };
