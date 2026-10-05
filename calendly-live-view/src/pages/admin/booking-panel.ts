@@ -125,7 +125,7 @@ function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: 
 // loaded and shows at once.
 function inviteShot(url: string, alt: string) {
   const img = el("img", { src: url, alt: alt, decoding: "async" });
-  const shot = el("a", { class: "bk-shot", href: url, target: "_blank", rel: "noopener" }, [
+  const shot = el("a", { class: "bk-shot", href: url, target: "_blank", rel: "noopener", onclick: viewInvite(url, alt) }, [
     img,
     el("span", { text: "Tap to see it all", "aria-hidden": "true" }),
   ]);
@@ -139,6 +139,57 @@ function inviteShot(url: string, alt: string) {
     img.addEventListener("error", loaded, { once: true });
   }
   return shot;
+}
+
+// Opening the invite screenshot full size: it zooms up over a dark backdrop on this page, instead of a new tab (or, in
+// the installed app, a browser sheet) that flashed white while it loaded. The screenshot is already loaded for the
+// card above, so it shows at once. Ctrl/⌘-click and middle-click still open the image in a new tab.
+function viewInvite(url: string, alt: string) {
+  return function (event: MouseEvent) {
+    if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+      return;
+    }
+    event.preventDefault();
+    const opener = event.currentTarget as HTMLElement;
+    const close = el("button", { class: "lbx-x", type: "button", "aria-label": "Close", text: "×" });
+    const box = el("div", { class: "lbx", role: "dialog", "aria-modal": "true", "aria-label": alt }, [
+      close,
+      el("div", { class: "lbx-in" }, [el("img", { src: url, alt: alt, decoding: "async" })]),
+    ]);
+    const shut = function () {
+      if (box.classList.contains("out")) {
+        return;
+      }
+      box.classList.add("out");
+      // removed once it has faded out (at once when motion is reduced and there is no animation to wait for)
+      const gone = function () {
+        box.remove();
+      };
+      box.addEventListener("animationend", gone, { once: true });
+      setTimeout(gone, 300);
+      if (document.contains(opener)) {
+        opener.focus();
+      }
+    };
+    close.onclick = shut;
+    box.addEventListener("click", function (click) {
+      if (click.target === box || (click.target as HTMLElement).classList.contains("lbx-in")) {
+        shut();
+      }
+    });
+    // Escape closes the screenshot, not the booking panel under it; Tab stays on the close button
+    box.addEventListener("keydown", function (key) {
+      if (key.key === "Escape" || key.key === "Tab") {
+        key.preventDefault();
+        key.stopPropagation();
+        if (key.key === "Escape") {
+          shut();
+        }
+      }
+    });
+    document.body.appendChild(box);
+    close.focus();
+  };
 }
 
 export function showBooking(id: string, refresh?: boolean) {
@@ -252,7 +303,13 @@ export function showBooking(id: string, refresh?: boolean) {
         el("h3", { text: "Interview invite" }),
         shown ? inviteShot(inviteUrl, "Interview invite " + titleCase(booking.name) + " uploaded") : null,
         el("span", { class: "bk-inv" }, [
-          el("a", { href: inviteUrl, target: "_blank", rel: "noopener", text: shown ? "Open full size" : "Open the invite" }),
+          el("a", {
+            href: inviteUrl,
+            target: "_blank",
+            rel: "noopener",
+            text: shown ? "Open full size" : "Open the invite",
+            onclick: shown ? viewInvite(inviteUrl, "Interview invite " + titleCase(booking.name) + " uploaded") : null,
+          }),
           el("a", {
             href: inviteUrl + "?download=1",
             download: "",

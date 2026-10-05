@@ -268,6 +268,62 @@
   color: #fff;
   background: rgba(0, 0, 0, 0.62);
 }
+/* the invite screenshot full size (viewInvite in booking-panel.ts): a dark backdrop fades in over the page and the
+   screenshot zooms up from slightly smaller, scrolling when it is taller than the screen; it fades out on close */
+.lbx {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  background: rgba(12, 10, 8, 0.88);
+  animation: fade 0.22s ease;
+}
+.lbx.out {
+  animation: lbx-out 0.18s ease forwards;
+}
+.lbx-in {
+  height: 100%;
+  overflow: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: max(56px, env(safe-area-inset-top)) 16px max(24px, env(safe-area-inset-bottom));
+}
+.lbx-in img {
+  display: block;
+  max-width: min(100%, 960px);
+  height: auto;
+  margin: auto 0;
+  border-radius: 10px;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  animation: lbx-in 0.28s var(--ease);
+}
+.lbx-x {
+  position: absolute;
+  z-index: 1;
+  top: max(10px, env(safe-area-inset-top));
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  font-size: 26px;
+  line-height: 1;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.16);
+}
+@keyframes lbx-in {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+}
+@keyframes lbx-out {
+  to {
+    opacity: 0;
+  }
+}
 .ivc {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(128px, 1fr));
