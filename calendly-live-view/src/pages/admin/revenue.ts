@@ -5,6 +5,7 @@
 import { request } from "./api";
 import { byId, el } from "./dom";
 import { plural, titleCase } from "./labels";
+import { sharesFiles } from "./share";
 import { TIME_ZONE } from "./time";
 
 // Cumulative ("total") unless this device last picked Monthly
@@ -285,17 +286,6 @@ function setupSearch(body: HTMLElement) {
   search.addEventListener("blur", close);
   body.appendChild(el("div", { class: "paybar" }, [el("div", { class: "srch rv-srch" }, [search, list])]));
 }
-// Phones and tablets that can share files get the PDF through the share sheet (Save to Files, Mail, WhatsApp...): on an
-// iPhone, and above all in the home-screen app, a downloaded PDF opens in a viewer with no way to save or send it.
-// Desktops keep the plain download.
-function sharesFiles() {
-  try {
-    const probe = new File([""], "report.pdf", { type: "application/pdf" });
-    return matchMedia("(pointer: coarse)").matches && !!navigator.canShare && navigator.canShare({ files: [probe] });
-  } catch (e) {
-    return false;
-  }
-}
 // The PDF report's month picker: the last twelve India months, newest first, with last month (the one the monthly email
 // is about) picked. The PDF covers everyone, whatever the search box says.
 function setupPdfMonths(pick: HTMLSelectElement) {
@@ -307,7 +297,7 @@ function setupPdfMonths(pick: HTMLSelectElement) {
     pick.appendChild(el("option", { value: key, text: monthName(key, true) }));
   }
   pick.value = pick.options[1].value;
-  const share = sharesFiles();
+  const share = sharesFiles("application/pdf");
   // Safari only opens the share sheet straight from the tap, so the file is fetched as soon as the month is picked
   let file: File | null = null;
   const update = function () {
