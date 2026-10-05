@@ -484,7 +484,7 @@ describe("onboarding", () => {
     expect((await notImage.json()).error).toBe("Your Aadhaar card must be a photo or a PDF.");
     expect((await send(form({ ...good, phone: "12" }, both))).status).toBe(400);
     // every field is required
-    expect(await (await send(form({ ...good, genuine: "" }, both))).json()).toEqual({ error: "Tell us whether your experience is genuine.", field: "genuine" });
+    expect(await (await send(form({ ...good, genuine: "" }, both))).json()).toEqual({ error: "Tell us whether your recent experience is genuine.", field: "genuine" });
     expect((await (await send(form({ ...good, linkedin: "" }, both), "10.2.0.3")).json()).field).toBe("linkedin");
     const badLink = await send(form({ ...good, linkedin: "facebook.com/lakshmi" }, both), "10.2.0.3");
     expect(await badLink.json()).toEqual({ error: "Enter your LinkedIn profile link, like linkedin.com/in/your-name.", field: "linkedin" });

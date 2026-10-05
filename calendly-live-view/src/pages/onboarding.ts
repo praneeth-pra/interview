@@ -73,7 +73,7 @@ function check() {
   need(fields.phone, digits.length >= 10 && digits.length <= 15, "Enter a valid phone number.");
   need(fields.tech, fields.tech.value.trim().length >= 2, "Tell us your technology.");
   need(fields.experience, !!fields.experience.value, "Choose your years of experience.");
-  need(fields.genuine, !!fields.genuine.value, "Tell us whether your experience is genuine.");
+  need(fields.genuine, !!fields.genuine.value, "Tell us whether your recent experience is genuine.");
   need(
     fields.linkedin,
     /^(https?:\/\/)?([a-z]{2,3}\.)?linkedin\.com\/\S+$/i.test(fields.linkedin.value.trim()),
