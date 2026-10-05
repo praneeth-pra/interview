@@ -216,7 +216,8 @@
 }
 /* the invite screenshot in its card: the top of it (where the subject and sender are), fading out, tap for full size.
    Until it loads the card shimmers in its own colours (not a white box, which flashed in dark mode), then the image,
-   its shade and the "Tap to see it all" badge fade in together (.ld, set by inviteShot in booking-panel.ts) */
+   its shade and the Download and "Tap to see it all" pills fade in together (.ld, set by inviteShot in booking-panel.ts).
+   The whole screenshot opens it full size; the "Tap to see it all" pill lets taps through to it */
 .bk-shot {
   position: relative;
   display: block;
@@ -233,14 +234,18 @@
 }
 .bk-shot img,
 .bk-shot::after,
-.bk-shot span {
+.bk-pills {
   opacity: 0;
   transition: opacity 0.28s var(--ease);
 }
 .bk-shot.ld img,
 .bk-shot.ld::after,
-.bk-shot.ld span {
+.bk-shot.ld .bk-pills {
   opacity: 1;
+}
+.bk-open {
+  display: block;
+  height: 100%;
 }
 .bk-shot img {
   display: block;
@@ -255,12 +260,22 @@
   inset: auto 0 0;
   height: 72px;
   background: linear-gradient(transparent, rgba(0, 0, 0, 0.35));
+  pointer-events: none;
 }
-.bk-shot span {
+.bk-pills {
   position: absolute;
   z-index: 1;
   right: 10px;
   bottom: 10px;
+  display: flex;
+  gap: 8px;
+  pointer-events: none;
+}
+.bk-pills a {
+  pointer-events: auto;
+  text-decoration: none;
+}
+.bk-pills > * {
   padding: 5px 11px;
   border-radius: 999px;
   font-size: 12.5px;
