@@ -593,6 +593,15 @@ function refreshAll() {
   return Promise.all([connect(), loadPeople(), loadIv(), refreshContact()]);
 }
 window.__contactRefresh = refreshAll;
+// The admin's booking sheet opens a person here: straight to their page, with no slide in from the list.
+window.__contactOpen = (eventId: string) => {
+  if (!byId("home").hidden) {
+    homeScroll = window.scrollY;
+    byId("home").hidden = true;
+  }
+  chosen = { name: "", event: eventId };
+  loadAnalytics(eventId);
+};
 setupPullRefresh({
   refresh: refreshAll,
   top: () => 0,

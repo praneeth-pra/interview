@@ -54,7 +54,13 @@ export function setupStatsFrame() {
     if (!frame) {
       load();
     } else if (window.__statsEvent) {
-      frame.src = "/admin/analytics?event=" + encodeURIComponent(window.__statsEvent);
+      // a loaded frame opens the person in place; reloading it would show the old list until the new page draws
+      const contacts = frame.contentWindow;
+      if (contacts && contacts.__contactOpen) {
+        contacts.__contactOpen(window.__statsEvent);
+      } else {
+        frame.src = "/admin/analytics?event=" + encodeURIComponent(window.__statsEvent);
+      }
     }
     window.__statsEvent = "";
     sync();
