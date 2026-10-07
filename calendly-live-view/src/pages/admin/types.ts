@@ -107,6 +107,7 @@ declare global {
     __openContact?: (id: string) => void; // close the sheet and show this booking's candidate in Contacts
     __contact?: (open: boolean) => void; // Contacts opened a person (true) or went back to its list (false)
     __contactBack?: () => void; // in the Contacts frame: show the list again
+    __contactOpen?: (event: string) => void; // in the Contacts frame: show this booking's candidate, without the list first
     __contactRefresh?: () => Promise<unknown>; // in the Contacts frame: fetch the list and open person again
     __theme?: (theme: string) => void; // theme.ts: switch to "light" or "dark" ("" follows the phone)
     __contactSearch?: () => boolean; // in the Contacts frame: show or hide its search field; true when shown

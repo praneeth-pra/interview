@@ -242,6 +242,30 @@ const checks = [
     await frame.locator("#home:not([hidden]) .crow").first().waitFor();
     if (await p.locator("#viewStats").isHidden()) throw new Error("Back left Contacts instead of returning to its list");
   }],
+  ["admin: with Contacts already loaded, the candidate opens straight to their page, never showing the list", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#tabStats").click();
+    const frame = p.frameLocator("iframe.la-frame");
+    await frame.locator("#clist .crow").first().waitFor();
+    const contacts = p.frames().find((f) => f.url().includes("/admin/analytics"));
+    // a marker that a reload of the frame would lose, and a record of the list showing after the tap
+    await contacts.evaluate(() => {
+      window.__kept = true;
+      window.__listShown = false;
+      new MutationObserver(() => {
+        if (window.__watch && !document.getElementById("home").hidden) window.__listShown = true;
+      }).observe(document.getElementById("home"), { attributes: true });
+    });
+    await p.locator("#tabCal").click();
+    await p.evaluate(() => window.__openB("00000000-0000-0000-0000-000000000001"));
+    await p.locator("#ptitle", { hasText: "Priya Sharma" }).waitFor();
+    await contacts.evaluate(() => (window.__watch = true));
+    await p.locator(".phead.plink [role=button]").click();
+    await frame.locator("#an:not([hidden]) #aname", { hasText: "Priya Sharma" }).waitFor();
+    const seen = await contacts.evaluate(() => ({ kept: window.__kept === true, list: window.__listShown, home: document.getElementById("home").hidden }));
+    if (!seen.kept) throw new Error("Contacts reloaded instead of opening the person in place");
+    if (seen.list || !seen.home) throw new Error("the Contacts list showed before the person's page");
+  }],
   ["admin sign-in with an emailed code", async (p) => {
     await p.goto(LOCKED + "/admin");
     await p.fill("#em", "owner@example.com");
