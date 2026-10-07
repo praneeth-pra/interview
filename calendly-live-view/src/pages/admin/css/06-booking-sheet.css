@@ -24,6 +24,20 @@
 .pav[hidden] {
   display: none;
 }
+/* the candidate's avatar and name open them in Contacts */
+.plink > div,
+.plink .pav {
+  cursor: pointer;
+}
+.plink > div {
+  border-radius: 8px;
+}
+@media (hover: hover) {
+  .plink > div:hover h2 {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+}
 .bk-when {
   display: grid;
   grid-template-columns: 52px 1fr auto;

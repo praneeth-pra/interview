@@ -228,6 +228,20 @@ const checks = [
     await frame.locator("#back").click();
     await frame.locator("#home:not([hidden]) .crow").first().waitFor();
   }],
+  ["admin: the booking sheet's candidate opens their page in Contacts, and Back returns to the list", async (p) => {
+    await p.goto(BASE + "/admin");
+    await p.locator("#status.live").waitFor({ state: "attached" });
+    await p.evaluate(() => window.__openB("00000000-0000-0000-0000-000000000001"));
+    await p.locator("#ptitle", { hasText: "Priya Sharma" }).waitFor();
+    await p.locator(".phead.plink [role=button]").click();
+    await p.locator("#panel").waitFor({ state: "hidden" });
+    const frame = p.frameLocator("iframe.la-frame");
+    await frame.locator("#an:not([hidden]) #aname", { hasText: "Priya Sharma" }).waitFor();
+    if (!p.url().includes("view=analytics")) throw new Error("the address isn't the Contacts tab: " + p.url());
+    await p.goBack();
+    await frame.locator("#home:not([hidden]) .crow").first().waitFor();
+    if (await p.locator("#viewStats").isHidden()) throw new Error("Back left Contacts instead of returning to its list");
+  }],
   ["admin sign-in with an emailed code", async (p) => {
     await p.goto(LOCKED + "/admin");
     await p.fill("#em", "owner@example.com");
