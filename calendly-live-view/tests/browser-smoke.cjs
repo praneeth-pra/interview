@@ -58,6 +58,26 @@ const checks = [
     await p.locator(".slot.sel").waitFor();
     if ((await p.locator(".slot.sel button.t").getAttribute("id")) !== picked) throw new Error("a different time is picked after the refresh");
   }],
+  ["booking page: only a signed-in admin gets Demo, which books without an invite", async (p) => {
+    const toDetails = async (base) => {
+      await p.goto(base + "/booking");
+      await (await openDays(p)).last().click();
+      await p.locator("button.t").last().click();
+      await p.locator("#go").click();
+      await p.locator("#fround").waitFor();
+    };
+    await toDetails(LOCKED);
+    await p.waitForTimeout(300);
+    if (await p.locator('#fround option[value="Demo"]').count()) throw new Error("Demo is offered to a candidate");
+    await toDetails(BASE);
+    await p.locator('#fround option[value="Demo"]').waitFor({ state: "attached" });
+    await p.fill("#femail", "demo-smoke@example.com");
+    await p.fill("#fname", "Demo Smoke");
+    await p.selectOption("#fround", "Demo");
+    await p.locator("#finv").waitFor({ state: "detached" });
+    await p.click("#submitb");
+    await p.locator('a[href*="/b/"]').first().waitFor();
+  }],
   ["booking page: book, book another, reschedule and cancel", async (p) => {
     const card = () => p.locator("#card").textContent();
     const expectText = async (re, what) => {

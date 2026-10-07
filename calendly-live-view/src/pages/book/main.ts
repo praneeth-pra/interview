@@ -106,6 +106,20 @@ if (manage) {
       resumeDraft(draft);
     }
   });
+  // a signed-in admin can also book a demo
+  fetch("/admin/api/me")
+    .then(function (res) {
+      return res.json();
+    })
+    .then(function (me) {
+      if (me.admin === true) {
+        state.admin = true;
+        if (state.step === "details") {
+          render();
+        }
+      }
+    })
+    .catch(function () {});
   // typing changes the form without a redraw; keep the saved copy current
   document.addEventListener("input", saveDraft);
   addEventListener("pagehide", saveDraft);

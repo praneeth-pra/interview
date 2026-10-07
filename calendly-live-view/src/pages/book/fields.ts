@@ -1,7 +1,7 @@
 // The details form's fields: plain text fields, the interview round and the company with its suggestions.
 import { el } from "../shared/dom";
 import { companies, loadCompanies, suggestCompanies, type Match } from "./companies";
-import { state } from "./app";
+import { isDemo, render, state } from "./app";
 import { markPreviousCompany } from "./returning";
 import type { FieldOptions, State } from "./types";
 
@@ -71,9 +71,10 @@ export function textField(id: string, key: keyof State["form"], label: string, t
     children,
   );
 }
-// Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else.
-const ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round", "Demo"];
+// Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else. Only signed-in admins
+// get Demo (the server refuses it from anyone else), and a demo needs no interview invite.
 export function roundField() {
+  const ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round"].concat(state.admin ? ["Demo"] : []);
   const current = state.form.round.trim();
   const custom = !!current && ROUNDS.indexOf(current) < 0;
   const select = el("select", {
@@ -99,6 +100,7 @@ export function roundField() {
   });
   other.value = custom ? current : "";
   select.addEventListener("change", function () {
+    const wasDemo = isDemo(state.form.round);
     select.classList.toggle("empty", !select.value);
     if (select.value === "__other") {
       other.hidden = false;
@@ -107,6 +109,14 @@ export function roundField() {
     } else {
       other.hidden = true;
       state.form.round = select.value;
+    }
+    // the invite box comes and goes with Demo, and a demo's name isn't the one booked with this email before
+    if (isDemo(state.form.round) !== wasDemo) {
+      if (state.nameAuto) {
+        state.nameAuto = false;
+        state.form.name = "";
+      }
+      render();
     }
   });
   other.addEventListener("input", function () {

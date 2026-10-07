@@ -3,7 +3,7 @@ import { earlierSpelling } from "./companies";
 import { DURATIONS, REMOVE_BOOKINGS, RESEND_API_KEY } from "./config";
 import { type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
 import { notifyBooked, notifyCancelled, notifyRescheduled } from "./email";
-import { INVITE_NEEDED, type InviteUpload, inviteRef, readInvite } from "./invites";
+import { DEMO_ADMINS_ONLY, INVITE_NEEDED, type InviteUpload, inviteRef, readInvite } from "./invites";
 import { invites } from "./uploads";
 import { BASE_HEADERS, json } from "./http";
 import { baseUrl, manageUrl, tokenOk } from "./links";
@@ -13,7 +13,7 @@ import { bookingLimitMs, isBlocked, overlapsExisting, slotOk } from "./schedule"
 import { saveStore } from "./store";
 import { sameCompany } from "../same-company";
 import { istDate, t12 } from "./time";
-import { EMAIL_RE, type Fields } from "./util";
+import { EMAIL_RE, type Fields, isDemo } from "./util";
 
 export function managedBooking(body: Fields): Booking | Response {
   const id = String(body?.id ?? "");
@@ -64,7 +64,7 @@ function clearEarlierRound(next: Booking): { round: Booking; before: Booking } |
 export const ONBOARDING_FIRST =
   "This email isn't registered yet. Please fill in the onboarding form with this email first, then book your slot.";
 export const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
-// invite: the screenshot or PDF of the company's invite, which every booking from the booking page brings
+// invite: the screenshot or PDF of the company's invite, which every booking from the booking page brings (a demo has none)
 export async function createBooking(body: Fields, req: Request, source?: "admin", invite?: InviteUpload | null): Promise<Response> {
   const name = String(body?.name ?? "")
     .trim()
@@ -80,6 +80,8 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     .slice(0, 60);
   const duration = Number(body?.duration);
   const startMs = Number(body?.startMs);
+  if (!source && isDemo(round)) return json({ error: DEMO_ADMINS_ONLY, field: "round" }, 403);
+  if (isDemo(round)) invite = null;
   if (!name) return json({ error: "Enter a name." }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
   // candidates must say which company the interview is for; the admin form may leave it empty

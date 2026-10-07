@@ -1,7 +1,7 @@
 // The details step: name, email, company, round and the interview invite, then sending the booking.
 import { el } from "../shared/dom";
 import { loadCompanies } from "./companies";
-import { render, state } from "./app";
+import { isDemo, render, state } from "./app";
 import { clearSlots, loadDays, showSlots } from "./slots";
 import { companyField, roundField, textField } from "./fields";
 import { HR_NEEDED, bookingForm, inviteField, inviteProblem } from "./invite";
@@ -86,7 +86,7 @@ export function renderDetails() {
       prefillName(state.form.email);
     }, 0);
   }
-  const previous = previousCompanies();
+  const previous = isDemo(state.form.round) ? null : previousCompanies();
   if (previous) {
     form.appendChild(previous);
   }
@@ -99,7 +99,9 @@ export function renderDetails() {
       [companyField(), roundField()],
     ),
   );
-  form.appendChild(inviteField());
+  if (!isDemo(state.form.round)) {
+    form.appendChild(inviteField());
+  }
   form.appendChild(
     el(
       "button",
@@ -123,20 +125,22 @@ function submitBooking() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
     errors.email = "Enter an email address like name@example.com.";
   }
-  if (!form.company.trim()) {
+  // a demo (admins only) is booked without a company or an interview invite
+  const demo = isDemo(form.round);
+  if (!demo && !form.company.trim()) {
     errors.company = "Enter the company you're interviewing with.";
   }
-  const invite = state.invite;
-  const inviteError = inviteProblem(invite);
+  const invite = demo ? null : state.invite;
+  const inviteError = demo ? "" : inviteProblem(invite);
   if (inviteError) {
     errors.invite = inviteError;
   }
-  if (!state.inviteHr) {
+  if (!demo && !state.inviteHr) {
     errors.inviteHr = HR_NEEDED;
   }
   state.fieldErr = errors;
   state.err = "";
-  if (Object.keys(errors).length || !invite) {
+  if (Object.keys(errors).length || (!demo && !invite)) {
     render();
     const firstInvalid = document.getElementById(errors.email ? "femail" : errors.name ? "fname" : errors.company ? "fcompany" : "finv");
     if (firstInvalid) {
@@ -146,21 +150,21 @@ function submitBooking() {
   }
   state.busy = true;
   render();
-  bookingForm(
-    {
-      name: form.name.trim(),
-      email: form.email.trim(),
-      company: form.company.trim(),
-      round: form.round.trim(),
-      duration: state.dur,
-      startMs: state.slot!,
-      hrVisible: "yes",
-    },
-    invite,
+  const fields = {
+    name: form.name.trim(),
+    email: form.email.trim(),
+    company: form.company.trim(),
+    round: form.round.trim(),
+    duration: state.dur,
+    startMs: state.slot!,
+  };
+  // a demo goes to the admin API, where the admin's sign-in cookie is sent
+  (demo
+    ? fetch("/admin/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) })
+    : bookingForm({ ...fields, hrVisible: "yes" }, invite!).then(function (body) {
+        return fetch("/api/book", { method: "POST", body: body });
+      })
   )
-    .then(function (body) {
-      return fetch("/api/book", { method: "POST", body: body });
-    })
     .then(function (res) {
       return res.json().then(function (body) {
         return {
@@ -172,7 +176,9 @@ function submitBooking() {
     .then(function (result) {
       state.busy = false;
       if (result.ok) {
-        rememberBooking(form.name.trim(), form.email.trim(), String(result.j.booking.company || form.company).trim());
+        if (!demo) {
+          rememberBooking(form.name.trim(), form.email.trim(), String(result.j.booking.company || form.company).trim());
+        }
         state.booking = result.j.booking;
         state.booking!.emailed = !!result.j.emailed;
         state.step = "done";

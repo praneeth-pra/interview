@@ -61,6 +61,8 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   }
   if (path === "/admin/analytics" && method === "GET")
     return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
+  // the booking page asks this to offer signed-in admins the Demo round (the sign-in cookie is only sent under /admin)
+  if (path === "/admin/api/me" && method === "GET") return json({ admin: authed });
   if (!authed) return json({ error: "Sign in again." }, 401);
   if (!owner && OWNER_ONLY.test(path))
     return json({ error: "Only the owner can see enquiries, payments, revenue and onboarding forms." }, 403);
