@@ -11,6 +11,9 @@ import { saveStore } from "./store";
 import { type Fields, normEmail } from "./util";
 
 export const INVITE_NEEDED = "Add a screenshot or PDF of your interview invite.";
+// A demo isn't a company's interview: only admins book one, and it carries no interview invite.
+export const isDemo = (round: string) => /\bdemo\b/i.test(round);
+export const DEMO_ADMINS_ONLY = "Only admins can book a demo.";
 export type InviteUpload = { ext: string; type: string; name: string; bytes: Uint8Array };
 // A booking sent from the booking page as a multipart form: its fields, and the invite (a photo or a PDF, checked by its
 // first bytes) when one was attached.
@@ -74,6 +77,28 @@ export async function inviteFile(id: string, download: boolean): Promise<Respons
   const bytes = b?.invite ? await invites.read(b.invite.file) : null;
   if (!b?.invite || !bytes) return json({ error: "That file isn't there any more." }, 404);
   return storedFile(bytes, b.invite, download, b.name, "Candidate", "interview invite");
+}
+// Demo bookings carry no interview invite: on start, the invite of any demo booked before that rule is deleted, with
+// the HR details read from it.
+export async function dropDemoInvites() {
+  if (!bookingsStore.ok) return;
+  const demos = bookingsStore.data.bookings.filter((b) => b.invite && isDemo(b.round));
+  if (!demos.length) return;
+  const before = demos.map((b) => ({ ...b }));
+  for (const b of demos) {
+    delete b.invite;
+    delete b.hrEmails;
+    delete b.hrPhones;
+    delete b.inviteRead;
+  }
+  try {
+    await saveStore(bookingsStore);
+  } catch {
+    demos.forEach((b, i) => Object.assign(b, before[i]));
+    return;
+  }
+  for (const b of before) await invites.remove(b.invite!.file).catch(() => {});
+  console.log("cleanup: removed the invite from " + demos.length + " demo booking(s): " + demos.map((b) => b.id).join(", "));
 }
 // When a candidate's onboarding form is deleted, their interview invite screenshots go too, to free the space. The HR
 // emails and phone numbers read from them stay on the bookings.

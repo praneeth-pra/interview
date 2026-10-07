@@ -276,6 +276,51 @@ describe("booking flow", () => {
     expect((await postJson(open, "/api/manage/cancel", { id, t, reason: "test" })).status).toBe(200);
   });
 
+  test("only admins book a demo, and a demo has no interview invite", async () => {
+    const days = await (await get(open, "/api/days?duration=30")).json();
+    const day = days.days.filter((d: any) => d.open).at(-1);
+    const slots = (await (await get(open, `/api/slots?date=${day.key}&duration=30`)).json()).slots;
+    const body = { name: "Demo Test", email: "demo@example.com", company: "", round: "Demo", duration: 30, startMs: slots.at(-2) };
+    // the booking page refuses a demo, however the round is written, with or without an invite
+    const ip = { "x-real-ip": "10.9.0.1" };
+    for (const r of [
+      await bookForm(open, body, ip),
+      await bookForm(open, { ...body, round: "demo session" }, ip),
+      await postJson(open, "/api/book", body, ip),
+    ]) {
+      expect(r.status).toBe(403);
+      expect(await r.json()).toMatchObject({ field: "round", error: "Only admins can book a demo." });
+    }
+    // the booking page asks whether an admin is signed in before offering Demo
+    expect(await (await get(open, "/admin/api/me")).json()).toEqual({ admin: true });
+    expect(await (await get(locked, "/admin/api/me")).json()).toEqual({ admin: false });
+    const made = await (await postJson(open, "/admin/api/book", body)).json();
+    const saved = (await (await get(open, "/admin/api/bookings")).json()).bookings.find((b: any) => b.id === made.booking.id);
+    expect(saved).toMatchObject({ round: "Demo", source: "admin", invite: null });
+    expect((await postJson(open, "/admin/api/cancel", { id: made.booking.id, reason: "test" })).status).toBe(200);
+  });
+
+  test("on start, a demo booked with an invite loses it; other bookings keep theirs", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-demo-"));
+    const ref = (id: string) => ({ file: id + "-invite.png", name: "invite.png", type: "image/png", size: PNG.length });
+    const demo = { ...booking, id: "00000000-0000-0000-0000-0000000000d1", round: "Demo", invite: ref("00000000-0000-0000-0000-0000000000d1"), hrEmails: [], hrPhones: [], inviteRead: true };
+    const real = { ...booking, invite: ref(booking.id) };
+    writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [real, demo] }));
+    mkdirSync(join(dir, "invites"));
+    for (const b of [real, demo]) writeFileSync(join(dir, "invites", b.invite.file), PNG);
+    const srv = await start(4352, {}, dir);
+    try {
+      const list = (await (await get(srv, "/admin/api/bookings")).json()).bookings;
+      expect(list.find((b: any) => b.id === demo.id)).toMatchObject({ invite: null, inviteRead: false });
+      expect(list.find((b: any) => b.id === real.id).invite).toMatchObject({ name: "invite.png" });
+      expect(readdirSync(join(dir, "invites"))).toEqual([real.invite.file]);
+    } finally {
+      srv.proc.kill();
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   test("unavailable times: candidates can't book or move into them, admins still can, and removing one frees it", async () => {
     const dayMs = istMidnight() + 3 * 24 * HOUR;
     const key = new Date(dayMs + 330 * 60000).toISOString().slice(0, 10);
