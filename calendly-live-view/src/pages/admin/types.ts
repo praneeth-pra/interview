@@ -104,6 +104,7 @@ declare global {
     __pay?: () => void; // the Payments tab was opened
     __rev?: () => void; // the Revenue tab was opened
     __statsEvent?: string; // open this booking's candidate when the Contacts tab shows
+    __openContact?: (id: string) => void; // close the sheet and show this booking's candidate in Contacts
     __contact?: (open: boolean) => void; // Contacts opened a person (true) or went back to its list (false)
     __contactBack?: () => void; // in the Contacts frame: show the list again
     __contactRefresh?: () => Promise<unknown>; // in the Contacts frame: fetch the list and open person again

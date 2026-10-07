@@ -159,6 +159,18 @@ export function setupNav() {
     }
   }
   byId("tabStats").onclick = showStats;
+  // The booking sheet's header opens the candidate in Contacts. The sheet's Back entry is spent first, so Contacts'
+  // own entry (and the person's) follows it rather than being undone by it.
+  window.__openContact = function (id: string) {
+    window.__statsEvent = id;
+    if (sheetEntry) {
+      afterPop = showStats;
+      byId("pclose").click();
+    } else {
+      byId("pclose").click();
+      showStats();
+    }
+  };
   function showEnq() {
     // admins who aren't owners don't have this tab
     if (byId("tabEnq").hidden) {

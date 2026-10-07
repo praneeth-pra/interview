@@ -4,7 +4,7 @@ import { addDays, dayKeyOf, formatIst, formatRange, formatTime, shortDate, timeA
 import { ROUND_STATUSES, type RoundStatus, byWhom, plural, roundStatus, statusPill, titleCase } from "./labels";
 import { request } from "./api";
 import { colorClass, render, state, view } from "./state";
-import { closePanel, icon, initials, openPanel, panel, setPanelAvatar } from "./panel";
+import { closePanel, icon, initials, openPanel, panel, setPanelAvatar, setPanelLink } from "./panel";
 import { shareOnTap } from "./share";
 import type { Booking } from "./types";
 import { allBookings, findBooking, loadAllBookings } from "./bookings";
@@ -216,6 +216,15 @@ export function showBooking(id: string, refresh?: boolean) {
     refresh,
   );
   setPanelAvatar(booking.name, interviewer);
+  // tapping the candidate opens their page in Contacts, which needs the booking's email to find them
+  if (booking.email) {
+    setPanelLink(
+      function () {
+        window.__openContact?.(id);
+      },
+      "Open " + titleCase(booking.name) + " in Contacts",
+    );
+  }
   panel.bookingId = id;
 
   // When: a calendar tile, the day and time, how far away it is, and the status.

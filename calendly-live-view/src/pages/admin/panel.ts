@@ -1,6 +1,6 @@
 // The side panel (a bottom sheet on phones) that bookings, lists and the ⋯ menu's sections open in, and the icons and
 // avatar in it.
-import { byId, el } from "./dom";
+import { byId, el, onEnterOrSpace } from "./dom";
 import { titleCase } from "./labels";
 import { colorClass } from "./state";
 
@@ -34,6 +34,7 @@ export function openPanel(title: string, subtitle?: string, keepFocus?: boolean)
   byId("ptitle").textContent = title;
   byId("psub").textContent = subtitle || "";
   setPanelAvatar(null);
+  setPanelLink(null, "");
   panel.bookingId = "";
   const body = byId("pbody");
   body.textContent = "";
@@ -94,4 +95,25 @@ export function setPanelAvatar(name: string | null, interviewer?: string) {
   avatar.hidden = !name;
   avatar.textContent = name ? initials(name) : "";
   avatar.className = "pav " + (interviewer ? colorClass(interviewer) : "cn");
+}
+// The sheet header (avatar, name and subtitle) as one tap target, or plain again with null.
+export function setPanelLink(open: (() => void) | null, label: string) {
+  const head = document.querySelector<HTMLElement>(".phead")!;
+  const text = head.querySelector<HTMLElement>(":scope > div")!;
+  const avatar = document.getElementById("pav");
+  head.classList.toggle("plink", !!open);
+  text.onclick = open;
+  text.onkeydown = open ? onEnterOrSpace(open) : null;
+  if (avatar) {
+    avatar.onclick = open;
+  }
+  if (open) {
+    text.setAttribute("role", "button");
+    text.setAttribute("tabindex", "0");
+    text.setAttribute("aria-label", label);
+  } else {
+    text.removeAttribute("role");
+    text.removeAttribute("tabindex");
+    text.removeAttribute("aria-label");
+  }
 }
