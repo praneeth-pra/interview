@@ -1,9 +1,9 @@
 // The details step: name, email, company, round and the interview invite, then sending the booking.
 import { el } from "../shared/dom";
 import { loadCompanies } from "./companies";
-import { render, state } from "./app";
+import { isDemo, render, state } from "./app";
 import { clearSlots, loadDays, showSlots } from "./slots";
-import { companyField, isDemo, roundField, textField } from "./fields";
+import { companyField, roundField, textField } from "./fields";
 import { HR_NEEDED, bookingForm, inviteField, inviteProblem } from "./invite";
 import { WELCOME_BACK, prefillName, previousCompanies, rememberBooking, setNameHint, showPreviousCompanies } from "./returning";
 
@@ -86,7 +86,7 @@ export function renderDetails() {
       prefillName(state.form.email);
     }, 0);
   }
-  const previous = previousCompanies();
+  const previous = isDemo(state.form.round) ? null : previousCompanies();
   if (previous) {
     form.appendChild(previous);
   }
@@ -176,7 +176,9 @@ function submitBooking() {
     .then(function (result) {
       state.busy = false;
       if (result.ok) {
-        rememberBooking(form.name.trim(), form.email.trim(), String(result.j.booking.company || form.company).trim());
+        if (!demo) {
+          rememberBooking(form.name.trim(), form.email.trim(), String(result.j.booking.company || form.company).trim());
+        }
         state.booking = result.j.booking;
         state.booking!.emailed = !!result.j.emailed;
         state.step = "done";

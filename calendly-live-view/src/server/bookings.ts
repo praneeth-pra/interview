@@ -3,7 +3,7 @@ import { earlierSpelling } from "./companies";
 import { DURATIONS, REMOVE_BOOKINGS, RESEND_API_KEY } from "./config";
 import { type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
 import { notifyBooked, notifyCancelled, notifyRescheduled } from "./email";
-import { DEMO_ADMINS_ONLY, INVITE_NEEDED, type InviteUpload, inviteRef, isDemo, readInvite } from "./invites";
+import { DEMO_ADMINS_ONLY, INVITE_NEEDED, type InviteUpload, inviteRef, readInvite } from "./invites";
 import { invites } from "./uploads";
 import { BASE_HEADERS, json } from "./http";
 import { baseUrl, manageUrl, tokenOk } from "./links";
@@ -13,7 +13,7 @@ import { bookingLimitMs, isBlocked, overlapsExisting, slotOk } from "./schedule"
 import { saveStore } from "./store";
 import { sameCompany } from "../same-company";
 import { istDate, t12 } from "./time";
-import { EMAIL_RE, type Fields } from "./util";
+import { EMAIL_RE, type Fields, isDemo } from "./util";
 
 export function managedBooking(body: Fields): Booking | Response {
   const id = String(body?.id ?? "");

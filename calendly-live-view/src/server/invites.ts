@@ -8,11 +8,9 @@ import { broadcastState } from "./live";
 import { PHOTO_OR_PDF, invites, kindOf, lastDay, mb, uploadedName } from "./uploads";
 import { inviteContacts, inviteText } from "./invite-read";
 import { saveStore } from "./store";
-import { type Fields, normEmail } from "./util";
+import { type Fields, isDemo, normEmail } from "./util";
 
 export const INVITE_NEEDED = "Add a screenshot or PDF of your interview invite.";
-// A demo isn't a company's interview: only admins book one, and it carries no interview invite.
-export const isDemo = (round: string) => /\bdemo\b/i.test(round);
 export const DEMO_ADMINS_ONLY = "Only admins can book a demo.";
 export type InviteUpload = { ext: string; type: string; name: string; bytes: Uint8Array };
 // A booking sent from the booking page as a multipart form: its fields, and the invite (a photo or a PDF, checked by its

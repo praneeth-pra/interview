@@ -1,6 +1,10 @@
 // Small helpers shared by the server modules.
 import { createHash, timingSafeEqual } from "node:crypto";
 
+// A demo isn't a company's interview: only admins book one, it carries no interview invite, and its name isn't
+// remembered for the email it was booked with.
+export const isDemo = (round: string) => /\bdemo\b/i.test(round);
+
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const normEmail = (s: unknown) =>
   String(s ?? "")

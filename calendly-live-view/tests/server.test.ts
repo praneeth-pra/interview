@@ -297,6 +297,8 @@ describe("booking flow", () => {
     const made = await (await postJson(open, "/admin/api/book", body)).json();
     const saved = (await (await get(open, "/admin/api/bookings")).json()).bookings.find((b: any) => b.id === made.booking.id);
     expect(saved).toMatchObject({ round: "Demo", source: "admin", invite: null });
+    // a demo's name isn't tied to the email: the booking page doesn't fill it in for that email later
+    expect(await (await get(open, "/api/lookup?email=demo@example.com")).json()).toEqual({ name: "" });
     expect((await postJson(open, "/admin/api/cancel", { id: made.booking.id, reason: "test" })).status).toBe(200);
   });
 

@@ -1,7 +1,7 @@
 // The details form's fields: plain text fields, the interview round and the company with its suggestions.
 import { el } from "../shared/dom";
 import { companies, loadCompanies, suggestCompanies, type Match } from "./companies";
-import { render, state } from "./app";
+import { isDemo, render, state } from "./app";
 import { markPreviousCompany } from "./returning";
 import type { FieldOptions, State } from "./types";
 
@@ -73,7 +73,6 @@ export function textField(id: string, key: keyof State["form"], label: string, t
 }
 // Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else. Only signed-in admins
 // get Demo (the server refuses it from anyone else), and a demo needs no interview invite.
-export const isDemo = (round: string) => /\bdemo\b/i.test(round);
 export function roundField() {
   const ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round"].concat(state.admin ? ["Demo"] : []);
   const current = state.form.round.trim();
@@ -111,8 +110,12 @@ export function roundField() {
       other.hidden = true;
       state.form.round = select.value;
     }
-    // the invite box comes and goes with Demo
+    // the invite box comes and goes with Demo, and a demo's name isn't the one booked with this email before
     if (isDemo(state.form.round) !== wasDemo) {
+      if (state.nameAuto) {
+        state.nameAuto = false;
+        state.form.name = "";
+      }
       render();
     }
   });

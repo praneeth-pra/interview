@@ -1,6 +1,6 @@
 // A returning candidate: the name booked with before on this device or for this email, and the companies used.
 import { el } from "../shared/dom";
-import { state } from "./app";
+import { isDemo, state } from "./app";
 import type { Me } from "./types";
 
 const ME_KEY = "bk.me";
@@ -130,8 +130,11 @@ function lookupName(email: string, callback: (name: string) => void) {
     });
 }
 export function prefillName(email: string) {
+  if (isDemo(state.form.round)) {
+    return;
+  }
   lookupName(email, function (name) {
-    if (state.step === "details" && state.form.email.trim().toLowerCase() === email.trim().toLowerCase()) {
+    if (state.step === "details" && !isDemo(state.form.round) && state.form.email.trim().toLowerCase() === email.trim().toLowerCase()) {
       const input = document.getElementById("fname") as HTMLInputElement;
       if (!name) {
         if (state.nameAuto) {

@@ -2,14 +2,14 @@
 import { readData } from "../assets";
 import { sameCompany } from "../same-company";
 import { bookingsStore } from "./data";
-import { compact, normEmail } from "./util";
+import { compact, isDemo, normEmail } from "./util";
 
 const KNOWN_COMPANIES: string[] = JSON.parse(readData("companies.json"));
 export function knownName(email: string) {
   const e = normEmail(email);
   const groups = new Map<string, { n: number; last: number; spell: Map<string, { n: number; last: number }> }>();
   for (const b of bookingsStore.data.bookings) {
-    if (normEmail(b.email) !== e) continue;
+    if (normEmail(b.email) !== e || isDemo(b.round)) continue;
     const name = String(b.name ?? "")
       .replace(/\s+/g, " ")
       .trim()
