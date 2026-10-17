@@ -13,7 +13,7 @@ import { bookingLimitMs, isBlocked, overlapsExisting, slotOk } from "./schedule"
 import { saveStore } from "./store";
 import { sameCompany } from "../same-company";
 import { istDate, t12 } from "./time";
-import { EMAIL_RE, type Fields, isDemo } from "./util";
+import { EMAIL_RE, type Fields, isDemo, normEmail } from "./util";
 
 export function managedBooking(body: Fields): Booking | Response {
   const id = String(body?.id ?? "");
@@ -331,8 +331,30 @@ export async function setRoundStatus(id: string, status: unknown): Promise<Respo
   broadcastState();
   return json({ ok: true });
 }
-// How the interview went, from the booking panel once it has started: a rating from 1 to 10 and optional notes (what
-// went well, what went wrong). A rating of 0 with no notes clears it; notes need a rating.
+// Correcting a misspelt company from the booking panel: the booking, and the same candidate's other bookings (by email)
+// spelt the same way (ignoring case), so all their rounds with that company read alike.
+export async function setCompany(id: string, company: unknown): Promise<Response> {
+  const b = bookingsStore.data.bookings.find((x) => x.id === id);
+  if (!b || typeof company !== "string") return json({ error: "Bad request." }, 400);
+  const name = company.replace(/\s+/g, " ").trim().slice(0, 120);
+  if (!name) return json({ error: "Enter the company's name." }, 400);
+  const old = (b.company || "").trim().toLowerCase();
+  const all = bookingsStore.data.bookings.filter(
+    (x) => x === b || (!!old && normEmail(x.email) === normEmail(b.email) && (x.company || "").trim().toLowerCase() === old),
+  );
+  const prev = all.map((x) => ({ x, company: x.company }));
+  for (const x of all) x.company = name;
+  try {
+    await saveStore(bookingsStore);
+  } catch {
+    for (const p of prev) p.x.company = p.company;
+    return saveFailed();
+  }
+  broadcastState();
+  return json({ ok: true, changed: all.length });
+}
+// How the interview went, from the booking panel once it has started: a rating from 1 to 10 and optional notes on any
+// issues. Every save needs a rating, and once saved the rating is final: later saves can change the notes only.
 export const FEEDBACK_MAX = 1000;
 export async function setFeedback(id: string, rating: unknown, notes: unknown, by: string): Promise<Response> {
   const b = bookingsStore.data.bookings.find((x) => x.id === id);

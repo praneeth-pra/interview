@@ -559,6 +559,19 @@ export function showBooking(id: string, refresh?: boolean) {
   if (!booking.cancelled && !upcoming) {
     body.appendChild(resultFoot(booking, status, !!interviewer));
   }
+  // a misspelt company is corrected here, for this booking and the candidate's others spelt the same way
+  body.appendChild(
+    el("p", { class: "bk-fix" }, [
+      el("button", {
+        type: "button",
+        class: "linkbtn",
+        text: booking.company ? "Fix the company's spelling" : "Add the company",
+        onclick: function () {
+          showCompany(booking);
+        },
+      }),
+    ]),
+  );
   if (!booking.cancelled && upcoming) {
     body.appendChild(
       el("div", { class: "bk-foot" }, [
@@ -581,6 +594,57 @@ export function showBooking(id: string, refresh?: boolean) {
       ]),
     );
   }
+}
+export function showCompany(booking: Booking) {
+  panel.refresh = null;
+  const body = openPanel("Company", titleCase(booking.name) + " · " + formatRange(booking), true);
+  const input = el("input", { id: "cname", type: "text", maxlength: "120", autocomplete: "off" }) as HTMLInputElement;
+  input.value = booking.company || "";
+  const msg = el("p", { class: "msg", role: "status" });
+  body.appendChild(el("div", { class: "f" }, [el("label", { for: "cname", text: "Company name" }), input]));
+  if (booking.company) {
+    body.appendChild(
+      el("p", { class: "sub", text: "Their other bookings with \u201c" + booking.company.trim() + "\u201d are changed too." }),
+    );
+  }
+  const save = function () {
+    if (!input.value.trim()) {
+      return setMessage(msg, "Enter the company's name.", true);
+    }
+    button.disabled = true;
+    button.textContent = "Saving…";
+    request<{ changed?: number }>("/admin/api/company", { id: booking.id, company: input.value })
+      .then(function (reply) {
+        showBooking(booking.id, true);
+        toast(reply && reply.changed && reply.changed > 1 ? "Company fixed on " + reply.changed + " bookings" : "Company saved");
+      })
+      .catch(function (error) {
+        button.disabled = false;
+        button.textContent = "Save";
+        setMessage(msg, error.message, true);
+      });
+  };
+  const button = el("button", { type: "button", class: "pri", text: "Save", onclick: save }) as HTMLButtonElement;
+  input.addEventListener("keydown", function (event) {
+    if (event.key === "Enter") {
+      save();
+    }
+  });
+  body.appendChild(
+    el("div", { class: "row mt" }, [
+      button,
+      el("button", {
+        type: "button",
+        class: "ghost",
+        text: "Back",
+        onclick: function () {
+          showBooking(booking.id, true);
+        },
+      }),
+    ]),
+  );
+  body.appendChild(msg);
+  input.focus();
 }
 export function showCancel(booking: Booking) {
   panel.refresh = null;

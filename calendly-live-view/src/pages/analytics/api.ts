@@ -97,7 +97,14 @@ export type Person = {
   past: string;
 };
 // /api/analytics: one contact's page
-export type Analytics = { name: string; emails: number; emailList: string[]; events: TimelineEvent[] };
+// rating: the average of the interviews rated out of 10 (one decimal, 0 when none) and how many were rated
+export type Analytics = {
+  name: string;
+  emails: number;
+  emailList: string[];
+  events: TimelineEvent[];
+  rating: { average: number; count: number };
+};
 // /api/interviewers
 export type IvInfo = { names: string[]; assign: Record<string, string>; persistent: boolean; locked: boolean; canUnlock: boolean };
 // A booking as the Contacts timeline shows it; a reschedule adds a cancelled entry at the old time.
@@ -115,6 +122,9 @@ export type TimelineEvent = {
   missed: string;
   company: string;
   round: string;
+  // how the interview went, out of 10 (0 when not rated), and the issues noted with it
+  rating: number;
+  issues: string;
 };
 // an HTTP status and the JSON body
 type Answer = [number, unknown];
@@ -409,6 +419,8 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
           rescheduled: false,
           cancelReason: other.cancelled ? other.cancelReason || "" : "",
           canceledBy: other.cancelled ? (other.cancelledBy === "candidate" ? "invitee" : other.cancelledBy === "host" ? "host" : "") : "",
+          rating: other.rating || 0,
+          issues: other.feedback || "",
         },
         base,
       ),
@@ -424,6 +436,8 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
             rescheduled: true,
             cancelReason: "",
             canceledBy: other.rescheduledBy === "candidate" ? "invitee" : other.rescheduledBy === "host" ? "host" : "",
+            rating: 0,
+            issues: "",
           },
           base,
         ),
@@ -433,6 +447,12 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
   events.sort(function (a, c) {
     return Date.parse(a.start) - Date.parse(c.start);
   });
+  const rated = events.filter(function (event) {
+    return event.rating > 0;
+  });
+  const total = rated.reduce(function (sum, event) {
+    return sum + event.rating;
+  }, 0);
   return [
     200,
     {
@@ -440,6 +460,7 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
       emails: group.emails.length,
       emailList: group.emails,
       events: events,
+      rating: { average: rated.length ? Math.round((total / rated.length) * 10) / 10 : 0, count: rated.length },
     },
   ];
 }

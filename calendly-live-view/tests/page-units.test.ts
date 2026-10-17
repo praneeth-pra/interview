@@ -167,9 +167,9 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
   const base = Date.now();
   const iso = (hoursFromNow: number) => new Date(base + hoursFromNow * HOUR).toISOString();
   const bookings: Booking[] = [
-    booking({ id: "a1", name: "Priya Sharma", email: "priya@example.com", company: "Google", start: iso(-72), end: iso(-71) }),
+    booking({ id: "a1", name: "Priya Sharma", email: "priya@example.com", company: "Google", start: iso(-72), end: iso(-71), rating: 8, feedback: "Nervous at first" }),
     // the same person under another email, with her words swapped: merged with merge=1
-    booking({ id: "a2", name: "sharma priya", email: "p.sharma@work.com", company: "Microsoft", start: iso(24), end: iso(25) }),
+    booking({ id: "a2", name: "sharma priya", email: "p.sharma@work.com", company: "Microsoft", start: iso(24), end: iso(25), rating: 7 }),
     // one typo in a long name: merged too
     booking({ id: "a3", name: "Karthik Reddy", email: "karthik@example.com", start: iso(-48), end: iso(-47) }),
     booking({ id: "a4", name: "Karthik Redy", email: "kreddy@example.com", start: iso(48), end: iso(49) }),
@@ -239,6 +239,11 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
     expect(ids).toEqual(["a1", "a7", "a8-moved", "a2", "a8"]);
     expect(body.events.find((e: any) => e.id === "a7")).toMatchObject({ status: "canceled", canceledBy: "invitee", cancelReason: "Clash" });
     expect(body.events.find((e: any) => e.id === "a8-moved")).toMatchObject({ status: "canceled", rescheduled: true, canceledBy: "host" });
+    // ratings from the booking panel: on each interview, and their average for the person
+    expect(body.events.find((e: any) => e.id === "a1")).toMatchObject({ rating: 8, issues: "Nervous at first" });
+    expect(body.events.find((e: any) => e.id === "a8")).toMatchObject({ rating: 0, issues: "" });
+    expect(body.rating).toEqual({ average: 7.5, count: 2 });
+    expect((await get("/api/analytics?event=a3")).body.rating).toEqual({ average: 0, count: 0 });
   });
   test("unknown bookings and paths are 404s; interviewers come from the live state", async () => {
     expect((await get("/api/analytics?event=nope")).status).toBe(404);

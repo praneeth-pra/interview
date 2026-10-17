@@ -101,3 +101,20 @@ button.acard:active {
 .aitem.rescheduled .acard b {
   text-decoration: line-through;
 }
+/* a rating out of 10, coloured like the booking panel's (1 to 4 red, 5 and 6 amber, 7 to 10 green) */
+.rt {
+  font-weight: 600;
+}
+.rt-rejected {
+  color: var(--g);
+}
+.rt-hold {
+  color: var(--h);
+}
+.rt-cleared {
+  color: var(--j);
+}
+.acard .rti {
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}

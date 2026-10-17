@@ -1139,6 +1139,14 @@ describe("admin", () => {
       expect((await rate(done.id, 8)).status).toBe(200);
       expect(saved(done.id).rating).toBe(8);
       expect(saved(done.id).feedback).toBeUndefined();
+      // a misspelt company is fixed on the booking and the candidate's others spelt the same way
+      const fix = (id: string, company: unknown) => postJson(srv, "/admin/api/company", { id, company });
+      expect((await fix(done.id, "   ")).status).toBe(400);
+      expect((await fix("nope", "Capgemini")).status).toBe(400);
+      const res = await fix(done.id, "  Capgemini ");
+      expect(res.status).toBe(200);
+      expect((await res.json()).changed).toBe(3);
+      for (const id of [booking.id, done.id, gone.id]) expect(saved(id).company).toBe("Capgemini");
     } finally {
       srv.proc.kill();
     }
