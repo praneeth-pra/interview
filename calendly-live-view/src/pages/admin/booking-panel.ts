@@ -1,7 +1,7 @@
-// The booking panel: one interview's details, its supporter, round status and how it went, and cancelling or moving it.
+// The booking panel: one interview's details, its supporter, how it went and its result, and cancelling or moving it.
 import { byId, el, onEnterOrSpace, setMessage, toast } from "./dom";
 import { addDays, dayKeyOf, formatIst, formatRange, formatTime, shortDate, timeAgo, weekStart } from "./time";
-import { ROUND_STATUSES, type RoundStatus, byWhom, plural, roundStatus, statusPill, titleCase } from "./labels";
+import { type RoundStatus, byWhom, plural, roundStatus, statusPill, titleCase } from "./labels";
 import { request } from "./api";
 import { colorClass, render, state, view } from "./state";
 import { closePanel, icon, initials, openPanel, panel, setPanelAvatar, setPanelLink } from "./panel";
@@ -59,67 +59,42 @@ function untilText(ms: number) {
     return "in " + plural(Math.round(minutes / 1440), "day");
   }
 }
-// The round's status in the booking panel, shown once the interview has started (the result comes from the
-// interview). One tap saves a status; tapping the selected one clears it. No-show and Didn't happen are offered while
-// nobody is recorded as giving support.
-function roundStatusCard(booking: Booking, current: RoundStatus | null, supported: boolean) {
-  const card = el("div", { class: "bk-card rsc" }, [el("h3", { text: "Round status" })]);
+// Once the interview has started, the bottom of the panel offers Rejected and Didn't happen, the way an upcoming one
+// offers Reschedule and Cancel. Otherwise it stays Completed until the candidate books the next round with the company,
+// which marks it Cleared. With a result set, one button undoes it. Didn't happen isn't offered once interview support
+// is recorded, since then it happened.
+function resultFoot(booking: Booking, current: RoundStatus | null, supported: boolean) {
   const msg = el("p", { class: "msg", role: "status" });
-  const options = ROUND_STATUSES.filter(function (option) {
-    return !supported || (option.value !== "noshow" && option.value !== "other");
-  });
-  const group = el("div", { class: "rs-opts", role: "group", "aria-label": "Round status" });
-  const buttons = options.map(function (option) {
-    return el(
-      "button",
-      {
-        type: "button",
-        class: "rs-opt rs-" + option.key,
-        "aria-pressed": String(!!current && option.key === current.key),
-        onclick: function () {
-          saveRoundStatus(booking, current && option.key === current.key ? null : option, buttons, msg);
-        },
+  const choice = function (label: string, value: string, danger?: boolean) {
+    const button = el("button", {
+      type: "button",
+      class: danger ? "ghost danger-t" : "ghost",
+      text: label,
+      onclick: function () {
+        const ask = value
+          ? "Mark " + titleCase(booking.name) + "'s " + (booking.round || "round") + " as " + label + "?"
+          : "Take " + current!.label + " off " + titleCase(booking.name) + "'s " + (booking.round || "round") + "?";
+        if (!confirm(ask)) {
+          return;
+        }
+        button.disabled = true;
+        setMessage(msg, "");
+        request("/admin/api/round-status", { id: booking.id, status: value })
+          .then(function () {
+            toast(value ? "Marked " + label : current!.label + " removed");
+          })
+          .catch(function (error) {
+            button.disabled = false;
+            setMessage(msg, error.message, true);
+          });
       },
-      [el("i", { class: "rsd", "aria-hidden": "true" }), option.label],
-    );
-  });
-  buttons.forEach(function (button) {
-    group.appendChild(button);
-  });
-  card.appendChild(group);
-  card.appendChild(
-    el("p", {
-      class: "sub rs-hint",
-      text: current
-        ? (booking.outcomeBy === "next-round" && booking.outcome === "cleared" ? "Set to Cleared when the next round was booked. " : "") +
-          "Tap " +
-          current.label +
-          " again to clear it."
-        : "Tap how the round went.",
-    }),
-  );
-  card.appendChild(msg);
-  return card;
-}
-// Saves a status (null clears it); the panel redraws when the new state arrives.
-function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: HTMLElement[], msg: HTMLElement) {
-  const before = buttons.map(function (button) {
-    return button.getAttribute("aria-pressed");
-  });
-  buttons.forEach(function (button) {
-    button.setAttribute("aria-pressed", String(!!option && button.classList.contains("rs-" + option.key)));
-  });
-  setMessage(msg, "");
-  request("/admin/api/round-status", { id: booking.id, status: option ? option.value : "" })
-    .then(function () {
-      toast(option ? "Status saved: " + option.label : "Status cleared");
-    })
-    .catch(function (error) {
-      buttons.forEach(function (button, index) {
-        button.setAttribute("aria-pressed", before[index] || "false");
-      });
-      setMessage(msg, error.message, true);
     });
+    return button;
+  };
+  const buttons = current
+    ? [choice("Undo " + current.label, "")]
+    : [choice("Rejected", "rejected", true), supported ? null : choice("Didn't happen", "other")];
+  return el("div", null, [el("div", { class: "bk-foot" }, buttons), msg]);
 }
 // How the interview went, once it has started: a rating out of 10 and optional notes (what went well, what went wrong).
 // Tapping the picked rating again unpicks it; Save, shown once something changed, with no rating and no notes clears
@@ -348,13 +323,11 @@ export function showBooking(id: string, refresh?: boolean) {
         el("span", { text: formatTime(start) + " – " + formatTime(end) }),
         el("small", { text: booking.duration + " min · " + relative }),
       ]),
-      // the round's status shows in its card below, not twice
-      status ? null : el("span", statusPill(booking)),
+      el("span", statusPill(booking)),
     ]),
   );
 
   if (!booking.cancelled && !upcoming) {
-    body.appendChild(roundStatusCard(booking, status, !!interviewer));
     if (!booking.missed) {
       body.appendChild(feedbackCard(booking, caret));
     }
@@ -547,6 +520,9 @@ export function showBooking(id: string, refresh?: boolean) {
       .catch(function () {});
   }
 
+  if (!booking.cancelled && !upcoming) {
+    body.appendChild(resultFoot(booking, status, !!interviewer));
+  }
   if (!booking.cancelled && upcoming) {
     body.appendChild(
       el("div", { class: "bk-foot" }, [

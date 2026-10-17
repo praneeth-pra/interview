@@ -1,4 +1,4 @@
-/* The round's status (booking panel picker and chips, agenda chips): each status sets a colour
+/* The round's status (booking panel and agenda chips): each status sets a colour
    (--rc) and a tint (--rt). */
 .rs-scheduled {
   --rc: var(--link);
@@ -25,50 +25,6 @@
 .bk-st[class*="rs-"] {
   background: var(--rt);
   color: var(--rc);
-}
-.rs-opts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-.rs-opt {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
-  min-height: 40px;
-  flex: 1 1 auto;
-  padding: 6px 14px;
-  border: 1px solid var(--line);
-  border-radius: 999px;
-  background: var(--card);
-  color: var(--ink);
-  font: inherit;
-  font-size: 13.5px;
-  font-weight: 600;
-  white-space: nowrap;
-  transition:
-    background-color 0.15s,
-    border-color 0.15s,
-    transform 0.12s var(--ease);
-}
-.rs-opt:active {
-  transform: scale(0.97);
-}
-.rs-opt[aria-pressed="true"] {
-  border-color: var(--rc);
-  background: var(--rt);
-  color: var(--rc);
-}
-.rs-hint {
-  margin: 10px 0 0;
-}
-.rsd {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--rc);
 }
 /* How did it go? (booking panel): a rating out of 10, coloured like the statuses, and optional notes */
 .fb-opts {
