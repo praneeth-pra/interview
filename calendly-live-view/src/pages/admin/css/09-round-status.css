@@ -54,7 +54,7 @@
   align-items: center;
   gap: 4px;
 }
-/* only the picked rating, with Change beside it */
+/* only the picked rating */
 .fb-opts.one {
   justify-content: flex-start;
   gap: 12px;
@@ -88,13 +88,15 @@
   color: var(--card);
 }
 .fb-opts.one .fb-opt {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   flex: none;
   width: 40px;
   max-width: none;
   font-size: 15px;
 }
-.fb-opt[hidden],
-.fb-chg[hidden] {
+.fb-opt[hidden] {
   display: none;
 }
 .fb-scale {

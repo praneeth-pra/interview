@@ -96,15 +96,16 @@ function resultFoot(booking: Booking, current: RoundStatus | null, supported: bo
     : [choice("Rejected", "rejected", true), supported ? null : choice("Didn't happen", "other")];
   return el("div", null, [el("div", { class: "bk-foot" }, buttons), msg]);
 }
-// How the interview went, once it has started: a rating out of 10 and optional notes (what went well, what went wrong).
-// Tapping the picked rating again unpicks it; Save, shown once something changed, with no rating and no notes clears
-// what was saved. The panel redraws on every live update, so what's typed but not saved is kept in drafts (and the notes box keeps its focus and caret).
+// How the interview went, once it has started: a rating out of 10 and optional notes on any issues (what went wrong).
+// Once saved the rating is final (the server refuses another); the notes can still be edited and saved again. The
+// panel redraws on every live update, so what's typed but not saved is kept in drafts (and the notes box keeps its focus and caret).
 const drafts: Record<string, { rating: number; notes: string }> = {};
-// bookings whose rating circles are all showing again after Change, so a redraw keeps them open
+// bookings whose rating circles are all showing again (the unsaved pick was tapped), so a redraw keeps them open
 const choosing: Record<string, boolean> = {};
 function feedbackCard(booking: Booking, caret: number | null) {
   const saved = { rating: booking.rating || 0, notes: booking.feedback || "" };
   const draft = drafts[booking.id] || { rating: saved.rating, notes: saved.notes };
+  if (saved.rating) draft.rating = saved.rating;
   // the heading's right side says the score in words ("8/10 · Good")
   const verdict = el("span", { class: "fb-v" });
   const card = el("div", { class: "bk-card fbc" }, [el("div", { class: "fb-head" }, [el("h3", { text: "How did it go?" }), verdict])]);
@@ -114,7 +115,7 @@ function feedbackCard(booking: Booking, caret: number | null) {
     id: "fbnotes",
     maxlength: "1000",
     rows: "3",
-    placeholder: "What went well, what went wrong…",
+    placeholder: "What went wrong, if anything…",
   }) as HTMLTextAreaElement;
   notes.value = draft.notes;
   const save = el("button", { type: "button", class: "pri", text: "Save" }) as HTMLButtonElement;
@@ -127,14 +128,13 @@ function feedbackCard(booking: Booking, caret: number | null) {
     save.hidden = !drafts[booking.id];
   };
   // ten circles in a row, the picked one filled in its colour (1 to 4 red, 5 and 6 amber, 7 to 10 green). Once a
-  // rating is picked the other circles go away and only it stays, with Change to show them all again; tapping the
-  // picked one while they show unpicks it.
+  // rating is picked the other circles go away and only it stays; until it's saved, tapping it shows them all again
+  // (and tapping it then unpicks it). A saved rating is just the one circle, not a button.
   const buttons: HTMLElement[] = [];
   const scale = el("p", { class: "sub fb-scale", "aria-hidden": "true" }, [
     el("span", { text: "Poor" }),
     el("span", { text: "Excellent" }),
   ]);
-  const change = el("button", { type: "button", class: "linkbtn fb-chg", text: "Change" });
   const paint = function () {
     const tone = rating10(draft.rating);
     const shut = !!tone && !choosing[booking.id];
@@ -145,42 +145,43 @@ function feedbackCard(booking: Booking, caret: number | null) {
       button.hidden = shut && draft.rating !== index + 1;
     });
     scale.hidden = shut;
-    change.hidden = !shut;
     verdict.className = "fb-v" + (tone ? " rs-" + tone.key : "");
     verdict.textContent = tone ? draft.rating + "/10 · " + tone.word : "";
   };
-  const reopen = function () {
-    choosing[booking.id] = true;
-    paint();
-    buttons[Math.max(0, draft.rating - 1)].focus();
-  };
-  change.onclick = reopen;
-  for (let value = 1; value <= 10; value++) {
-    buttons.push(
-      el("button", {
-        type: "button",
-        class: "fb-opt",
-        text: String(value),
-        "aria-label": value + " out of 10",
-        onclick: function () {
-          if (group.classList.contains("one")) {
-            return reopen();
-          }
-          draft.rating = draft.rating === value ? 0 : value;
-          if (draft.rating) {
-            delete choosing[booking.id];
-          }
-          paint();
-          setMessage(msg, "");
-          changed();
-        },
-      }),
+  if (saved.rating) {
+    delete choosing[booking.id];
+    group.appendChild(
+      el("span", { class: "fb-opt on", role: "img", "aria-label": saved.rating + " out of 10", text: String(saved.rating) }),
     );
+  } else {
+    for (let value = 1; value <= 10; value++) {
+      buttons.push(
+        el("button", {
+          type: "button",
+          class: "fb-opt",
+          text: String(value),
+          "aria-label": value + " out of 10",
+          onclick: function () {
+            if (group.classList.contains("one")) {
+              choosing[booking.id] = true;
+              paint();
+              return;
+            }
+            draft.rating = draft.rating === value ? 0 : value;
+            if (draft.rating) {
+              delete choosing[booking.id];
+            }
+            paint();
+            setMessage(msg, "");
+            changed();
+          },
+        }),
+      );
+    }
+    buttons.forEach(function (button) {
+      group.appendChild(button);
+    });
   }
-  buttons.forEach(function (button) {
-    group.appendChild(button);
-  });
-  group.appendChild(change);
   paint();
   card.appendChild(group);
   card.appendChild(scale);
@@ -188,9 +189,9 @@ function feedbackCard(booking: Booking, caret: number | null) {
     draft.notes = notes.value;
     changed();
   });
-  card.appendChild(el("div", { class: "f fb-notes" }, [el("label", { for: "fbnotes", text: "Notes (optional)" }), notes]));
+  card.appendChild(el("div", { class: "f fb-notes" }, [el("label", { for: "fbnotes", text: "Issues (optional)" }), notes]));
   save.onclick = function () {
-    if (!draft.rating && draft.notes.trim()) {
+    if (!draft.rating) {
       return setMessage(msg, "Pick a rating out of 10.", true);
     }
     save.disabled = true;
@@ -198,15 +199,17 @@ function feedbackCard(booking: Booking, caret: number | null) {
     request("/admin/api/feedback", { id: booking.id, rating: draft.rating, notes: draft.notes.trim() })
       .then(function () {
         delete drafts[booking.id];
+        save.hidden = true;
         setMessage(msg, "");
-        toast(draft.rating ? "Feedback saved" : "Feedback cleared");
+        toast("Feedback saved");
       })
       .catch(function (error) {
         save.disabled = false;
         setMessage(msg, error.message, true);
       });
   };
-  save.hidden = !drafts[booking.id];
+  // a redraw from the save's own live update can land before its reply, with the draft now matching what's saved
+  changed();
   card.appendChild(
     el("div", { class: "fb-foot" }, [
       save,

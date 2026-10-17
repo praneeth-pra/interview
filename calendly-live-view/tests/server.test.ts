@@ -1110,7 +1110,7 @@ describe("admin", () => {
     }
   });
 
-  test("once an interview starts, an admin rates it out of 10 with optional notes, and can clear it", async () => {
+  test("once an interview starts, an admin rates it out of 10 with optional notes, and the rating is final", async () => {
     const dir = mkdtempSync(join(tmpdir(), "booking-form-feedback-"));
     const past = istMidnight() - 24 * HOUR + 10 * HOUR;
     const done = { ...booking, id: "00000000-0000-0000-0000-000000000009", start: new Date(past).toISOString(), end: new Date(past + 30 * 60000).toISOString() };
@@ -1133,13 +1133,12 @@ describe("admin", () => {
       state = await (await get(srv, "/admin/api/state")).json();
       expect(state.events.find((e: any) => e.id === done.id)).toMatchObject({ rating: 8, feedback: "Struggled with system design" });
       expect(await (await get(srv, "/admin/export.csv")).text()).toContain("Struggled with system design");
-      // a rating without notes drops the old notes; 0 clears it all
-      expect((await rate(done.id, 9)).status).toBe(200);
-      expect(saved(done.id).rating).toBe(9);
+      // the rating is final once saved (no change, no clearing); the notes can still change or go
+      expect((await rate(done.id, 9)).status).toBe(409);
+      expect((await rate(done.id, 0)).status).toBe(400);
+      expect((await rate(done.id, 8)).status).toBe(200);
+      expect(saved(done.id).rating).toBe(8);
       expect(saved(done.id).feedback).toBeUndefined();
-      expect((await rate(done.id, 0)).status).toBe(200);
-      expect(saved(done.id).rating).toBeUndefined();
-      expect(saved(done.id).feedbackAt).toBeUndefined();
     } finally {
       srv.proc.kill();
     }

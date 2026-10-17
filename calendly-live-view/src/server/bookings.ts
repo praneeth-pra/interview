@@ -347,17 +347,13 @@ export async function setFeedback(id: string, rating: unknown, notes: unknown, b
   )
     return json({ error: "Bad request." }, 400);
   if (text.length > FEEDBACK_MAX) return json({ error: "Keep the notes under " + FEEDBACK_MAX + " characters." }, 400);
-  if (!rating && text) return json({ error: "Pick a rating out of 10." }, 400);
+  if (!rating) return json({ error: "Pick a rating out of 10." }, 400);
   if (b.cancelled) return json({ error: "This interview was cancelled." }, 409);
   if (Date.parse(b.start) > Date.now() + 60000) return json({ error: "You can say how the interview went once it has started." }, 409);
+  // a saved rating is final: later saves can change the notes only
+  if (b.rating && rating !== b.rating) return json({ error: "The rating can't be changed once it's saved." }, 409);
   const prev = { ...b };
-  if (rating) Object.assign(b, { rating, feedback: text, feedbackAt: new Date().toISOString(), feedbackBy: by });
-  else {
-    delete b.rating;
-    delete b.feedback;
-    delete b.feedbackAt;
-    delete b.feedbackBy;
-  }
+  Object.assign(b, { rating, feedback: text, feedbackAt: new Date().toISOString(), feedbackBy: by });
   if (!text) delete b.feedback;
   if (!by) delete b.feedbackBy;
   if (!(await commit(b, prev))) return saveFailed();
