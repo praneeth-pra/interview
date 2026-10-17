@@ -149,16 +149,6 @@ const screens = [
     },
   ],
   [
-    "admin: booking panel, fixing the company",
-    BASE + "/admin?view=agenda&date=" + new Date(at(-2, 10).getTime() + 5.5 * 3600000).toISOString().slice(0, 10),
-    async (p) => {
-      await p.locator("#agenda .ag-i").first().click();
-      await p.locator("#panel .bk-fix button").click();
-      await p.locator("#cname").waitFor();
-      await wait(p, 400);
-    },
-  ],
-  [
     "admin: unavailable",
     BASE + "/admin",
     async (p) => {

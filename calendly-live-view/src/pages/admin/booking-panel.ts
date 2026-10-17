@@ -106,8 +106,10 @@ function feedbackCard(booking: Booking, caret: number | null) {
   const saved = { rating: booking.rating || 0, notes: booking.feedback || "" };
   const draft = drafts[booking.id] || { rating: saved.rating, notes: saved.notes };
   if (saved.rating) draft.rating = saved.rating;
-  // the heading's right side says the score in words ("8/10 · Good")
-  const verdict = el("span", { class: "fb-v" });
+  // the heading's right side says the score in words ("8/10 · Good"); until it's saved, tapping it shows the circles again
+  const verdict = saved.rating
+    ? el("span", { class: "fb-v" })
+    : el("button", { type: "button", class: "fb-v", "aria-label": "Change the rating" });
   const card = el("div", { class: "bk-card fbc" }, [el("div", { class: "fb-head" }, [el("h3", { text: "How did it go?" }), verdict])]);
   const msg = el("p", { class: "msg", role: "status" });
   const group = el("div", { class: "fb-opts", role: "group", "aria-label": "Rating out of 10" });
@@ -127,9 +129,8 @@ function feedbackCard(booking: Booking, caret: number | null) {
     }
     save.hidden = !drafts[booking.id];
   };
-  // ten circles in a row, the picked one filled in its colour (1 to 4 red, 5 and 6 amber, 7 to 10 green). Once a
-  // rating is picked the other circles go away and only it stays; until it's saved, tapping it shows them all again
-  // (and tapping it then unpicks it). A saved rating is just the one circle, not a button.
+  // ten circles in a row (1 to 4 red, 5 and 6 amber, 7 to 10 green). Once a rating is picked they go away and only the
+  // score in the heading stays; a saved rating is final, so it has no circles at all.
   const buttons: HTMLElement[] = [];
   const scale = el("p", { class: "sub fb-scale", "aria-hidden": "true" }, [
     el("span", { text: "Poor" }),
@@ -138,22 +139,25 @@ function feedbackCard(booking: Booking, caret: number | null) {
   const paint = function () {
     const tone = rating10(draft.rating);
     const shut = !!tone && !choosing[booking.id];
-    group.className = "fb-opts" + (tone ? " rs-" + tone.key : "") + (shut ? " one" : "");
+    group.className = "fb-opts" + (tone ? " rs-" + tone.key : "");
     buttons.forEach(function (button, index) {
       button.classList.toggle("on", draft.rating === index + 1);
       button.setAttribute("aria-pressed", String(draft.rating === index + 1));
-      button.hidden = shut && draft.rating !== index + 1;
     });
+    group.hidden = shut;
     scale.hidden = shut;
+    verdict.hidden = !tone;
     verdict.className = "fb-v" + (tone ? " rs-" + tone.key : "");
     verdict.textContent = tone ? draft.rating + "/10 · " + tone.word : "";
   };
   if (saved.rating) {
     delete choosing[booking.id];
-    group.appendChild(
-      el("span", { class: "fb-opt on", role: "img", "aria-label": saved.rating + " out of 10", text: String(saved.rating) }),
-    );
   } else {
+    verdict.onclick = function () {
+      choosing[booking.id] = true;
+      paint();
+      buttons[Math.max(0, draft.rating - 1)].focus();
+    };
     for (let value = 1; value <= 10; value++) {
       buttons.push(
         el("button", {
@@ -162,11 +166,6 @@ function feedbackCard(booking: Booking, caret: number | null) {
           text: String(value),
           "aria-label": value + " out of 10",
           onclick: function () {
-            if (group.classList.contains("one")) {
-              choosing[booking.id] = true;
-              paint();
-              return;
-            }
             draft.rating = draft.rating === value ? 0 : value;
             if (draft.rating) {
               delete choosing[booking.id];
@@ -174,6 +173,9 @@ function feedbackCard(booking: Booking, caret: number | null) {
             paint();
             setMessage(msg, "");
             changed();
+            if (draft.rating) {
+              verdict.focus();
+            }
           },
         }),
       );
@@ -559,19 +561,6 @@ export function showBooking(id: string, refresh?: boolean) {
   if (!booking.cancelled && !upcoming) {
     body.appendChild(resultFoot(booking, status, !!interviewer));
   }
-  // a misspelt company is corrected here, for this booking and the candidate's others spelt the same way
-  body.appendChild(
-    el("p", { class: "bk-fix" }, [
-      el("button", {
-        type: "button",
-        class: "linkbtn",
-        text: booking.company ? "Fix the company's spelling" : "Add the company",
-        onclick: function () {
-          showCompany(booking);
-        },
-      }),
-    ]),
-  );
   if (!booking.cancelled && upcoming) {
     body.appendChild(
       el("div", { class: "bk-foot" }, [
@@ -594,57 +583,6 @@ export function showBooking(id: string, refresh?: boolean) {
       ]),
     );
   }
-}
-export function showCompany(booking: Booking) {
-  panel.refresh = null;
-  const body = openPanel("Company", titleCase(booking.name) + " · " + formatRange(booking), true);
-  const input = el("input", { id: "cname", type: "text", maxlength: "120", autocomplete: "off" }) as HTMLInputElement;
-  input.value = booking.company || "";
-  const msg = el("p", { class: "msg", role: "status" });
-  body.appendChild(el("div", { class: "f" }, [el("label", { for: "cname", text: "Company name" }), input]));
-  if (booking.company) {
-    body.appendChild(
-      el("p", { class: "sub", text: "Their other bookings with \u201c" + booking.company.trim() + "\u201d are changed too." }),
-    );
-  }
-  const save = function () {
-    if (!input.value.trim()) {
-      return setMessage(msg, "Enter the company's name.", true);
-    }
-    button.disabled = true;
-    button.textContent = "Saving…";
-    request<{ changed?: number }>("/admin/api/company", { id: booking.id, company: input.value })
-      .then(function (reply) {
-        showBooking(booking.id, true);
-        toast(reply && reply.changed && reply.changed > 1 ? "Company fixed on " + reply.changed + " bookings" : "Company saved");
-      })
-      .catch(function (error) {
-        button.disabled = false;
-        button.textContent = "Save";
-        setMessage(msg, error.message, true);
-      });
-  };
-  const button = el("button", { type: "button", class: "pri", text: "Save", onclick: save }) as HTMLButtonElement;
-  input.addEventListener("keydown", function (event) {
-    if (event.key === "Enter") {
-      save();
-    }
-  });
-  body.appendChild(
-    el("div", { class: "row mt" }, [
-      button,
-      el("button", {
-        type: "button",
-        class: "ghost",
-        text: "Back",
-        onclick: function () {
-          showBooking(booking.id, true);
-        },
-      }),
-    ]),
-  );
-  body.appendChild(msg);
-  input.focus();
 }
 export function showCancel(booking: Booking) {
   panel.refresh = null;

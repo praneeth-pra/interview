@@ -486,8 +486,3 @@
     align-items: center;
   }
 }
-/* "Fix the company's spelling", a quiet link under the cards */
-.bk-fix {
-  margin: 4px 0 0;
-  text-align: center;
-}
