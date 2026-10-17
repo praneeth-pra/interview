@@ -1,7 +1,7 @@
 // The booking panel: one interview's details, its supporter, how it went and its result, and cancelling or moving it.
 import { byId, el, onEnterOrSpace, setMessage, toast } from "./dom";
 import { addDays, dayKeyOf, formatIst, formatRange, formatTime, shortDate, timeAgo, weekStart } from "./time";
-import { type RoundStatus, byWhom, plural, roundStatus, statusPill, titleCase } from "./labels";
+import { type RoundStatus, byWhom, plural, rating10, roundStatus, statusPill, titleCase } from "./labels";
 import { request } from "./api";
 import { colorClass, render, state, view } from "./state";
 import { closePanel, icon, initials, openPanel, panel, setPanelAvatar, setPanelLink } from "./panel";
@@ -98,13 +98,14 @@ function resultFoot(booking: Booking, current: RoundStatus | null, supported: bo
 }
 // How the interview went, once it has started: a rating out of 10 and optional notes (what went well, what went wrong).
 // Tapping the picked rating again unpicks it; Save, shown once something changed, with no rating and no notes clears
-// what was saved. The panel redraws
-// on every live update, so what's typed but not saved is kept in drafts (and the notes box keeps its focus and caret).
+// what was saved. The panel redraws on every live update, so what's typed but not saved is kept in drafts (and the notes box keeps its focus and caret).
 const drafts: Record<string, { rating: number; notes: string }> = {};
 function feedbackCard(booking: Booking, caret: number | null) {
   const saved = { rating: booking.rating || 0, notes: booking.feedback || "" };
   const draft = drafts[booking.id] || { rating: saved.rating, notes: saved.notes };
-  const card = el("div", { class: "bk-card fbc" }, [el("h3", { text: "How did it go?" })]);
+  // the heading's right side says the score in words ("8/10 · Good")
+  const verdict = el("span", { class: "fb-v" });
+  const card = el("div", { class: "bk-card fbc" }, [el("div", { class: "fb-head" }, [el("h3", { text: "How did it go?" }), verdict])]);
   const msg = el("p", { class: "msg", role: "status" });
   const group = el("div", { class: "fb-opts", role: "group", "aria-label": "Rating out of 10" });
   const notes = el("textarea", {
@@ -123,21 +124,28 @@ function feedbackCard(booking: Booking, caret: number | null) {
     }
     save.hidden = !drafts[booking.id];
   };
+  // a meter of ten segments, filled up to the rating in its colour (1 to 4 red, 5 and 6 amber, 7 to 10 green)
   const buttons: HTMLElement[] = [];
+  const paint = function () {
+    const tone = rating10(draft.rating);
+    group.className = "fb-opts" + (tone ? " rs-" + tone.key : "");
+    buttons.forEach(function (button, index) {
+      button.classList.toggle("on", index < draft.rating);
+      button.setAttribute("aria-pressed", String(draft.rating === index + 1));
+    });
+    verdict.className = "fb-v" + (tone ? " rs-" + tone.key : "");
+    verdict.textContent = tone ? draft.rating + "/10 · " + tone.word : "";
+  };
   for (let value = 1; value <= 10; value++) {
     buttons.push(
       el("button", {
         type: "button",
-        // coloured like the round statuses: 1 to 4 red, 5 and 6 amber, 7 to 10 green
-        class: "fb-opt " + (value <= 4 ? "rs-rejected" : value <= 6 ? "rs-hold" : "rs-cleared"),
+        class: "fb-opt",
         text: String(value),
         "aria-label": value + " out of 10",
-        "aria-pressed": String(draft.rating === value),
         onclick: function () {
           draft.rating = draft.rating === value ? 0 : value;
-          buttons.forEach(function (button, index) {
-            button.setAttribute("aria-pressed", String(draft.rating === index + 1));
-          });
+          paint();
           setMessage(msg, "");
           changed();
         },
@@ -147,9 +155,10 @@ function feedbackCard(booking: Booking, caret: number | null) {
   buttons.forEach(function (button) {
     group.appendChild(button);
   });
+  paint();
   card.appendChild(group);
   card.appendChild(
-    el("p", { class: "sub fb-scale", "aria-hidden": "true" }, [el("span", { text: "Poor" }), el("span", { text: "Great" })]),
+    el("p", { class: "sub fb-scale", "aria-hidden": "true" }, [el("span", { text: "Poor" }), el("span", { text: "Excellent" })]),
   );
   notes.addEventListener("input", function () {
     draft.notes = notes.value;
