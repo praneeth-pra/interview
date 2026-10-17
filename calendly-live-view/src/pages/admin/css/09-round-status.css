@@ -26,8 +26,8 @@
   background: var(--rt);
   color: var(--rc);
 }
-/* How did it go? (booking panel): a meter of ten segments filled up to the rating in its status colour, and optional
-   notes */
+/* How did it go? (booking panel): ten rating circles, the picked one filled in its status colour (the others hide once
+   one is picked), and optional notes */
 .fb-head {
   display: flex;
   justify-content: space-between;
@@ -49,34 +49,53 @@
   --rc: var(--green-ink);
 }
 .fb-opts {
-  display: grid;
-  grid-template-columns: repeat(10, 1fr);
-  gap: 3px;
-  height: 44px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 4px;
 }
+/* only the picked rating, with Change beside it */
+.fb-opts.one {
+  justify-content: flex-start;
+  gap: 12px;
+}
+/* the circles shrink to fit a narrow phone, up to 34px */
 .fb-opt {
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 34px;
+  aspect-ratio: 1;
   padding: 0;
-  border: 0;
-  border-radius: 4px;
-  background: var(--line);
-  color: var(--ink2);
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  background: var(--card);
+  color: var(--ink);
   font: inherit;
   font-size: 13px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   transition:
     background-color 0.15s,
-    color 0.15s;
+    border-color 0.15s,
+    transform 0.12s var(--ease);
 }
-.fb-opt:first-child {
-  border-radius: 12px 4px 4px 12px;
-}
-.fb-opt:last-child {
-  border-radius: 4px 12px 12px 4px;
+.fb-opt:active {
+  transform: scale(0.94);
 }
 .fb-opt.on {
+  border-color: var(--rc);
   background: var(--rc);
   color: var(--card);
+}
+.fb-opts.one .fb-opt {
+  flex: none;
+  width: 40px;
+  max-width: none;
+  font-size: 15px;
+}
+.fb-opt[hidden],
+.fb-chg[hidden] {
+  display: none;
 }
 .fb-scale {
   display: flex;
