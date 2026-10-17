@@ -4,6 +4,7 @@
 // the contacts list, then the contact page.
 import { byId, el as make } from "../shared/dom";
 import { setupPullRefresh } from "../shared/pull-refresh";
+import { rating10 } from "../admin/labels";
 import { api, type Analytics, type DashState, type IvInfo, type Person, type TimelineEvent } from "./api";
 
 // the open contact's page, and a counter so only the latest request draws it
@@ -692,6 +693,14 @@ function renderActivity(events: TimelineEvent[], now: number) {
       ),
     );
     cardEl.appendChild(div("sub", t12(start) + " – " + t12(new Date(event.end))));
+    // how it went, from the booking panel's How did it go? card
+    const tone = rating10(event.rating);
+    if (tone) {
+      cardEl.appendChild(div("sub rt rt-" + tone.key, event.rating + "/10 · " + tone.word));
+    }
+    if (event.issues) {
+      cardEl.appendChild(div("sub rti", "Issues: " + event.issues));
+    }
     item.appendChild(cardEl);
     box.appendChild(item);
   });
@@ -719,6 +728,15 @@ function renderAbout(events: TimelineEvent[], now: number) {
   }
   const real = events.filter((event) => !event.rescheduled);
   line("Bookings", real.length + " (" + real.filter((event) => event.status === "canceled").length + " canceled)");
+  // the average of the ratings out of 10 given in the booking panel, coloured like them
+  const rating = data!.rating;
+  if (rating && rating.count) {
+    const tone = rating10(Math.round(rating.average));
+    line("Average rating", rating.average + "/10" + (tone ? " · " + tone.word : "") + " (" + rating.count + " rated)");
+    if (tone) {
+      group.lastElementChild!.querySelector("b")!.className = "rt rt-" + tone.key;
+    }
+  }
   box.appendChild(group);
   // how many of this candidate's interviews each interviewer took
   const taken: Record<string, number> = {};
@@ -779,7 +797,9 @@ function renderAnalysis() {
     const upcoming = events
       .filter((event) => event.status === "active" && Date.parse(event.end) > now)
       .sort((first, second) => Date.parse(first.start) - Date.parse(second.start))[0];
-    byId("asub").textContent = upcoming ? "Next meeting: " + meetingWhen(upcoming.start, now) : "No upcoming meetings";
+    // the average rating out of 10 up front too (the About tab has it with how many were rated)
+    const average = data.rating && data.rating.count ? "Avg " + data.rating.average + "/10 · " : "";
+    byId("asub").textContent = average + (upcoming ? "Next meeting: " + meetingWhen(upcoming.start, now) : "No upcoming meetings");
     const firstEmail = (data.emailList || [])[0] || "";
     const mail = byId<HTMLAnchorElement>("aemail");
     mail.href = "mailto:" + firstEmail;

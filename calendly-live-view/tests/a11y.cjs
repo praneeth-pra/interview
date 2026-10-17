@@ -28,9 +28,10 @@ const bookings = [
   // an interview two days ago, alone on its day, with no result or supporter yet, for the booking panel's "How did it go?" card
   ["Kiran Rao", "kiran@example.com", "Infosys", "2nd round", -2, 10],
   // earlier rounds with results, for the colours on the owner's interview sheet
-  ["Ananya Iyer", "ananya@example.com", "Amazon", "1st round", -6, 12, "cleared"],
-  ["Rahul Verma", "rahul@example.com", "Microsoft", "1st round", -4, 15, "rejected"],
-].map(([name, email, company, round, days, hour, outcome], i) => {
+  // with ratings out of 10, for the colours on the Contacts page
+  ["Ananya Iyer", "ananya@example.com", "Amazon", "1st round", -6, 12, "cleared", 8, "Slow on SQL joins"],
+  ["Rahul Verma", "rahul@example.com", "Microsoft", "1st round", -4, 15, "rejected", 3],
+].map(([name, email, company, round, days, hour, outcome, rating, feedback], i) => {
   const start = at(days, hour);
   return {
     id: "00000000-0000-0000-0000-00000000000" + (i + 1),
@@ -45,6 +46,8 @@ const bookings = [
     cancelled: false,
     cancelledAt: "",
     ...(outcome ? { outcome } : {}),
+    ...(rating ? { rating, feedbackAt: start.toISOString() } : {}),
+    ...(feedback ? { feedback } : {}),
   };
 });
 writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings }));
@@ -146,6 +149,16 @@ const screens = [
     },
   ],
   [
+    "admin: booking panel, fixing the company",
+    BASE + "/admin?view=agenda&date=" + new Date(at(-2, 10).getTime() + 5.5 * 3600000).toISOString().slice(0, 10),
+    async (p) => {
+      await p.locator("#agenda .ag-i").first().click();
+      await p.locator("#panel .bk-fix button").click();
+      await p.locator("#cname").waitFor();
+      await wait(p, 400);
+    },
+  ],
+  [
     "admin: unavailable",
     BASE + "/admin",
     async (p) => {
@@ -183,6 +196,14 @@ const screens = [
     async (p) => {
       await p.locator("#clist .crow").first().click();
       await p.locator("#an:not([hidden]) .aitem").first().waitFor();
+    },
+  ],
+  [
+    "contacts: a person with ratings",
+    BASE + "/admin/analytics",
+    async (p) => {
+      await p.locator("#clist .crow", { hasText: "Ananya" }).first().click();
+      await p.locator("#an:not([hidden]) .acard .rt").first().waitFor();
     },
   ],
 ];
