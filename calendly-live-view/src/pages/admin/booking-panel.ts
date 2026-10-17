@@ -100,6 +100,8 @@ function resultFoot(booking: Booking, current: RoundStatus | null, supported: bo
 // Tapping the picked rating again unpicks it; Save, shown once something changed, with no rating and no notes clears
 // what was saved. The panel redraws on every live update, so what's typed but not saved is kept in drafts (and the notes box keeps its focus and caret).
 const drafts: Record<string, { rating: number; notes: string }> = {};
+// bookings whose rating circles are all showing again after Change, so a redraw keeps them open
+const choosing: Record<string, boolean> = {};
 function feedbackCard(booking: Booking, caret: number | null) {
   const saved = { rating: booking.rating || 0, notes: booking.feedback || "" };
   const draft = drafts[booking.id] || { rating: saved.rating, notes: saved.notes };
@@ -124,18 +126,35 @@ function feedbackCard(booking: Booking, caret: number | null) {
     }
     save.hidden = !drafts[booking.id];
   };
-  // a meter of ten segments, filled up to the rating in its colour (1 to 4 red, 5 and 6 amber, 7 to 10 green)
+  // ten circles in a row, the picked one filled in its colour (1 to 4 red, 5 and 6 amber, 7 to 10 green). Once a
+  // rating is picked the other circles go away and only it stays, with Change to show them all again; tapping the
+  // picked one while they show unpicks it.
   const buttons: HTMLElement[] = [];
+  const scale = el("p", { class: "sub fb-scale", "aria-hidden": "true" }, [
+    el("span", { text: "Poor" }),
+    el("span", { text: "Excellent" }),
+  ]);
+  const change = el("button", { type: "button", class: "linkbtn fb-chg", text: "Change" });
   const paint = function () {
     const tone = rating10(draft.rating);
-    group.className = "fb-opts" + (tone ? " rs-" + tone.key : "");
+    const shut = !!tone && !choosing[booking.id];
+    group.className = "fb-opts" + (tone ? " rs-" + tone.key : "") + (shut ? " one" : "");
     buttons.forEach(function (button, index) {
-      button.classList.toggle("on", index < draft.rating);
+      button.classList.toggle("on", draft.rating === index + 1);
       button.setAttribute("aria-pressed", String(draft.rating === index + 1));
+      button.hidden = shut && draft.rating !== index + 1;
     });
+    scale.hidden = shut;
+    change.hidden = !shut;
     verdict.className = "fb-v" + (tone ? " rs-" + tone.key : "");
     verdict.textContent = tone ? draft.rating + "/10 · " + tone.word : "";
   };
+  const reopen = function () {
+    choosing[booking.id] = true;
+    paint();
+    buttons[Math.max(0, draft.rating - 1)].focus();
+  };
+  change.onclick = reopen;
   for (let value = 1; value <= 10; value++) {
     buttons.push(
       el("button", {
@@ -144,7 +163,13 @@ function feedbackCard(booking: Booking, caret: number | null) {
         text: String(value),
         "aria-label": value + " out of 10",
         onclick: function () {
+          if (group.classList.contains("one")) {
+            return reopen();
+          }
           draft.rating = draft.rating === value ? 0 : value;
+          if (draft.rating) {
+            delete choosing[booking.id];
+          }
           paint();
           setMessage(msg, "");
           changed();
@@ -155,11 +180,10 @@ function feedbackCard(booking: Booking, caret: number | null) {
   buttons.forEach(function (button) {
     group.appendChild(button);
   });
+  group.appendChild(change);
   paint();
   card.appendChild(group);
-  card.appendChild(
-    el("p", { class: "sub fb-scale", "aria-hidden": "true" }, [el("span", { text: "Poor" }), el("span", { text: "Excellent" })]),
-  );
+  card.appendChild(scale);
   notes.addEventListener("input", function () {
     draft.notes = notes.value;
     changed();
