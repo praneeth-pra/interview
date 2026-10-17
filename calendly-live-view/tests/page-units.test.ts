@@ -2,7 +2,7 @@
 // overlapping bookings, matching company spellings, and the Contacts page's people and timelines (analytics/api.ts).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { layoutColumns, type Item } from "../src/pages/admin/layout";
-import { byWhom, plural, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
+import { byWhom, plural, rating10, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
 import {
   addDays,
   blockLabel,
@@ -108,6 +108,15 @@ describe("admin labels", () => {
     expect(statusOf(booking({ ...past, missed: "noshow" }))).toBe("No-show");
     expect(statusOf(booking({ ...past, missed: "other" }))).toBe("Didn't happen");
     expect(statusOf(booking({ cancelled: true, missed: "noshow" }))).toBe("Cancelled");
+  });
+  test("a rating out of 10 in words and colour", () => {
+    expect(rating10(0)).toBeNull();
+    expect(rating10(11)).toBeNull();
+    expect(rating10(1)).toEqual({ word: "Poor", key: "rejected" });
+    expect(rating10(4)).toEqual({ word: "Weak", key: "rejected" });
+    expect(rating10(6)).toEqual({ word: "Average", key: "hold" });
+    expect(rating10(8)).toEqual({ word: "Good", key: "cleared" });
+    expect(rating10(10)).toEqual({ word: "Excellent", key: "cleared" });
   });
   test("the round's status wins over the time-based one, except when cancelled", () => {
     const past = { start: new Date(Date.now() - 2 * HOUR).toISOString(), end: new Date(Date.now() - HOUR).toISOString() };

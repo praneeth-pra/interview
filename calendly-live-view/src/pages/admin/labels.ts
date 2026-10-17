@@ -58,6 +58,15 @@ function statusPill(booking: Booking, small?: boolean) {
   const label = round ? round.label : statusOf(booking);
   return { class: "bk-st " + (small ? "sm " : "") + (round ? "rs-" + round.key : statusClass(label)), text: label };
 }
+// A rating out of 10 in words, with the round-status colour it takes: 1 to 4 red, 5 and 6 amber, 7 to 10 green.
+// Null when not rated.
+function rating10(rating: number): { word: string; key: string } | null {
+  if (!(rating >= 1 && rating <= 10)) {
+    return null;
+  }
+  const word = ["Poor", "Weak", "Average", "Good", "Excellent"][Math.ceil(rating / 2) - 1];
+  return { word: word, key: rating <= 4 ? "rejected" : rating <= 6 ? "hold" : "cleared" };
+}
 function byWhom(who: string | undefined) {
   if (who === "host") {
     return "by you";
@@ -71,7 +80,7 @@ function plural(count: number, word: string) {
   return count + " " + word + (count === 1 ? "" : "s");
 }
 
-export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural, ROUND_STATUSES, roundStatus, statusPill };
+export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural, ROUND_STATUSES, roundStatus, statusPill, rating10 };
 export type { RoundStatus };
 // what the candidate said about their experience (enquiries and onboarding), after the years
 export const GENUINE = { yes: " · Genuine", no: " · Not genuine", "": "" };

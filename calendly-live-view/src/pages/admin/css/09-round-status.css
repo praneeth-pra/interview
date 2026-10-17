@@ -26,35 +26,57 @@
   background: var(--rt);
   color: var(--rc);
 }
-/* How did it go? (booking panel): a rating out of 10, coloured like the statuses, and optional notes */
+/* How did it go? (booking panel): a meter of ten segments filled up to the rating in its status colour, and optional
+   notes */
+.fb-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+.fb-head h3 {
+  margin: 0;
+}
+.fb-v {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--rc);
+}
+/* green text and the filled green segments use the darker green so the numbers on them pass 4.5:1 */
+.fb-v.rs-cleared,
+.fb-opts.rs-cleared {
+  --rc: var(--green-ink);
+}
 .fb-opts {
   display: grid;
   grid-template-columns: repeat(10, 1fr);
-  gap: 6px;
+  gap: 3px;
+  height: 44px;
 }
 .fb-opt {
-  min-height: 40px;
   padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--card);
-  color: var(--ink);
+  border: 0;
+  border-radius: 4px;
+  background: var(--line);
+  color: var(--ink2);
   font: inherit;
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
   transition:
     background-color 0.15s,
-    border-color 0.15s,
-    transform 0.12s var(--ease);
+    color 0.15s;
 }
-.fb-opt:active {
-  transform: scale(0.95);
+.fb-opt:first-child {
+  border-radius: 12px 4px 4px 12px;
 }
-.fb-opt[aria-pressed="true"] {
-  border-color: var(--rc);
-  background: var(--rt);
-  color: var(--rc);
+.fb-opt:last-child {
+  border-radius: 4px 12px 12px 4px;
+}
+.fb-opt.on {
+  background: var(--rc);
+  color: var(--card);
 }
 .fb-scale {
   display: flex;
@@ -72,13 +94,4 @@
 .fb-foot .sub {
   min-width: 0;
   overflow-wrap: anywhere;
-}
-/* phones: two rows of five, big enough to tap */
-@media (max-width: 480px) {
-  .fb-opts {
-    grid-template-columns: repeat(5, 1fr);
-  }
-  .fb-scale {
-    display: none;
-  }
 }
