@@ -4,7 +4,7 @@ import { changeAllowlist, allowView } from "../allowlist";
 import { analyticsCsv, analyticsView } from "../analytics";
 import { adminsView, sessionOf, setAdmins } from "../auth";
 import { backupParts, restoreData, restoreUpload } from "../backup";
-import { bookingsCsv, cancelBooking, createBooking, moveBooking, setRoundStatus } from "../bookings";
+import { bookingsCsv, cancelBooking, createBooking, moveBooking, setFeedback, setRoundStatus } from "../bookings";
 import { DURATIONS, LOGIN_ON, MAX_BODY } from "../config";
 import { bookingsStore, isOwner, onboardingStore } from "../data";
 import { deleteEnquiry, enquiriesList, enquiriesSeen, resumeFile } from "../enquiries";
@@ -149,6 +149,8 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
       return moveBooking(b, Number(body?.startMs), Number(body?.duration), "host", req);
     });
   if (path === "/admin/api/round-status" && method === "POST") return withBody(1000, (b) => setRoundStatus(String(b?.id ?? ""), b?.status));
+  if (path === "/admin/api/feedback" && method === "POST")
+    return withBody(5000, (b) => setFeedback(String(b?.id ?? ""), b?.rating, b?.notes, email));
 
   // ---- unavailable times (owners only; they come with the live state)
   if (path === "/admin/api/unavailable" && method === "POST") return withBody(2000, (b) => addBlock(b, email));

@@ -232,6 +232,8 @@ export function bookingsCsvText() {
       "Booked via",
       "Cancelled by",
       "Cancel reason",
+      "Rating (out of 10)",
+      "Interview notes",
     ],
   ];
   for (const b of [...bookingsStore.data.bookings].sort((x, y) => Date.parse(x.start) - Date.parse(y.start)))
@@ -262,6 +264,8 @@ export function bookingsCsvText() {
       b.source === "admin" ? "Admin" : b.source === "calendly" ? "Calendly" : "Booking page",
       b.cancelled ? who(b.cancelledBy) : "",
       b.cancelReason ?? "",
+      b.rating ? String(b.rating) : "",
+      b.feedback ?? "",
     ]);
   return "\uFEFF" + rows.map((r) => r.map(csvCell).join(",")).join("\r\n") + "\r\n";
 }
@@ -323,6 +327,39 @@ export async function setRoundStatus(id: string, status: unknown): Promise<Respo
     delete b.outcome;
     delete b.outcomeAt;
   }
+  if (!(await commit(b, prev))) return saveFailed();
+  broadcastState();
+  return json({ ok: true });
+}
+// How the interview went, from the booking panel once it has started: a rating from 1 to 10 and optional notes (what
+// went well, what went wrong). A rating of 0 with no notes clears it; notes need a rating.
+export const FEEDBACK_MAX = 1000;
+export async function setFeedback(id: string, rating: unknown, notes: unknown, by: string): Promise<Response> {
+  const b = bookingsStore.data.bookings.find((x) => x.id === id);
+  const text = typeof notes === "string" ? notes.trim() : "";
+  if (
+    !b ||
+    typeof rating !== "number" ||
+    !Number.isInteger(rating) ||
+    rating < 0 ||
+    rating > 10 ||
+    (notes != null && typeof notes !== "string")
+  )
+    return json({ error: "Bad request." }, 400);
+  if (text.length > FEEDBACK_MAX) return json({ error: "Keep the notes under " + FEEDBACK_MAX + " characters." }, 400);
+  if (!rating && text) return json({ error: "Pick a rating out of 10." }, 400);
+  if (b.cancelled) return json({ error: "This interview was cancelled." }, 409);
+  if (Date.parse(b.start) > Date.now() + 60000) return json({ error: "You can say how the interview went once it has started." }, 409);
+  const prev = { ...b };
+  if (rating) Object.assign(b, { rating, feedback: text, feedbackAt: new Date().toISOString(), feedbackBy: by });
+  else {
+    delete b.rating;
+    delete b.feedback;
+    delete b.feedbackAt;
+    delete b.feedbackBy;
+  }
+  if (!text) delete b.feedback;
+  if (!by) delete b.feedbackBy;
   if (!(await commit(b, prev))) return saveFailed();
   broadcastState();
   return json({ ok: true });

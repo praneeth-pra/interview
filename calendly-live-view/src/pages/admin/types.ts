@@ -22,6 +22,10 @@ export type Booking = {
   outcome?: "cleared" | "rejected" | "hold" | ""; // the round's result; none means Scheduled
   outcomeAt?: string;
   outcomeBy?: "next-round" | ""; // "next-round": set to Cleared when the candidate booked their next round
+  rating?: number; // how the interview went, 1 to 10; 0 or none means not rated
+  feedback?: string; // optional notes on how it went
+  feedbackAt?: string;
+  feedbackBy?: string; // the admin who saved it
   invite?: { name: string; type: string; size: number } | null; // the interview invite the candidate uploaded
   hrEmails?: string[]; // read from the invite
   hrPhones?: string[];

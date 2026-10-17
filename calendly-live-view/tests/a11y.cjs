@@ -25,6 +25,8 @@ const bookings = [
   ["Priya Sharma", "priya@example.com", "Google", "1st round", 0, 11],
   ["Rahul Verma", "rahul@example.com", "Microsoft", "HR", 1, 14],
   ["Ananya Iyer", "ananya@example.com", "Amazon", "Final", -1, 10, "hold"],
+  // an interview two days ago, alone on its day, with no result or supporter yet, for the booking panel's "How did it go?" card
+  ["Kiran Rao", "kiran@example.com", "Infosys", "2nd round", -2, 10],
   // earlier rounds with results, for the colours on the owner's interview sheet
   ["Ananya Iyer", "ananya@example.com", "Amazon", "1st round", -6, 12, "cleared"],
   ["Rahul Verma", "rahul@example.com", "Microsoft", "1st round", -4, 15, "rejected"],
@@ -130,6 +132,17 @@ const screens = [
     async (p) => {
       await p.locator("#agenda .ag-i").first().click();
       await p.locator("#panel:not([hidden])").waitFor();
+    },
+  ],
+  [
+    "admin: booking panel, how it went",
+    BASE + "/admin?view=agenda&date=" + new Date(at(-2, 10).getTime() + 5.5 * 3600000).toISOString().slice(0, 10),
+    async (p) => {
+      await p.locator("#agenda .ag-i").first().click();
+      await p.locator("#panel .fbc").waitFor();
+      await p.locator("#panel .fb-opt").nth(7).click();
+      await p.locator("#fbnotes").fill("Good on Java, struggled with system design");
+      await wait(p, 400); // the panel has finished sliding in
     },
   ],
   [

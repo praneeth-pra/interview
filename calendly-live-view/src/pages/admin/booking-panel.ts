@@ -1,4 +1,4 @@
-// The booking panel: one interview's details, its supporter and round status, and cancelling or moving it.
+// The booking panel: one interview's details, its supporter, round status and how it went, and cancelling or moving it.
 import { byId, el, onEnterOrSpace, setMessage, toast } from "./dom";
 import { addDays, dayKeyOf, formatIst, formatRange, formatTime, shortDate, timeAgo, weekStart } from "./time";
 import { ROUND_STATUSES, type RoundStatus, byWhom, plural, roundStatus, statusPill, titleCase } from "./labels";
@@ -121,6 +121,105 @@ function saveRoundStatus(booking: Booking, option: RoundStatus | null, buttons: 
       setMessage(msg, error.message, true);
     });
 }
+// How the interview went, once it has started: a rating out of 10 and optional notes (what went well, what went wrong).
+// Tapping the picked rating again unpicks it; Save, shown once something changed, with no rating and no notes clears
+// what was saved. The panel redraws
+// on every live update, so what's typed but not saved is kept in drafts (and the notes box keeps its focus and caret).
+const drafts: Record<string, { rating: number; notes: string }> = {};
+function feedbackCard(booking: Booking, caret: number | null) {
+  const saved = { rating: booking.rating || 0, notes: booking.feedback || "" };
+  const draft = drafts[booking.id] || { rating: saved.rating, notes: saved.notes };
+  const card = el("div", { class: "bk-card fbc" }, [el("h3", { text: "How did it go?" })]);
+  const msg = el("p", { class: "msg", role: "status" });
+  const group = el("div", { class: "fb-opts", role: "group", "aria-label": "Rating out of 10" });
+  const notes = el("textarea", {
+    id: "fbnotes",
+    maxlength: "1000",
+    rows: "3",
+    placeholder: "What went well, what went wrong…",
+  }) as HTMLTextAreaElement;
+  notes.value = draft.notes;
+  const save = el("button", { type: "button", class: "pri", text: "Save" }) as HTMLButtonElement;
+  const changed = function () {
+    if (draft.rating === saved.rating && draft.notes.trim() === saved.notes) {
+      delete drafts[booking.id];
+    } else {
+      drafts[booking.id] = draft;
+    }
+    save.hidden = !drafts[booking.id];
+  };
+  const buttons: HTMLElement[] = [];
+  for (let value = 1; value <= 10; value++) {
+    buttons.push(
+      el("button", {
+        type: "button",
+        // coloured like the round statuses: 1 to 4 red, 5 and 6 amber, 7 to 10 green
+        class: "fb-opt " + (value <= 4 ? "rs-rejected" : value <= 6 ? "rs-hold" : "rs-cleared"),
+        text: String(value),
+        "aria-label": value + " out of 10",
+        "aria-pressed": String(draft.rating === value),
+        onclick: function () {
+          draft.rating = draft.rating === value ? 0 : value;
+          buttons.forEach(function (button, index) {
+            button.setAttribute("aria-pressed", String(draft.rating === index + 1));
+          });
+          setMessage(msg, "");
+          changed();
+        },
+      }),
+    );
+  }
+  buttons.forEach(function (button) {
+    group.appendChild(button);
+  });
+  card.appendChild(group);
+  card.appendChild(
+    el("p", { class: "sub fb-scale", "aria-hidden": "true" }, [el("span", { text: "Poor" }), el("span", { text: "Great" })]),
+  );
+  notes.addEventListener("input", function () {
+    draft.notes = notes.value;
+    changed();
+  });
+  card.appendChild(el("div", { class: "f fb-notes" }, [el("label", { for: "fbnotes", text: "Notes (optional)" }), notes]));
+  save.onclick = function () {
+    if (!draft.rating && draft.notes.trim()) {
+      return setMessage(msg, "Pick a rating out of 10.", true);
+    }
+    save.disabled = true;
+    setMessage(msg, "Saving…");
+    request("/admin/api/feedback", { id: booking.id, rating: draft.rating, notes: draft.notes.trim() })
+      .then(function () {
+        delete drafts[booking.id];
+        setMessage(msg, "");
+        toast(draft.rating ? "Feedback saved" : "Feedback cleared");
+      })
+      .catch(function (error) {
+        save.disabled = false;
+        setMessage(msg, error.message, true);
+      });
+  };
+  save.hidden = !drafts[booking.id];
+  card.appendChild(
+    el("div", { class: "fb-foot" }, [
+      save,
+      el("span", {
+        class: "sub",
+        text: booking.feedbackAt
+          ? "Saved " + timeAgo(booking.feedbackAt) + (booking.feedbackBy ? " by " + booking.feedbackBy : "")
+          : "Not rated yet",
+      }),
+    ]),
+  );
+  card.appendChild(msg);
+  if (caret !== null) {
+    // put the caret back once the card is on the page
+    requestAnimationFrame(function () {
+      notes.focus();
+      notes.setSelectionRange(caret, caret);
+    });
+  }
+  return card;
+}
 // the invite screenshot, tap for full size, with Download beside "Tap to see it all". It fades in once loaded, over a
 // shimmer in the card's colours, rather than a white box the image then pops into. Shown again (a refresh of the
 // panel), it comes from the cache already loaded and shows at once.
@@ -207,6 +306,9 @@ export function showBooking(id: string, refresh?: boolean) {
   const interviewer = state.iv.assign[booking.id] || "";
   const upcoming = Date.parse(booking.start) > now;
   const status = roundStatus(booking);
+  // a redraw while typing feedback notes keeps the caret where it was
+  const typing = document.activeElement as HTMLTextAreaElement | null;
+  const caret = refresh && typing && typing.id === "fbnotes" ? typing.selectionStart : null;
   panel.refresh = function () {
     showBooking(id, true);
   };
@@ -253,6 +355,9 @@ export function showBooking(id: string, refresh?: boolean) {
 
   if (!booking.cancelled && !upcoming) {
     body.appendChild(roundStatusCard(booking, status, !!interviewer));
+    if (!booking.missed) {
+      body.appendChild(feedbackCard(booking, caret));
+    }
   }
 
   // Details
