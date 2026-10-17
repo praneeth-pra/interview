@@ -1,4 +1,4 @@
-/* The round's status (booking panel picker and chips, agenda chips): each status sets a colour
+/* The round's status (booking panel and agenda chips): each status sets a colour
    (--rc) and a tint (--rt). */
 .rs-scheduled {
   --rc: var(--link);
@@ -26,47 +26,59 @@
   background: var(--rt);
   color: var(--rc);
 }
-.rs-opts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+/* How did it go? (booking panel): a rating out of 10, coloured like the statuses, and optional notes */
+.fb-opts {
+  display: grid;
+  grid-template-columns: repeat(10, 1fr);
+  gap: 6px;
 }
-.rs-opt {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 7px;
+.fb-opt {
   min-height: 40px;
-  flex: 1 1 auto;
-  padding: 6px 14px;
+  padding: 0;
   border: 1px solid var(--line);
-  border-radius: 999px;
+  border-radius: 10px;
   background: var(--card);
   color: var(--ink);
   font: inherit;
-  font-size: 13.5px;
+  font-size: 14px;
   font-weight: 600;
-  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
   transition:
     background-color 0.15s,
     border-color 0.15s,
     transform 0.12s var(--ease);
 }
-.rs-opt:active {
-  transform: scale(0.97);
+.fb-opt:active {
+  transform: scale(0.95);
 }
-.rs-opt[aria-pressed="true"] {
+.fb-opt[aria-pressed="true"] {
   border-color: var(--rc);
   background: var(--rt);
   color: var(--rc);
 }
-.rs-hint {
-  margin: 10px 0 0;
+.fb-scale {
+  display: flex;
+  justify-content: space-between;
+  margin: 6px 2px 0;
 }
-.rsd {
-  flex: none;
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--rc);
+.fb-notes {
+  margin: 12px 0 10px;
+}
+.fb-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.fb-foot .sub {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+/* phones: two rows of five, big enough to tap */
+@media (max-width: 480px) {
+  .fb-opts {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .fb-scale {
+    display: none;
+  }
 }

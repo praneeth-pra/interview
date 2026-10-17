@@ -31,6 +31,11 @@ export type Booking = {
   outcomeAt?: string;
   // "next-round" when the result was set to Cleared because the candidate booked their next round with the company
   outcomeBy?: "next-round";
+  // how the interview went, from the booking panel once it has started: a rating out of 10 and optional notes
+  rating?: number;
+  feedback?: string;
+  feedbackAt?: string;
+  feedbackBy?: string;
   // the interview invite the candidate uploaded (a screenshot or PDF in DATA_DIR/invites), and the HR emails and phone
   // numbers read from it; inviteRead is set once the reading has run, found or not
   invite?: IdCard;

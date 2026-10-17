@@ -1110,6 +1110,41 @@ describe("admin", () => {
     }
   });
 
+  test("once an interview starts, an admin rates it out of 10 with optional notes, and can clear it", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-feedback-"));
+    const past = istMidnight() - 24 * HOUR + 10 * HOUR;
+    const done = { ...booking, id: "00000000-0000-0000-0000-000000000009", start: new Date(past).toISOString(), end: new Date(past + 30 * 60000).toISOString() };
+    const gone = { ...done, id: "00000000-0000-0000-0000-000000000007", cancelled: true, cancelledAt: new Date(past).toISOString() };
+    writeFileSync(join(dir, "secret.json"), JSON.stringify({ key: KEY }));
+    writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [booking, done, gone] }));
+    const srv = await start(4318, {}, dir);
+    try {
+      const rate = (id: string, rating: unknown, notes?: unknown) => postJson(srv, "/admin/api/feedback", { id, rating, notes });
+      const saved = (id: string) => JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.find((b: any) => b.id === id);
+      let state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === done.id)).toMatchObject({ rating: 0, feedback: "" });
+      for (const bad of [11, -1, 7.5, "7"]) expect((await rate(done.id, bad)).status).toBe(400);
+      expect((await rate(done.id, 0, "notes without a rating")).status).toBe(400);
+      expect((await rate(done.id, 7, "x".repeat(1001))).status).toBe(400);
+      expect((await rate(gone.id, 7)).status).toBe(409);
+      expect((await rate(booking.id, 7)).status).toBe(409); // not started yet
+      expect((await rate(done.id, 8, "  Struggled with system design  ")).status).toBe(200);
+      expect(saved(done.id)).toMatchObject({ rating: 8, feedback: "Struggled with system design" });
+      state = await (await get(srv, "/admin/api/state")).json();
+      expect(state.events.find((e: any) => e.id === done.id)).toMatchObject({ rating: 8, feedback: "Struggled with system design" });
+      expect(await (await get(srv, "/admin/export.csv")).text()).toContain("Struggled with system design");
+      // a rating without notes drops the old notes; 0 clears it all
+      expect((await rate(done.id, 9)).status).toBe(200);
+      expect(saved(done.id).rating).toBe(9);
+      expect(saved(done.id).feedback).toBeUndefined();
+      expect((await rate(done.id, 0)).status).toBe(200);
+      expect(saved(done.id).rating).toBeUndefined();
+      expect(saved(done.id).feedbackAt).toBeUndefined();
+    } finally {
+      srv.proc.kill();
+    }
+  });
+
   test("booking the next round with a company marks the round before it Cleared, unless an admin already decided", async () => {
     const dir = mkdtempSync(join(tmpdir(), "booking-form-next-"));
     const past = istMidnight() - 24 * HOUR + 10 * HOUR;
