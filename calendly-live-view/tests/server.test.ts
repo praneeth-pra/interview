@@ -73,12 +73,14 @@ const mailServer = Bun.serve({ port: 4315, fetch: async (req) => (mails.push(awa
 const lockedEnv = { ADMIN_EMAILS: OWNER + ", boss@example.com chief@example.com", RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4315/emails" };
 const postJson = (s: Srv, path: string, body: unknown, headers: Record<string, string> = {}) =>
   fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
-// A booking from the booking page: a multipart form with the interview invite (a stand-in PNG unless one is given).
+// A booking from the booking page: a multipart form with the interview invite (unless one is given, a small PDF that
+// shows the HR's email, as every invite must).
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
-const bookForm = (s: Srv, body: Record<string, unknown>, headers: Record<string, string> = {}, invite: Blob | null = new Blob([PNG])) => {
+const HR_PDF = new Uint8Array(readFileSync(join(import.meta.dir, "invites", "hr-invite.pdf")));
+const bookForm = (s: Srv, body: Record<string, unknown>, headers: Record<string, string> = {}, invite: Blob | null = new Blob([HR_PDF])) => {
   const form = new FormData();
   for (const [k, v] of Object.entries({ hrVisible: "yes", ...body })) form.set(k, String(v));
-  if (invite) form.set("invite", invite, "invite.png");
+  if (invite) form.set("invite", invite, "invite.pdf");
   return fetch(s.url + "/api/book", { method: "POST", headers, body: form });
 };
 const lastCode = (email: string) => {
@@ -255,23 +257,34 @@ describe("booking flow", () => {
     const text = await bookForm(open, body, {}, new Blob(["just text"]));
     expect(text.status).toBe(400);
     expect((await text.json()).field).toBe("invite");
+    // the invite has to show an HR's email: one with none, or only the candidate's own, is refused
+    const pdf = (line: string) => new Blob([new TextDecoder("latin1").decode(HR_PDF).replace("HR: Priya, priya.hr@acme.com", line)]);
+    for (const line of ["HR: Priya, no email shown...", "To: invite@example.com, Inv."]) {
+      const refused = await bookForm(open, body, { "x-real-ip": "10.9.0.7" }, pdf(line));
+      expect(refused.status).toBe(400);
+      expect(await refused.json()).toMatchObject({ field: "invite", error: expect.stringContaining("HR's email") });
+    }
     const made = await (await bookForm(open, body)).json();
     const id = made.booking.id;
     const file = await get(open, "/admin/api/bookings/" + id + "/invite");
     expect(file.status).toBe(200);
-    expect(file.headers.get("content-type")).toBe("image/png");
-    expect(new Uint8Array(await file.arrayBuffer())).toEqual(PNG);
+    expect(file.headers.get("content-type")).toBe("application/pdf");
+    expect(new Uint8Array(await file.arrayBuffer())).toEqual(HR_PDF);
     expect((await get(open, "/admin/api/bookings/" + id + "/invite?download=1")).headers.get("content-disposition")).toContain(
-      "Invite Test interview invite.png",
+      "Invite Test interview invite.pdf",
     );
-    // the invite is read after the booking is saved; a stand-in picture has no contacts
-    let saved: any;
-    for (let i = 0; i < 100 && !saved?.inviteRead; i++) {
-      await Bun.sleep(50);
-      saved = (await (await get(open, "/admin/api/bookings")).json()).bookings.find((b: any) => b.id === id);
-    }
-    expect(saved).toMatchObject({ invite: { name: "invite.png", type: "image/png" }, hrEmails: [], hrPhones: [], inviteRead: true });
+    // the invite was read before the booking was made, and its HR's email saved with it
+    const saved = (await (await get(open, "/admin/api/bookings")).json()).bookings.find((b: any) => b.id === id);
+    expect(saved).toMatchObject({ invite: { name: "invite.pdf", type: "application/pdf" }, hrEmails: ["priya.hr@acme.com"], inviteRead: true });
     expect((await get(open, "/admin/api/bookings/" + crypto.randomUUID() + "/invite")).status).toBe(404);
+    // one email is one person: someone else can't book with it (the candidate isn't told whose it is, an admin is)
+    const next = { ...body, startMs: slots.at(-2) };
+    const taken = await bookForm(open, { ...next, name: "Someone Else" }, { "x-real-ip": "10.9.0.7" });
+    expect(taken.status).toBe(409);
+    expect(await taken.json()).toEqual({ field: "email", error: "This email is already used by someone else. Book with your own email." });
+    const admin = await postJson(open, "/admin/api/book", { ...next, name: "Hemanth", round: "Demo", duration: 30 });
+    expect(admin.status).toBe(409);
+    expect((await admin.json()).error).toContain("Invite Test's bookings");
     const t = made.booking.manage.split("t=")[1];
     expect((await postJson(open, "/api/manage/cancel", { id, t, reason: "test" })).status).toBe(200);
   });
@@ -1166,7 +1179,7 @@ describe("admin", () => {
       const days = await (await get(srv, "/api/days?duration=30")).json();
       const slots: number[] = days.days.filter((d: any) => d.open).flatMap((d: any) => d.slots).filter((ms: number) => ms > FUTURE + HOUR);
       const book = async (i: number, email: string, company: string) =>
-        (await bookForm(srv, { name: "Someone", email, company, round: "2nd round", duration: 30, startMs: slots[i] })).status;
+        (await bookForm(srv, { name: booking.name, email, company, round: "2nd round", duration: 30, startMs: slots[i] })).status;
       const saved = (n: number) => JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings.find((b: any) => b.id === rounds[n - 1].id);
       expect(await book(0, "Asha@Example.com", "google")).toBe(200);
       expect(await book(1, "ravi@example.com", "Infosys")).toBe(200);

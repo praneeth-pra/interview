@@ -21,6 +21,7 @@ import {
 import type { Booking } from "../src/pages/admin/types";
 import { api } from "../src/pages/analytics/api";
 import { sameCompany } from "../src/same-company";
+import { samePerson } from "../src/same-name";
 
 const HOUR = 3600000;
 const booking = (over: Partial<Booking> = {}): Booking => ({
@@ -163,6 +164,16 @@ describe("company spellings", () => {
   });
 });
 
+describe("same person (one email is one person)", () => {
+  test("a first name alone, swapped words or a typo are the same person; another name isn't", () => {
+    expect(samePerson("Hareesh", "Hareesh Kumar")).toBe(true);
+    expect(samePerson("sharma priya", "Priya Sharma")).toBe(true);
+    expect(samePerson("Karthik Redy", "Karthik Reddy")).toBe(true);
+    expect(samePerson("Hemanth", "Hareesh")).toBe(false);
+    expect(samePerson("Priya Sharma", "Priya Verma")).toBe(false);
+    expect(samePerson("", "Anyone")).toBe(true);
+  });
+});
 describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
   const base = Date.now();
   const iso = (hoursFromNow: number) => new Date(base + hoursFromNow * HOUR).toISOString();
@@ -176,6 +187,10 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
     // a one-word name never matches loosely, and "Guest" never merges
     booking({ id: "a5", name: "Guest", email: "g1@example.com", start: iso(-24), end: iso(-23) }),
     booking({ id: "a6", name: "Guest", email: "g2@example.com", start: iso(-20), end: iso(-19) }),
+    // someone else booked a demo with Hareesh's email: two contacts, each with only their own bookings
+    booking({ id: "h1", name: "Hareesh", email: "hareesh@example.com", start: iso(-96), end: iso(-95) }),
+    booking({ id: "h2", name: "Hareesh", email: "hareesh@example.com", start: iso(-30), end: iso(-29) }),
+    booking({ id: "h3", name: "Hemanth", email: "hareesh@example.com", round: "Demo", start: iso(-10), end: iso(-9) }),
     // cancelled: not a contact, but on the timeline
     booking({
       id: "a7",
@@ -220,7 +235,7 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
   test("with merge=1, look-alike names under different emails are one contact", async () => {
     const people = (await get("/api/people?merge=1")).body;
     const names = people.map((p: any) => p.name).sort();
-    expect(names).toEqual(["Guest", "Guest", "Karthik Redy", "Priya Sharma"]);
+    expect(names).toEqual(["Guest", "Guest", "Hareesh", "Hemanth", "Karthik Redy", "Priya Sharma"]);
     const priya = people.find((p: any) => p.name === "Priya Sharma");
     expect(priya).toMatchObject({ count: 3, emails: 2 });
     expect(priya.companies_.split(", ").sort()).toEqual(["Google", "Microsoft"]);
@@ -228,8 +243,8 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
   });
   test("without merge, every email is its own contact", async () => {
     const people = (await get("/api/people")).body;
-    // six emails have an active booking: priya@, p.sharma@, karthik@, kreddy@, g1@, g2@
-    expect(people.length).toBe(6);
+    // seven emails have an active booking: priya@, p.sharma@, karthik@, kreddy@, g1@, g2@, hareesh@
+    expect(people.length).toBe(7);
   });
   test("a contact's timeline: newest last, a reschedule adds the old time as cancelled", async () => {
     const { status, body } = await get("/api/analytics?event=a1&merge=1");
@@ -243,6 +258,15 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
     expect(body.events.find((e: any) => e.id === "a1")).toMatchObject({ rating: 8, issues: "Nervous at first" });
     expect(body.events.find((e: any) => e.id === "a8")).toMatchObject({ rating: 0, issues: "" });
     expect(body.rating).toEqual({ average: 7.5, count: 2 });
+  });
+  test("a contact's page has only the bookings their row counts, even when they share an email", async () => {
+    const people = (await get("/api/people?merge=1")).body;
+    expect(people.find((p: any) => p.name === "Hemanth")).toMatchObject({ count: 1 });
+    expect(people.find((p: any) => p.name === "Hareesh")).toMatchObject({ count: 2 });
+    expect((await get("/api/analytics?event=h3&merge=1")).body.events.map((e: any) => e.id)).toEqual(["h3"]);
+    expect((await get("/api/analytics?event=h1&merge=1")).body.events.map((e: any) => e.id)).toEqual(["h1", "h2"]);
+    // shown separately (by email), the shared email is one contact with all three
+    expect((await get("/api/analytics?event=h3")).body.events.length).toBe(3);
     expect((await get("/api/analytics?event=a3")).body.rating).toEqual({ average: 0, count: 0 });
   });
   test("unknown bookings and paths are 404s; interviewers come from the live state", async () => {

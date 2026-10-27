@@ -3,7 +3,8 @@ import { earlierSpelling } from "./companies";
 import { DURATIONS, REMOVE_BOOKINGS, RESEND_API_KEY } from "./config";
 import { type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
 import { notifyBooked, notifyCancelled, notifyRescheduled } from "./email";
-import { DEMO_ADMINS_ONLY, INVITE_NEEDED, type InviteUpload, inviteRef, readInvite } from "./invites";
+import { DEMO_ADMINS_ONLY, INVITE_NEEDED, INVITE_NO_HR, type InviteUpload, candidate, inviteRef, readInvite } from "./invites";
+import { inviteContacts, inviteReadable, inviteText } from "./invite-read";
 import { invites } from "./uploads";
 import { BASE_HEADERS, json } from "./http";
 import { baseUrl, manageUrl, tokenOk } from "./links";
@@ -12,8 +13,9 @@ import { alertAdmins } from "./push";
 import { bookingLimitMs, isBlocked, overlapsExisting, slotOk } from "./schedule";
 import { saveStore } from "./store";
 import { sameCompany } from "../same-company";
+import { samePerson } from "../same-name";
 import { istDate, t12 } from "./time";
-import { EMAIL_RE, type Fields, isDemo } from "./util";
+import { EMAIL_RE, type Fields, isDemo, normEmail } from "./util";
 
 export function managedBooking(body: Fields): Booking | Response {
   const id = String(body?.id ?? "");
@@ -88,6 +90,30 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   if (!source && !company) return json({ error: "Enter the company you're interviewing with.", field: "company" }, 400);
   if (!source && !emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
+  // one email is one person: an email already booked under someone else's name is refused (a cancelled booking
+  // doesn't count). Candidates aren't told whose name it is.
+  const other = bookingsStore.data.bookings.find(
+    (x) => !x.cancelled && normEmail(x.email) === normEmail(email) && !samePerson(x.name, name),
+  );
+  if (other)
+    return json(
+      {
+        error: source
+          ? "This email is already used for " + other.name.trim() + "'s bookings. Each person needs their own email."
+          : "This email is already used by someone else. Book with your own email.",
+        field: "email",
+      },
+      409,
+    );
+  if (!source && !invite) return json({ error: INVITE_NEEDED, field: "invite" }, 400);
+  if (!source && body?.hrVisible !== "yes")
+    return json({ error: "Tick this once the HR's details show in your invite.", field: "inviteHr" }, 400);
+  // the invite must show the HR's email (not the candidate's own); it is read now, before the booking is made
+  let read: { emails: string[]; phones: string[] } | null = null;
+  if (invite && inviteReadable(invite.type)) {
+    read = inviteContacts(await inviteText(invite.bytes, invite.type), candidate(email, name));
+    if (!read.emails.length) return json({ error: INVITE_NO_HR, field: "invite" }, 400);
+  }
   const endMs = startMs + duration * 60000;
   if (
     !slotOk(startMs, duration) ||
@@ -95,9 +121,6 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     (!source && (startMs >= bookingLimitMs() || isBlocked(startMs, endMs)))
   )
     return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
-  if (!source && !invite) return json({ error: INVITE_NEEDED, field: "invite" }, 400);
-  if (!source && body?.hrVisible !== "yes")
-    return json({ error: "Tick this once the HR's details show in your invite.", field: "inviteHr" }, 400);
   const id = crypto.randomUUID();
   const booking: Booking = {
     id,
@@ -113,6 +136,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     cancelledAt: "",
     ...(source ? { source } : {}),
     ...(invite ? { invite: inviteRef(id, invite) } : {}),
+    ...(read ? { hrEmails: read.emails, hrPhones: read.phones, inviteRead: true } : {}),
   };
   try {
     if (booking.invite) await invites.save(booking.invite.file, invite!.bytes);
@@ -133,7 +157,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     return json({ error: "Couldn't save the booking. Try again." }, 500);
   }
   broadcastState();
-  if (booking.invite) void readInvite(booking);
+  if (booking.invite && !read) void readInvite(booking);
   const base = baseUrl(req);
   notifyBooked(booking, base);
   if (!source) alertAdmins("booked", booking);

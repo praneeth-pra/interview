@@ -2,6 +2,7 @@
 // api() answers those URLs in the browser from /admin/api/bookings and /admin/api/state.
 // With merge=1, bookings under different emails whose names look alike count as one person.
 import type { Booking } from "../admin/types";
+import { normalizeName, sameName } from "../../same-name";
 
 const TIME_ZONE = "Asia/Kolkata";
 // Everything the answers are built from, fetched together and kept for 15 seconds.
@@ -128,60 +129,6 @@ export type TimelineEvent = {
 };
 // an HTTP status and the JSON body
 type Answer = [number, unknown];
-function normalizeName(name: string) {
-  return String(name || "")
-    .normalize("NFKD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-}
-function nameDistance(first: string, second: string) {
-  const rows = first.length;
-  const cols = second.length;
-  const table = [];
-  let i;
-  let j;
-  for (i = 0; i <= rows; i++) {
-    table[i] = [i];
-    for (j = 1; j <= cols; j++) {
-      table[i][j] = i ? 0 : j;
-    }
-  }
-  for (i = 1; i <= rows; i++) {
-    for (j = 1; j <= cols; j++) {
-      table[i][j] = Math.min(table[i - 1][j] + 1, table[i][j - 1] + 1, table[i - 1][j - 1] + (first[i - 1] === second[j - 1] ? 0 : 1));
-      if (i > 1 && j > 1 && first[i - 1] === second[j - 2] && first[i - 2] === second[j - 1]) {
-        table[i][j] = Math.min(table[i][j], table[i - 2][j - 2] + 1);
-      }
-    }
-  }
-  return table[rows][cols];
-}
-function sameName(first: string, second: string) {
-  const firstKey = normalizeName(first);
-  const secondKey = normalizeName(second);
-  if (!firstKey || !secondKey || firstKey === "guest" || secondKey === "guest") {
-    return false;
-  }
-  if (firstKey === secondKey) {
-    return true;
-  }
-  const firstWords = firstKey.split(" ");
-  const secondWords = secondKey.split(" ");
-  if (firstWords.length < 2 || secondWords.length < 2) {
-    return false;
-  }
-  if (firstWords.slice().sort().join(" ") === secondWords.slice().sort().join(" ")) {
-    return true;
-  }
-  return (
-    firstKey.length >= 8 &&
-    secondKey.length >= 8 &&
-    Math.abs(firstKey.length - secondKey.length) <= 1 &&
-    nameDistance(firstKey, secondKey) <= 1
-  );
-}
 function lower(text: string | undefined) {
   return String(text || "")
     .trim()
@@ -192,34 +139,53 @@ function findBooking(data: Data, id: string) {
     return booking.id === id;
   })[0];
 }
-function personGroup(data: Data, booking: Booking, merge: boolean) {
-  const emails: Record<string, number> = {};
-  const names = [booking.name];
-  emails[lower(booking.email)] = 1;
-  if (merge) {
-    let changed = true;
-    while (changed) {
-      changed = false;
-      data.bookings.forEach(function (other) {
-        const email = lower(other.email);
-        if (
-          email &&
-          !emails[email] &&
-          names.some(function (name) {
-            return sameName(name, other.name);
-          })
-        ) {
-          emails[email] = 1;
-          names.push(other.name);
-          changed = true;
+// Which contact a booking belongs to: with merge, by name (look-alike names are one person, joined across every active
+// booking), otherwise by email. The Contacts list and a contact's page both group this way, so a page shows only the
+// bookings its row counted: someone who booked once with a colleague's email doesn't get the colleague's interviews.
+function nameRoots(data: Data) {
+  const names: string[] = [];
+  activeBookings(data).forEach(function (booking) {
+    if (names.indexOf(booking.name) < 0) {
+      names.push(booking.name);
+    }
+  });
+  const par: Record<string, string> = {};
+  names.forEach(function (name) {
+    par[name] = name;
+  });
+  function rootOf(name: string) {
+    while (par[name] !== name) {
+      name = par[name];
+    }
+    return name;
+  }
+  for (let i = 0; i < names.length; i++) {
+    for (let j = i + 1; j < names.length; j++) {
+      if (sameName(names[i], names[j])) {
+        const rootA = rootOf(names[i]);
+        const rootB = rootOf(names[j]);
+        if (rootA !== rootB) {
+          par[rootB] = rootA;
         }
-      });
+      }
     }
   }
-  return {
-    emails: Object.keys(emails),
-    names: names,
-  };
+  const root: Record<string, string> = {};
+  names.forEach(function (name) {
+    root[name] = rootOf(name);
+  });
+  return root;
+}
+function contactKey(booking: Booking, root: Record<string, string> | null) {
+  const normalized = normalizeName(booking.name);
+  return root && normalized && normalized !== "guest"
+    ? "n:" + normalizeName(root[booking.name] || booking.name)
+    : "e:" + lower(booking.email);
+}
+function activeBookings(data: Data) {
+  return data.bookings.filter(function (booking) {
+    return !booking.cancelled && booking.email;
+  });
 }
 function dashboardState(data: Data) {
   return {
@@ -249,49 +215,11 @@ function dashboardState(data: Data) {
   };
 }
 function peopleList(data: Data, merge: boolean) {
-  const act = data.bookings.filter(function (booking) {
-    return !booking.cancelled && booking.email;
-  });
+  const act = activeBookings(data);
   const byKey: Record<string, Contact> = {};
-  const root: Record<string, string> = {};
-  if (merge) {
-    const names: string[] = [];
-    act.forEach(function (booking) {
-      if (names.indexOf(booking.name) < 0) {
-        names.push(booking.name);
-      }
-    });
-    const par: Record<string, string> = {};
-    names.forEach(function (name) {
-      par[name] = name;
-    });
-    function rootOf(name: string) {
-      while (par[name] !== name) {
-        name = par[name];
-      }
-      return name;
-    }
-    for (let i = 0; i < names.length; i++) {
-      for (let j = i + 1; j < names.length; j++) {
-        if (sameName(names[i], names[j])) {
-          const rootA = rootOf(names[i]);
-          const rootB = rootOf(names[j]);
-          if (rootA !== rootB) {
-            par[rootB] = rootA;
-          }
-        }
-      }
-    }
-    names.forEach(function (name) {
-      root[name] = rootOf(name);
-    });
-  }
+  const root = merge ? nameRoots(data) : null;
   act.forEach(function (booking) {
-    const normalized = normalizeName(booking.name);
-    const key =
-      merge && normalized && normalized !== "guest"
-        ? "n:" + normalizeName(root[booking.name] || booking.name)
-        : "e:" + lower(booking.email);
+    const key = contactKey(booking, root);
     const start = Date.parse(booking.start);
     let person = byKey[key];
     if (!person) {
@@ -390,15 +318,16 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
       },
     ];
   }
-  const group = personGroup(data, booking, merge);
-  const set: Record<string, number> = {};
+  const root = merge ? nameRoots(data) : null;
+  const key = contactKey(booking, root);
+  const emails: string[] = [];
   const events: TimelineEvent[] = [];
-  group.emails.forEach(function (email) {
-    set[email] = 1;
-  });
   data.bookings.forEach(function (other) {
-    if (!set[lower(other.email)]) {
+    if (!other.email || contactKey(other, root) !== key) {
       return;
+    }
+    if (emails.indexOf(lower(other.email)) < 0) {
+      emails.push(lower(other.email));
     }
     const base = {
       name: "Interview",
@@ -457,8 +386,8 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
     200,
     {
       name: booking.name,
-      emails: group.emails.length,
-      emailList: group.emails,
+      emails: emails.length,
+      emailList: emails,
       events: events,
       rating: { average: rated.length ? Math.round((total / rated.length) * 10) / 10 : 0, count: rated.length },
     },

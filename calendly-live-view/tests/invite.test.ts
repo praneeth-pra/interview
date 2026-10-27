@@ -12,6 +12,11 @@ describe("HR contacts in an invite", () => {
     expect(inviteContacts("calendar-notification@google.com do-not-reply@teams.microsoft.com x@hi-techie.dev").emails).toEqual([]);
   });
 
+  test("the candidate's own address misread by OCR, or a personal one named after them, isn't the HR's", () => {
+    const own = { email: "ravi.kumar@gmail.com", name: "Ravi Kumar" };
+    const text = "To: rav1kumar@gmai1.com, ravi.k.work@yahoo.com; From: hr.team@infosys.com, ravi@infosys.com";
+    expect(inviteContacts(text, own).emails).toEqual(["hr.team@infosys.com", "ravi@infosys.com"]);
+  });
   test("mobile numbers in the ways people write them, but not meeting ids, dial-ins or the candidate's own", () => {
     const phones = (t: string, own?: string) => inviteContacts(t, { phone: own }).phones;
     expect(phones("Mobile: +91 98450 12345")).toEqual(["+91 98450 12345"]);
