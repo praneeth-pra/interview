@@ -269,6 +269,8 @@ const CASES = [
       }
       await wait(p, 300);
       await p.click("#submitb");
+      // booking reads the invite first, which takes a moment
+      await p.locator('a[href*="/b/"]').first().waitFor({ timeout: 20000 }).catch(() => {});
       await wait(p, 1500);
     },
   ],

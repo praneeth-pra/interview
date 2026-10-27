@@ -49,14 +49,21 @@ export const inviteRef = (id: string, u: InviteUpload): IdCard => ({
   size: u.bytes.length,
 });
 
-// Reads a booking's invite and saves what it found. The candidate's own phone comes from their onboarding form.
+// What the booking page says when the invite doesn't show an HR's email (other than the candidate's own)
+export const INVITE_NO_HR =
+  "We couldn't find the HR's email in your invite. Upload a screenshot or PDF where the HR's email address is clearly visible.";
+// The candidate's own email, phone (from their onboarding form) and name, left out of the HR's contacts.
+export function candidate(email: string, name: string) {
+  const e = normEmail(email);
+  const phone = [...onboardingStore.data.forms].reverse().find((f) => normEmail(f.email) === e)?.phone;
+  return { email: e, phone, name };
+}
+// Reads a booking's invite and saves what it found.
 export async function readInvite(b: Booking) {
   if (!b.invite) return;
   const bytes = await invites.read(b.invite.file);
   const text = bytes ? await inviteText(bytes, b.invite.type) : "";
-  const email = normEmail(b.email);
-  const phone = [...onboardingStore.data.forms].reverse().find((f) => normEmail(f.email) === email)?.phone;
-  const found = inviteContacts(text, { email, phone });
+  const found = inviteContacts(text, candidate(b.email, b.name));
   // the booking may have been replaced by a restore while the invite was read
   const now = bookingsStore.data.bookings.find((x) => x.id === b.id);
   if (!now) return;
