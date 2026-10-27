@@ -4,7 +4,7 @@ import { DURATIONS, REMOVE_BOOKINGS, RESEND_API_KEY } from "./config";
 import { type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
 import { notifyBooked, notifyCancelled, notifyRescheduled } from "./email";
 import { DEMO_ADMINS_ONLY, INVITE_NEEDED, INVITE_NO_HR, type InviteUpload, candidate, inviteRef, readInvite } from "./invites";
-import { inviteContacts, inviteReadable, inviteText } from "./invite-read";
+import { inviteHrContacts, inviteReadable } from "./invite-read";
 import { invites } from "./uploads";
 import { BASE_HEADERS, json } from "./http";
 import { baseUrl, manageUrl, tokenOk } from "./links";
@@ -111,7 +111,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   // the invite must show the HR's email (not the candidate's own); it is read now, before the booking is made
   let read: { emails: string[]; phones: string[] } | null = null;
   if (invite && inviteReadable(invite.type)) {
-    read = inviteContacts(await inviteText(invite.bytes, invite.type), candidate(email, name));
+    read = await inviteHrContacts(invite.bytes, invite.type, candidate(email, name));
     if (!read.emails.length) return json({ error: INVITE_NO_HR, field: "invite" }, 400);
   }
   const endMs = startMs + duration * 60000;

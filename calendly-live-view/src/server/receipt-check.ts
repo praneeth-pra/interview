@@ -9,7 +9,9 @@ const READ_TIMEOUT_MS = 20000;
 
 async function run(cmd: string[], input: Uint8Array): Promise<string> {
   try {
-    const proc = Bun.spawn(cmd, { stdin: input, stdout: "pipe", stderr: "ignore" });
+    // one thread each: tesseract's default of a thread per core stalls for minutes when a few uploads are read at once
+    const env = { ...process.env, OMP_THREAD_LIMIT: "1" };
+    const proc = Bun.spawn(cmd, { stdin: input, stdout: "pipe", stderr: "ignore", env });
     const timer = setTimeout(() => proc.kill(), READ_TIMEOUT_MS);
     const [text] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
     clearTimeout(timer);

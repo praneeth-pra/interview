@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import { join } from "node:path";
-import { inviteContacts, inviteText } from "../src/server/invite-read";
+import { inviteContacts, inviteHrContacts, inviteReadable, inviteText } from "../src/server/invite-read";
 
 // Reading the HR's email and phone from an interview invite. tests/invites holds a made-up invite email screenshot; CI
 // installs tesseract and pdftotext as the Docker image does.
@@ -16,6 +16,14 @@ describe("HR contacts in an invite", () => {
     const own = { email: "ravi.kumar@gmail.com", name: "Ravi Kumar" };
     const text = "To: rav1kumar@gmai1.com, ravi.k.work@yahoo.com; From: hr.team@infosys.com, ravi@infosys.com";
     expect(inviteContacts(text, own).emails).toEqual(["hr.team@infosys.com", "ravi@infosys.com"]);
+  });
+  test("an uploaded invite is read for the HR's contacts: a PDF's text, a screenshot by OCR, not a HEIC photo", async () => {
+    expect(inviteReadable("image/heic")).toBe(false);
+    expect(inviteReadable("application/pdf")).toBe(true);
+    const pdf = new Uint8Array(await Bun.file(join(import.meta.dir, "invites/hr-invite.pdf")).arrayBuffer());
+    expect((await inviteHrContacts(pdf, "application/pdf", { email: "x@example.com" })).emails).toEqual(["priya.hr@acme.com"]);
+    // only the candidate's own address: nothing for the HR
+    expect((await inviteHrContacts(pdf, "application/pdf", { email: "priya.hr@acme.com" })).emails).toEqual([]);
   });
   test("mobile numbers in the ways people write them, but not meeting ids, dial-ins or the candidate's own", () => {
     const phones = (t: string, own?: string) => inviteContacts(t, { phone: own }).phones;

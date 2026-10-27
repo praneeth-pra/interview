@@ -68,3 +68,9 @@ export function inviteContacts(text: string, own: { email?: string; phone?: stri
   }
   return { emails: emails.slice(0, 3), phones: phones.slice(0, 3) };
 }
+// The HR's contacts in an invite, read when it is uploaded: the second OCR pass only when the first finds no email.
+export async function inviteHrContacts(bytes: Uint8Array, type: string, own: { email?: string; phone?: string; name?: string }) {
+  const text = await receiptText(bytes, type, 0);
+  const first = inviteContacts(text, own);
+  return first.emails.length ? first : inviteContacts(text + "\n" + (await receiptText(bytes, type, 1)), own);
+}
