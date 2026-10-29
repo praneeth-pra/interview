@@ -23,13 +23,13 @@ jobs:
       - run: npm ci
       - name: Syntax and link-rule checks
         run: npm run check
-      - name: Build the .dmg and .zip (universal, Apple silicon and Intel; not signed)
+      - name: Build the .dmg (Apple silicon; not signed)
         run: npm run dist
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: "false"
       - name: The app bundle is there and starts
         run: |
-          APP="dist/mac-universal/Hi-Techie.app"
+          APP="dist/mac-arm64/Hi-Techie.app"
           test -d "$APP"
           "$APP/Contents/MacOS/Hi-Techie" &
           PID=$!
@@ -41,5 +41,4 @@ jobs:
           name: Hi-Techie-mac
           path: |
             mac-app/dist/*.dmg
-            mac-app/dist/*.zip
           retention-days: 30

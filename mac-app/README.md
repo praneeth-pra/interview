@@ -18,8 +18,8 @@ Not supported: the browser alerts (the bell) rely on web push, which Electron do
 
 Every push to `main` that touches `mac-app/` (or a manual run of the **mac app** workflow in GitHub Actions) builds it on a GitHub Mac runner:
 
-1. GitHub → Actions → **mac app** → the latest run → Artifacts → **Hi-Techie-mac** (download the zip).
-2. Unzip it and open `Hi-Techie-<version>-universal.dmg`, then drag Hi-Techie to Applications. It runs on Apple silicon and Intel Macs.
+1. GitHub → Actions → **mac app** → the latest run → Artifacts → **Hi-Techie-mac** (GitHub wraps it in a zip).
+2. Unzip it and open `Hi-Techie-<version>-arm64.dmg`, then drag Hi-Techie to Applications. It is built for Apple silicon Macs (M1 and later); for an Intel Mac, change `--arm64` to `--universal` in the `dist` script and add `"x64"` to the dmg `arch` list.
 3. The app isn't signed with an Apple Developer ID, so the first time macOS says it "cannot be opened" or "can't be checked for malicious software": right-click (or Control-click) Hi-Techie in Applications → **Open** → **Open**. On recent macOS you may instead need System Settings → Privacy & Security → **Open Anyway**. After that it opens normally.
 
 ## Build it yourself (on a Mac)
@@ -28,7 +28,7 @@ Every push to `main` that touches `mac-app/` (or a manual run of the **mac app**
 cd mac-app
 npm ci
 npm start                 # run it from source
-npm run dist              # dist/Hi-Techie-<version>-universal.dmg and .zip
+npm run dist              # dist/Hi-Techie-<version>-arm64.dmg
 npm run dist:dir          # just the .app, faster
 npm run check             # syntax and link-rule tests (works on any OS)
 ```
@@ -52,5 +52,5 @@ To remove the "unidentified developer" step, the app has to be signed and notari
 main.js               the window, menus, link rules, offline message
 links.js              which links stay in the app (plain Node, tested in tests/links.test.cjs)
 build/icon.png        the app icon (same as the site's public/icon.png)
-package.json          scripts and the electron-builder settings (dmg + zip, universal)
+package.json          scripts and the electron-builder settings (dmg, Apple silicon)
 ```
