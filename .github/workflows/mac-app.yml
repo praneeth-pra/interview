@@ -1,0 +1,45 @@
+name: mac app
+
+on:
+  pull_request:
+    paths: ["mac-app/**", ".github/workflows/mac-app.yml"]
+  push:
+    branches: [main]
+    paths: ["mac-app/**", ".github/workflows/mac-app.yml"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: mac-app
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - run: npm ci
+      - name: Syntax and link-rule checks
+        run: npm run check
+      - name: Build the .dmg and .zip (universal, Apple silicon and Intel; not signed)
+        run: npm run dist
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: The app bundle is there and starts
+        run: |
+          APP="dist/mac-universal/Hi-Techie.app"
+          test -d "$APP"
+          "$APP/Contents/MacOS/Hi-Techie" &
+          PID=$!
+          sleep 10
+          kill -0 $PID   # still running after 10 s, so it didn't crash on start
+          kill $PID
+      - uses: actions/upload-artifact@v7
+        with:
+          name: Hi-Techie-mac
+          path: |
+            mac-app/dist/*.dmg
+            mac-app/dist/*.zip
+          retention-days: 30
