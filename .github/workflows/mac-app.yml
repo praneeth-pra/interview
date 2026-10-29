@@ -11,27 +11,19 @@ on:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 20
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: mac-app
     steps:
       - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
-        with:
-          node-version: 22
-      - run: npm ci
-      - name: Syntax and link-rule checks
-        run: npm run check
-      - name: Build the .dmg (Apple silicon; not signed)
-        run: npm run dist
-        env:
-          CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      - name: The app bundle is there and starts
+      - name: Build the .app and .dmg (native Swift, Apple silicon and Intel; not signed with a Developer ID)
+        run: ./build.sh
+      - name: Link-rule checks
+        run: dist/Hi-Techie.app/Contents/MacOS/Hi-Techie --self-test
+      - name: The app starts and stays up
         run: |
-          APP="dist/mac-arm64/Hi-Techie.app"
-          test -d "$APP"
-          "$APP/Contents/MacOS/Hi-Techie" &
+          dist/Hi-Techie.app/Contents/MacOS/Hi-Techie &
           PID=$!
           sleep 10
           kill -0 $PID   # still running after 10 s, so it didn't crash on start
@@ -39,6 +31,5 @@ jobs:
       - uses: actions/upload-artifact@v7
         with:
           name: Hi-Techie-mac
-          path: |
-            mac-app/dist/*.dmg
+          path: mac-app/dist/*.dmg
           retention-days: 30
