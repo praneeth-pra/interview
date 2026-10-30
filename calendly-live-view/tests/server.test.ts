@@ -282,9 +282,14 @@ describe("booking flow", () => {
     const taken = await bookForm(open, { ...next, name: "Someone Else" }, { "x-real-ip": "10.9.0.7" });
     expect(taken.status).toBe(409);
     expect(await taken.json()).toEqual({ field: "email", error: "This email is already used by someone else. Book with your own email." });
-    const admin = await postJson(open, "/admin/api/book", { ...next, name: "Hemanth", round: "Demo", duration: 30 });
+    const admin = await postJson(open, "/admin/api/book", { ...next, name: "Hemanth", round: "2nd round", duration: 30 });
     expect(admin.status).toBe(409);
     expect((await admin.json()).error).toContain("Invite Test's bookings");
+    // a demo can use any email, and doesn't stop the email's own person booking with it
+    const demo = await postJson(open, "/admin/api/book", { ...next, name: "Hemanth", round: "Demo", duration: 30 });
+    expect(demo.status).toBe(200);
+    const demoId = (await demo.json()).booking.id;
+    expect((await postJson(open, "/admin/api/cancel", { id: demoId, reason: "test" })).status).toBe(200);
     const t = made.booking.manage.split("t=")[1];
     expect((await postJson(open, "/api/manage/cancel", { id, t, reason: "test" })).status).toBe(200);
   });

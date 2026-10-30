@@ -91,10 +91,12 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   if (!source && !emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   // one email is one person: an email already booked under someone else's name is refused (a cancelled booking
-  // doesn't count). Candidates aren't told whose name it is.
-  const other = bookingsStore.data.bookings.find(
-    (x) => !x.cancelled && normEmail(x.email) === normEmail(email) && !samePerson(x.name, name),
-  );
+  // doesn't count). Candidates aren't told whose name it is. A demo can use any email, and demos don't count here.
+  const other = isDemo(round)
+    ? null
+    : bookingsStore.data.bookings.find(
+        (x) => !x.cancelled && !isDemo(x.round) && normEmail(x.email) === normEmail(email) && !samePerson(x.name, name),
+      );
   if (other)
     return json(
       {
