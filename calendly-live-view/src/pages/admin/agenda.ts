@@ -136,6 +136,7 @@ export function renderAgenda() {
       "button",
       {
         type: "button",
+        "data-id": booking.id,
         class:
           "ag-i " +
           (interviewer ? colorClass(interviewer) : "cn") +

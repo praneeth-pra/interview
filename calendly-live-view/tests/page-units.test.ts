@@ -2,6 +2,7 @@
 // overlapping bookings, matching company spellings, and the Contacts page's people and timelines (analytics/api.ts).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { layoutColumns, type Item } from "../src/pages/admin/layout";
+import { dockPick, monthDays, nextInterview, shiftMonth, supporterCounts, untilLabel } from "../src/pages/admin/rail-data";
 import { byWhom, plural, rating10, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
 import {
   addDays,
@@ -156,6 +157,61 @@ describe("placing overlapping bookings", () => {
   });
 });
 
+describe("laptop sidebar and panel", () => {
+  // 10:00 IST on Friday, Oct 30, 2026
+  const NOW = Date.parse("2026-10-30T04:30:00Z");
+  const at = (iso: string, minutes: number, over: Partial<Booking> = {}) =>
+    booking({ start: iso, end: new Date(Date.parse(iso) + minutes * 60000).toISOString(), ...over });
+  test("a month is whole weeks from Monday", () => {
+    const days = monthDays("2026-10");
+    expect(days.length % 7).toBe(0);
+    expect(days[0]).toEqual({ day: "2026-09-28", inMonth: false });
+    expect(days.find((d) => d.day === "2026-10-31")!.inMonth).toBe(true);
+    expect(days[days.length - 1].day).toBe("2026-11-01");
+    expect(monthDays("2027-02").length).toBe(28);
+    expect(shiftMonth("2026-12", 1)).toBe("2027-01");
+    expect(shiftMonth("2026-01", -1)).toBe("2025-12");
+  });
+  test("the week's interviews per supporter", () => {
+    const events = [
+      at("2026-10-26T05:30:00Z", 60, { id: "a" }),
+      at("2026-10-27T05:30:00Z", 60, { id: "b" }),
+      at("2026-10-28T05:30:00Z", 60, { id: "c" }),
+      at("2026-10-28T07:30:00Z", 60, { id: "d", cancelled: true }),
+      at("2026-11-02T05:30:00Z", 60, { id: "e" }),
+    ];
+    const counts = supporterCounts(events, { a: "Asha", b: "Old", d: "Asha", e: "Asha" }, ["Asha", "Ravi"], "2026-10-26");
+    expect(counts.rows).toEqual([
+      { name: "Asha", count: 1 },
+      { name: "Ravi", count: 0 },
+      { name: "Old", count: 1 },
+    ]);
+    expect(counts.none).toBe(1);
+  });
+  test("the interview on now or next, and how soon", () => {
+    const past = at("2026-10-30T03:00:00Z", 60, { id: "p" });
+    const live = at("2026-10-30T04:00:00Z", 60, { id: "l" });
+    const later = at("2026-10-30T07:30:00Z", 30, { id: "n" });
+    const gone = at("2026-10-30T04:40:00Z", 30, { id: "x", cancelled: true });
+    expect(nextInterview([later, past, live, gone], NOW)!.id).toBe("l");
+    expect(nextInterview([past], NOW)).toBeNull();
+    expect(untilLabel(live, NOW)).toBe("Now · 30 min left");
+    expect(untilLabel(at("2026-10-30T04:55:00Z", 30), NOW)).toBe("In 25 min");
+    expect(untilLabel(later, NOW)).toBe("In 3 h");
+    expect(untilLabel(at("2026-10-30T07:45:00Z", 30), NOW)).toBe("In 3 h 15 min");
+    expect(untilLabel(at("2026-10-31T05:00:00Z", 30), NOW)).toBe("Tomorrow");
+    expect(untilLabel(at("2026-11-03T05:00:00Z", 30), NOW)).toBe("Tuesday, Nov 3");
+  });
+  test("the agenda opens a day on its next interview, else its first", () => {
+    const first = at("2026-10-30T03:00:00Z", 60, { id: "f" });
+    const next = at("2026-10-30T07:30:00Z", 30, { id: "n" });
+    const cancelled = at("2026-10-30T05:00:00Z", 30, { id: "c", cancelled: true });
+    expect(dockPick([first, cancelled, next], NOW)!.id).toBe("n");
+    expect(dockPick([first], NOW)!.id).toBe("f");
+    expect(dockPick([cancelled], NOW)!.id).toBe("c");
+    expect(dockPick([], NOW)).toBeNull();
+  });
+});
 describe("company spellings", () => {
   test("the same company however it is written", () => {
     expect(sameCompany("Infosys", "infosys ltd")).toBe(true);

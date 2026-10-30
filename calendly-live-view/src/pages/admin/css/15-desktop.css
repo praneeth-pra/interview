@@ -1,0 +1,399 @@
+/* ---- Laptop layout (1100 px and wider; desktop.ts) ----
+   The header turns into a left sidebar: the sections stacked with icons, the week's interviews per supporter, and the
+   status, search, theme and ⋯ buttons at the bottom. The Calendar gets a right-hand panel with the month, the interview
+   on now or next, and today's list. The Agenda keeps the picked interview's details open on the right (body.dock).
+   Phones and narrower windows never see the sidebar, the panel or the docked details. */
+.ssup,
+.rail {
+  display: none;
+}
+@media (min-width: 1100px) {
+  :root {
+    --sbw: 232px;
+  }
+  body {
+    padding-left: var(--sbw);
+  }
+  .top,
+  .lite .top {
+    position: fixed;
+    z-index: 30;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: var(--sbw);
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 18px 14px 14px;
+    border-bottom: 0;
+    border-right: 1px solid var(--line);
+    background: var(--card);
+  }
+  .top .brand {
+    justify-self: auto;
+    padding: 2px 10px 20px;
+  }
+  .top .tabs {
+    flex: none;
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    margin: 0;
+  }
+  .top .tabs button {
+    justify-content: flex-start;
+    gap: 12px;
+    height: 40px;
+    padding: 0 12px;
+    border-radius: 10px;
+    font-size: 14.5px;
+  }
+  .top .tabs button[hidden] {
+    display: none;
+  }
+  .tabs button::before {
+    content: "";
+    width: 18px;
+    height: 18px;
+    flex: none;
+    background: currentColor;
+    -webkit-mask: var(--ti) center / contain no-repeat;
+    mask: var(--ti) center / contain no-repeat;
+  }
+  .tabs .nbadge {
+    margin-left: auto;
+  }
+  #tabCal {
+    --ti: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='3'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E");
+  }
+  #tabAg {
+    --ti: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M9 6h11M9 12h11M9 18h11'/%3E%3Ccircle cx='4.5' cy='6' r='1.2'/%3E%3Ccircle cx='4.5' cy='12' r='1.2'/%3E%3Ccircle cx='4.5' cy='18' r='1.2'/%3E%3C/svg%3E");
+  }
+  #tabStats {
+    --ti: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='9' cy='8' r='3.5'/%3E%3Cpath d='M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5M16 4.5a3.5 3.5 0 0 1 0 7M18 14.8c1.8.7 3 2.5 3.5 5.2'/%3E%3C/svg%3E");
+  }
+  #tabEnq {
+    --ti: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 5h16v11H9l-5 4z'/%3E%3C/svg%3E");
+  }
+  #tabPay {
+    --ti: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Crect x='2.5' y='5.5' width='19' height='13' rx='2.5'/%3E%3Cpath d='M2.5 10h19M6.5 15h3'/%3E%3C/svg%3E");
+  }
+  #tabRev {
+    --ti: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 19l6-6 4 4 8-9M15 8h6v6'/%3E%3C/svg%3E");
+  }
+  /* the week's interviews per supporter */
+  .ssup {
+    display: block;
+    margin: 26px 0 0;
+    padding: 0 12px;
+  }
+  .ssup h2 {
+    margin: 0 0 8px;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink2);
+  }
+  .ssup ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+  .ssup li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 0;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--ink);
+  }
+  .ssup li i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c);
+    flex: none;
+  }
+  .ssup li em {
+    margin-left: auto;
+    font-style: normal;
+    font-size: 13px;
+    color: var(--ink2);
+    font-variant-numeric: tabular-nums;
+  }
+  /* status, search, theme and ⋯ along the bottom; the ⋯ menu opens upwards */
+  .top .tr {
+    justify-self: auto;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-top: auto;
+    padding: 12px 4px 0;
+    border-top: 1px solid var(--line);
+  }
+  .top .tr .status {
+    flex-basis: 100%;
+  }
+  .top .tr .status:not(.live):not(.bad) {
+    display: none;
+  }
+  .top .dlmenu {
+    top: auto;
+    bottom: calc(100% + 6px);
+    left: 0;
+    right: auto;
+  }
+  main {
+    max-width: 1560px;
+    padding: 24px 28px 48px;
+  }
+  .week {
+    max-height: calc(100vh - 130px);
+  }
+}
+/* Laptops up to 1400 px get a slimmer sidebar, and the week's days can be a little narrower beside the panel */
+@media (min-width: 1100px) and (max-width: 1399px) {
+  :root {
+    --sbw: 208px;
+  }
+  main {
+    padding-inline: 24px;
+  }
+}
+/* The Calendar's right-hand panel needs room beside a full week, so it shows from 1240 px */
+@media (min-width: 1240px) {
+  /* Calendar: the week and, on its right, the month, the next interview and today */
+  body.wkv #viewCal:not([hidden]) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(240px, 19vw, 272px);
+    column-gap: clamp(20px, 2vw, 28px);
+    align-items: start;
+  }
+  #viewCal > * {
+    grid-column: 1;
+  }
+  body.wkv .grid {
+    grid-template-columns: 56px repeat(7, minmax(92px, 1fr));
+    min-width: 700px;
+  }
+  body.wkv #viewCal > .rail {
+    grid-column: 2;
+    grid-row: 1 / span 12;
+    position: sticky;
+    top: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
+  }
+  .rl-sec h2 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+  }
+  .rl-mh {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 8px;
+  }
+  .rl-ar {
+    width: 30px;
+    height: 30px;
+    border: 0;
+    border-radius: 50%;
+    background: none;
+    color: var(--ink2);
+    font-size: 18px;
+    line-height: 1;
+  }
+  .rl-m {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 2px;
+    text-align: center;
+  }
+  .rl-w {
+    padding: 2px 0 4px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--ink2);
+  }
+  .rl-d {
+    position: relative;
+    display: grid;
+    place-items: center;
+    height: 32px;
+    padding: 0;
+    border: 0;
+    border-radius: 8px;
+    background: none;
+    color: var(--ink);
+    font-size: 13px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+  .rl-d.out {
+    color: var(--ink2);
+    font-weight: 500;
+  }
+  .rl-d.wk {
+    background: var(--sub);
+  }
+  .rl-d.td {
+    background: var(--blue);
+    color: #fff;
+  }
+  .rl-d.has::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: 3px;
+    width: 4px;
+    height: 4px;
+    margin-left: -2px;
+    border-radius: 50%;
+    background: var(--link);
+  }
+  .rl-d.td.has::after {
+    background: #fff;
+  }
+  .rl-next {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    width: 100%;
+    padding: 14px 16px;
+    border: 1px solid color-mix(in srgb, var(--link) 35%, transparent);
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--tint), transparent);
+    color: var(--ink);
+    text-align: left;
+  }
+  .rl-in {
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--link);
+  }
+  .rl-next b {
+    margin-top: 2px;
+    font-size: 17px;
+  }
+  .rl-s {
+    font-size: 13px;
+    color: var(--ink2);
+  }
+  .rl-who {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .rl-who i {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--c);
+  }
+  .rl-h {
+    margin-bottom: 4px !important;
+    font-size: 11.5px !important;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--ink2);
+  }
+  .rl-none {
+    margin: 6px 0 0;
+    font-size: 13.5px;
+    color: var(--ink2);
+  }
+  .rl-i {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    width: 100%;
+    padding: 10px 4px;
+    border: 0;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0;
+    background: none;
+    color: var(--ink);
+    text-align: left;
+  }
+  .rl-i:last-child {
+    border-bottom: 0;
+  }
+  .rl-i.cx b {
+    text-decoration: line-through;
+  }
+  .rl-t {
+    width: 62px;
+    flex: none;
+    font-size: 13.5px;
+    font-weight: 700;
+  }
+  .rl-t small,
+  .rl-b small {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--ink2);
+  }
+  .rl-b {
+    min-width: 0;
+    padding-left: 12px;
+    border-left: 3px solid var(--c);
+  }
+  .rl-b b {
+    display: block;
+    font-size: 14px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @media (hover: hover) {
+    .rl-d:hover:not(.td),
+    .rl-ar:hover {
+      background: var(--sub);
+    }
+    .rl-i:hover b,
+    .rl-next:hover b {
+      color: var(--link);
+    }
+  }
+}
+@media (min-width: 1100px) {
+  /* Agenda: the day uses the full width, and the picked interview's details stay open on the right */
+  .agenda {
+    max-width: 1100px;
+  }
+  body.dock {
+    padding-right: 420px;
+  }
+  body.dock .pback {
+    display: none;
+  }
+  body.dock .panel {
+    width: 420px;
+    z-index: 25;
+    box-shadow: none;
+    animation: none;
+  }
+  .ag-i.sel {
+    box-shadow:
+      0 0 0 2px var(--c),
+      0 4px 14px rgba(0, 0, 0, 0.12);
+    z-index: 2;
+  }
+}

@@ -359,7 +359,8 @@ export function setupNav() {
   const sheet = byId("panel");
   let sheetEntry = false;
   new MutationObserver(function () {
-    if (!sheet.hidden && !sheetEntry) {
+    // details kept open beside the Agenda on a laptop (desktop.ts) are part of the page, not a sheet Back should close
+    if (!sheet.hidden && !sheetEntry && !body.classList.contains("dock")) {
       sheetEntry = true;
       try {
         history.pushState({ sheet: 1 }, "", location.href);
