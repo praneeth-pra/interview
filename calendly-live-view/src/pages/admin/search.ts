@@ -1,16 +1,35 @@
 // Searching candidates from the calendar's search box.
 import { byId, el } from "./dom";
-import { formatRange } from "./time";
-import { statusOf, titleCase } from "./labels";
+import { titleCase } from "./labels";
 import type { Booking } from "./types";
 import { loadAllBookings } from "./bookings";
-import { showBooking, showWeekOf } from "./booking-panel";
 
-// The candidate search box: every booking by name, email or company, with keyboard navigation.
+// One row per candidate (by email): their latest booking, which opens them in Contacts, and how many they have.
+export function candidateMatches(bookings: Booking[], query: string, limit: number) {
+  const people = new Map<string, { booking: Booking; count: number }>();
+  bookings.forEach(function (booking) {
+    if ((booking.name + " " + booking.email + " " + booking.company).toLowerCase().indexOf(query) < 0) {
+      return;
+    }
+    const key = (booking.email || booking.name).trim().toLowerCase();
+    const seen = people.get(key);
+    if (!seen) {
+      people.set(key, { booking: booking, count: 1 });
+    } else {
+      seen.count++;
+      if (booking.start > seen.booking.start) {
+        seen.booking = booking;
+      }
+    }
+  });
+  return Array.from(people.values()).slice(0, limit);
+}
+
+// The candidate search box: each candidate once, by name, email or company, with keyboard navigation.
 export function setupSearch() {
   const searchBox = byId<HTMLInputElement>("q");
   const searchList = byId("qdrop");
-  let matches: Booking[] = [];
+  let matches: { booking: Booking; count: number }[] = [];
   let activeIndex = -1;
   function closeSearch() {
     searchList.hidden = true;
@@ -31,11 +50,12 @@ export function setupSearch() {
     }
   }
   function choose(index: number) {
-    const booking = matches[index];
-    if (booking) {
+    const match = matches[index];
+    if (match) {
       closeSearch();
-      showWeekOf(booking);
-      showBooking(booking.id);
+      searchBox.value = "";
+      searchBox.blur();
+      window.__openContact?.(match.booking.id);
     }
   }
   searchBox.addEventListener("input", function () {
@@ -46,11 +66,7 @@ export function setupSearch() {
     loadAllBookings()
       .then(function (bookings) {
         if (searchBox.value.trim().toLowerCase() === query) {
-          matches = bookings!
-            .filter(function (booking) {
-              return (booking.name + " " + booking.email + " " + booking.company).toLowerCase().indexOf(query) >= 0;
-            })
-            .slice(0, 8);
+          matches = candidateMatches(bookings!, query, 8);
           searchList.textContent = "";
           activeIndex = -1;
           if (!matches.length) {
@@ -61,7 +77,8 @@ export function setupSearch() {
               }),
             );
           }
-          matches.forEach(function (booking, index) {
+          matches.forEach(function (match, index) {
+            const booking = match.booking;
             searchList.appendChild(
               el(
                 "li",
@@ -82,7 +99,7 @@ export function setupSearch() {
                   }),
                   el("div", {
                     class: "m",
-                    text: formatRange(booking) + " · " + statusOf(booking),
+                    text: [booking.email, match.count + (match.count === 1 ? " booking" : " bookings")].filter(Boolean).join(" · "),
                   }),
                 ],
               ),
