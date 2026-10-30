@@ -1,6 +1,6 @@
 /* ---- Laptop layout (1100 px and wider; desktop.ts), after the "World class calendar" design ----
    A slim icon sidebar on the left (sections, who is signed in, theme and ⋯), a title row with the week number, the "to review" pill, search and the bell,
-   the week in a framed grid (narrow weekend, a dash per interview under each day, the time now in a pill), and from
+   the week in a framed grid (seven even days, a dash per interview under each day, the time now in a pill), and from
    1240 px a right-hand panel with today's list. The week's title opens the month under
    it. A picked interview's details open on the right (body.dock), over that panel. Laptops have no Agenda tab; phones
    keep theirs. Narrower windows never see any of it. */
@@ -495,9 +495,16 @@
     border: 1px solid var(--d-line);
     border-radius: 14px;
     background: var(--d-frame);
+    /* a thin scrollbar that only shows while the pointer is over the week */
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  body.wkv .week:hover,
+  body.wkv .week:focus-within {
+    scrollbar-color: color-mix(in srgb, var(--d-t3) 45%, transparent) transparent;
   }
   body.wkv .grid {
-    grid-template-columns: 56px repeat(5, minmax(0, 1fr)) repeat(2, minmax(0, 0.62fr));
+    grid-template-columns: 56px repeat(7, minmax(0, 1fr));
     min-width: 640px;
   }
   body.wkv .corner,
