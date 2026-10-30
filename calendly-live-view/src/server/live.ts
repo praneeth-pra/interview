@@ -7,6 +7,7 @@ import {
   blocksStore,
   bookingsStore,
   enquiriesStore,
+  isAdmin,
   ivStore,
   onboardingStore,
   paymentsStore,
@@ -60,6 +61,8 @@ export const pub = (b: Booking) => ({
   hrEmails: b.hrEmails ?? [],
   hrPhones: b.hrPhones ?? [],
   inviteRead: !!b.inviteRead,
+  // booked with an admin's own email (a demo made for someone): Contacts never shows it as the candidate's email
+  staff: isAdmin(b.email.trim().toLowerCase()),
 });
 // owner: whether this admin may see enquiries and payments; for everyone else the state leaves them out
 export function adminState(owner: boolean) {

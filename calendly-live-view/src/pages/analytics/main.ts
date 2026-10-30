@@ -716,9 +716,11 @@ function renderAbout(events: TimelineEvent[], now: number) {
     row.appendChild(el("b", null, value));
     group.appendChild(row);
   }
-  (data!.emailList || []).forEach((email, index) => {
-    line(index ? "Also" : "Email", email);
-  });
+  // one email per candidate: their own (an admin's email used for a demo is set aside, see oneEmail in api.ts)
+  const email = (data!.emailList || [])[0];
+  if (email) {
+    line("Email", email);
+  }
   const created = events
     .map((event) => Date.parse(event.created || event.start))
     .filter((time) => !isNaN(time))
