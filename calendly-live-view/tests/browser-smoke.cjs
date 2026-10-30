@@ -476,19 +476,39 @@ const checks = [
     await p.goto(BASE + "/admin/allowlist");
     await p.locator("#panel #viewAllow #addb").waitFor();
   }],
-  ["admin desktop: Calendar is the week grid, Agenda is its own tab", async (p) => {
+  ["admin laptop: Calendar is the week grid, and there is no Agenda tab", async (p) => {
     await p.goto(BASE + "/admin");
     await p.locator("#week .grid").waitFor();
     if (await p.locator("#agenda").isVisible()) throw new Error("Calendar should show only the week grid");
     if (await p.locator(".vt").count()) throw new Error("the Week/Agenda switch should be gone");
-    await p.locator("#tabAg").click();
-    await p.locator("#agenda .ws").waitFor();
-    if (await p.locator("#week").isVisible()) throw new Error("Agenda tab should show the agenda");
-    if ((await p.locator("#tabAg").getAttribute("aria-selected")) !== "true") throw new Error("Agenda tab not selected");
-    await p.reload();
-    await p.locator("#agenda .ws").waitFor();
-    await p.locator("#tabCal").click();
+    if (await p.locator("#tabAg").isVisible()) throw new Error("laptops should have no Agenda tab");
+    // an old Agenda link lands on the week
+    await p.goto(BASE + "/admin?view=agenda");
+    await p.locator("#week .grid").waitFor({ state: "visible" });
+    if (await p.locator("#agenda").isVisible()) throw new Error("?view=agenda should show the week on a laptop");
+  }],
+  ["admin laptop: the week's title opens the month; a booking's details open on the right", async (p) => {
+    await p.setViewportSize({ width: 1440, height: 900 });
+    await p.goto(BASE + "/admin");
     await p.locator("#week .grid").waitFor();
+    if (await p.locator("#rail .rl-m").count()) throw new Error("the month should no longer sit in the right-hand panel");
+    await p.locator("#title").click();
+    await p.locator("#mpop .rl-d").first().waitFor();
+    if ((await p.locator("#title").getAttribute("aria-expanded")) !== "true") throw new Error("title should say the month is open");
+    await p.keyboard.press("Escape");
+    if (await p.locator("#mpop").count()) throw new Error("Esc should close the month");
+    await p.locator("#title").click();
+    await p.locator("#mpop .rl-ar.next").click();
+    await p.locator("#mpop .rl-d:not(.out)").first().click();
+    if (await p.locator("#mpop").count()) throw new Error("picking a day should close the month");
+    const block = p.locator("#week .ev").first();
+    if (await block.count()) {
+      await block.click();
+      await p.locator("#panel:not([hidden]) #pbody").waitFor();
+      if (!(await p.evaluate(() => document.body.classList.contains("dock")))) throw new Error("details should open docked on the right");
+      await p.keyboard.press("Escape");
+      if (await p.evaluate(() => document.body.classList.contains("dock"))) throw new Error("Esc should close the docked details");
+    }
   }],
   ["admin phone: Alerts bell in the header, Calendar and Agenda in the bottom bar", async (p) => {
     await p.setViewportSize({ width: 390, height: 844 });

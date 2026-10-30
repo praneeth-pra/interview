@@ -106,6 +106,7 @@ const locked = spawn("bun", ["run", join(__dirname, "../src/server.ts")], {
 
 const wait = (p, ms) => p.waitForTimeout(ms);
 // [name, url, what to do before checking, phone only?]
+const laptop = (p) => p.viewportSize().width >= 1100;
 const screens = [
   ["landing", BASE + "/", null],
   ["booking: calendar", BASE + "/booking", null],
@@ -128,12 +129,13 @@ const screens = [
   ["interview sheet", BASE + "/admin/praneeth", async (p) => p.locator("#tw table").waitFor()],
   ["sign-in", LOCKED + "/admin", null],
   ["admin: calendar", BASE + "/admin", async (p) => p.locator("#status.live").waitFor({ state: "attached" })],
-  ["admin: agenda", BASE + "/admin?view=agenda", async (p) => p.locator("#agenda .ag-grid").waitFor()],
+  // laptops have no Agenda: an Agenda link shows the week there, and bookings open from the week
+  ["admin: agenda", BASE + "/admin?view=agenda", async (p) => p.locator(laptop(p) ? "#week .grid" : "#agenda .ag-grid").waitFor()],
   [
     "admin: booking panel",
     BASE + "/admin?view=agenda",
     async (p) => {
-      await p.locator("#agenda .ag-i").first().click();
+      await p.locator(laptop(p) ? '#week .ev[data-id$="001"]' : "#agenda .ag-i").first().click();
       await p.locator("#panel:not([hidden])").waitFor();
     },
   ],
@@ -141,7 +143,7 @@ const screens = [
     "admin: booking panel, how it went",
     BASE + "/admin?view=agenda&date=" + new Date(at(-2, 10).getTime() + 5.5 * 3600000).toISOString().slice(0, 10),
     async (p) => {
-      await p.locator("#agenda .ag-i").first().click();
+      await p.locator(laptop(p) ? '#week .ev[data-id$="004"]' : "#agenda .ag-i").first().click();
       await p.locator("#panel .fbc").waitFor();
       await p.locator("#panel .fb-opt").nth(7).click();
       await p.locator("#fbnotes").fill("Good on Java, struggled with system design");
