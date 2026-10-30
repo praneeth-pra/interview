@@ -61,31 +61,6 @@ export function nextInterview(events: Booking[], now: number): Booking | null {
   });
   return best;
 }
-// "Now · ends in 10 min", "In 25 min", "In 3 h", "Tomorrow", or the day: how soon an interview is.
-export function untilLabel(booking: Booking, now: number) {
-  const start = Date.parse(booking.start);
-  if (start <= now) {
-    const left = Math.max(1, Math.round((Date.parse(booking.end) - now) / 60000));
-    return "Now · " + left + " min left";
-  }
-  const minutes = Math.round((start - now) / 60000);
-  if (minutes < 60) {
-    return "In " + Math.max(1, minutes) + " min";
-  }
-  const day = dayKeyOf(start);
-  const today = dayKeyOf(now);
-  if (day === today) {
-    const hours = Math.floor(minutes / 60);
-    const rest = minutes % 60;
-    return "In " + hours + " h" + (rest ? " " + rest + " min" : "");
-  }
-  if (day === addDays(today, 1)) {
-    return "Tomorrow";
-  }
-  return new Intl.DateTimeFormat("en-US", { timeZone: "UTC", weekday: "long", month: "short", day: "numeric" }).format(
-    new Date(day + "T12:00:00Z"),
-  );
-}
 // The booking to show beside the agenda when a day opens: the one on now or next to start, else the day's first.
 export function dockPick(dayBookings: Booking[], now: number): Booking | null {
   const live = dayBookings.filter(function (booking) {
