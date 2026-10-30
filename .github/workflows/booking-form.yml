@@ -10,7 +10,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     defaults:
       run:
@@ -44,7 +44,7 @@ jobs:
   # add the "ui-change" label to the PR and review the screenshots yourself instead.
   visual:
     if: github.event_name == 'pull_request' && !contains(github.event.pull_request.labels.*.name, 'ui-change')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:
