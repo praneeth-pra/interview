@@ -1120,4 +1120,17 @@
     background: var(--bg);
     animation: none;
   }
+  /* the narrow details: no calendar tile (the day is written out), the status beside the day, and the time and
+     "60 min · Ended 3d ago" each on one line */
+  body.dock .bk-when {
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+  body.dock .bk-cal {
+    display: none;
+  }
+  body.dock .bk-wt > span,
+  body.dock .bk-wt > small {
+    white-space: nowrap;
+  }
 }
