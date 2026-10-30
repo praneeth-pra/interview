@@ -670,10 +670,7 @@
     border-color: var(--d-b2);
     background: color-mix(in srgb, var(--ink) 5%, var(--d-frame));
   }
-  body.wkv .week .ev.need {
-    border: 1px dashed color-mix(in srgb, var(--d-acc) 65%, transparent);
-    background: color-mix(in srgb, var(--d-acc) 10%, var(--d-frame));
-  }
+  /* one still needing a supporter looks like any other: the title row's pill counts them */
   body.wkv .week .ev.need::after {
     display: none;
   }
@@ -716,10 +713,6 @@
   body.wkv .week .ev .ev-m {
     margin-top: 2px;
     font-size: 12px;
-  }
-  body.wkv .week .ev.need .ev-t,
-  body.wkv .week .ev.need .ev-m {
-    color: var(--d-acc-t);
   }
   body.wkv .week .ev.cn .ev-t,
   body.wkv .week .ev.cn .ev-m {

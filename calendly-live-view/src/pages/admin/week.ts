@@ -222,12 +222,11 @@ export function renderWeek() {
                 ? formatTime(new Date(booking.start))
                 : formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end)),
           }),
-          // laptops: company · round on one line, or that it still needs a supporter
+          // laptops: company · round on one line (the title row's pill counts the ones still needing a supporter)
           el("span", {
             class: "ev-m",
             "aria-hidden": "true",
-            text:
-              started && !interviewer && !booking.missed ? "Needs supporter" : [booking.company, booking.round].filter(Boolean).join(" · "),
+            text: [booking.company, booking.round].filter(Boolean).join(" · "),
           }),
           // No times on the grid (the box's position shows it): company and round, on one line in a
           // 30-minute box, on their own lines when there is room.
