@@ -71,10 +71,10 @@ export function textField(id: string, key: keyof State["form"], label: string, t
     children,
   );
 }
-// Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else. Only signed-in admins
-// get Demo (the server refuses it from anyone else), and a demo needs no interview invite.
+// Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else. Anyone can pick Demo,
+// which needs no company, interview invite or onboarding.
 export function roundField() {
-  const ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round"].concat(state.admin ? ["Demo"] : []);
+  const ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round"].concat(["Demo"]);
   const current = state.form.round.trim();
   const custom = !!current && ROUNDS.indexOf(current) < 0;
   const select = el("select", {

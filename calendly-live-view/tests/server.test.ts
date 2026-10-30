@@ -294,22 +294,26 @@ describe("booking flow", () => {
     expect((await postJson(open, "/api/manage/cancel", { id, t, reason: "test" })).status).toBe(200);
   });
 
-  test("only admins book a demo, and a demo has no interview invite", async () => {
+  test("anyone books a demo with any email, one per email; a demo has no interview invite", async () => {
     const days = await (await get(open, "/api/days?duration=30")).json();
     const day = days.days.filter((d: any) => d.open).at(-1);
     const slots = (await (await get(open, `/api/slots?date=${day.key}&duration=30`)).json()).slots;
     const body = { name: "Demo Test", email: "demo@example.com", company: "", round: "Demo", duration: 30, startMs: slots.at(-2) };
-    // the booking page refuses a demo, however the round is written, with or without an invite
+    // the booking page books a demo with no company or invite
     const ip = { "x-real-ip": "10.9.0.1" };
+    const mine = await postJson(open, "/api/book", { ...body, email: "anyone@example.net", startMs: slots.at(-3) }, ip);
+    expect(mine.status).toBe(200);
+    const mineId = (await mine.json()).booking.id;
+    // one demo per email, however the round is written; a cancelled one doesn't count
     for (const r of [
-      await bookForm(open, body, ip),
-      await bookForm(open, { ...body, round: "demo session" }, ip),
-      await postJson(open, "/api/book", body, ip),
+      await postJson(open, "/api/book", { ...body, email: "Anyone@example.net", round: "demo session" }, ip),
+      await bookForm(open, { ...body, email: "anyone@example.net" }, ip),
     ]) {
-      expect(r.status).toBe(403);
-      expect(await r.json()).toMatchObject({ field: "round", error: "Only admins can book a demo." });
+      expect(r.status).toBe(409);
+      expect(await r.json()).toMatchObject({ field: "email", error: expect.stringContaining("already has a demo") });
     }
-    // the booking page asks whether an admin is signed in before offering Demo
+    expect((await postJson(open, "/admin/api/cancel", { id: mineId, reason: "test" })).status).toBe(200);
+    // the booking page asks whether an admin is signed in, to send an admin's demo to the admin API
     expect(await (await get(open, "/admin/api/me")).json()).toEqual({ admin: true });
     expect(await (await get(locked, "/admin/api/me")).json()).toEqual({ admin: false });
     const made = await (await postJson(open, "/admin/api/book", body)).json();
@@ -610,6 +614,9 @@ describe("onboarding", () => {
       expect(await refused.json()).toEqual({ error: "This email isn't registered yet. Please fill in the onboarding form with this email first, then book your slot.", field: "email", onboarding: true });
       // an admin can book anyone
       expect((await book("admin-booked@example.com", 1, "/admin/api/book")).status).toBe(200);
+      // so can anyone booking a demo
+      const demo = await postJson(srv, "/api/book", { name: "Demo Person", email: "demo-new@example.com", round: "Demo", duration: 30, startMs: slots[3] }, { "x-real-ip": "10.3.0.4" });
+      expect(demo.status).toBe(200);
       // a confirmed payment alone doesn't let them book; the onboarding form after it does (any capitals)
       await paidFor(srv, "Brand-New@example.com", "10.3.0.3");
       expect((await book("brand-new@example.com", 0)).status).toBe(403);

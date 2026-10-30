@@ -11,7 +11,6 @@ import { saveStore } from "./store";
 import { type Fields, isDemo, normEmail } from "./util";
 
 export const INVITE_NEEDED = "Add a screenshot or PDF of your interview invite.";
-export const DEMO_ADMINS_ONLY = "Only admins can book a demo.";
 export type InviteUpload = { ext: string; type: string; name: string; bytes: Uint8Array };
 // A booking sent from the booking page as a multipart form: its fields, and the invite (a photo or a PDF, checked by its
 // first bytes) when one was attached.

@@ -7,7 +7,7 @@ export const eventName = boot.event;
 export const manage: Manage | null = boot.manage;
 export const info = boot.info;
 export const DURATIONS = [30, 60, 90];
-// A demo (admins only) has no interview invite, and its name and email aren't tied together: no name filled in from
+// A demo (anyone can book one) has no interview invite, and its name and email aren't tied together: no name filled in from
 // the email, no "same company as before", and nothing remembered on this device.
 export const isDemo = (round: string) => /\bdemo\b/i.test(round);
 export let state: State = {

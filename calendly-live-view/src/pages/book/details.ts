@@ -125,7 +125,7 @@ function submitBooking() {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim())) {
     errors.email = "Enter an email address like name@example.com.";
   }
-  // a demo (admins only) is booked without a company or an interview invite
+  // a demo is booked without a company or an interview invite
   const demo = isDemo(form.round);
   if (!demo && !form.company.trim()) {
     errors.company = "Enter the company you're interviewing with.";
@@ -158,9 +158,14 @@ function submitBooking() {
     duration: state.dur,
     startMs: state.slot!,
   };
-  // a demo goes to the admin API, where the admin's sign-in cookie is sent
+  // a demo is sent as JSON: a signed-in admin's to the admin API (where the sign-in cookie is sent), anyone else's to
+  // the booking API
   (demo
-    ? fetch("/admin/api/book", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(fields) })
+    ? fetch(state.admin ? "/admin/api/book" : "/api/book", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(fields),
+      })
     : bookingForm({ ...fields, hrVisible: "yes" }, invite!).then(function (body) {
         return fetch("/api/book", { method: "POST", body: body });
       })

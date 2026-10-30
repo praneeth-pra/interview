@@ -106,7 +106,7 @@ if (manage) {
       resumeDraft(draft);
     }
   });
-  // a signed-in admin can also book a demo
+  // a signed-in admin's demo goes through the admin API
   fetch("/admin/api/me")
     .then(function (res) {
       return res.json();
