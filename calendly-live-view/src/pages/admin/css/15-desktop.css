@@ -1,8 +1,9 @@
 /* ---- Laptop layout (1100 px and wider; desktop.ts), after the "World class calendar" design ----
    A slim icon sidebar on the left (sections, who is signed in, theme and ⋯), a title row with the week number, the "needs a supporter" pill, search and the bell,
    the week in a framed grid (narrow weekend, a dash per interview under each day, the time now in a pill), and from
-   1240 px a right-hand panel with the month, the picked interview or the next one, and today's list. The Agenda keeps
-   the picked interview's details open on the right (body.dock). Phones and narrower windows never see any of it. */
+   1240 px a right-hand panel with the interview on now or next and today's list. The week's title opens the month under
+   it. A picked interview's details open on the right (body.dock), over that panel. Laptops have no Agenda tab; phones
+   keep theirs. Narrower windows never see any of it. */
 .rail,
 .sme,
 #wkno,
@@ -669,10 +670,7 @@
     border-color: var(--d-b2);
     background: color-mix(in srgb, var(--ink) 5%, var(--d-frame));
   }
-  body.wkv .week .ev.need {
-    border: 1px dashed color-mix(in srgb, var(--d-acc) 65%, transparent);
-    background: color-mix(in srgb, var(--d-acc) 10%, var(--d-frame));
-  }
+  /* one still needing a supporter looks like any other: the title row's pill counts them */
   body.wkv .week .ev.need::after {
     display: none;
   }
@@ -715,10 +713,6 @@
   body.wkv .week .ev .ev-m {
     margin-top: 2px;
     font-size: 12px;
-  }
-  body.wkv .week .ev.need .ev-t,
-  body.wkv .week .ev.need .ev-m {
-    color: var(--d-acc-t);
   }
   body.wkv .week .ev.cn .ev-t,
   body.wkv .week .ev.cn .ev-m {
@@ -783,29 +777,49 @@
     display: inline;
   }
 }
-/* ---- the right-hand panel (1240 px and wider, Calendar week only) ---- */
-@media (min-width: 1240px) {
-  body.on-cal.wkv {
-    padding-right: var(--railw);
+/* ---- the month, opened from the week's title (1100 px and wider) ---- */
+@media (min-width: 1100px) {
+  body.on-cal .bar .wk {
+    position: relative;
   }
-  body.on-cal.wkv #viewCal > .rail {
-    position: fixed;
-    z-index: 20;
-    top: 0;
-    right: 0;
-    bottom: 0;
-    width: var(--railw);
-    display: flex;
-    flex-direction: column;
-    gap: 26px;
-    padding: 22px 20px 24px;
-    overflow-y: auto;
-    border-left: 1px solid var(--d-line);
-    background: var(--bg);
+  body.on-cal.wkv .wk h1[role="button"] {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: -8px;
+    padding: 4px 8px;
+    border-radius: 9px;
+    cursor: pointer;
   }
-  .rail h2,
-  .rail h3,
-  .rail p {
+  body.on-cal.wkv .wk h1[role="button"]::after {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-top: -5px;
+    border-right: 2px solid var(--d-t3);
+    border-bottom: 2px solid var(--d-t3);
+    transform: rotate(45deg);
+  }
+  body.on-cal.wkv .wk h1[aria-expanded="true"] {
+    background: var(--d-hover);
+  }
+  body.on-cal.wkv .wk h1[aria-expanded="true"]::after {
+    margin-top: 4px;
+    transform: rotate(225deg);
+  }
+  .mpop {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% - 6px);
+    left: -8px;
+    width: 300px;
+    padding: 16px 14px 12px;
+    border: 1px solid var(--d-line);
+    border-radius: 14px;
+    background: var(--d-raised);
+    box-shadow: var(--d-shadow);
+  }
+  .mpop h2 {
     margin: 0;
   }
   .rl-mh {
@@ -823,8 +837,7 @@
     display: flex;
     gap: 2px;
   }
-  .rl-ar,
-  .rl-x {
+  .rl-ar {
     display: grid;
     place-items: center;
     width: 26px;
@@ -835,8 +848,7 @@
     background: none;
     color: var(--ink2);
   }
-  .rl-ar::before,
-  .rl-x::before {
+  .rl-ar::before {
     content: "";
     width: 16px;
     height: 16px;
@@ -849,12 +861,6 @@
   }
   .rl-ar.next {
     --ri: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 6l6 6-6 6'/%3E%3C/svg%3E");
-  }
-  .rl-x {
-    width: 28px;
-    height: 28px;
-    margin: -6px -6px 0 0;
-    --ri: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M6.5 6.5l11 11M17.5 6.5l-11 11'/%3E%3C/svg%3E");
   }
   .rl-m {
     display: grid;
@@ -923,120 +929,48 @@
     border-radius: 50%;
     background: var(--d-acc);
   }
-  /* the picked interview */
-  .rl-card {
-    padding: 16px;
-    border: 1px solid var(--d-b2);
-    border-radius: 14px;
-    background: var(--d-raised);
-    box-shadow: var(--d-shadow);
+  @media (hover: hover) {
+    body.on-cal.wkv .wk h1[role="button"]:hover {
+      background: var(--d-hover);
+    }
+    .rl-ar:hover,
+    .rl-d:not(.td):hover span {
+      background: var(--d-hover);
+      color: var(--ink);
+    }
   }
-  .rl-top {
+}
+/* ---- the right-hand panel (1240 px and wider, Calendar week only) ---- */
+@media (min-width: 1240px) {
+  body.on-cal.wkv {
+    padding-right: var(--railw);
+  }
+  body.on-cal.wkv #viewCal > .rail {
+    position: fixed;
+    z-index: 20;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: var(--railw);
     display: flex;
-    align-items: center;
-    justify-content: space-between;
+    flex-direction: column;
+    gap: 26px;
+    padding: 22px 20px 24px;
+    overflow-y: auto;
+    border-left: 1px solid var(--d-line);
+    background: var(--bg);
   }
-  .rl-st {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
-    font-size: 11px;
-    font-weight: 650;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--d-green);
+  .rail h2,
+  .rail h3,
+  .rail p {
+    margin: 0;
   }
-  .rl-st i {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    background: currentColor;
-  }
-  .rl-st.st-completed,
-  .rl-st.st-cancelled,
-  .rl-st.st-not-taking-place {
-    color: var(--d-t3);
-  }
-  .rl-st.st-needs-supporter {
-    color: var(--d-acc-t);
-  }
-  .rl-n {
-    margin-top: 8px !important;
-    font-size: 20px;
-    font-weight: 600;
-    letter-spacing: -0.02em;
-  }
-  .rail .rl-s {
-    margin-top: 3px;
-    font-size: 13.5px;
-    color: var(--ink2);
-  }
-  .rl-when {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid var(--d-line);
-    font-size: 13px;
-  }
-  .rl-when i {
-    width: 17px;
-    height: 17px;
-    flex: none;
-    background: var(--d-t3);
-    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E")
-      center / contain no-repeat;
-    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E")
-      center / contain no-repeat;
-  }
-  .rl-when span {
-    flex: 1;
-  }
-  .rl-when small {
-    font-size: 11.5px;
-    color: var(--d-t3);
-  }
-  .rl-sup {
-    margin-top: 16px;
-  }
-  .rl-sup h3,
   .rl-th h2 {
     font-size: 11px;
     font-weight: 650;
     letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--d-t3);
-  }
-  .rl-ch {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 8px;
-  }
-  .rl-ch button {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    height: 30px;
-    padding: 0 11px 0 6px;
-    border: 1px solid var(--d-b2);
-    border-radius: 15px;
-    background: none;
-    color: var(--ink2);
-    font-size: 12.5px;
-    font-weight: 500;
-  }
-  .rl-ch button.on {
-    border-color: color-mix(in srgb, var(--c) 55%, transparent);
-    background: color-mix(in srgb, var(--c) 16%, transparent);
-    color: var(--ink);
-  }
-  .rl-ch button:disabled {
-    cursor: default;
-  }
-  .rl-ch button:disabled:not(.on) {
-    opacity: 0.7;
   }
   .rail .av {
     display: grid;
@@ -1052,27 +986,6 @@
   .rail .av.cn {
     background: var(--d-acc);
     color: var(--d-acc-ink);
-  }
-  .rl-note {
-    margin-top: 8px !important;
-    font-size: 12px;
-    color: var(--d-t3);
-  }
-  .rl-btns {
-    display: flex;
-    gap: 8px;
-    margin-top: 18px;
-  }
-  .rl-btns button {
-    flex: 1;
-    height: 34px;
-    padding: 0 8px;
-    border: 1px solid var(--d-b2);
-    border-radius: 9px;
-    background: var(--d-hover);
-    color: var(--ink);
-    font-size: 13px;
-    font-weight: 500;
   }
   /* the interview on now or next */
   .rl-next {
@@ -1222,16 +1135,9 @@
     color: var(--ink2);
   }
   @media (hover: hover) {
-    .rl-ar:hover,
-    .rl-x:hover,
-    .rl-i:hover,
-    .rl-btns button:hover,
-    .rl-d:not(.td):hover span {
+    .rl-i:hover {
       background: var(--d-hover);
       color: var(--ink);
-    }
-    .rl-ch button:not(:disabled):hover {
-      border-color: var(--ink2);
     }
     .rl-next:hover b {
       color: var(--d-acc-t);
@@ -1239,12 +1145,13 @@
   }
 }
 
-/* ---- the Agenda: the picked interview's details stay open on the right ---- */
+/* ---- a booking's details stay open on the right of the week; laptops have no Agenda tab ---- */
 @media (min-width: 1100px) {
-  .agenda {
-    max-width: 1100px;
+  #tabAg {
+    display: none !important;
   }
-  body.dock {
+  body.dock,
+  body.dock.on-cal.wkv {
     padding-right: 420px;
   }
   body.dock .pback {
@@ -1257,11 +1164,5 @@
     border-left: 1px solid var(--d-line);
     background: var(--bg);
     animation: none;
-  }
-  .ag-i.sel {
-    box-shadow:
-      0 0 0 2px var(--c),
-      0 4px 14px rgba(0, 0, 0, 0.12);
-    z-index: 2;
   }
 }

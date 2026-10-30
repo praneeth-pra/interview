@@ -1,25 +1,25 @@
 // The laptop layout (1100 px and wider; 15-desktop.css), after the "World class calendar" design: the header becomes a
 // slim icon sidebar (the sections, and who is signed in), the week's title row gains the week number, the "needs a supporter" pill, search and the bell, and from 1240 px a
-// right-hand panel shows the month, the picked interview (or the one on now or next) and today's list. The Agenda keeps
-// the picked interview's details open beside the day. Narrower screens never see any of it.
-import { byId, el, toast } from "./dom";
+// right-hand panel shows the interview on now or next and today's list. Clicking the week's title opens the month under it.
+// A picked interview's full details open on the right, over that panel. Laptops have no Agenda (the week covers it);
+// phones keep theirs. Narrower screens never see any of it.
+import { byId, el, onEnterOrSpace } from "./dom";
 import { dayKeyOf, formatDay, formatTime, weekStart } from "./time";
-import { statusOf, titleCase } from "./labels";
+import { titleCase } from "./labels";
 import { request } from "./api";
-import { boot, colorClass, hooks, render, state, view } from "./state";
+import { boot, colorClass, render, state, view } from "./state";
 import { closePanel, initials, panel } from "./panel";
-import { showBooking, showReschedule } from "./booking-panel";
-import { agendaDay } from "./agenda";
+import { showBooking } from "./booking-panel";
 import { dayItems } from "./week";
-import { dockPick, isoWeek, monthDays, nextInterview, shiftMonth, untilLabel } from "./rail-data";
+import { isoWeek, monthDays, nextInterview, shiftMonth, untilLabel } from "./rail-data";
 import type { Booking } from "./types";
 
 const wide = matchMedia("(min-width: 1100px)");
 const railWide = matchMedia("(min-width: 1240px)");
-let railMonth = ""; // the month the panel shows, "YYYY-MM"; follows the week on screen until its arrows are used
+let railMonth = ""; // the month the title's popover shows, "YYYY-MM"; follows the week on screen until its arrows are used
 let railWeek = "";
-let picked = ""; // the booking shown in the Calendar's side panel
-let dockedDay = ""; // the agenda day whose interview was last opened beside it, so a closed panel stays closed
+let monthOpen = false; // the month popover under the week's title
+let weekDocked = false; // a booking's details are docked over the week's right-hand panel
 let me = ""; // the signed-in admin's email, for the sidebar
 
 function agendaShown() {
@@ -46,15 +46,16 @@ function avatar(name: string) {
     text: name ? initials(name).charAt(0) : "?",
   });
 }
-function findEvent(id: string) {
-  return state.events.find(function (booking) {
-    return booking.id === id;
-  });
+// the booking whose full details are open on the right, if any
+function openId() {
+  return byId("panel").hidden ? "" : panel.bookingId;
 }
 function pick(id: string) {
-  picked = picked === id ? "" : id;
-  renderRail();
-  markWeek();
+  if (openId() === id) {
+    closePanel();
+  } else {
+    showBooking(id);
+  }
 }
 
 // ---- moving a few page parts into the laptop layout and back ----
@@ -129,8 +130,7 @@ function renderTitleRow() {
       return Date.parse(booking.start) <= Date.now() && !state.iv.assign[booking.id] && !booking.missed;
     });
     if (count === 1 && first && railWide.matches && weekShown()) {
-      picked = "";
-      pick(first.id);
+      showBooking(first.id);
     } else if (list) {
       list.call(attn, event);
     }
@@ -148,8 +148,9 @@ function railItem(booking: Booking, next: boolean) {
         "rl-i " +
         (who ? colorClass(who) : "cn") +
         (next ? " next" : "") +
-        (picked === booking.id ? " on" : "") +
+        (openId() === booking.id ? " on" : "") +
         (Date.parse(booking.end) <= Date.now() ? " past" : ""),
+      "data-id": booking.id,
       onclick: function () {
         pick(booking.id);
       },
@@ -175,7 +176,7 @@ function monthBlock(today: string) {
       "aria-label": label,
       onclick: function () {
         railMonth = shiftMonth(railMonth, step);
-        renderRail();
+        renderMonth();
       },
     });
   };
@@ -202,6 +203,7 @@ function monthBlock(today: string) {
             formatDay(cell.day, { weekday: "long", month: "long", day: "numeric" }) + (busy[cell.day] ? ", has interviews" : ""),
           "aria-current": cell.day === today ? "date" : null,
           onclick: function () {
+            monthOpen = false;
             view.day = cell.day;
             view.week = weekStart(cell.day);
             render();
@@ -214,93 +216,6 @@ function monthBlock(today: string) {
   return el("section", { class: "rl-sec" }, [
     el("div", { class: "rl-mh" }, [el("h2", { text: title }), el("span", null, [arrow(-1, "Previous month"), arrow(1, "Next month")])]),
     grid,
-  ]);
-}
-function supporterChips(booking: Booking) {
-  const who = state.iv.assign[booking.id] || "";
-  const started = Date.parse(booking.start) <= Date.now();
-  const open = started && !who && !booking.missed;
-  const chips = el("div", { class: "rl-ch" });
-  state.iv.names.forEach(function (name) {
-    chips.appendChild(
-      el(
-        "button",
-        {
-          type: "button",
-          class: colorClass(name) + (who === name ? " on" : ""),
-          "aria-pressed": String(who === name),
-          disabled: !open,
-          onclick: function () {
-            if (
-              confirm("Record " + name + " as the interview supporter for " + titleCase(booking.name) + "? This can't be changed later.")
-            ) {
-              const change: Record<string, string> = {};
-              change[booking.id] = name;
-              request("/admin/api/interviewers", { set: change }, "PUT")
-                .then(function () {
-                  toast("Supporter saved");
-                })
-                .catch(function (error) {
-                  toast(error.message);
-                });
-            }
-          },
-        },
-        [avatar(name), name],
-      ),
-    );
-  });
-  const note = who ? "Locked once recorded." : !started ? "Can be recorded once it starts." : "";
-  return el("div", { class: "rl-sup" }, [el("h3", { text: "Supporter" }), chips, note ? el("p", { class: "rl-note", text: note }) : null]);
-}
-function pickedCard(booking: Booking) {
-  const who = state.iv.assign[booking.id] || "";
-  const status =
-    !who && !booking.cancelled && !booking.missed && Date.parse(booking.start) <= Date.now() ? "Needs supporter" : statusOf(booking);
-  const upcoming = Date.parse(booking.start) > Date.now() && !booking.cancelled;
-  return el("section", { class: "rl-card", "aria-label": "Picked interview" }, [
-    el("div", { class: "rl-top" }, [
-      el("span", { class: "rl-st st-" + status.toLowerCase().replace(/[^a-z]+/g, "-") }, [el("i", { "aria-hidden": "true" }), status]),
-      el("button", {
-        type: "button",
-        class: "rl-x",
-        "aria-label": "Close",
-        title: "Close (Esc)",
-        onclick: function () {
-          pick(booking.id);
-        },
-      }),
-    ]),
-    el("h2", { class: "rl-n", text: titleCase(booking.name) }),
-    el("p", { class: "rl-s", text: line(booking) || "No company given" }),
-    el("div", { class: "rl-when" }, [
-      el("i", { "aria-hidden": "true" }),
-      el("span", {
-        text: formatDay(dayKeyOf(new Date(booking.start)), { weekday: "short", month: "short", day: "numeric" }) + " · " + range(booking),
-      }),
-      el("small", { text: minutes(booking) }),
-    ]),
-    booking.cancelled ? null : supporterChips(booking),
-    el("div", { class: "rl-btns" }, [
-      el("button", {
-        type: "button",
-        text: upcoming ? "Reschedule" : "All details",
-        onclick: function () {
-          if (upcoming) {
-            showReschedule(booking);
-          } else {
-            showBooking(booking.id);
-          }
-        },
-      }),
-      el("button", {
-        type: "button",
-        text: "Candidate profile",
-        onclick: function () {
-          window.__openContact?.(booking.id);
-        },
-      }),
-    ]),
   ]);
 }
 function nextCard(next: Booking) {
@@ -326,10 +241,56 @@ function nextCard(next: Booking) {
     ],
   );
 }
+// The month opens under the week's title (in place of the date box phones use) and closes once a day is picked.
+function renderMonth() {
+  const title = byId("title");
+  let pop = document.getElementById("mpop");
+  const can = wide.matches && weekShown();
+  const show = monthOpen && can && state.ready;
+  // a button only where it opens something: phones keep their date box
+  if (can) {
+    title.setAttribute("role", "button");
+    title.setAttribute("tabindex", "0");
+    title.setAttribute("aria-haspopup", "dialog");
+    title.setAttribute("aria-expanded", String(show));
+    title.title = "Go to a date";
+  } else {
+    ["role", "tabindex", "aria-haspopup", "aria-expanded", "title"].forEach(function (name) {
+      title.removeAttribute(name);
+    });
+  }
+  if (!show) {
+    monthOpen = false;
+    if (pop) {
+      pop.remove();
+    }
+    return;
+  }
+  if (railWeek !== view.week) {
+    railWeek = view.week!;
+    railMonth = (view.day || view.week!).slice(0, 7);
+  }
+  if (!pop) {
+    pop = el("div", { id: "mpop", class: "mpop", role: "dialog", "aria-label": "Go to a date" });
+    title.after(pop);
+  }
+  pop.textContent = "";
+  pop.appendChild(monthBlock(dayKeyOf(Date.now())));
+}
+function toggleMonth(open: boolean) {
+  monthOpen = open;
+  if (open) {
+    railWeek = ""; // start on the week on screen
+  }
+  renderMonth();
+  if (!open) {
+    byId("title").focus();
+  }
+}
 function renderRail() {
   let rail = document.getElementById("rail");
   if (!rail) {
-    rail = el("aside", { id: "rail", class: "rail", "aria-label": "Month and today" });
+    rail = el("aside", { id: "rail", class: "rail", "aria-label": "Up next and today" });
     byId("viewCal").appendChild(rail);
   }
   rail.textContent = "";
@@ -338,19 +299,8 @@ function renderRail() {
   }
   const now = Date.now();
   const today = dayKeyOf(now);
-  if (railWeek !== view.week) {
-    railWeek = view.week!;
-    railMonth = (view.day || view.week!).slice(0, 7);
-  }
-  rail.appendChild(monthBlock(today));
-  const chosen = picked ? findEvent(picked) : undefined;
-  if (picked && !chosen) {
-    picked = "";
-  }
   const next = nextInterview(state.events, now);
-  if (chosen) {
-    rail.appendChild(pickedCard(chosen));
-  } else if (next) {
+  if (next) {
     rail.appendChild(nextCard(next));
   }
   const todays = dayItems(today).filter(function (item) {
@@ -370,50 +320,32 @@ function renderRail() {
   });
   rail.appendChild(list);
 }
-// The week: the picked interview is outlined.
+// The week and today's list: the interview whose details are open is outlined.
 function markWeek() {
-  document.querySelectorAll<HTMLElement>("#week .ev").forEach(function (block) {
-    block.classList.toggle("sel", !!picked && block.getAttribute("data-id") === picked);
+  const open = openId();
+  document.querySelectorAll<HTMLElement>("#week .ev, #rail .rl-i").forEach(function (block) {
+    block.classList.toggle(block.classList.contains("rl-i") ? "on" : "sel", !!open && block.getAttribute("data-id") === open);
   });
 }
 
-// ---- the Agenda: the picked interview's details stay open on the right ----
-function markAgenda() {
-  const open = !byId("panel").hidden && panel.bookingId;
-  document.querySelectorAll<HTMLElement>("#agenda .ag-i").forEach(function (block) {
-    block.classList.toggle("sel", !!open && block.getAttribute("data-id") === open);
-  });
-}
+// ---- a booking's details stay open on the right of the week (1240 px and wider) ----
 function dock() {
-  const agenda = wide.matches && agendaShown() && state.ready;
-  if (agenda) {
-    const day = agendaDay()!;
-    if (day !== dockedDay) {
-      dockedDay = day;
-      const choice = dockPick(
-        dayItems(day).map(function (item) {
-          return item.booking;
-        }),
-        Date.now(),
-      );
-      if (choice && (byId("panel").hidden || panel.bookingId)) {
-        showBooking(choice.id, true);
-      } else if (!choice && panel.bookingId && !byId("panel").hidden) {
-        closePanel();
-      }
-    }
-  } else {
-    // leaving the Agenda on a laptop takes its docked details with it
-    if (dockedDay && wide.matches && panel.bookingId && !byId("panel").hidden && document.body.classList.contains("dock")) {
-      closePanel();
-    }
-    dockedDay = "";
+  const docked = railWide.matches && weekShown() && !!panel.bookingId && !byId("panel").hidden;
+  // leaving the week takes its docked details with it
+  if (weekDocked && !docked && wide.matches && panel.bookingId && !byId("panel").hidden) {
+    closePanel();
   }
-  const docked = agenda && !byId("panel").hidden;
+  weekDocked = docked;
   if (document.body.classList.contains("dock") !== docked) {
     document.body.classList.toggle("dock", docked);
   }
-  markAgenda();
+  markWeek();
+}
+// Laptops show the week only: an Agenda link or a phone-sized window grown wide lands on the Calendar.
+function leaveAgenda() {
+  if (wide.matches && agendaShown()) {
+    byId("tabCal").click();
+  }
 }
 
 export function renderDesktop() {
@@ -422,10 +354,11 @@ export function renderDesktop() {
     document.body.classList.remove("dock");
     return;
   }
+  leaveAgenda();
   renderUser();
   renderTitleRow();
+  renderMonth();
   renderRail();
-  markWeek();
   dock();
 }
 export function setupDesktop() {
@@ -433,16 +366,33 @@ export function setupDesktop() {
   document.querySelectorAll<HTMLElement>(".top .tabs button").forEach(function (tab) {
     tab.title = ((tab.firstChild && tab.firstChild.textContent) || "").trim();
   });
-  // on laptops with the side panel, a week booking opens there instead of the sheet
-  hooks.weekClick = function (id) {
-    if (!(railWide.matches && weekShown())) {
-      return false;
+  // the week's title opens the month under it
+  const title = byId("title");
+  title.addEventListener("click", function () {
+    if (wide.matches && weekShown()) {
+      toggleMonth(!monthOpen);
     }
-    pick(id);
-    return true;
-  };
+  });
+  title.addEventListener(
+    "keydown",
+    onEnterOrSpace(function () {
+      if (wide.matches && weekShown()) {
+        toggleMonth(!monthOpen);
+      }
+    }),
+  );
+  document.addEventListener("click", function (event) {
+    const target = event.target as Node;
+    // a click inside the month redraws it, so the button clicked may already be gone from the page
+    if (monthOpen && document.contains(target) && !title.contains(target) && !document.getElementById("mpop")?.contains(target)) {
+      monthOpen = false;
+      renderMonth();
+    }
+  });
+  railWide.addEventListener("change", function () {
+    dock();
+  });
   wide.addEventListener("change", function () {
-    dockedDay = "";
     renderDesktop();
   });
   new MutationObserver(function () {
@@ -450,19 +400,17 @@ export function setupDesktop() {
       dock();
     }
   }).observe(byId("panel"), { attributes: true, attributeFilter: ["hidden"] });
-  let wasAgenda = agendaShown();
+  let wasWeek = weekShown();
   new MutationObserver(function () {
-    const now = agendaShown();
-    if (now !== wasAgenda) {
-      wasAgenda = now;
+    const now = weekShown();
+    if (now !== wasWeek) {
+      wasWeek = now;
       if (wide.matches) {
+        leaveAgenda();
         dock();
       }
     }
   }).observe(document.body, { attributes: true, attributeFilter: ["class"] });
-  byId("agenda").addEventListener("click", function () {
-    setTimeout(markAgenda);
-  });
   // "/" goes to the search box; Esc lets go of the picked interview
   document.addEventListener("keydown", function (event) {
     if (!wide.matches) {
@@ -472,8 +420,8 @@ export function setupDesktop() {
     if (event.key === "/" && !typing && weekShown()) {
       event.preventDefault();
       byId("q").focus();
-    } else if (event.key === "Escape" && picked && byId("panel").hidden) {
-      pick(picked);
+    } else if (event.key === "Escape" && monthOpen) {
+      toggleMonth(false);
     }
   });
   // who is signed in, for the sidebar: owners can ask; other admins' sidebar just has no name
