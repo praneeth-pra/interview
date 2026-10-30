@@ -796,12 +796,6 @@
   }
 }
 
-/* Beside a booking's docked details there is no room for the search box as well (closing the details brings it back) */
-@media (min-width: 1100px) and (max-width: 1339px) {
-  body.on-cal.dock .bar .acts {
-    display: none !important;
-  }
-}
 /* ---- the month, opened from the week's title (1100 px and wider) ---- */
 @media (min-width: 1100px) {
   body.on-cal .bar .wk {
@@ -1110,15 +1104,16 @@
   #tabAg {
     display: none !important;
   }
+  /* the details take the right-hand panel's place at its width, so the week doesn't move when they open */
   body.dock,
   body.dock.on-cal.wkv {
-    padding-right: 420px;
+    padding-right: var(--railw);
   }
   body.dock .pback {
     display: none;
   }
   body.dock .panel {
-    width: 420px;
+    width: var(--railw);
     z-index: 25;
     box-shadow: none;
     border-left: 1px solid var(--d-line);
