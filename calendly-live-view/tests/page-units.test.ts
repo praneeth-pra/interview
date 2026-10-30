@@ -2,7 +2,7 @@
 // overlapping bookings, matching company spellings, and the Contacts page's people and timelines (analytics/api.ts).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { layoutColumns, type Item } from "../src/pages/admin/layout";
-import { dockPick, isoWeek, monthDays, nextInterview, shiftMonth, supporterCounts, untilLabel } from "../src/pages/admin/rail-data";
+import { dockPick, isoWeek, monthDays, nextInterview, shiftMonth, supporterCounts } from "../src/pages/admin/rail-data";
 import { byWhom, plural, rating10, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
 import {
   addDays,
@@ -192,19 +192,13 @@ describe("laptop sidebar and panel", () => {
     ]);
     expect(counts.none).toBe(1);
   });
-  test("the interview on now or next, and how soon", () => {
+  test("the interview on now or next", () => {
     const past = at("2026-10-30T03:00:00Z", 60, { id: "p" });
     const live = at("2026-10-30T04:00:00Z", 60, { id: "l" });
     const later = at("2026-10-30T07:30:00Z", 30, { id: "n" });
     const gone = at("2026-10-30T04:40:00Z", 30, { id: "x", cancelled: true });
     expect(nextInterview([later, past, live, gone], NOW)!.id).toBe("l");
     expect(nextInterview([past], NOW)).toBeNull();
-    expect(untilLabel(live, NOW)).toBe("Now · 30 min left");
-    expect(untilLabel(at("2026-10-30T04:55:00Z", 30), NOW)).toBe("In 25 min");
-    expect(untilLabel(later, NOW)).toBe("In 3 h");
-    expect(untilLabel(at("2026-10-30T07:45:00Z", 30), NOW)).toBe("In 3 h 15 min");
-    expect(untilLabel(at("2026-10-31T05:00:00Z", 30), NOW)).toBe("Tomorrow");
-    expect(untilLabel(at("2026-11-03T05:00:00Z", 30), NOW)).toBe("Tuesday, Nov 3");
   });
   test("the agenda opens a day on its next interview, else its first", () => {
     const first = at("2026-10-30T03:00:00Z", 60, { id: "f" });

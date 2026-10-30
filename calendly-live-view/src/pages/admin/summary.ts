@@ -102,6 +102,7 @@ export function renderAttention() {
   });
   const line = byId("attn");
   line.hidden = !unassigned.length;
+  line.removeAttribute("aria-label"); // the laptop pill (desktop.ts) labels its shorter text
   line.textContent =
     unassigned.length + (unassigned.length === 1 ? " interview has no supporter recorded" : " interviews have no supporter recorded");
   line.onclick = function () {

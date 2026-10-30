@@ -1,6 +1,6 @@
 // The laptop layout (1100 px and wider; 15-desktop.css), after the "World class calendar" design: the header becomes a
-// slim icon sidebar (the sections, and who is signed in), the week's title row gains the week number, the "needs a supporter" pill, search and the bell, and from 1240 px a
-// right-hand panel shows the interview on now or next and today's list. Clicking the week's title opens the month under it.
+// slim icon sidebar (the sections, and who is signed in), the week's title row gains the week number, the "to review" pill, search and the bell, and from 1240 px a
+// right-hand panel shows today's list. Clicking the week's title opens the month under it.
 // A picked interview's full details open on the right, over that panel. Laptops have no Agenda (the week covers it);
 // phones keep theirs. Narrower screens never see any of it.
 import { byId, el, onEnterOrSpace } from "./dom";
@@ -8,10 +8,10 @@ import { dayKeyOf, formatDay, formatTime, weekStart } from "./time";
 import { titleCase } from "./labels";
 import { request } from "./api";
 import { boot, colorClass, render, state, view } from "./state";
-import { closePanel, initials, panel } from "./panel";
+import { closePanel, panel } from "./panel";
 import { showBooking } from "./booking-panel";
 import { dayItems } from "./week";
-import { isoWeek, monthDays, nextInterview, shiftMonth, untilLabel } from "./rail-data";
+import { isoWeek, monthDays, nextInterview, shiftMonth } from "./rail-data";
 import type { Booking } from "./types";
 
 const wide = matchMedia("(min-width: 1100px)");
@@ -35,16 +35,6 @@ function line(booking: Booking) {
 }
 function minutes(booking: Booking) {
   return Math.round((Date.parse(booking.end) - Date.parse(booking.start)) / 60000) + " min";
-}
-function range(booking: Booking) {
-  return formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end));
-}
-function avatar(name: string) {
-  return el("span", {
-    class: "av " + (name ? colorClass(name) : "cn"),
-    "aria-hidden": "true",
-    text: name ? initials(name).charAt(0) : "?",
-  });
 }
 // the booking whose full details are open on the right, if any
 function openId() {
@@ -115,15 +105,13 @@ function renderTitleRow() {
   if (attn.hidden) {
     return;
   }
-  // "2 interviews need a supporter · Review", from the line summary.ts writes
+  // "2 to review": started interviews with no supporter recorded, from the line summary.ts writes
   const count = parseInt(attn.textContent || "0", 10) || 0;
   attn.textContent = "";
+  attn.setAttribute("aria-label", count + " to review: " + (count === 1 ? "an interview" : "interviews") + " with no supporter recorded");
   attn.appendChild(el("i", { "aria-hidden": "true" }));
-  attn.appendChild(
-    el("span", { class: "at-l", text: count + (count === 1 ? " interview needs a supporter" : " interviews need a supporter") }),
-  );
-  attn.appendChild(el("span", { class: "at-s", "aria-hidden": "true", text: count + " unassigned" }));
-  attn.appendChild(el("b", { text: "Review" }));
+  attn.appendChild(el("b", { text: String(count) }));
+  attn.appendChild(el("span", { text: "to review" }));
   const list = attn.onclick;
   attn.onclick = function (event) {
     const first = state.events.find(function (booking) {
@@ -218,29 +206,6 @@ function monthBlock(today: string) {
     grid,
   ]);
 }
-function nextCard(next: Booking) {
-  const who = state.iv.assign[next.id] || "";
-  return el(
-    "button",
-    {
-      type: "button",
-      class: "rl-next",
-      onclick: function () {
-        pick(next.id);
-      },
-    },
-    [
-      el("span", { class: "rl-nh" }, [
-        el("span", { text: Date.parse(next.start) <= Date.now() ? "On now" : "Up next" }),
-        el("small", { text: untilLabel(next, Date.now()) }),
-      ]),
-      el("b", { text: titleCase(next.name) }),
-      el("span", { class: "rl-s", text: line(next) }),
-      el("span", { class: "rl-tm", text: range(next) }),
-      el("span", { class: "rl-who" }, [avatar(who), who ? who + " supporting" : "No supporter yet"]),
-    ],
-  );
-}
 // The month opens under the week's title (in place of the date box phones use) and closes once a day is picked.
 function renderMonth() {
   const title = byId("title");
@@ -290,7 +255,7 @@ function toggleMonth(open: boolean) {
 function renderRail() {
   let rail = document.getElementById("rail");
   if (!rail) {
-    rail = el("aside", { id: "rail", class: "rail", "aria-label": "Up next and today" });
+    rail = el("aside", { id: "rail", class: "rail", "aria-label": "Today" });
     byId("viewCal").appendChild(rail);
   }
   rail.textContent = "";
@@ -300,9 +265,6 @@ function renderRail() {
   const now = Date.now();
   const today = dayKeyOf(now);
   const next = nextInterview(state.events, now);
-  if (next) {
-    rail.appendChild(nextCard(next));
-  }
   const todays = dayItems(today).filter(function (item) {
     return !item.booking.cancelled;
   });
