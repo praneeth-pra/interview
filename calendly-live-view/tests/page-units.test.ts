@@ -245,6 +245,13 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
     booking({ id: "h1", name: "Hareesh", email: "hareesh@example.com", start: iso(-96), end: iso(-95) }),
     booking({ id: "h2", name: "Hareesh", email: "hareesh@example.com", start: iso(-30), end: iso(-29) }),
     booking({ id: "h3", name: "Hemanth", email: "hareesh@example.com", round: "Demo", start: iso(-10), end: iso(-9) }),
+    // the owner's email used for a demo for an existing candidate: her page keeps only her own email
+    booking({ id: "v1", name: "Vinila", email: "owner@example.com", round: "Demo", start: iso(-200), end: iso(-199), staff: true }),
+    booking({ id: "v2", name: "Vinila", email: "vinila@example.com", company: "Acme", start: iso(-100), end: iso(-99) }),
+    // an email booked under two people's names isn't either one's own, even without the admin mark
+    booking({ id: "s1", name: "Sravan Kumar", email: "shared@example.com", round: "Demo", start: iso(-150), end: iso(-149) }),
+    booking({ id: "s2", name: "Deepika Rao", email: "shared@example.com", round: "Demo", start: iso(-140), end: iso(-139) }),
+    booking({ id: "s3", name: "Deepika Rao", email: "deepika@example.com", start: iso(-60), end: iso(-59) }),
     // cancelled: not a contact, but on the timeline
     booking({
       id: "a7",
@@ -289,7 +296,7 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
   test("with merge=1, look-alike names under different emails are one contact", async () => {
     const people = (await get("/api/people?merge=1")).body;
     const names = people.map((p: any) => p.name).sort();
-    expect(names).toEqual(["Guest", "Guest", "Hareesh", "Hemanth", "Karthik Redy", "Priya Sharma"]);
+    expect(names).toEqual(["Deepika Rao", "Guest", "Guest", "Hareesh", "Hemanth", "Karthik Redy", "Priya Sharma", "Sravan Kumar", "Vinila"]);
     const priya = people.find((p: any) => p.name === "Priya Sharma");
     expect(priya).toMatchObject({ count: 3, emails: 2 });
     expect(priya.companies_.split(", ").sort()).toEqual(["Google", "Microsoft"]);
@@ -297,13 +304,25 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
   });
   test("without merge, every email is its own contact", async () => {
     const people = (await get("/api/people")).body;
-    // seven emails have an active booking: priya@, p.sharma@, karthik@, kreddy@, g1@, g2@, hareesh@
-    expect(people.length).toBe(7);
+    // eleven emails have an active booking: priya@, p.sharma@, karthik@, kreddy@, g1@, g2@, hareesh@, owner@, vinila@,
+    // shared@, deepika@
+    expect(people.length).toBe(11);
+  });
+  test("every candidate has one email: an owner's or shared email is set aside for their own", async () => {
+    const vinila = (await get("/api/analytics?event=v1&merge=1")).body;
+    expect(vinila).toMatchObject({ emailList: ["vinila@example.com"], emails: 1 });
+    expect(vinila.events.map((e: any) => e.id)).toEqual(["v1", "v2"]);
+    expect((await get("/api/people?merge=1")).body.find((p: any) => p.name === "Vinila")).toMatchObject({ count: 2, emails: 1 });
+    expect((await get("/api/analytics?event=s2&merge=1")).body).toMatchObject({ emailList: ["deepika@example.com"], emails: 1 });
+    // someone with only the shared email still shows it: it's the only one they have
+    expect((await get("/api/analytics?event=s1&merge=1")).body).toMatchObject({ emailList: ["shared@example.com"], emails: 1 });
   });
   test("a contact's timeline: newest last, a reschedule adds the old time as cancelled", async () => {
     const { status, body } = await get("/api/analytics?event=a1&merge=1");
     expect(status).toBe(200);
-    expect(body.emailList.sort()).toEqual(["p.sharma@work.com", "priya@example.com"]);
+    // one email per contact: the one with the latest booking (both are her own, so the note still says she has 2)
+    expect(body.emailList).toEqual(["priya@example.com"]);
+    expect(body.emails).toBe(2);
     const ids = body.events.map((e: any) => e.id);
     expect(ids).toEqual(["a1", "a7", "a8-moved", "a2", "a8"]);
     expect(body.events.find((e: any) => e.id === "a7")).toMatchObject({ status: "canceled", canceledBy: "invitee", cancelReason: "Clash" });

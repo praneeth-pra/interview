@@ -1,6 +1,8 @@
 // The Contacts page asks for /api/state, /api/people, /api/analytics (one person's bookings) and /api/interviewers.
 // api() answers those URLs in the browser from /admin/api/bookings and /admin/api/state.
 // With merge=1, bookings under different emails whose names look alike count as one person.
+// Every contact has one email, the candidate's own (see oneEmail): an admin's email, or one booked under several
+// people's names (the owner's email used for demos), is set aside whenever the contact has another.
 import type { Booking } from "../admin/types";
 import { normalizeName, sameName } from "../../same-name";
 
@@ -75,7 +77,7 @@ type Contact = {
   count: number;
   last: number;
   event: string;
-  emails: Record<string, number>;
+  bookings: Booking[];
   companies: Record<string, { c: string; t: number }>;
   activity: number;
   next: number;
@@ -182,6 +184,56 @@ function contactKey(booking: Booking, root: Record<string, string> | null) {
     ? "n:" + normalizeName(root[booking.name] || booking.name)
     : "e:" + lower(booking.email);
 }
+// Emails that aren't a candidate's own: an admin's (the server marks those bookings staff), or one with active bookings
+// under more than one person's name.
+function setAsideEmails(data: Data) {
+  const root = nameRoots(data);
+  const people: Record<string, string[]> = {};
+  const aside: Record<string, boolean> = {};
+  activeBookings(data).forEach(function (booking) {
+    const email = lower(booking.email);
+    if (booking.staff) {
+      aside[email] = true;
+    }
+    const name = normalizeName(root[booking.name] || booking.name);
+    if (!name || name === "guest") {
+      return;
+    }
+    const names = (people[email] = people[email] || []);
+    if (names.indexOf(name) < 0) {
+      names.push(name);
+    }
+    if (names.length > 1) {
+      aside[email] = true;
+    }
+  });
+  return aside;
+}
+// The one email of a contact, from their bookings: one that isn't set aside, then one used for an interview (not only
+// a demo), then the latest. candidates: how many emails of their own the contact has (at least 1).
+function oneEmail(bookings: Booking[], aside: Record<string, boolean>) {
+  const seen: Record<string, { aside: boolean; real: boolean; last: number }> = {};
+  bookings.forEach(function (booking) {
+    const email = lower(booking.email);
+    if (!email) {
+      return;
+    }
+    const info = (seen[email] = seen[email] || { aside: !!aside[email], real: false, last: 0 });
+    info.real = info.real || !/\bdemo\b/i.test(booking.round || "");
+    info.last = Math.max(info.last, Date.parse(booking.start) || 0);
+  });
+  const emails = Object.keys(seen).sort(function (a, b) {
+    const first = seen[a];
+    const second = seen[b];
+    return (
+      Number(first.aside) - Number(second.aside) || Number(second.real) - Number(first.real) || second.last - first.last || (a < b ? -1 : 1)
+    );
+  });
+  const own = emails.filter(function (email) {
+    return !seen[email].aside;
+  });
+  return { email: emails[0] || "", candidates: Math.max(1, own.length) };
+}
 function activeBookings(data: Data) {
   return data.bookings.filter(function (booking) {
     return !booking.cancelled && booking.email;
@@ -218,6 +270,7 @@ function peopleList(data: Data, merge: boolean) {
   const act = activeBookings(data);
   const byKey: Record<string, Contact> = {};
   const root = merge ? nameRoots(data) : null;
+  const aside = setAsideEmails(data);
   act.forEach(function (booking) {
     const key = contactKey(booking, root);
     const start = Date.parse(booking.start);
@@ -228,7 +281,7 @@ function peopleList(data: Data, merge: boolean) {
         count: 0,
         last: start,
         event: booking.id,
-        emails: {},
+        bookings: [],
         companies: {},
         activity: 0,
         next: 0,
@@ -249,7 +302,7 @@ function peopleList(data: Data, merge: boolean) {
     } else {
       person.past = Math.max(person.past, start);
     }
-    person.emails[lower(booking.email)] = 1;
+    person.bookings.push(booking);
     if (start >= person.last) {
       person.last = start;
       person.event = booking.id;
@@ -293,7 +346,7 @@ function peopleList(data: Data, merge: boolean) {
           })
           .join(", "),
         last: new Date(person.last).toISOString(),
-        emails: Object.keys(person.emails).length,
+        emails: oneEmail(person.bookings, aside).candidates,
         activity: person.activity ? new Date(Math.min(person.activity, Date.now())).toISOString() : "",
         next: person.next ? new Date(person.next).toISOString() : "",
         past: person.past ? new Date(person.past).toISOString() : "",
@@ -320,15 +373,13 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
   }
   const root = merge ? nameRoots(data) : null;
   const key = contactKey(booking, root);
-  const emails: string[] = [];
+  const mine: Booking[] = [];
   const events: TimelineEvent[] = [];
   data.bookings.forEach(function (other) {
     if (!other.email || contactKey(other, root) !== key) {
       return;
     }
-    if (emails.indexOf(lower(other.email)) < 0) {
-      emails.push(lower(other.email));
-    }
+    mine.push(other);
     const base = {
       name: "Interview",
       created: other.createdAt || other.start,
@@ -382,12 +433,17 @@ function analyticsFor(data: Data, id: string, merge: boolean): Answer {
   const total = rated.reduce(function (sum, event) {
     return sum + event.rating;
   }, 0);
+  // the email comes from the contact's active bookings when there are some (a cancelled one doesn't decide it)
+  const active = mine.filter(function (other) {
+    return !other.cancelled;
+  });
+  const one = oneEmail(active.length ? active : mine, setAsideEmails(data));
   return [
     200,
     {
       name: booking.name,
-      emails: emails.length,
-      emailList: emails,
+      emails: one.candidates,
+      emailList: [one.email],
       events: events,
       rating: { average: rated.length ? Math.round((total / rated.length) * 10) / 10 : 0, count: rated.length },
     },

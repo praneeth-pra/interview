@@ -30,6 +30,7 @@ export type Booking = {
   hrEmails?: string[]; // read from the invite
   hrPhones?: string[];
   inviteRead?: boolean; // the invite has been read (found something or not)
+  staff?: boolean; // booked with an admin's own email
 };
 // A time an admin marked unavailable (⋯ menu → Unavailability): candidates can't book in it.
 export type Block = { id: string; start: string; end: string; note: string };
