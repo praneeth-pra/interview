@@ -1,8 +1,9 @@
 // The week grid: seven days of hour rows, each booking a block sized to its length, overlaps side by side.
 import { byId, el } from "./dom";
-import { addDays, blockSpan, dayKeyOf, formatDay, hourLabel, minutesOfDay } from "./time";
+import { addDays, blockSpan, dayKeyOf, formatDay, formatTime, hourLabel, minutesOfDay } from "./time";
 import { missedLabel, statusPill, titleCase } from "./labels";
-import { colorClass, state, view } from "./state";
+import { colorClass, hooks, state, view } from "./state";
+import { initials } from "./panel";
 import { layoutColumns, type Item } from "./layout";
 import { showBooking } from "./booking-panel";
 
@@ -58,7 +59,7 @@ function weekTitle(first: string) {
 }
 export function renderWeek() {
   const today = dayKeyOf(new Date());
-  const days = [];
+  const days: string[] = [];
   const itemsByDay: Item[][] = [];
   let i;
   let fromMin = state.hours.start;
@@ -94,12 +95,12 @@ export function renderWeek() {
       class: "corner",
     }),
   );
-  days.forEach(function (day) {
+  days.forEach(function (day, index) {
     grid.appendChild(
       el(
         "div",
         {
-          class: "gh" + (day === today ? " today" : ""),
+          class: "gh" + (day === today ? " today" : day < today ? " gh-p" : ""),
         },
         [
           el("b", {
@@ -110,6 +111,25 @@ export function renderWeek() {
               " " +
               +day.slice(8),
           }),
+          // laptops (15-desktop.css): the weekday small and the date large, and a dash per interview in its supporter's colour
+          el("span", { class: "gh-x", "aria-hidden": "true" }, [
+            el("small", { text: formatDay(day, { weekday: "short" }) }),
+            el("em", { text: String(+day.slice(8)) }),
+          ]),
+          el(
+            "span",
+            { class: "gh-d", "aria-hidden": "true" },
+            itemsByDay[index]
+              .filter(function (item) {
+                return !item.booking.cancelled;
+              })
+              .slice(0, 6)
+              .map(function (item) {
+                const who = state.iv.assign[item.booking.id];
+                const started = Date.parse(item.booking.start) <= now;
+                return el("i", { class: who ? colorClass(who) : started && !item.booking.missed ? "cn nd" : "cn" });
+              }),
+          ),
         ],
       ),
     );
@@ -131,6 +151,12 @@ export function renderWeek() {
       label.style.transform = "translateY(-100%)";
     }
     axis.appendChild(label);
+  }
+  if (days.indexOf(today) >= 0 && nowMin >= firstHour * 60 && nowMin <= lastHour * 60) {
+    // laptops: the time now in a pill on the hour axis (15-desktop.css)
+    const pill = el("span", { class: "now-p", "aria-hidden": "true", text: formatTime(now).replace(/\s?[ap]m$/i, "") });
+    pill.style.top = ((nowMin - firstHour * 60) / 60) * HOUR_PX + "px";
+    axis.appendChild(pill);
   }
   grid.appendChild(axis);
   days.forEach(function (day, index) {
@@ -175,13 +201,33 @@ export function renderWeek() {
           ]
             .filter(Boolean)
             .join(" · "),
+          "data-id": booking.id,
           onclick: function () {
-            showBooking(booking.id);
+            if (!(hooks.weekClick && hooks.weekClick(booking.id))) {
+              showBooking(booking.id);
+            }
           },
         },
         [
+          // laptops only (15-desktop.css): the supporter's initial and the time
+          el("i", { class: "ev-av", "aria-hidden": "true", text: interviewer ? initials(interviewer).charAt(0) : "" }),
           el("b", {
             text: titleCase(booking.name),
+          }),
+          el("span", {
+            class: "ev-t",
+            "aria-hidden": "true",
+            text:
+              boxHeight < 50
+                ? formatTime(new Date(booking.start))
+                : formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end)),
+          }),
+          // laptops: company · round on one line, or that it still needs a supporter
+          el("span", {
+            class: "ev-m",
+            "aria-hidden": "true",
+            text:
+              started && !interviewer && !booking.missed ? "Needs supporter" : [booking.company, booking.round].filter(Boolean).join(" · "),
           }),
           // No times on the grid (the box's position shows it): company and round, on one line in a
           // 30-minute box, on their own lines when there is room.
@@ -201,9 +247,10 @@ export function renderWeek() {
       button.style.width = "calc(" + 100 / cols + "% - 4px)";
       column.appendChild(button);
     });
-    if (day === today && nowMin >= firstHour * 60 && nowMin <= lastHour * 60) {
+    if (days.indexOf(today) >= 0 && nowMin >= firstHour * 60 && nowMin <= lastHour * 60) {
+      // today's column has the red line; on laptops a faint one crosses the other days too (15-desktop.css)
       const nowLine = el("div", {
-        class: "now",
+        class: day === today ? "now" : "now-x",
       });
       nowLine.style.top = ((nowMin - firstHour * 60) / 60) * HOUR_PX + "px";
       column.appendChild(nowLine);

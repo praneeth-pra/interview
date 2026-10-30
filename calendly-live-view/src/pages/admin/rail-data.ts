@@ -93,3 +93,12 @@ export function dockPick(dayBookings: Booking[], now: number): Booking | null {
   });
   return nextInterview(live, now) || live[0] || dayBookings[0] || null;
 }
+// The ISO week of a day ("W44 · 2026"): weeks start on Monday, and week 1 holds the year's first Thursday.
+export function isoWeek(day: string) {
+  const date = new Date(day + "T12:00:00Z");
+  date.setUTCDate(date.getUTCDate() + 3 - ((date.getUTCDay() + 6) % 7));
+  const year = date.getUTCFullYear();
+  const firstThursday = new Date(Date.UTC(year, 0, 4, 12));
+  firstThursday.setUTCDate(firstThursday.getUTCDate() + 3 - ((firstThursday.getUTCDay() + 6) % 7));
+  return { week: 1 + Math.round((+date - +firstThursday) / (7 * 86400000)), year: year };
+}

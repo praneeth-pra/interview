@@ -2,7 +2,7 @@
 // overlapping bookings, matching company spellings, and the Contacts page's people and timelines (analytics/api.ts).
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { layoutColumns, type Item } from "../src/pages/admin/layout";
-import { dockPick, monthDays, nextInterview, shiftMonth, supporterCounts, untilLabel } from "../src/pages/admin/rail-data";
+import { dockPick, isoWeek, monthDays, nextInterview, shiftMonth, supporterCounts, untilLabel } from "../src/pages/admin/rail-data";
 import { byWhom, plural, rating10, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
 import {
   addDays,
@@ -171,6 +171,10 @@ describe("laptop sidebar and panel", () => {
     expect(monthDays("2027-02").length).toBe(28);
     expect(shiftMonth("2026-12", 1)).toBe("2027-01");
     expect(shiftMonth("2026-01", -1)).toBe("2025-12");
+    expect(isoWeek("2026-10-26")).toEqual({ week: 44, year: 2026 });
+    expect(isoWeek("2026-12-28")).toEqual({ week: 53, year: 2026 });
+    expect(isoWeek("2027-01-03")).toEqual({ week: 53, year: 2026 });
+    expect(isoWeek("2027-01-04")).toEqual({ week: 1, year: 2027 });
   });
   test("the week's interviews per supporter", () => {
     const events = [
