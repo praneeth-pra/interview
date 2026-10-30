@@ -7,7 +7,8 @@ import { initials } from "./panel";
 import { layoutColumns, type Item } from "./layout";
 import { showBooking } from "./booking-panel";
 
-const HOUR_PX = 64;
+// An hour's height: taller on laptops (15-desktop.css), so a half-hour box has room for company · round under the name
+const laptop = matchMedia("(min-width: 1100px)");
 // The unavailable times on a day, as bands in minutes since midnight, cut to the hours from firstMin to lastMin.
 export function dayBlocks(day: string, firstMin: number, lastMin: number) {
   const out: { from: number; to: number; note: string }[] = [];
@@ -58,6 +59,7 @@ function weekTitle(first: string) {
   );
 }
 export function renderWeek() {
+  const HOUR_PX = laptop.matches ? 80 : 64;
   const today = dayKeyOf(new Date());
   const days: string[] = [];
   const itemsByDay: Item[][] = [];

@@ -354,8 +354,9 @@ export function setupDesktop() {
   railWide.addEventListener("change", function () {
     dock();
   });
+  // the week's hours are taller on laptops (week.ts), so crossing 1100 px redraws it
   wide.addEventListener("change", function () {
-    renderDesktop();
+    render();
   });
   new MutationObserver(function () {
     if (wide.matches) {
