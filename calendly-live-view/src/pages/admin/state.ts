@@ -61,6 +61,8 @@ export function setState(next: State) {
 }
 // The calendar on screen: the day picked in the date box (or null) and the Monday of the week shown.
 export const view: { day: string | null; week: string | null } = { day: null, week: null };
+// Set by desktop.ts on laptops: a week-grid booking opens in the Calendar's side panel when this returns true.
+export const hooks: { weekClick: ((id: string) => boolean) | null } = { weekClick: null };
 // Draws the calendar, agenda and open panel again from state; main.ts says how.
 let draw = function () {};
 export function render() {

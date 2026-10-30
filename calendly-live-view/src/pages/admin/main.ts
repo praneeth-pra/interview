@@ -23,6 +23,7 @@ import { forgetAllBookings, loadAllBookings } from "./bookings";
 import { showBooking } from "./booking-panel";
 import { renderWeek } from "./week";
 import { renderAgenda, setupAgendaSwipe } from "./agenda";
+import { renderDesktop, setupDesktop } from "./desktop";
 import { renderAttention, renderCards, renderLegend } from "./summary";
 import { setupSearch } from "./search";
 import { setupPullRefresh } from "../shared/pull-refresh";
@@ -65,6 +66,7 @@ function drawAll() {
     renderLegend();
     renderWeek();
     renderAgenda();
+    renderDesktop();
     if (panel.refresh && !byId("panel").hidden) {
       panel.refresh();
     }
@@ -352,3 +354,4 @@ setupNav();
 setupStatsFrame();
 setupDownloadMenu();
 setupThemeSwitch();
+setupDesktop();
