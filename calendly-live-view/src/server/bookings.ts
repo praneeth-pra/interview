@@ -3,7 +3,7 @@ import { earlierSpelling } from "./companies";
 import { DURATIONS, REMOVE_BOOKINGS, RESEND_API_KEY } from "./config";
 import { type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
 import { notifyBooked, notifyCancelled, notifyRescheduled } from "./email";
-import { DEMO_ADMINS_ONLY, INVITE_NEEDED, INVITE_NO_HR, type InviteUpload, candidate, inviteRef, readInvite } from "./invites";
+import { INVITE_NEEDED, INVITE_NO_HR, type InviteUpload, candidate, inviteRef, readInvite } from "./invites";
 import { inviteHrContacts, inviteReadable } from "./invite-read";
 import { invites } from "./uploads";
 import { BASE_HEADERS, json } from "./http";
@@ -82,19 +82,30 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     .slice(0, 60);
   const duration = Number(body?.duration);
   const startMs = Number(body?.startMs);
-  if (!source && isDemo(round)) return json({ error: DEMO_ADMINS_ONLY, field: "round" }, 403);
-  if (isDemo(round)) invite = null;
+  // a demo can be booked by anyone, with any email: no onboarding, company or interview invite needed
+  const demo = isDemo(round);
+  const candidateRules = !source && !demo;
+  if (demo) invite = null;
   if (!name) return json({ error: "Enter a name." }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
   // candidates must say which company the interview is for; the admin form may leave it empty
-  if (!source && !company) return json({ error: "Enter the company you're interviewing with.", field: "company" }, 400);
-  if (!source && !emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
+  if (candidateRules && !company) return json({ error: "Enter the company you're interviewing with.", field: "company" }, 400);
+  if (candidateRules && !emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
+  // one demo per email from the booking page (a cancelled one doesn't count); admins can book more
+  if (
+    !source &&
+    demo &&
+    bookingsStore.data.bookings.some((x) => !x.cancelled && isDemo(x.round) && normEmail(x.email) === normEmail(email))
+  )
+    return json({ error: "This email already has a demo booked. Each email gets one demo.", field: "email" }, 409);
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   // one email is one person: an email already booked under someone else's name is refused (a cancelled booking
-  // doesn't count). Candidates aren't told whose name it is.
-  const other = bookingsStore.data.bookings.find(
-    (x) => !x.cancelled && normEmail(x.email) === normEmail(email) && !samePerson(x.name, name),
-  );
+  // doesn't count). Candidates aren't told whose name it is. A demo can use any email, and demos don't count here.
+  const other = demo
+    ? null
+    : bookingsStore.data.bookings.find(
+        (x) => !x.cancelled && !isDemo(x.round) && normEmail(x.email) === normEmail(email) && !samePerson(x.name, name),
+      );
   if (other)
     return json(
       {
@@ -105,8 +116,8 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
       },
       409,
     );
-  if (!source && !invite) return json({ error: INVITE_NEEDED, field: "invite" }, 400);
-  if (!source && body?.hrVisible !== "yes")
+  if (candidateRules && !invite) return json({ error: INVITE_NEEDED, field: "invite" }, 400);
+  if (candidateRules && body?.hrVisible !== "yes")
     return json({ error: "Tick this once the HR's details show in your invite.", field: "inviteHr" }, 400);
   // the invite must show the HR's email (not the candidate's own); it is read now, before the booking is made
   let read: { emails: string[]; phones: string[] } | null = null;
