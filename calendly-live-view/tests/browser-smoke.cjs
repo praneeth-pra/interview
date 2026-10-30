@@ -143,6 +143,9 @@ const checks = [
       // the live state has arrived (the seeded booking isn't in the phone's three days on some weekdays)
       await m.locator("#status.live").waitFor({ state: "attached" });
       await m.waitForTimeout(600);
+      // late in the day the week opens scrolled to the time now; a pull only refreshes from the top
+      await m.evaluate(() => scrollTo(0, 0));
+      await m.waitForTimeout(200);
       const cdp = await ctx.newCDPSession(m);
       const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
       const pull = async (x1, y1, x2, y2) => {
@@ -186,6 +189,9 @@ const checks = [
       await m.goto(BASE + "/admin?view=agenda");
       await m.locator("#agenda .ag-grid").waitFor();
       await m.waitForTimeout(600);
+      // late in the day the week opens scrolled to the time now; a pull only refreshes from the top
+      await m.evaluate(() => scrollTo(0, 0));
+      await m.waitForTimeout(200);
       const cdp = await ctx.newCDPSession(m);
       const touch = (type, x, y) => cdp.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x, y }] });
       const shift = (sel) => m.evaluate((s) => getComputedStyle(document.querySelector(s)).transform, sel);
