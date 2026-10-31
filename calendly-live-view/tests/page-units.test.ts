@@ -23,6 +23,7 @@ import type { Booking } from "../src/pages/admin/types";
 import { api } from "../src/pages/analytics/api";
 import { sameCompany } from "../src/same-company";
 import { samePerson } from "../src/same-name";
+import { candidateMatches } from "../src/pages/admin/candidates";
 
 const HOUR = 3600000;
 const booking = (over: Partial<Booking> = {}): Booking => ({
@@ -346,5 +347,47 @@ describe("Contacts data (analytics/api.ts, answered in the browser)", () => {
     expect((await get("/api/analytics?event=nope")).status).toBe(404);
     expect((await get("/api/nothing")).status).toBe(404);
     expect((await get("/api/interviewers")).body).toMatchObject({ names: ["Asha"], assign: { a1: "Asha" } });
+  });
+});
+
+describe("admin search candidates", () => {
+  test("one row per person, showing their own email over an admin's demo email", () => {
+    const rows = candidateMatches(
+      [
+        booking({ id: "d", name: "Vinila K", email: "owner@example.com", round: "Demo", staff: true, start: "2026-10-01T05:00:00Z" }),
+        booking({ id: "i", name: "vinila  k", email: "vinila@example.com", round: "Round 1", start: "2026-10-05T05:00:00Z" }),
+        booking({ id: "o", name: "Other Person", email: "other@example.com" }),
+      ],
+      "vinila",
+      8,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ email: "vinila@example.com", count: 2 });
+    expect(rows[0].booking.id).toBe("i");
+  });
+  test("an own email beats a demo one, and the latest booking opens Contacts", () => {
+    const rows = candidateMatches(
+      [
+        booking({ id: "a", name: "Asha", email: "asha@work.com", round: "Round 1", start: "2026-10-01T05:00:00Z" }),
+        booking({ id: "b", name: "Asha", email: "asha@demo.com", round: "Demo", start: "2026-10-09T05:00:00Z" }),
+      ],
+      "asha",
+      8,
+    );
+    expect(rows).toEqual([expect.objectContaining({ email: "asha@work.com", count: 2 })]);
+    expect(rows[0].booking.id).toBe("b");
+  });
+  test("guests group by email, and the limit applies to people", () => {
+    const rows = candidateMatches(
+      [
+        booking({ id: "1", name: "Guest", email: "x@example.com" }),
+        booking({ id: "2", name: "Guest", email: "x@example.com" }),
+        booking({ id: "3", name: "Guest", email: "y@example.com" }),
+      ],
+      "guest",
+      1,
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0].count).toBe(2);
   });
 });
