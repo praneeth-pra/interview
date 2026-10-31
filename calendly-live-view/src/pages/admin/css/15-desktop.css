@@ -10,7 +10,6 @@
 #allok,
 .week .ev .ev-t,
 .week .ev .ev-m,
-.week .ev .ev-av,
 .gh .gh-x,
 .gh .gh-d,
 .axis .now-p,
@@ -706,23 +705,6 @@
     font-weight: 650;
     letter-spacing: -0.005em;
   }
-  body.wkv .week .ev .ev-av {
-    display: grid;
-    grid-column: 2;
-    grid-row: 1;
-    place-items: center;
-    width: 16px;
-    height: 16px;
-    border-radius: 50%;
-    background: var(--c);
-    color: #15110e;
-    font-size: 9.5px;
-    font-style: normal;
-    font-weight: 700;
-  }
-  body.wkv .week .ev .ev-av:empty {
-    display: none;
-  }
   body.wkv .week .ev .ev-t,
   body.wkv .week .ev .ev-m {
     display: block;
@@ -742,7 +724,7 @@
   body.wkv .week .ev > span:not(.ev-t):not(.ev-m) {
     display: none;
   }
-  /* half-hour boxes: the name with the supporter's initial, then the start time · company · round on one line */
+  /* half-hour boxes: the name, then the start time · company · round on one line */
   body.wkv .week .ev.short {
     grid-template-columns: auto minmax(0, 1fr) auto;
     align-content: center;
@@ -751,9 +733,6 @@
   }
   body.wkv .week .ev.short b {
     grid-column: 1 / 3;
-  }
-  body.wkv .week .ev.short .ev-av {
-    grid-column: 3;
   }
   body.wkv .week .ev.short .ev-t,
   body.wkv .week .ev.short .ev-m {
