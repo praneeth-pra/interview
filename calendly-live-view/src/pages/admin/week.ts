@@ -3,7 +3,6 @@ import { byId, el } from "./dom";
 import { addDays, blockSpan, dayKeyOf, formatDay, formatTime, hourLabel, minutesOfDay } from "./time";
 import { missedLabel, statusPill, titleCase } from "./labels";
 import { colorClass, hooks, state, view } from "./state";
-import { initials } from "./panel";
 import { layoutColumns, type Item } from "./layout";
 import { showBooking } from "./booking-panel";
 
@@ -211,8 +210,7 @@ export function renderWeek() {
           },
         },
         [
-          // laptops only (15-desktop.css): the supporter's initial and the time
-          el("i", { class: "ev-av", "aria-hidden": "true", text: interviewer ? initials(interviewer).charAt(0) : "" }),
+          // laptops only (15-desktop.css): the time
           el("b", {
             text: titleCase(booking.name),
           }),
