@@ -17,6 +17,9 @@ import { samePerson } from "../same-name";
 import { istDate, t12 } from "./time";
 import { EMAIL_RE, type Fields, isDemo, normEmail } from "./util";
 
+// how many demos (not cancelled) one email can book from the booking page
+const DEMOS_PER_EMAIL = 2;
+
 export function managedBooking(body: Fields): Booking | Response {
   const id = String(body?.id ?? "");
   const b = bookingsStore.data.bookings.find((x) => x.id === id);
@@ -91,13 +94,17 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   // candidates must say which company the interview is for; the admin form may leave it empty
   if (candidateRules && !company) return json({ error: "Enter the company you're interviewing with.", field: "company" }, 400);
   if (candidateRules && !emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
-  // one demo per email from the booking page (a cancelled one doesn't count); admins can book more
+  // DEMOS_PER_EMAIL demos per email from the booking page (a cancelled one doesn't count); admins can book more
   if (
     !source &&
     demo &&
-    bookingsStore.data.bookings.some((x) => !x.cancelled && isDemo(x.round) && normEmail(x.email) === normEmail(email))
+    bookingsStore.data.bookings.filter((x) => !x.cancelled && isDemo(x.round) && normEmail(x.email) === normEmail(email)).length >=
+      DEMOS_PER_EMAIL
   )
-    return json({ error: "This email already has a demo booked. Each email gets one demo.", field: "email" }, 409);
+    return json(
+      { error: `This email already has ${DEMOS_PER_EMAIL} demos booked. Each email gets ${DEMOS_PER_EMAIL} demos.`, field: "email" },
+      409,
+    );
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   // one email is one person: an email already booked under someone else's name is refused (a cancelled booking
   // doesn't count). Candidates aren't told whose name it is. A demo can use any email, and demos don't count here.

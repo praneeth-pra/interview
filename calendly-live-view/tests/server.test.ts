@@ -294,7 +294,7 @@ describe("booking flow", () => {
     expect((await postJson(open, "/api/manage/cancel", { id, t, reason: "test" })).status).toBe(200);
   });
 
-  test("anyone books a demo with any email, one per email; a demo has no interview invite", async () => {
+  test("anyone books a demo with any email, two per email; a demo has no interview invite", async () => {
     const days = await (await get(open, "/api/days?duration=30")).json();
     const day = days.days.filter((d: any) => d.open).at(-1);
     const slots = (await (await get(open, `/api/slots?date=${day.key}&duration=30`)).json()).slots;
@@ -304,15 +304,23 @@ describe("booking flow", () => {
     const mine = await postJson(open, "/api/book", { ...body, email: "anyone@example.net", startMs: slots.at(-3) }, ip);
     expect(mine.status).toBe(200);
     const mineId = (await mine.json()).booking.id;
-    // one demo per email, however the round is written; a cancelled one doesn't count
+    // two demos per email, however the round is written; a cancelled one doesn't count
+    const second = await postJson(open, "/api/book", { ...body, email: "Anyone@example.net", round: "demo session", startMs: slots.at(-4) }, ip);
+    expect(second.status).toBe(200);
+    const secondId = (await second.json()).booking.id;
     for (const r of [
       await postJson(open, "/api/book", { ...body, email: "Anyone@example.net", round: "demo session" }, ip),
       await bookForm(open, { ...body, email: "anyone@example.net" }, ip),
     ]) {
       expect(r.status).toBe(409);
-      expect(await r.json()).toMatchObject({ field: "email", error: expect.stringContaining("already has a demo") });
+      expect(await r.json()).toMatchObject({ field: "email", error: expect.stringContaining("already has 2 demos") });
     }
-    expect((await postJson(open, "/admin/api/cancel", { id: mineId, reason: "test" })).status).toBe(200);
+    // cancelling one frees a place for another demo
+    expect((await postJson(open, "/admin/api/cancel", { id: secondId, reason: "test" })).status).toBe(200);
+    const again = await postJson(open, "/api/book", { ...body, email: "anyone@example.net", startMs: slots.at(-4) }, ip);
+    expect(again.status).toBe(200);
+    const againId = (await again.json()).booking.id;
+    for (const id of [mineId, againId]) expect((await postJson(open, "/admin/api/cancel", { id, reason: "test" })).status).toBe(200);
     // the booking page asks whether an admin is signed in, to send an admin's demo to the admin API
     expect(await (await get(open, "/admin/api/me")).json()).toEqual({ admin: true });
     expect(await (await get(locked, "/admin/api/me")).json()).toEqual({ admin: false });
