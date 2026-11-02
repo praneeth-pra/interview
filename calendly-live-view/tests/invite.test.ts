@@ -25,6 +25,25 @@ describe("HR contacts in an invite", () => {
     // only the candidate's own address: nothing for the HR
     expect((await inviteHrContacts(pdf, "application/pdf", { email: "priya.hr@acme.com" })).emails).toEqual([]);
   });
+  test("emails wrapped across lines by OCR (Gmail on Android) are rejoined", () => {
+    const own = { email: "sravanitalluru04@gmail.com", name: "Sravani Talluru" };
+    const text =
+      "From\nAjay Koomar • AKoomar@edelmanfinancialengines\n.com\nTo\nspulla\niyannan@edelmanfinancialengines\n.com\nsravanitalluru04@gmail.com";
+    expect(inviteContacts(text, own).emails).toEqual([
+      "akoomar@edelmanfinancialengines.com",
+      "spullaiyannan@edelmanfinancialengines.com",
+    ]);
+  });
+  test("wrapped emails are rejoined across stray spaces and blank lines", () => {
+    const text = "From AKoomar@edelmanfinancialengines  \n\n  .com\n  spulla  \n\n iyannan@mail.edelman \n .co\n.in";
+    expect(inviteContacts(text).emails).toEqual(["akoomar@edelmanfinancialengines.com", "spullaiyannan@mail.edelman.co.in"]);
+  });
+  test("a word on the line above an email is not glued to it", () => {
+    expect(inviteContacts("To\nhr@acme.com").emails).toEqual(["hr@acme.com"]);
+    expect(inviteContacts("Regards Priya\npriya@acme.com").emails).toEqual(["priya@acme.com"]);
+    expect(inviteContacts("Interview with\nhr@acme.com").emails).toEqual(["hr@acme.com"]);
+    expect(inviteContacts("Reach us at hr@acme.com\n.Net role").emails).toEqual(["hr@acme.com"]);
+  });
   test("mobile numbers in the ways people write them, but not meeting ids, dial-ins or the candidate's own", () => {
     const phones = (t: string, own?: string) => inviteContacts(t, { phone: own }).phones;
     expect(phones("Mobile: +91 98450 12345")).toEqual(["+91 98450 12345"]);
