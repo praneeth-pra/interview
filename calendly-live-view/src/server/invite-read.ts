@@ -42,13 +42,44 @@ function candidatesOwn(email: string, own: { email?: string; name?: string }) {
   }
   return false;
 }
+const EMAIL = /[a-z0-9][a-z0-9._%+-]*@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi;
+// Words that sit alone on a line above an address without being part of it.
+const LABEL_WORDS = new Set(
+  "to from cc bcc email mail e-mail id contact reply hr or and at me regards thanks sender recipient recipients".split(" "),
+);
+// OCR of narrow screens (Gmail on Android) wraps long addresses: "x@company\n.com", or "spulla\niyannan@company".
+// The text with those breaks rejoined: a domain broken before a label's dot, and a local part broken before the @
+// when the line above is nothing but one lowercase token of address characters.
+export function joinWrappedEmails(text: string) {
+  let joined = text;
+  const domainBreak = /(@[a-z0-9-]+(?:\.[a-z0-9-]+)*)[ \t]*(?:\r?\n[ \t]*)+(\.[a-z0-9-]*[a-z][a-z0-9-]*)(?=[ \t]*(?:[>),;]|\r?\n|$))/gi;
+  for (let before = ""; before !== joined; ) {
+    before = joined;
+    joined = joined.replace(domainBreak, "$1$2");
+  }
+  return joined.replace(/(^|\n)[ \t]*([a-z0-9._%+-]+)[ \t]*(?:\r?\n[ \t]*)+(?=[a-z0-9._%+-]+@)/gi, (all, start: string, head: string) =>
+    /^[a-z0-9._%+-]{2,}$/.test(head) && /^[a-z0-9]/.test(head) && !LABEL_WORDS.has(head) ? start + head : all,
+  );
+}
+// The addresses in the text, as written and with wrapped ones rejoined; a piece of a rejoined address (its tail
+// after a broken local part, its head before a broken domain, or both) is left out for the whole one.
+function emailsIn(text: string) {
+  const found = (t: string) => [...t.matchAll(EMAIL)].map((m) => m[0].replace(/[.]+$/, "").toLowerCase());
+  const joined = found(joinWrappedEmails(text));
+  // a piece: inside a rejoined address, ending where it ends or where one of its domain's labels does
+  const piece = (email: string, full: string) => {
+    const at = full.indexOf(email);
+    return full !== email && at >= 0 && /^(\.|$)/.test(full.slice(at + email.length));
+  };
+  const raw = found(text).filter((email) => !joined.some((full) => piece(email, full)));
+  return [...new Set([...joined, ...raw])];
+}
 // The HR emails and phone numbers in an invite's text, at most three of each, leaving out the candidate's own.
 // Mobile numbers (10 digits from 6 to 9, with or without +91 or 0) count anywhere; other 10-digit numbers (landlines)
 // only on a line that says phone, mobile, contact and the like.
 export function inviteContacts(text: string, own: { email?: string; phone?: string; name?: string } = {}) {
   const emails: string[] = [];
-  for (const m of text.matchAll(/[a-z0-9][a-z0-9._%+-]*@[a-z0-9-]+(?:\.[a-z0-9-]+)*\.[a-z]{2,}/gi)) {
-    const email = m[0].replace(/[.]+$/, "").toLowerCase();
+  for (const email of emailsIn(text)) {
     if (!candidatesOwn(email, own) && !NOT_HR.test(email) && !emails.includes(email)) emails.push(email);
   }
   const phones: string[] = [];
