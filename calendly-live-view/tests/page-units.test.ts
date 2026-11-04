@@ -3,7 +3,7 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { layoutColumns, type Item } from "../src/pages/admin/layout";
 import { dockPick, isoWeek, monthDays, nextInterview, shiftMonth, supporterCounts } from "../src/pages/admin/rail-data";
-import { byWhom, plural, rating10, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
+import { attendLabel, byWhom, calName, plural, rating10, roundStatus, statusOf, statusPill, titleCase } from "../src/pages/admin/labels";
 import {
   addDays,
   blockLabel,
@@ -99,6 +99,17 @@ describe("admin labels", () => {
     expect(titleCase("o'brien-kumar")).toBe("O'Brien-Kumar");
     expect(titleCase("McDonald")).toBe("McDonald");
     expect(titleCase(null)).toBe("");
+    const b = { name: "priya sharma" } as any;
+    expect([calName(b), calName({ ...b, attend: "remote" }), calName({ ...b, attend: "in-person" })]).toEqual([
+      "Priya Sharma",
+      "Priya Sharma (R)",
+      "Priya Sharma",
+    ]);
+    expect([attendLabel(b), attendLabel({ ...b, attend: "remote" }), attendLabel({ ...b, attend: "in-person" })]).toEqual([
+      "",
+      "Remote",
+      "In person",
+    ]);
     expect([plural(1, "email"), plural(3, "email")]).toEqual(["1 email", "3 emails"]);
     expect([byWhom("host"), byWhom("candidate"), byWhom(undefined)]).toEqual(["by you", "by the candidate", ""]);
   });

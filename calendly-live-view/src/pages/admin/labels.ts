@@ -76,11 +76,32 @@ function byWhom(who: string | undefined) {
     return "";
   }
 }
+// The candidate's name on the calendar, with "(R)" when they will attend remotely.
+function calName(booking: Booking) {
+  return titleCase(booking.name) + (booking.attend === "remote" ? " (R)" : "");
+}
+// How the candidate will attend, in words ("" when not given).
+function attendLabel(booking: Booking) {
+  return booking.attend === "remote" ? "Remote" : booking.attend === "in-person" ? "In person" : "";
+}
 function plural(count: number, word: string) {
   return count + " " + word + (count === 1 ? "" : "s");
 }
 
-export { titleCase, statusOf, missedLabel, statusClass, byWhom, plural, ROUND_STATUSES, roundStatus, statusPill, rating10 };
+export {
+  titleCase,
+  calName,
+  attendLabel,
+  statusOf,
+  missedLabel,
+  statusClass,
+  byWhom,
+  plural,
+  ROUND_STATUSES,
+  roundStatus,
+  statusPill,
+  rating10,
+};
 export type { RoundStatus };
 // what the candidate said about their experience (enquiries and onboarding), after the years
 export const GENUINE = { yes: " · Genuine", no: " · Not genuine", "": "" };

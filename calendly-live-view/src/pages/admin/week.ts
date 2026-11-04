@@ -1,7 +1,7 @@
 // The week grid: seven days of hour rows, each booking a block sized to its length, overlaps side by side.
 import { byId, el } from "./dom";
 import { addDays, blockSpan, dayKeyOf, formatDay, formatTime, hourLabel, minutesOfDay } from "./time";
-import { missedLabel, statusPill, titleCase } from "./labels";
+import { attendLabel, calName, missedLabel, statusPill } from "./labels";
 import { colorClass, hooks, state, view } from "./state";
 import { layoutColumns, type Item } from "./layout";
 import { showBooking } from "./booking-panel";
@@ -188,9 +188,10 @@ export function renderWeek() {
             (booking.missed ? " missed" : "") +
             (boxHeight < 50 ? " short" : ""),
           title: [
-            titleCase(booking.name),
+            calName(booking),
             booking.company,
             booking.round,
+            attendLabel(booking),
             interviewer
               ? "Interview support: " + interviewer
               : booking.missed
@@ -212,7 +213,7 @@ export function renderWeek() {
         [
           // laptops only (15-desktop.css): the time
           el("b", {
-            text: titleCase(booking.name),
+            text: calName(booking),
           }),
           el("span", {
             class: "ev-t",

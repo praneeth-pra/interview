@@ -28,6 +28,7 @@ export let state: State = {
     email: "",
     company: "",
     round: "",
+    attend: "",
   },
   busy: false,
 };

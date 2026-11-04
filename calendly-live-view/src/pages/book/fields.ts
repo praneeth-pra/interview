@@ -124,6 +124,46 @@ export function roundField() {
   });
   return el("div", { class: "f" }, [el("label", { for: "fround" }, ["Interview round"]), select, other]);
 }
+// How the candidate will attend: in person or remote. Required; the values are what the server stores.
+export const ATTEND_NEEDED = "Choose how you'll attend.";
+export const ATTEND_OPTIONS: [string, string][] = [
+  ["in-person", "In person"],
+  ["remote", "Remote (online)"],
+];
+export function attendField() {
+  const error = state.fieldErr.attend;
+  const select = el("select", {
+    id: "fattend",
+    name: "attend",
+    class: "rsel" + (state.form.attend ? "" : " empty"),
+    required: true,
+    "aria-invalid": error ? "true" : null,
+    "aria-describedby": error ? "fattende" : null,
+  });
+  select.appendChild(el("option", { value: "" }, ["Select one"]));
+  ATTEND_OPTIONS.forEach(function (option) {
+    select.appendChild(el("option", { value: option[0] }, [option[1]]));
+  });
+  select.value = state.form.attend;
+  select.addEventListener("change", function () {
+    state.form.attend = select.value;
+    select.classList.toggle("empty", !select.value);
+    if (select.value && state.fieldErr.attend) {
+      delete state.fieldErr.attend;
+      select.removeAttribute("aria-invalid");
+      select.removeAttribute("aria-describedby");
+      const old = document.getElementById("fattende");
+      if (old) {
+        old.remove();
+      }
+    }
+  });
+  return el("div", { class: "f" }, [
+    el("label", { for: "fattend" }, ["How will you attend? *"]),
+    select,
+    error ? el("div", { class: "ferr", id: "fattende", text: error }) : null,
+  ]);
+}
 export function companyField() {
   const id = "fcompany";
   const listId = "fcompany-list";
