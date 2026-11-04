@@ -148,6 +148,7 @@ export function renderDone() {
                   email: booking.email,
                   company: "",
                   round: "",
+                  attend: "",
                 },
                 busy: false,
               });

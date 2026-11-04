@@ -36,6 +36,7 @@ export const pub = (b: Booking) => ({
   email: b.email,
   company: b.company,
   round: b.round,
+  attend: b.attend ?? "",
   start: b.start,
   end: b.end,
   duration: b.duration,

@@ -3,12 +3,16 @@ import { DEFAULT_INTERVIEWERS, LOGIN_ON, OWNER_EMAILS } from "./config";
 import { fileStore, loadStore, type FileStore } from "./store";
 import { DAY_MS, EMAIL_RE, type Fields, asFields, normEmail } from "./util";
 
+export type Attend = "in-person" | "remote";
+export const ATTEND_LABEL: Record<Attend, string> = { "in-person": "In person", remote: "Remote (online)" };
 export type Booking = {
   id: string;
   name: string;
   email: string;
   company: string;
   round: string;
+  // how the candidate will attend, chosen on the booking page; none on older bookings and admin bookings
+  attend?: Attend;
   start: string;
   end: string;
   duration: number;

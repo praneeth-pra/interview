@@ -5,6 +5,7 @@ export type Booking = {
   email: string;
   company?: string;
   round?: string;
+  attend?: "in-person" | "remote" | ""; // how the candidate will attend, from the booking page; none on older bookings
   start: string;
   end: string;
   duration: number;

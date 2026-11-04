@@ -72,6 +72,7 @@ const checks = [
     await p.fill("#fname", "Demo Candidate");
     await p.selectOption("#fround", "Demo");
     await p.locator("#finv").waitFor({ state: "detached" });
+    await p.selectOption("#fattend", "remote");
     await p.click("#submitb");
     await p.locator('a[href*="/b/"]').first().waitFor();
     await toDetails(BASE);
@@ -80,6 +81,7 @@ const checks = [
     await p.fill("#fname", "Demo Smoke");
     await p.selectOption("#fround", "Demo");
     await p.locator("#finv").waitFor({ state: "detached" });
+    await p.selectOption("#fattend", "remote");
     await p.click("#submitb");
     await p.locator('a[href*="/b/"]').first().waitFor();
   }],
@@ -141,6 +143,10 @@ const checks = [
     await p.keyboard.press("Escape");
     await p.setInputFiles("#finv", join(__dirname, "invites/infosys-invite.png"));
     await p.check("#finvhr");
+    // the attendance choice is required: submitting without it shows the error and books nothing
+    await p.click("#submitb");
+    await p.locator("#fattende").waitFor();
+    await p.selectOption("#fattend", "in-person");
     await p.click("#submitb");
     await p.locator('a[href*="/b/"]').first().waitFor();
     const manage = await p.locator('a[href*="/b/"]').first().getAttribute("href");

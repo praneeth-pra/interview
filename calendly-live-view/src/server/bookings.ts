@@ -1,7 +1,7 @@
 // Creating, moving and cancelling bookings, and the bookings CSV.
 import { earlierSpelling } from "./companies";
 import { DURATIONS, REMOVE_BOOKINGS, RESEND_API_KEY } from "./config";
-import { type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
+import { ATTEND_LABEL, type Attend, type Booking, bookingsStore, emailAllowed, ivStore } from "./data";
 import { notifyBooked, notifyCancelled, notifyRescheduled } from "./email";
 import { INVITE_NEEDED, INVITE_NO_HR, type InviteUpload, candidate, inviteRef, readInvite } from "./invites";
 import { inviteHrContacts, inviteReadable } from "./invite-read";
@@ -83,6 +83,8 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   const round = String(body?.round ?? "")
     .trim()
     .slice(0, 60);
+  const attendText = String(body?.attend ?? "");
+  const attend: Attend | null = attendText in ATTEND_LABEL ? (attendText as Attend) : null;
   const duration = Number(body?.duration);
   const startMs = Number(body?.startMs);
   // a demo can be booked by anyone, with any email: no onboarding, company or interview invite needed
@@ -105,6 +107,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
       { error: `This email already has ${DEMOS_PER_EMAIL} demos booked. Each email gets ${DEMOS_PER_EMAIL} demos.`, field: "email" },
       409,
     );
+  if (attendText && !attend) return json({ error: "Choose in person or remote.", field: "attend" }, 400);
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   // one email is one person: an email already booked under someone else's name is refused (a cancelled booking
   // doesn't count). Candidates aren't told whose name it is. A demo can use any email, and demos don't count here.
@@ -146,6 +149,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     email,
     company: earlierSpelling(email, company),
     round,
+    ...(attend ? { attend } : {}),
     start: new Date(startMs).toISOString(),
     end: new Date(endMs).toISOString(),
     duration,
@@ -186,6 +190,7 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
       email,
       company: booking.company,
       round,
+      attend: booking.attend ?? "",
       start: booking.start,
       end: booking.end,
       duration,
@@ -264,6 +269,7 @@ export function bookingsCsvText() {
       "Email",
       "Company",
       "Round",
+      "Attending",
       "Date",
       "Start (IST)",
       "End (IST)",
@@ -284,6 +290,7 @@ export function bookingsCsvText() {
       b.email,
       b.company,
       b.round,
+      b.attend ? ATTEND_LABEL[b.attend] : "",
       d(b.start),
       t12(b.start),
       t12(b.end),

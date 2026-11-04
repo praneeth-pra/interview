@@ -10,6 +10,7 @@ export type Booking = {
   duration: number;
   company?: string;
   round?: string;
+  attend?: string;
   manage?: string;
   emailed?: boolean;
 };
@@ -41,7 +42,7 @@ export type State = {
   booking: Booking | null; // the booking just made
   err: string;
   fieldErr: Record<string, string>;
-  form: { name: string; email: string; company: string; round: string };
+  form: { name: string; email: string; company: string; round: string; attend: string };
   invite?: File | null; // the interview invite chosen on the details step (not kept in the draft)
   inviteHr?: boolean; // the candidate ticked that the HR's details show in the invite
   admin?: boolean; // a signed-in admin is booking: a demo goes through the admin API

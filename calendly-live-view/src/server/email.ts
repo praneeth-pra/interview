@@ -1,6 +1,6 @@
 // Emails (sent through Resend) with calendar invites.
 import { EMAIL_FROM, EVENT_LOCATION, EVENT_NAME, HOST_EMAILS, HOST_NAME, MEETING_LINK, RESEND_API_KEY, RESEND_URL } from "./config";
-import type { Booking } from "./data";
+import { ATTEND_LABEL, type Booking } from "./data";
 import { manageUrl } from "./links";
 import { dayShort, whenText } from "./time";
 import { EMAIL_RE } from "./util";
@@ -160,6 +160,7 @@ const hostRows = (b: Booking): [string, string][] => [
   ["When", whenText(b.start, b.end)],
   ["Company", b.company],
   ["Round", b.round],
+  ["Attending", b.attend ? ATTEND_LABEL[b.attend] : ""],
 ];
 const MANAGE_NOTE = "Please don't forward this email. Its links can change your booking.";
 export function notifyBooked(b: Booking, base: string) {

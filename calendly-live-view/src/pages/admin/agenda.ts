@@ -1,7 +1,7 @@
 // The agenda: one day at a time with a week strip, and sideways swipes between days on phones.
 import { byId, el } from "./dom";
 import { addDays, dayKeyOf, formatDay, formatTime, hourLabel, minutesOfDay, weekStart } from "./time";
-import { statusPill, titleCase } from "./labels";
+import { calName, statusPill } from "./labels";
 import { colorClass, render, state, view } from "./state";
 import { showBooking } from "./booking-panel";
 import { blockBand, dayBlocks, dayItems } from "./week";
@@ -149,7 +149,7 @@ export function renderAgenda() {
         },
       },
       [
-        el("b", { text: titleCase(booking.name) }),
+        el("b", { text: calName(booking) }),
         el("span", { class: "ag-s", text: [booking.company, booking.round, interviewer].filter(Boolean).join(" · ") }),
         el("span", { class: "ag-t", text: formatTime(new Date(booking.start)) + " – " + formatTime(new Date(booking.end)) }),
         // the round's status, when it has one, and a dot when support isn't recorded, in the top corner

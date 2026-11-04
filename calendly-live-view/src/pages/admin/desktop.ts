@@ -5,7 +5,7 @@
 // phones keep theirs. Narrower screens never see any of it.
 import { byId, el, onEnterOrSpace } from "./dom";
 import { dayKeyOf, formatDay, formatTime, weekStart } from "./time";
-import { titleCase } from "./labels";
+import { calName } from "./labels";
 import { request } from "./api";
 import { boot, colorClass, render, state, view } from "./state";
 import { closePanel, panel } from "./panel";
@@ -146,7 +146,7 @@ function railItem(booking: Booking, next: boolean) {
     [
       el("span", { class: "rl-t" }, [formatTime(new Date(booking.start)), el("small", { text: minutes(booking) })]),
       el("i", { class: "rl-dot", "aria-hidden": "true" }),
-      el("span", { class: "rl-b" }, [el("b", { text: titleCase(booking.name) }), el("small", { text: line(booking) })]),
+      el("span", { class: "rl-b" }, [el("b", { text: calName(booking) }), el("small", { text: line(booking) })]),
     ],
   );
 }

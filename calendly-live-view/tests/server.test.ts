@@ -332,6 +332,26 @@ describe("booking flow", () => {
     expect((await postJson(open, "/admin/api/cancel", { id: made.booking.id, reason: "test" })).status).toBe(200);
   });
 
+  test("the booking keeps how the candidate will attend; an unknown choice is refused", async () => {
+    const days = await (await get(open, "/api/days?duration=30")).json();
+    const day = days.days.filter((d: any) => d.open).at(-1);
+    const slots = (await (await get(open, `/api/slots?date=${day.key}&duration=30`)).json()).slots;
+    const body = { name: "Remote Test", email: "remote@example.com", round: "Demo", duration: 30, startMs: slots.at(-5) };
+    const ip = { "x-real-ip": "10.9.0.7" };
+    const bad = await postJson(open, "/api/book", { ...body, attend: "maybe" }, ip);
+    expect(bad.status).toBe(400);
+    expect(await bad.json()).toMatchObject({ field: "attend" });
+    const made = await postJson(open, "/api/book", { ...body, attend: "remote" }, ip);
+    expect(made.status).toBe(200);
+    const id = (await made.json()).booking.id;
+    const saved = (await (await get(open, "/admin/api/bookings")).json()).bookings.find((b: any) => b.id === id);
+    expect(saved).toMatchObject({ attend: "remote" });
+    const csv = await (await get(open, "/admin/export.csv")).text();
+    expect(csv).toContain("Round,Attending,Date");
+    expect(csv).toContain("Remote (online)");
+    expect((await postJson(open, "/admin/api/cancel", { id, reason: "test" })).status).toBe(200);
+  });
+
   test("on start, a demo booked with an invite loses it; other bookings keep theirs", async () => {
     const dir = mkdtempSync(join(tmpdir(), "booking-form-demo-"));
     const ref = (id: string) => ({ file: id + "-invite.png", name: "invite.png", type: "image/png", size: PNG.length });

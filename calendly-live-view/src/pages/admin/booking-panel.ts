@@ -1,7 +1,7 @@
 // The booking panel: one interview's details, its supporter, how it went and its result, and cancelling or moving it.
 import { byId, el, onEnterOrSpace, setMessage, toast } from "./dom";
 import { addDays, dayKeyOf, formatIst, formatRange, formatTime, shortDate, timeAgo, weekStart } from "./time";
-import { type RoundStatus, byWhom, plural, rating10, roundStatus, statusPill, titleCase } from "./labels";
+import { type RoundStatus, attendLabel, byWhom, plural, rating10, roundStatus, statusPill, titleCase } from "./labels";
 import { request } from "./api";
 import { colorClass, render, state, view } from "./state";
 import { closePanel, icon, initials, openPanel, panel, setPanelAvatar, setPanelLink } from "./panel";
@@ -327,7 +327,7 @@ export function showBooking(id: string, refresh?: boolean) {
   };
   const body = openPanel(
     titleCase(booking.name),
-    [booking.company, booking.round].filter(Boolean).join(" · ") || "No company given",
+    [booking.company, booking.round, attendLabel(booking)].filter(Boolean).join(" · ") || "No company given",
     refresh,
   );
   setPanelAvatar(booking.name, interviewer);

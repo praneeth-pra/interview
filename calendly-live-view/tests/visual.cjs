@@ -267,6 +267,8 @@ const CASES = [
         await p.setInputFiles("#finv", path.join(__dirname, "invites/infosys-invite.png"));
         await p.check("#finvhr");
       }
+      // how the candidate will attend (the form has no such field before it was added)
+      if (await p.locator("#fattend").count()) await p.selectOption("#fattend", "in-person");
       await wait(p, 300);
       await p.click("#submitb");
       // booking reads the invite first, which takes a moment

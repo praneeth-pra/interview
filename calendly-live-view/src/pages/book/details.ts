@@ -3,7 +3,7 @@ import { el } from "../shared/dom";
 import { loadCompanies } from "./companies";
 import { isDemo, render, state } from "./app";
 import { clearSlots, loadDays, showSlots } from "./slots";
-import { companyField, roundField, textField } from "./fields";
+import { ATTEND_NEEDED, attendField, companyField, roundField, textField } from "./fields";
 import { HR_NEEDED, bookingForm, inviteField, inviteProblem } from "./invite";
 import { WELCOME_BACK, prefillName, previousCompanies, rememberBooking, setNameHint, showPreviousCompanies } from "./returning";
 
@@ -99,6 +99,7 @@ export function renderDetails() {
       [companyField(), roundField()],
     ),
   );
+  form.appendChild(attendField());
   if (!isDemo(state.form.round)) {
     form.appendChild(inviteField());
   }
@@ -130,6 +131,9 @@ function submitBooking() {
   if (!demo && !form.company.trim()) {
     errors.company = "Enter the company you're interviewing with.";
   }
+  if (!form.attend) {
+    errors.attend = ATTEND_NEEDED;
+  }
   const invite = demo ? null : state.invite;
   const inviteError = demo ? "" : inviteProblem(invite);
   if (inviteError) {
@@ -142,7 +146,9 @@ function submitBooking() {
   state.err = "";
   if (Object.keys(errors).length || (!demo && !invite)) {
     render();
-    const firstInvalid = document.getElementById(errors.email ? "femail" : errors.name ? "fname" : errors.company ? "fcompany" : "finv");
+    const firstInvalid = document.getElementById(
+      errors.email ? "femail" : errors.name ? "fname" : errors.company ? "fcompany" : errors.attend ? "fattend" : "finv",
+    );
     if (firstInvalid) {
       firstInvalid.focus();
     }
@@ -155,6 +161,7 @@ function submitBooking() {
     email: form.email.trim(),
     company: form.company.trim(),
     round: form.round.trim(),
+    attend: form.attend,
     duration: state.dur,
     startMs: state.slot!,
   };
@@ -191,13 +198,19 @@ function submitBooking() {
         window.scrollTo(0, 0);
         return;
       }
-      if (result.j.field === "email" || result.j.field === "company" || result.j.field === "invite") {
+      if (result.j.field === "email" || result.j.field === "company" || result.j.field === "attend" || result.j.field === "invite") {
         state.fieldErr = {
           [result.j.field]: result.j.error,
         };
         render();
         const badInput = document.getElementById(
-          result.j.field === "email" ? "femail" : result.j.field === "company" ? "fcompany" : "finv",
+          result.j.field === "email"
+            ? "femail"
+            : result.j.field === "company"
+              ? "fcompany"
+              : result.j.field === "attend"
+                ? "fattend"
+                : "finv",
         );
         if (badInput) {
           badInput.focus();
