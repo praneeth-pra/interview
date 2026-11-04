@@ -33,7 +33,9 @@ function dropNonDemoErrors() {
 }
 export function textField(id: string, key: keyof State["form"], label: string, type: string, opts?: FieldOptions) {
   opts = opts || {};
-  const error = state.fieldErr[key];
+  // a demo needs no onboarding, so the email field never shows that notice while Demo is picked, whatever the email
+  const onboardingNotice = key === "email" && isDemo(state.form.round) && (state.fieldErr.email || "").indexOf("the onboarding form") >= 0;
+  const error = onboardingNotice ? "" : state.fieldErr[key];
   const input = el("input", {
     id: id,
     type: type,
