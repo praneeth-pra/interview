@@ -14,6 +14,23 @@ function errorParts(error: string) {
   const link = el("a", { href: "/onboarding", text: "the onboarding form" });
   return [error.slice(0, at), link, error.slice(at + "the onboarding form".length)];
 }
+// Switching to Demo drops the errors a demo can't have: the onboarding notice a new email got for an interview round,
+// and the company and invite ones. Returns the ids of the error lines it dropped.
+function dropNonDemoErrors() {
+  const dropped: string[] = [];
+  if ((state.fieldErr.email || "").indexOf("the onboarding form") >= 0) {
+    delete state.fieldErr.email;
+    dropped.push("femaile");
+  }
+  const ids: Record<string, string> = { company: "fcompanye", invite: "finve", inviteHr: "finvhre" };
+  Object.keys(ids).forEach(function (key) {
+    if (state.fieldErr[key]) {
+      delete state.fieldErr[key];
+      dropped.push(ids[key]);
+    }
+  });
+  return dropped;
+}
 export function textField(id: string, key: keyof State["form"], label: string, type: string, opts?: FieldOptions) {
   opts = opts || {};
   const error = state.fieldErr[key];
@@ -112,6 +129,9 @@ export function roundField() {
     }
     // the invite box comes and goes with Demo, and a demo's name isn't the one booked with this email before
     if (isDemo(state.form.round) !== wasDemo) {
+      if (isDemo(state.form.round)) {
+        dropNonDemoErrors();
+      }
       if (state.nameAuto) {
         state.nameAuto = false;
         state.form.name = "";
@@ -120,7 +140,21 @@ export function roundField() {
     }
   });
   other.addEventListener("input", function () {
+    const wasDemo = isDemo(state.form.round);
     state.form.round = other.value;
+    // typing a demo round ("Demo session") drops the onboarding notice too, without redrawing the form under the typing
+    if (!wasDemo && isDemo(state.form.round)) {
+      dropNonDemoErrors().forEach(function (id) {
+        const errorEl = document.getElementById(id);
+        if (errorEl) {
+          errorEl.remove();
+        }
+      });
+      const email = document.getElementById("femail");
+      if (email && !state.fieldErr.email) {
+        email.removeAttribute("aria-invalid");
+      }
+    }
   });
   return el("div", { class: "f" }, [el("label", { for: "fround" }, ["Interview round"]), select, other]);
 }

@@ -83,6 +83,40 @@ const checks = [
     await p.click("#submitb");
     await p.locator('a[href*="/b/"]').first().waitFor();
   }],
+  ["booking page: the onboarding notice a new email got goes away when the round becomes Demo", async (p) => {
+    const ONBOARDING = "This email isn't registered yet. Please fill in the onboarding form with this email first, then book your slot.";
+    for (const pick of ["select", "other"]) {
+      await p.goto(BASE + "/booking");
+      await (await openDays(p)).last().click();
+      await p.locator("button.t").last().click();
+      await p.locator("#go").click();
+      await p.locator("#fround").waitFor();
+      await p.fill("#femail", "new-" + pick + "@example.com");
+      await p.fill("#fname", "New Person");
+      await p.selectOption("#fround", "1st round");
+      await p.fill("#fcompany", "Acme");
+      await p.keyboard.press("Escape");
+      await p.setInputFiles("#finv", join(__dirname, "invites/infosys-invite.png"));
+      await p.check("#finvhr");
+      // the server's answer to an email that isn't on the Candidates list
+      await p.route("**/api/book", (r) =>
+        r.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: ONBOARDING, field: "email", onboarding: true }) }),
+      );
+      p.refusals++;
+      await p.click("#submitb");
+      await p.locator("#femaile", { hasText: "onboarding form" }).waitFor();
+      await p.unroute("**/api/book");
+      if (pick === "select") await p.selectOption("#fround", "Demo");
+      else {
+        await p.selectOption("#fround", "__other");
+        await p.fill("#fround-other", "Demo session");
+      }
+      await p.locator("#femaile").waitFor({ state: "detached" });
+      if (await p.getByText("onboarding form").count()) throw new Error(pick + ": the onboarding notice should be gone for a demo");
+      await p.click("#submitb");
+      await p.locator('a[href*="/b/"]').first().waitFor();
+    }
+  }],
   ["booking page: book, book another, reschedule and cancel", async (p) => {
     const card = () => p.locator("#card").textContent();
     const expectText = async (re, what) => {
