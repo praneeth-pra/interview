@@ -96,6 +96,7 @@ const checks = [
       await p.fill("#femail", "new-" + pick + "@example.com");
       await p.fill("#fname", "New Person");
       await p.selectOption("#fround", "1st round");
+      await p.selectOption("#fattend", "remote");
       await p.fill("#fcompany", "Acme");
       await p.keyboard.press("Escape");
       await p.setInputFiles("#finv", join(__dirname, "invites/infosys-invite.png"));
