@@ -218,6 +218,33 @@ export const paymentsStore = fileStore<{ payments: Payment[] }>(
       : [],
   }),
 );
+// Money paid out (Revenue tab → expenses), to see where what candidates paid goes. date is the India day it was paid
+// (YYYY-MM-DD); email ties it to a candidate (their payments' email), "" for general costs such as tools or ads; name is
+// that candidate's name when it was saved. by: the owner who added or last changed it ("" with sign-in off).
+export const EXPENSE_CATEGORIES = ["Supporters' pay", "Tools & subscriptions", "Ads", "Travel", "Other"] as const;
+export type Expense = {
+  id: string;
+  date: string;
+  what: string;
+  category: string;
+  amount: number; // in rupees
+  email: string;
+  name: string;
+  createdAt: string;
+  by: string;
+};
+export const expensesStore = fileStore<{ expenses: Expense[] }>(
+  "expenses.json",
+  () => ({ expenses: [] }),
+  (x) => ({
+    expenses: Array.isArray(x?.expenses)
+      ? x.expenses.filter((v: unknown) => {
+          const e = asFields(v);
+          return typeof e.id === "string" && typeof e.date === "string" && typeof e.amount === "number";
+        })
+      : [],
+  }),
+);
 // Where an email's payments stand, for the onboarding form: "confirmed" once an owner confirmed any of them, "pending"
 // while one waits for a decision, else "none" (no payment, or only discarded ones).
 export const paymentStatus = (email: string): "confirmed" | "pending" | "none" => {
@@ -297,6 +324,7 @@ export async function loadStores() {
     adminsStore,
     enquiriesStore,
     paymentsStore,
+    expensesStore,
     onboardingStore,
     sessionsStore,
     blocksStore,

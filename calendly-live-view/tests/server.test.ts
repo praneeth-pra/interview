@@ -788,6 +788,59 @@ describe("payments", () => {
     expect((await get(open, "/admin/api/revenue.pdf?month=junk")).headers.get("content-disposition")).not.toContain(thisMonth);
     expect((await get(locked, "/admin/api/revenue.pdf")).status).toBe(401);
   });
+
+  test("expenses: owners add, change and delete them, tied to a candidate or general, and Revenue shows what's kept", async () => {
+    const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata" }).format(new Date());
+    const add = (body: Record<string, unknown>) => postJson(open, "/admin/api/expenses", body);
+    const ok = { date: today, what: "Hareesh, 2 sessions", category: "Supporters' pay", amount: "2,500" };
+    // each field is checked
+    for (const [change, error] of [
+      [{ date: "2026-13-40" }, "Pick the day"],
+      [{ date: "2999-01-01" }, "hasn't come yet"],
+      [{ what: "  " }, "what it was for"],
+      [{ category: "Snacks" }, "Pick a category"],
+      [{ amount: "0" }, "amount paid"],
+      [{ amount: "12abc" }, "amount paid"],
+      [{ email: "nobody@example.com" }, "has no payments"],
+    ] as const) {
+      const r = await add({ ...ok, ...change });
+      expect(r.status).toBe(400);
+      expect((await r.json()).error).toContain(error);
+    }
+    const tied = await (await add({ ...ok, email: "KIRAN@example.com" })).json();
+    expect(tied.ok).toBe(true);
+    expect((await add({ ...ok, what: "Calendly", category: "Tools & subscriptions", amount: "800" })).status).toBe(200);
+    const v = await (await get(open, "/admin/api/revenue")).json();
+    expect(v.categories).toContain("Ads");
+    expect(v.spent).toMatchObject({ total: 3300, count: 2, general: 800, linked: 1 });
+    expect(v.spent.byMonth.at(-1)).toBe(3300);
+    expect(v.byCandidate).toEqual([{ name: "Kiran Kumar", email: "kiran@example.com", paid: 12500, spent: 2500 }]);
+    expect(v.expenses.map((e: any) => [e.what, e.amount, e.email, e.name])).toEqual(
+      expect.arrayContaining([
+        ["Hareesh, 2 sessions", 2500, "kiran@example.com", "Kiran Kumar"],
+        ["Calendly", 800, "", ""],
+      ]),
+    );
+    expect(v.paidIn).toEqual([]);
+    // one candidate found: only their expenses (general costs drop out) and their confirmed payments, for the ledger
+    const kiran = await (await get(open, "/admin/api/revenue?q=kiran@example.com")).json();
+    expect(kiran.spent).toMatchObject({ total: 2500, count: 1, general: 0 });
+    expect(kiran.expenses).toHaveLength(1);
+    expect(kiran.paidIn).toEqual([expect.objectContaining({ amount: 12500, installment: "Advance", email: "kiran@example.com" })]);
+    // changed: moved to a general cost with a new amount; then deleted
+    const upd = await postJson(open, "/admin/api/expenses/update", { ...ok, id: tied.id, amount: "3000", email: "" });
+    expect(upd.status).toBe(200);
+    const after = await (await get(open, "/admin/api/revenue")).json();
+    expect(after.spent).toMatchObject({ total: 3800, general: 3800, linked: 0 });
+    expect(after.byCandidate).toEqual([{ name: "Kiran Kumar", email: "kiran@example.com", paid: 12500, spent: 0 }]);
+    expect((await postJson(open, "/admin/api/expenses/update", { ...ok, id: "missing" })).status).toBe(404);
+    expect((await postJson(open, "/admin/api/expenses/delete", { id: tied.id })).status).toBe(200);
+    expect((await postJson(open, "/admin/api/expenses/delete", { id: tied.id })).status).toBe(404);
+    expect((await (await get(open, "/admin/api/revenue")).json()).spent.total).toBe(800);
+    // saved on the volume, and signed out it's refused
+    expect(JSON.parse(readFileSync(join(open.dir, "expenses.json"), "utf8")).expenses).toHaveLength(1);
+    expect((await postJson(locked, "/admin/api/expenses", ok)).status).toBe(401);
+  });
 });
 
 describe("payments: the amount on the receipt", () => {
@@ -971,7 +1024,7 @@ describe("admin", () => {
     expect((await get(locked, "/admin/praneeth", { cookie: aide })).status).toBe(403);
     expect(await (await get(locked, "/admin/praneeth", { cookie })).text()).toContain("Praneeth's interviews");
     expect(await (await get(locked, "/admin/praneeth")).text()).toContain("/assets/login");
-    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide", "/admin/api/onboarding/delete"])
+    for (const path of ["/admin/api/enquiries/seen", "/admin/api/enquiries/delete", "/admin/api/payments/decide", "/admin/api/onboarding/delete", "/admin/api/expenses", "/admin/api/expenses/update", "/admin/api/expenses/delete"])
       expect((await postJson(locked, path, { id }, { cookie: aide })).status).toBe(403);
     // the owner still gets them (the made-up id isn't there, so its file is a 404, not a 403)
     for (const path of ["/admin/api/enquiries", "/admin/api/enquiries/seen", "/admin/api/payments", "/admin/api/revenue", "/admin/api/revenue.csv", "/admin/api/revenue.pdf"])
@@ -1420,7 +1473,7 @@ describe("backups", () => {
     expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
     const data = JSON.parse(files["backup-" + istDay() + ".json"]);
     expect(data.app).toBe("booking-form");
-    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "interviewers.json", "onboarding.json", "payments.json", "results.json", "secret.json", "unavailable.json"]);
+    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "expenses.json", "interviewers.json", "onboarding.json", "payments.json", "results.json", "secret.json", "unavailable.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["secret.json"].key).toBe(KEY);
     expect(Object.keys(data.uploads)).toEqual(["resumes/" + ENQ.resume.file]);

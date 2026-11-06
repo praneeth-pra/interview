@@ -7,6 +7,7 @@ import { backupParts, restoreData, restoreUpload } from "../backup";
 import { bookingsCsv, cancelBooking, createBooking, moveBooking, setFeedback, setRoundStatus } from "../bookings";
 import { DURATIONS, LOGIN_ON, MAX_BODY } from "../config";
 import { bookingsStore, isOwner, onboardingStore } from "../data";
+import { addExpense, deleteExpense, updateExpense } from "../expenses";
 import { deleteEnquiry, enquiriesList, enquiriesSeen, resumeFile } from "../enquiries";
 import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
 import { assignInterviewers, renameInterviewers } from "../interviewers";
@@ -24,8 +25,8 @@ import { istDate } from "../time";
 import { addBlock, removeBlock } from "../unavailable";
 import { type Fields, DATE_KEY } from "../util";
 
-// Enquiries, payments, revenue and onboarding forms are for owners only; other admins don't see their tabs, and these APIs refuse them.
-const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue|onboarding)(\/|\.csv$|\.pdf$|$)/;
+// Enquiries, payments, revenue (with its expenses) and onboarding forms are for owners only; other admins don't see their tabs, and these APIs refuse them.
+const OWNER_ONLY = /^\/admin\/api\/(enquiries|payments|revenue|expenses|onboarding)(\/|\.csv$|\.pdf$|$)/;
 // What only owners open from the ⋯ menu (added admins have no ⋯ menu): who can sign in, unavailable times, the interview
 // supporters' names, the Candidates list, the bookings download and the backup download and restore (which hold all of
 // those, and the key that signs candidates' manage links). Added admins still record who supported each interview (PUT /admin/api/interviewers).
@@ -72,6 +73,9 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
   if (path === "/admin/api/revenue" && method === "GET") return json(analyticsView(q("q").slice(0, 100)));
   if (path === "/admin/api/revenue.csv" && method === "GET") return analyticsCsv(q("q").slice(0, 100));
   if (path === "/admin/api/revenue.pdf" && method === "GET") return reportPdfResponse(q("month"));
+  if (path === "/admin/api/expenses" && method === "POST") return withBody(2000, (b) => addExpense(b, email));
+  if (path === "/admin/api/expenses/update" && method === "POST") return withBody(2000, (b) => updateExpense(b, email));
+  if (path === "/admin/api/expenses/delete" && method === "POST") return withBody(1000, (b) => deleteExpense(String(b?.id ?? "")));
   if (path === "/admin/api/enquiries" && method === "GET") return json(enquiriesList());
   const resume = path.match(/^\/admin\/api\/enquiries\/([0-9a-f-]{36})\/resume$/);
   if (resume && method === "GET") return resumeFile(resume[1], q("download") === "1");
