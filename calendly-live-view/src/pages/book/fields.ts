@@ -14,14 +14,10 @@ function errorParts(error: string) {
   const link = el("a", { href: "/onboarding", text: "the onboarding form" });
   return [error.slice(0, at), link, error.slice(at + "the onboarding form".length)];
 }
-// Switching to Demo drops the errors a demo can't have: the onboarding notice a new email got for an interview round,
-// and the company and invite ones. Returns the ids of the error lines it dropped.
+// Switching to Demo drops the company and invite errors a demo can't have. The Candidates-list notice stays: a demo
+// does not skip it. Returns the ids of the error lines it dropped.
 function dropNonDemoErrors() {
   const dropped: string[] = [];
-  if ((state.fieldErr.email || "").indexOf("the onboarding form") >= 0) {
-    delete state.fieldErr.email;
-    dropped.push("femaile");
-  }
   const ids: Record<string, string> = { company: "fcompanye", invite: "finve", inviteHr: "finvhre" };
   Object.keys(ids).forEach(function (key) {
     if (state.fieldErr[key]) {
@@ -33,9 +29,7 @@ function dropNonDemoErrors() {
 }
 export function textField(id: string, key: keyof State["form"], label: string, type: string, opts?: FieldOptions) {
   opts = opts || {};
-  // a demo needs no onboarding, so the email field never shows that notice while Demo is picked, whatever the email
-  const onboardingNotice = key === "email" && isDemo(state.form.round) && (state.fieldErr.email || "").indexOf("the onboarding form") >= 0;
-  const error = onboardingNotice ? "" : state.fieldErr[key];
+  const error = state.fieldErr[key];
   const input = el("input", {
     id: id,
     type: type,
@@ -90,8 +84,8 @@ export function textField(id: string, key: keyof State["form"], label: string, t
     children,
   );
 }
-// Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else. Anyone can pick Demo,
-// which needs no company, interview invite or onboarding.
+// Interview round: a dropdown of the usual rounds; "Other" opens a text box for anything else. Demo needs no company
+// or interview invite. Typing some other words that contain "demo" does not make it a demo.
 export function roundField() {
   const ROUNDS = ["1st round", "2nd round", "3rd round", "Manager round", "HR round", "Final round"].concat(["Demo"]);
   const current = state.form.round.trim();
@@ -144,7 +138,7 @@ export function roundField() {
   other.addEventListener("input", function () {
     const wasDemo = isDemo(state.form.round);
     state.form.round = other.value;
-    // typing a demo round ("Demo session") drops the onboarding notice too, without redrawing the form under the typing
+    // typing the round Demo drops the company and invite errors, without redrawing the form under the typing
     if (!wasDemo && isDemo(state.form.round)) {
       dropNonDemoErrors().forEach(function (id) {
         const errorEl = document.getElementById(id);

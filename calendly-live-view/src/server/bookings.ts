@@ -7,11 +7,11 @@ import { INVITE_NEEDED, INVITE_NO_HR, type InviteUpload, candidate, inviteRef, r
 import { inviteHrContacts, inviteReadable } from "./invite-read";
 import { invites } from "./uploads";
 import { BASE_HEADERS, json } from "./http";
-import { baseUrl, manageUrl, tokenOk } from "./links";
+import { baseUrl, tokenOk } from "./links";
 import { broadcastState } from "./live";
 import { alertAdmins } from "./push";
 import { bookingLimitMs, isBlocked, overlapsExisting, slotOk } from "./schedule";
-import { saveStore } from "./store";
+import { StoreUnavailable, saveStore } from "./store";
 import { sameCompany } from "../same-company";
 import { samePerson } from "../same-name";
 import { istDate, t12 } from "./time";
@@ -28,14 +28,24 @@ export function managedBooking(body: Fields): Booking | Response {
   if (Date.parse(b.start) <= Date.now()) return json({ error: "This interview has already started, so it can't be changed here." }, 409);
   return b;
 }
-export async function commit(b: Booking, prev: Booking) {
+let bookingGate: Promise<unknown> = Promise.resolve();
+// One booking is checked and saved at a time, so two requests for the same start cannot both pass the overlap check.
+function withBookingLock<T>(fn: () => Promise<T>): Promise<T> {
+  const run = bookingGate.then(fn, fn);
+  bookingGate = run.then(
+    () => {},
+    () => {},
+  );
+  return run;
+}
+export async function commit(b: Booking, prev: Booking): Promise<true | Response> {
   try {
     await saveStore(bookingsStore);
     return true;
-  } catch {
+  } catch (e) {
     for (const k of Object.keys(b)) if (!(k in prev)) delete (b as Record<string, unknown>)[k];
     Object.assign(b, prev);
-    return false;
+    return json({ error: "Couldn't save the change. Try again." }, e instanceof StoreUnavailable ? 503 : 500);
   }
 }
 const OUTCOME_LABEL = { cleared: "Cleared", rejected: "Rejected", hold: "On hold" } as const;
@@ -68,9 +78,12 @@ function clearEarlierRound(next: Booking): { round: Booking; before: Booking } |
 // /onboarding (sending it, after a confirmed payment, adds the email)
 export const ONBOARDING_FIRST =
   "This email isn't registered yet. Please fill in the onboarding form with this email first, then book your slot.";
-export const saveFailed = () => json({ error: "Couldn't save the change. Try again." }, 500);
-// invite: the screenshot or PDF of the company's invite, which every booking from the booking page brings (a demo has none)
-export async function createBooking(body: Fields, req: Request, source?: "admin", invite?: InviteUpload | null): Promise<Response> {
+// invite: the screenshot or PDF of the company's invite, which every booking from the booking page brings (a demo has none).
+// The whole check-and-save runs under the booking lock, so the overlap check cannot go stale across the invite write.
+export function createBooking(body: Fields, req: Request, source?: "admin", invite?: InviteUpload | null): Promise<Response> {
+  return withBookingLock(() => createBookingLocked(body, req, source, invite));
+}
+async function createBookingLocked(body: Fields, req: Request, source?: "admin", invite?: InviteUpload | null): Promise<Response> {
   const name = String(body?.name ?? "")
     .trim()
     .slice(0, 120);
@@ -87,15 +100,15 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   const attend: Attend | null = attendText in ATTEND_LABEL ? (attendText as Attend) : null;
   const duration = Number(body?.duration);
   const startMs = Number(body?.startMs);
-  // a demo can be booked by anyone, with any email: no onboarding, company or interview invite needed
+  // A demo needs no company and no interview invite. It does not skip the Candidates list or the one-email-one-person check.
   const demo = isDemo(round);
-  const candidateRules = !source && !demo;
+  const needsInterview = !source && !demo;
   if (demo) invite = null;
   if (!name) return json({ error: "Enter a name." }, 400);
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
   // candidates must say which company the interview is for; the admin form may leave it empty
-  if (candidateRules && !company) return json({ error: "Enter the company you're interviewing with.", field: "company" }, 400);
-  if (candidateRules && !emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
+  if (needsInterview && !company) return json({ error: "Enter the company you're interviewing with.", field: "company" }, 400);
+  if (!source && !emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
   // DEMOS_PER_EMAIL demos per email from the booking page (a cancelled one doesn't count); admins can book more
   if (
     !source &&
@@ -110,12 +123,11 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   if (attendText && !attend) return json({ error: "Choose in person or remote.", field: "attend" }, 400);
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   // one email is one person: an email already booked under someone else's name is refused (a cancelled booking
-  // doesn't count). Candidates aren't told whose name it is. A demo can use any email, and demos don't count here.
-  const other = demo
-    ? null
-    : bookingsStore.data.bookings.find(
-        (x) => !x.cancelled && !isDemo(x.round) && normEmail(x.email) === normEmail(email) && !samePerson(x.name, name),
-      );
+  // doesn't count). Candidates aren't told whose name it is. A demo does not count as that person's booking, but it
+  // still cannot be made under someone else's name.
+  const other = bookingsStore.data.bookings.find(
+    (x) => !x.cancelled && !isDemo(x.round) && normEmail(x.email) === normEmail(email) && !samePerson(x.name, name),
+  );
   if (other)
     return json(
       {
@@ -126,8 +138,8 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
       },
       409,
     );
-  if (candidateRules && !invite) return json({ error: INVITE_NEEDED, field: "invite" }, 400);
-  if (candidateRules && body?.hrVisible !== "yes")
+  if (needsInterview && !invite) return json({ error: INVITE_NEEDED, field: "invite" }, 400);
+  if (needsInterview && body?.hrVisible !== "yes")
     return json({ error: "Tick this once the HR's details show in your invite.", field: "inviteHr" }, 400);
   // the invite must show the HR's email (not the candidate's own); it is read now, before the booking is made
   let read: { emails: string[]; phones: string[] } | null = null;
@@ -169,14 +181,14 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
   const cleared = clearEarlierRound(booking);
   try {
     await saveStore(bookingsStore);
-  } catch {
+  } catch (e) {
     bookingsStore.data.bookings = bookingsStore.data.bookings.filter((x) => x !== booking);
     if (cleared) {
       for (const k of Object.keys(cleared.round)) if (!(k in cleared.before)) delete (cleared.round as Record<string, unknown>)[k];
       Object.assign(cleared.round, cleared.before);
     }
     if (booking.invite) await invites.remove(booking.invite.file).catch(() => {});
-    return json({ error: "Couldn't save the booking. Try again." }, 500);
+    return json({ error: "Couldn't save the booking. Try again." }, e instanceof StoreUnavailable ? 503 : 500);
   }
   broadcastState();
   if (booking.invite && !read) void readInvite(booking);
@@ -194,18 +206,14 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
       start: booking.start,
       end: booking.end,
       duration,
-      manage: manageUrl(base, booking),
     },
     emailed: !!RESEND_API_KEY,
   });
 }
-export async function moveBooking(
-  b: Booking,
-  startMs: number,
-  duration: number,
-  by: "candidate" | "host",
-  req: Request,
-): Promise<Response> {
+export function moveBooking(b: Booking, startMs: number, duration: number, by: "candidate" | "host", req: Request): Promise<Response> {
+  return withBookingLock(() => moveBookingLocked(b, startMs, duration, by, req));
+}
+async function moveBookingLocked(b: Booking, startMs: number, duration: number, by: "candidate" | "host", req: Request): Promise<Response> {
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   if (startMs === Date.parse(b.start) && duration === b.duration)
     return json({ error: "That's already the interview time. Pick a different time." }, 400);
@@ -230,13 +238,17 @@ export async function moveBooking(
   // a new time is a new chance: it isn't "didn't happen" any more
   delete b.missed;
   delete b.missedAt;
-  if (!(await commit(b, prev))) return saveFailed();
+  const moved = await commit(b, prev);
+  if (moved !== true) return moved;
   broadcastState();
   notifyRescheduled(b, prev.start, prev.end, baseUrl(req));
   if (by === "candidate") alertAdmins("moved", b);
   return json({ booking: { start: b.start, end: b.end, duration: b.duration }, emailed: !!RESEND_API_KEY });
 }
-export async function cancelBooking(b: Booking, reason: string, by: "candidate" | "host", req: Request): Promise<Response> {
+export function cancelBooking(b: Booking, reason: string, by: "candidate" | "host", req: Request): Promise<Response> {
+  return withBookingLock(() => cancelBookingLocked(b, reason, by, req));
+}
+async function cancelBookingLocked(b: Booking, reason: string, by: "candidate" | "host", req: Request): Promise<Response> {
   const prev = { ...b };
   Object.assign(b, {
     cancelled: true,
@@ -245,7 +257,8 @@ export async function cancelBooking(b: Booking, reason: string, by: "candidate" 
     cancelledBy: by,
     seq: (b.seq ?? 0) + 1,
   });
-  if (!(await commit(b, prev))) return saveFailed();
+  const cancelled = await commit(b, prev);
+  if (cancelled !== true) return cancelled;
   broadcastState();
   if (Date.parse(b.start) > Date.now()) {
     notifyCancelled(b, baseUrl(req));
@@ -376,7 +389,8 @@ export async function setRoundStatus(id: string, status: unknown): Promise<Respo
     delete b.outcome;
     delete b.outcomeAt;
   }
-  if (!(await commit(b, prev))) return saveFailed();
+  const marked = await commit(b, prev);
+  if (marked !== true) return marked;
   broadcastState();
   return json({ ok: true });
 }
@@ -405,7 +419,8 @@ export async function setFeedback(id: string, rating: unknown, notes: unknown, b
   Object.assign(b, { rating, feedback: text, feedbackAt: new Date().toISOString(), feedbackBy: by });
   if (!text) delete b.feedback;
   if (!by) delete b.feedbackBy;
-  if (!(await commit(b, prev))) return saveFailed();
+  const saved = await commit(b, prev);
+  if (saved !== true) return saved;
   broadcastState();
   return json({ ok: true });
 }

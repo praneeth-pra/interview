@@ -1,25 +1,29 @@
 // The public site: landing, booking, enquiry, payment, onboarding and manage-link pages, and their API.
 import { asset, respond } from "../../assets";
 import { cancelBooking, createBooking, managedBooking, moveBooking } from "../bookings";
-import { companySuggestions, knownName } from "../companies";
+import { companySuggestions } from "../companies";
 import { DURATIONS, HOST_NAME } from "../config";
-import { bookingsStore, emailAllowed } from "../data";
+import { bookingsStore } from "../data";
 import { receiveEnquiry } from "../enquiries";
 import { bookingForm } from "../invites";
 import { receiveOnboarding } from "../onboarding";
 import { receivePayment } from "../payments";
 import { BASE_HEADERS, type Srv, json, readJson, sendShell, underLimit, clientIp } from "../http";
 import { siteUrl, tokenOk } from "../links";
+import { durable } from "../store";
 import { BOOK_HOME, ENQUIRY, FAVICON, HOME, ICON, OG_IMAGE, ONBOARDING, PAYMENT, SW_JS, bookPage, splash } from "../pages";
 import { bookableDays, bookingLimitMs, slotsFor } from "../schedule";
-import { DATE_KEY, EMAIL_RE, UUID, normEmail } from "../util";
+import { DATE_KEY, UUID } from "../util";
 
 export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Response | null> {
   const path = url.pathname;
   // HEAD is answered like GET (respond() drops the body): link-preview fetchers check pages and pictures with it
   const method = req.method === "HEAD" ? "GET" : req.method;
 
-  if (path === "/healthz") return new Response("ok", { headers: BASE_HEADERS });
+  if (path === "/healthz") {
+    const ok = await durable();
+    return new Response(ok ? "ok" : "unhealthy", { status: ok ? 200 : 503, headers: BASE_HEADERS });
+  }
   if (path === "/sw.js")
     return new Response(SW_JS, {
       headers: { ...BASE_HEADERS, "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" },
@@ -129,9 +133,8 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   if (path === "/api/lookup" && method === "GET") {
     const ip = clientIp(req, srv);
     if (!underLimit("lookup:" + ip, 30, 60000)) return json({ name: "" }, 429);
-    const email = String(url.searchParams.get("email") ?? "").slice(0, 200);
-    if (!EMAIL_RE.test(normEmail(email)) || !emailAllowed(email)) return json({ name: "" });
-    return json({ name: knownName(email) });
+    // The name booked with an email stays on the server. This route used to hand it to anyone who could guess the address.
+    return json({ name: "" });
   }
   if (path === "/api/days" && method === "GET") {
     const duration = Number(url.searchParams.get("duration"));

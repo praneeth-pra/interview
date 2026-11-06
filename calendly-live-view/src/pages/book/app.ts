@@ -7,9 +7,9 @@ export const eventName = boot.event;
 export const manage: Manage | null = boot.manage;
 export const info = boot.info;
 export const DURATIONS = [30, 60, 90];
-// A demo (anyone can book one) has no interview invite, and its name and email aren't tied together: no name filled in from
-// the email, no "same company as before", and nothing remembered on this device.
-export const isDemo = (round: string) => /\bdemo\b/i.test(round);
+// A demo (the round named Demo) has no interview invite, and its name and email aren't tied together: no name filled in
+// from the email, no "same company as before", and nothing remembered on this device. Other text is a real round.
+export const isDemo = (round: string) => round.trim().toLowerCase() === "demo";
 export let state: State = {
   dur: 30,
   days: [],

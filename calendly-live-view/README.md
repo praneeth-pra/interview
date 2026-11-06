@@ -1,6 +1,6 @@
 # booking-form (hi-techie.dev)
 
-Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones. Candidates report a payment (Advance, First installment or Final installment; older payments may say 2nd or 3rd) with its receipt at `/payment` (not linked from the site, not indexed; open to any email, even when the Candidates list is on; confirming a payment doesn't add the email to the Candidates list, the onboarding form does; one email can have at most three payments waiting for a decision); those are in the Payments tab, by candidate, with a search box for a name or email. Owners also get a Revenue tab (on phones and narrow windows, in the ⋯ menu): confirmed payments added up month by month (Cumulative, the default) or per month (Monthly), and pending payments. Its search box suggests candidates as you type and narrows all of it to the one picked, or to everyone whose name or email contains what's typed.
+Interview booking site for Hi-Techie: `/` links to booking and the enquiry page; candidates pick a time at `/booking`, manage it from the link in their email (`/b/<id>?t=<token>`), and the team runs the calendar, allow-list and analytics at `/admin`. People can also send an enquiry with their resume at `/enquiry`; the responses are in the admin page's Enquiries tab, which shows a red count of new ones. Candidates report a payment (Advance, First installment or Final installment; older payments may say 2nd or 3rd) with its receipt at `/payment` (not linked from the site, not indexed; when the Candidates list is on, only those emails can pay, the same as booking; confirming a payment doesn't add the email to the Candidates list, the onboarding form does; one email can have at most three payments waiting for a decision); those are in the Payments tab, by candidate, with a search box for a name or email. Owners also get a Revenue tab (on phones and narrow windows, in the ⋯ menu): confirmed payments added up month by month (Cumulative, the default) or per month (Monthly), and pending payments. Its search box suggests candidates as you type and narrows all of it to the one picked, or to everyone whose name or email contains what's typed.
 
 Runs on Railway: project `calendly-live-view`, service `booking-form`, production environment. Domains `hi-techie.dev`, `www.hi-techie.dev`.
 
@@ -43,12 +43,12 @@ scripts/restore.ts   puts a backup back into a data folder
 
 Admins mark days or hours as unavailable from the ⋯ menu (Unavailable, saved in `unavailable.json`): the booking page, booking and candidate reschedules leave those times out, while the admin's own booking form still offers them. Interviews already booked in that time stay; the calendar and agenda show the time as a hatched band.
 
-Bookings and settings live as JSON files on the Railway volume mounted at `/data` (`DATA_DIR`), not in this repo.
+Bookings and settings live as JSON files on the Railway volume mounted at `/data` (`DATA_DIR`), not in this repo. Run a single replica only: the process keeps the files in memory and writes them back whole, so a second copy would overwrite the same data. On SIGTERM it stops listening and finishes queued saves before it exits. `/healthz` is 503 until every loaded store is readable and a probe write on the volume succeeds.
 
 ## Run and test
 
 ```bash
-ADMIN_OPEN=1 PORT=3000 DATA_DIR=/tmp/bf bun run src/server.ts   # ADMIN_OPEN=1: no sign-in, for local testing only
+ADMIN_OPEN=1 PORT=3000 DATA_DIR=/tmp/bf bun run src/server.ts   # ADMIN_OPEN=1: no sign-in, local only; it does not make you an owner
 bun install && bun run typecheck                         # strict server check and the page modules (dev tools only)
 bun run format                                           # Prettier (140 columns) over src/ and scripts/; CI runs format:check
 bun test tests/                                          # server tests, ~0.5 s
@@ -89,12 +89,12 @@ NODE_PATH=$(npm root -g) node tests/a11y.cjs             # accessibility: WCAG 2
 | Variable | Purpose |
 | --- | --- |
 | `ADMIN_EMAILS` | Admin sign-in: the owners' emails (comma separated). Anyone on the admin list signs in with a 6-digit code emailed to them; owners can add more admins in the ⋯ menu (Admins). Unset = the admin page stays locked (only admins added earlier can sign in). With email off (no `RESEND_API_KEY`), codes are printed in the server log. |
-| `ADMIN_OPEN` | `1` turns admin sign-in off while `ADMIN_EMAILS` is empty. For local testing only; never set it on Railway. |
+| `ADMIN_OPEN` | `1` turns admin sign-in off while `ADMIN_EMAILS` is empty. Local only: the process exits if `PUBLIC_URL` is a public address or the service is in production (Railway). It does not make anyone an owner; owner pages still need an email in `ADMIN_EMAILS`. |
 | `DATA_DIR` | Folder for the JSON stores (`/data` on Railway) |
 | `RESEND_API_KEY`, `EMAIL_FROM`, `HOST_EMAIL` | Confirmation emails and host copies |
 | `HOST_NAME`, `EVENT_NAME`, `EVENT_LOCATION`, `EVENT_DESCRIPTION`, `MEETING_LINK` | Text shown on pages, emails and invites |
 | `DAY_START_HOUR`, `DAY_END_HOUR`, `BOOKING_DAYS` | Booking window (default 9-21 IST, 7 days) |
-| `PUBLIC_URL` | Base URL for links in emails. Set it on Railway (`https://hi-techie.dev`): without it, links come from the request's host headers, which a visitor can set, and the server logs a warning at startup |
+| `PUBLIC_URL` | Base URL for links in emails. Required in production and on Railway (`https://hi-techie.dev`): the process exits without it. Links never use `Host` or `X-Forwarded-Host` except a local `localhost` / `127.0.0.1` host when this is unset. |
 | `REMOVE_BOOKINGS` | One-time cleanup on start: `Name@YYYY-MM-DD`, comma separated |
 | `BACKUP_EMAIL` | Where the weekly backup email goes (comma separated; falls back to `HOST_EMAIL`) |
 | `BACKUP_HOUR` | Hour (IST) after which the daily snapshot and the weekly email run, default `2` |
@@ -105,7 +105,7 @@ NODE_PATH=$(npm root -g) node tests/a11y.cjs             # accessibility: WCAG 2
 
 Every day after `BACKUP_HOUR` (IST) the server writes a data snapshot to `/data/backups/YYYY-MM-DD.json` (the last 14 days are kept). These live on the volume, so they don't survive losing it.
 
-Once a week (7 days after the last one) it also emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with all the data and the resumes and payment receipts, except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device) and `sessions.json` (who is signed in). Each email carries at most `BACKUP_FILES_MB` (default 12) of files, about 21 MB of email, under the 25 MB many inboxes accept; when there are more, the rest follow in more emails that day ("(2 of 3)"), each with a `backup-YYYY-MM-DD-partN.json`. Every weekly backup carries all the files, so the latest one is always complete.
+Once a week (7 days after the last one) it also emails `BACKUP_EMAIL` a `bookings-YYYY-MM-DD.csv` (opens in Excel or Sheets) and a `backup-YYYY-MM-DD.json` with the data and the resumes and payment receipts, except `push.json` (browser-alert keys; after a restore, turn alerts on again on each device), `sessions.json` (who is signed in), `secret.json` (the key for manage links) and the ID card images. The admin ⋯ menu → Backup download still has the key and the cards. Each email carries at most `BACKUP_FILES_MB` (default 12) of files, about 21 MB of email, under the 25 MB many inboxes accept; when there are more, the rest follow in more emails that day ("(2 of 3)"), each with a `backup-YYYY-MM-DD-partN.json`. Every weekly backup carries all the files, so the latest one is always complete.
 
 `/data/backup-state.json` remembers the last snapshot and email days, so restarts don't send duplicates; a failed email is retried every 15 minutes. Owners can download the same full backup any time from the admin's ⋯ menu → Backup (`/admin/backup.json`).
 

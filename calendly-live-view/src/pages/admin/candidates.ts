@@ -8,7 +8,7 @@ export type CandidateMatch = { booking: Booking; email: string; count: number };
 // The email to show for a person: not an admin's own (the server marks those bookings staff, e.g. the owner's email used
 // for a demo), then one used for an interview over a demo-only one, then the latest.
 function rank(booking: Booking) {
-  return [booking.staff ? 0 : 1, /\bdemo\b/i.test(booking.round || "") ? 0 : 1, Date.parse(booking.start) || 0];
+  return [booking.staff ? 0 : 1, (booking.round || "").trim().toLowerCase() === "demo" ? 0 : 1, Date.parse(booking.start) || 0];
 }
 function better(first: Booking, second: Booking) {
   const a = rank(first);

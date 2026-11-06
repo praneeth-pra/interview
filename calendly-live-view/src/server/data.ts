@@ -1,5 +1,5 @@
 // Everything the app keeps: the types and the file store for each kind of data.
-import { DEFAULT_INTERVIEWERS, LOGIN_ON, OWNER_EMAILS } from "./config";
+import { DEFAULT_INTERVIEWERS, OWNER_EMAILS } from "./config";
 import { fileStore, loadStore, type FileStore } from "./store";
 import { DAY_MS, EMAIL_RE, type Fields, asFields, normEmail } from "./util";
 
@@ -132,9 +132,9 @@ export const sessionsStore = fileStore<{ sessions: Session[] }>(
   }),
 );
 export const isAdmin = (email: string) => OWNER_EMAILS.includes(email) || adminsStore.data.emails.includes(email);
-// Enquiries and payments are for the owners (ADMIN_EMAILS) only, not for the admins they add. With sign-in off (local
-// testing) everyone is an owner.
-export const isOwner = (email: string) => !LOGIN_ON || OWNER_EMAILS.includes(email);
+// Enquiries and payments are for the owners (ADMIN_EMAILS) only, not for the admins they add. Sign-in being off does
+// not make a caller an owner.
+export const isOwner = (email: string) => OWNER_EMAILS.includes(normEmail(email));
 const SESSION_DAYS = 60; // signed out after this many days without opening the admin
 export const liveSession = (v: Session) => isAdmin(v.email) && Date.parse(v.seen) + SESSION_DAYS * DAY_MS > Date.now();
 // Enquiries from the public /enquiry page. The details are in enquiries.json; each resume is a file in DATA_DIR/resumes

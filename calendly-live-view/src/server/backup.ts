@@ -54,20 +54,23 @@ export const UPLOAD_PATH = /^(resumes|receipts|id-cards|invites)\/[A-Za-z0-9-]{1
 const FILES_MB = Number(Bun.env.BACKUP_FILES_MB);
 const EMAIL_FILES_MAX = (FILES_MB > 0 ? FILES_MB : 12) * 1024 * 1024;
 
-export function backupData(withPush: boolean) {
+export function backupData(withPush: boolean, forEmail = false) {
+  const files: Record<string, unknown> = {
+    ...Object.fromEntries(Object.entries(STORES).map(([name, s]) => [name, s.data])),
+    ...(withPush ? { "push.json": pushStore.data } : {}),
+  };
+  // The weekly email must not carry the manage-link key. The on-volume snapshot and the admin download still do.
+  if (forEmail) delete files["secret.json"];
   return {
     app: "booking-form",
     version: 1,
     createdAt: new Date().toISOString(),
-    files: {
-      ...Object.fromEntries(Object.entries(STORES).map(([name, s]) => [name, s.data])),
-      ...(withPush ? { "push.json": pushStore.data } : {}),
-    },
+    files,
   };
 }
 // The backup with every resume and receipt (base64), split into parts of at most max bytes of files, newest files first.
 // Part 1 has the data and the first files; the other parts have only files. Restoring takes all the parts together.
-export async function backupParts(max = Infinity) {
+export async function backupParts(max = Infinity, forEmail = false) {
   const wanted = [
     ...enquiriesStore.data.enquiries.map((v) => ({
       at: v.createdAt,
@@ -79,9 +82,12 @@ export async function backupParts(max = Infinity) {
       path: "receipts/" + v.receipt.file,
       read: () => receipts.read(v.receipt.file),
     })),
-    ...onboardingStore.data.forms.flatMap((v) =>
-      [v.aadhaar, v.pan].map((c) => ({ at: v.createdAt, path: "id-cards/" + c.file, read: () => idCards.read(c.file) })),
-    ),
+    // ID card images stay on the volume and in the admin download. They are not attached to the weekly email.
+    ...(forEmail
+      ? []
+      : onboardingStore.data.forms.flatMap((v) =>
+          [v.aadhaar, v.pan].map((c) => ({ at: v.createdAt, path: "id-cards/" + c.file, read: () => idCards.read(c.file) })),
+        )),
     ...bookingsStore.data.bookings.flatMap((b) =>
       b.invite ? [{ at: b.createdAt, path: "invites/" + b.invite.file, read: () => invites.read(b.invite!.file) }] : [],
     ),
@@ -103,7 +109,7 @@ export async function backupParts(max = Infinity) {
     count++;
     chunks.at(-1)![w.path] = Buffer.from(bytes).toString("base64");
   }
-  const data = backupData(false);
+  const data = backupData(false, forEmail);
   const parts = chunks.map((uploads, i) => ({
     ...(i ? { app: data.app, version: data.version, createdAt: data.createdAt } : data),
     part: i + 1,
@@ -126,7 +132,7 @@ async function saveSnapshot(day: string) {
 async function emailBackup(day: string) {
   const all = bookingsStore.data.bookings;
   const upcoming = all.filter((b) => !b.cancelled && Date.parse(b.start) > Date.now()).length;
-  const { parts, count } = await backupParts(EMAIL_FILES_MAX);
+  const { parts, count } = await backupParts(EMAIL_FILES_MAX, true);
   const n = parts.length;
   const name = (i: number) => "backup-" + day + (n > 1 ? "-part" + (i + 1) : "") + ".json";
   const subject = "Backup: " + HOST_NAME + " bookings \u2013 " + day;
@@ -144,7 +150,7 @@ async function emailBackup(day: string) {
       (n > 1 ? " and the " + (n - 1) + " that follow it" : "") +
       ": if the server's data is ever lost, the backup " +
       (n > 1 ? "files are" : "file is") +
-      " enough to restore everything (admin ⋯ menu → Backup).",
+      " enough to restore the bookings, resumes and receipts (admin ⋯ menu → Backup). The manage-link key and ID card images are not in this email; download Backup in the admin page for those.",
     rows: [
       ["Date", day],
       ["Bookings", all.length + " in total, " + upcoming + " upcoming"],

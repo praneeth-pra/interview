@@ -219,7 +219,7 @@ function oneEmail(bookings: Booking[], aside: Record<string, boolean>) {
       return;
     }
     const info = (seen[email] = seen[email] || { aside: !!aside[email], real: false, last: 0 });
-    info.real = info.real || !/\bdemo\b/i.test(booking.round || "");
+    info.real = info.real || (booking.round || "").trim().toLowerCase() !== "demo";
     info.last = Math.max(info.last, Date.parse(booking.start) || 0);
   });
   const emails = Object.keys(seen).sort(function (a, b) {

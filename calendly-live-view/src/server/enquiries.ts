@@ -3,7 +3,7 @@ import { type Enquiry, enquiriesStore, pushStore } from "./data";
 import { type Srv, json, saveOrUndo, storedFile } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
-import { saveStore } from "./store";
+import { StoreUnavailable, saveStore } from "./store";
 import { PDF_OR_WORD, kindOf, lastDay, readForm, resumes, uploadedName } from "./uploads";
 import { EMAIL_RE, normEmail } from "./util";
 
@@ -115,8 +115,15 @@ export async function deleteEnquiry(id: string): Promise<Response> {
 // When this admin ("" with sign-in off) last opened Enquiries; with now, it is being opened now.
 export async function enquiriesSeen(email: string, now: boolean): Promise<Response> {
   if (now) {
+    const prev = enquiriesStore.data.seen[email];
     enquiriesStore.data.seen[email] = new Date().toISOString();
-    await saveStore(enquiriesStore).catch(() => {});
+    try {
+      await saveStore(enquiriesStore);
+    } catch (e) {
+      if (prev === undefined) delete enquiriesStore.data.seen[email];
+      else enquiriesStore.data.seen[email] = prev;
+      return json({ error: "Couldn't save the change. Try again." }, e instanceof StoreUnavailable ? 503 : 500);
+    }
   }
   return json({ seenAt: enquiriesStore.data.seen[email] ?? "" });
 }

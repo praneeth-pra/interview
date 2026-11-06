@@ -65,7 +65,9 @@ export function renderDone() {
         " minute " +
         eventName.toLowerCase() +
         " is booked. " +
-        (booking.emailed ? "A calendar invite is on its way to " + booking.email + "." : "Add it to your calendar so it doesn't slip."),
+        (booking.emailed
+          ? "A calendar invite is on its way to " + booking.email + ", with a link to reschedule or cancel."
+          : "Add it to your calendar so it doesn't slip."),
     ]),
   );
   const meta = el("ul", {
@@ -114,16 +116,6 @@ export function renderDone() {
       },
       [
         addToCalendar,
-        booking.manage
-          ? el(
-              "a",
-              {
-                class: "pill",
-                href: booking.manage,
-              },
-              ["Reschedule or cancel"],
-            )
-          : null,
         el(
           "button",
           {

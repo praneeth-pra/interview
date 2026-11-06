@@ -3,6 +3,7 @@
 // Run: NODE_PATH=$(npm root -g) node tests/a11y.cjs   (needs the playwright package; axe-core is a dev dependency)
 const { chromium } = require("playwright");
 const { spawn } = require("node:child_process");
+const { createHash } = require("node:crypto");
 const { mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
@@ -96,9 +97,20 @@ writeFileSync(
   }),
 );
 const manage = "/b/" + bookings[1].id + "?t=" + require("node:crypto").createHmac("sha256", KEY).update("manage:" + bookings[1].id).digest("hex").slice(0, 32);
+const TOKEN = "ab".repeat(32);
+writeFileSync(
+  join(dir, "sessions.json"),
+  JSON.stringify({
+    sessions: [{ id: createHash("sha256").update(TOKEN).digest("hex"), email: "owner@example.com", created: new Date().toISOString(), seen: new Date().toISOString(), device: "a11y" }],
+  }),
+);
+const ownerCookie = { name: "bf_admin", value: TOKEN, domain: "127.0.0.1", path: "/admin", httpOnly: true, secure: true, sameSite: "Lax" };
 
 const env = { ...process.env, RESEND_API_KEY: "" };
-const server = spawn("bun", ["run", join(__dirname, "../src/server.ts")], { env: { ...env, PORT: String(PORT), DATA_DIR: dir, ADMIN_OPEN: "1" }, stdio: "ignore" });
+const server = spawn("bun", ["run", join(__dirname, "../src/server.ts")], {
+  env: { ...env, PORT: String(PORT), DATA_DIR: dir, ADMIN_EMAILS: "owner@example.com", ADMIN_OPEN: "" },
+  stdio: "ignore",
+});
 const locked = spawn("bun", ["run", join(__dirname, "../src/server.ts")], {
   env: { ...env, PORT: String(PORT + 1), DATA_DIR: mkdtempSync(join(tmpdir(), "booking-form-a11y-locked-")), ADMIN_EMAILS: "owner@example.com" },
   stdio: "ignore",
@@ -218,6 +230,7 @@ const views = [
     for (const scheme of ["light", "dark"]) {
       // bypassCSP only lets the test inject axe; the pages' own policy is checked by the server tests
       const ctx = await browser.newContext({ viewport, colorScheme: scheme, bypassCSP: true, hasTouch: mobile, isMobile: mobile });
+      await ctx.addCookies([ownerCookie]);
       for (const [name, url, prepare] of screens) {
         const p = await ctx.newPage();
         try {
