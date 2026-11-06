@@ -4,7 +4,7 @@ import { loadCompanies } from "./companies";
 import { isDemo, render, state } from "./app";
 import { clearSlots, loadDays, showSlots } from "./slots";
 import { ATTEND_NEEDED, attendField, companyField, roundField, textField } from "./fields";
-import { HR_NEEDED, bookingForm, inviteField, inviteProblem } from "./invite";
+import { bookingForm, inviteField, inviteProblem } from "./invite";
 import { WELCOME_BACK, prefillName, previousCompanies, rememberBooking, setNameHint, showPreviousCompanies } from "./returning";
 
 let lookupTimer: ReturnType<typeof setTimeout> | null = null; // clearTimeout(null) does nothing, so the calls below pass it as is
@@ -138,9 +138,6 @@ function submitBooking() {
   const inviteError = demo ? "" : inviteProblem(invite);
   if (inviteError) {
     errors.invite = inviteError;
-  }
-  if (!demo && !state.inviteHr) {
-    errors.inviteHr = HR_NEEDED;
   }
   state.fieldErr = errors;
   state.err = "";

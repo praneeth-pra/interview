@@ -318,10 +318,26 @@
   font: inherit;
   font-size: 14px;
 }
+/* the dropdowns draw their own arrow, centred and inset from the edge like the text, instead of the browser's */
+.xp-edit select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%238a8f98' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 12px;
+  text-overflow: ellipsis;
+}
+/* category and candidate: on the line below, under the supporter and why */
 .xp-pick {
+  grid-column: 2 / 4;
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+}
+.xp-pick select {
+  flex: 1 1 0;
+  min-height: 36px;
 }
 .xp-acts td {
   padding-top: 0;
@@ -405,6 +421,10 @@
   }
   .xp-f-amt {
     order: 2;
+  }
+  .xp-pick {
+    grid-column: 1 / -1;
+    order: 4;
   }
   /* a candidate's ledger: what's kept goes under the amount */
   .xp-tbl .xp-bal {

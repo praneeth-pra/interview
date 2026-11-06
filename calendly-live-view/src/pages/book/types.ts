@@ -44,7 +44,6 @@ export type State = {
   fieldErr: Record<string, string>;
   form: { name: string; email: string; company: string; round: string; attend: string };
   invite?: File | null; // the interview invite chosen on the details step (not kept in the draft)
-  inviteHr?: boolean; // the candidate ticked that the HR's details show in the invite
   admin?: boolean; // a signed-in admin is booking: a demo goes through the admin API
   busy: boolean;
   anim?: boolean; // slide the times list in on the next render

@@ -167,11 +167,20 @@ export const ATTEND_OPTIONS: [string, string][] = [
   ["remote", "Remote (online)"],
 ];
 // what a candidate picking Remote is told first
-export const REMOTE_NOTE =
-  "You need a good, steady internet connection. Only choose Remote if your interview link is Google Meet or Microsoft Teams.";
+export const REMOTE_NOTE = "Only choose Remote if:";
+export const REMOTE_POINTS = ["You have a good, steady internet connection.", "Your interview link is Google Meet or Microsoft Teams."];
 export function attendField() {
   const error = state.fieldErr.attend;
-  const note = el("div", { class: "fnote", id: "fattendn", role: "status", hidden: state.form.attend !== "remote" }, [REMOTE_NOTE]);
+  const note = el("div", { class: "fnote", id: "fattendn", role: "status", hidden: state.form.attend !== "remote" }, [
+    el("b", { text: REMOTE_NOTE }),
+    el(
+      "ul",
+      null,
+      REMOTE_POINTS.map(function (point) {
+        return el("li", { text: point });
+      }),
+    ),
+  ]);
   const select = el("select", {
     id: "fattend",
     name: "attend",

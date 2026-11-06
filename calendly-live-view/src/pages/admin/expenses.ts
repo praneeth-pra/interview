@@ -206,8 +206,9 @@ function editRows(money: Money, hooks: Hooks, item: Expense | null, candidate: s
       el("div", { class: "xp-form" + (cols > 4 ? " xp-ledger" : "") }, [
         el("div", { class: "xp-f-date" }, [date]),
         el("div", { class: "xp-f-to" }, [paidTo]),
-        el("div", { class: "xp-f-why" }, [what, el("div", { class: "xp-pick" }, [category, who])]),
+        el("div", { class: "xp-f-why" }, [what]),
         el("div", { class: "xp-f-amt" }, [amount]),
+        el("div", { class: "xp-pick" }, [category, who]),
       ]),
     ]),
   ]);
