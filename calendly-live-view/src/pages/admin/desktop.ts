@@ -324,6 +324,9 @@ export function renderDesktop() {
   dock();
 }
 export function setupDesktop() {
+  // The bell (alerts.ts) is created after the first render, in the sidebar; move it to the week's title row now, before the
+  // page paints, so a reload doesn't show it at the bottom of the sidebar first and then jump.
+  relocate();
   // the sidebar shows the sections as icons; hovering one names it
   document.querySelectorAll<HTMLElement>(".top .tabs button").forEach(function (tab) {
     tab.title = ((tab.firstChild && tab.firstChild.textContent) || "").trim();
