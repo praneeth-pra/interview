@@ -1,5 +1,5 @@
 // Expenses in the Revenue tab (owners only): where the money candidates pay goes. With everyone shown, a "By candidate"
-// table (paid in, spent on them, kept, margin) and the list of every expense; with one candidate found by the search,
+// table (paid in, spent on them, kept) and the list of every expense; with one candidate found by the search,
 // their ledger: confirmed payments in and expenses out, newest first, with what's kept after each. Expenses are rows
 // typed straight into the list: the top row is blank to add one (Enter saves it and opens the next), and tapping an
 // expense opens it the same way to change or delete it.
@@ -11,7 +11,8 @@ import { TIME_ZONE } from "./time";
 export type Expense = {
   id: string;
   date: string;
-  what: string;
+  what: string; // why it was paid
+  paidTo?: string; // the interview supporter it was paid to, if any
   category: string;
   amount: number;
   email: string;
@@ -24,6 +25,7 @@ export type Money = {
   paidIn: PaidIn[];
   byCandidate: ByCandidate[];
   categories: string[];
+  supporters: string[];
   candidates: { name: string; email: string; total: number }[];
 };
 type Hooks = {
@@ -61,12 +63,25 @@ export function openNewExpense() {
 // ledger (null shows the candidate picker). cols: how many columns the table has.
 function editRows(money: Money, hooks: Hooks, item: Expense | null, candidate: string | null, cols: number) {
   const date = el("input", { type: "date", value: item ? item.date : today(), max: today(), "aria-label": "Day it was paid" });
+  // who it was paid to: one of the interview supporters, or nobody (a tool, an ad); a name since removed from the
+  // list stays on its expense
+  const current = item && item.paidTo ? item.paidTo : "";
+  const names = money.supporters.indexOf(current) < 0 && current ? money.supporters.concat([current]) : money.supporters;
+  const paidTo = el(
+    "select",
+    { "aria-label": "Supporter it was paid to" },
+    [el("option", { value: "", text: "None" })].concat(
+      names.map(function (n) {
+        return el("option", { value: n, text: n, selected: n === current });
+      }),
+    ),
+  );
   const what = el("input", {
     type: "text",
     value: item ? item.what : "",
     maxlength: "120",
-    placeholder: "What was it for?",
-    "aria-label": "What it was for",
+    placeholder: "Why? (e.g. 3 mock interviews)",
+    "aria-label": "Why it was paid",
   });
   const category = el(
     "select",
@@ -105,6 +120,7 @@ function editRows(money: Money, hooks: Hooks, item: Expense | null, candidate: s
       id: item ? item.id : undefined,
       date: date.value,
       what: what.value,
+      paidTo: paidTo.value,
       category: category.value,
       amount: amount.value,
       email: candidate !== null ? candidate : who!.value,
@@ -178,21 +194,27 @@ function editRows(money: Money, hooks: Hooks, item: Expense | null, candidate: s
       cancel.click();
     }
   };
-  [date, what, category, amount, who].forEach(function (input) {
+  [date, paidTo, what, category, amount, who].forEach(function (input) {
     if (input) {
       input.addEventListener("keydown", keys);
     }
   });
+  // one cell across the table holding a grid: date, supporter, why (with category and candidate under it), amount
+  // side by side on wide screens, stacked in two columns on phones
   const fields = el("tr", { class: "xp-edit" }, [
-    el("td", { class: "dt" }, [date]),
-    el("td", { class: "xp-what" }, [what, el("div", { class: "xp-pick" }, [category, who])]),
-    el("td", { class: "num" }, [amount]),
-    cols > 3 ? el("td", { class: "xp-bal" }) : null,
+    el("td", { colspan: String(cols) }, [
+      el("div", { class: "xp-form" + (cols > 4 ? " xp-ledger" : "") }, [
+        el("div", { class: "xp-f-date" }, [date]),
+        el("div", { class: "xp-f-to" }, [paidTo]),
+        el("div", { class: "xp-f-why" }, [what, el("div", { class: "xp-pick" }, [category, who])]),
+        el("div", { class: "xp-f-amt" }, [amount]),
+      ]),
+    ]),
   ]);
   const actions = el("tr", { class: "xp-edit xp-acts" }, [
     el("td", { colspan: String(cols) }, [el("div", { class: "xp-btns" }, [msg, remove, cancel, save])]),
   ]);
-  return { rows: [fields, actions], focus: item ? amount : what };
+  return { rows: [fields, actions], focus: item ? amount : paidTo };
 }
 
 // one expense, as a row: tapping it opens it for changes
@@ -201,13 +223,15 @@ function expenseRow(item: Expense, showName: boolean, cols: number, kept: number
     editing = item.id;
     hooks.refresh();
   };
+  // phones have no Supporter column, so the supporter leads the line under why
   const sub = item.category + (showName && item.email ? " · " + titleCase(item.name) : showName ? " · General" : "");
   return el("tr", { class: "tap", tabindex: "0", title: "Change or delete this expense", onclick: open, onkeydown: onEnterOrSpace(open) }, [
     el("td", { class: "dt", text: dayText(item.date) }),
+    el("td", { class: "xp-to", text: item.paidTo || "\u2014" }),
     el("td", { class: "xp-what" }, [
-      cols > 3 ? el("span", { class: "xp-tag out", text: "Out" }) : null,
+      cols > 4 ? el("span", { class: "xp-tag out", text: "Out" }) : null,
       item.what,
-      el("small", { text: sub }),
+      el("small", null, [item.paidTo ? el("span", { class: "xp-tom", text: item.paidTo + " \u00B7 " }) : null, sub]),
     ]),
     el("td", { class: "num xp-o" }, [
       "−" + rupees(item.amount),
@@ -240,6 +264,7 @@ function fillBody(
       tbody.appendChild(
         el("tr", null, [
           el("td", { class: "dt", text: dayText(p.date) }),
+          el("td", { class: "xp-to", text: "\u2014" }),
           el("td", { class: "xp-what" }, [
             el("span", { class: "xp-tag in", text: "In" }),
             "Payment" + (p.installment ? ", " + p.installment.toLowerCase() : ""),
@@ -323,7 +348,7 @@ export function drawLedger(body: HTMLElement, money: Money, hooks: Hooks, who: {
     });
   }
   const tbody = el("tbody");
-  const focus = fillBody(tbody, money, hooks, shown, who.email, 4);
+  const focus = fillBody(tbody, money, hooks, shown, who.email, 5);
   const section = el("section", { class: "rv-sec xp-list", id: "xpList" }, [
     el("div", { class: "rv-sh" }, [
       el("div", null, [
@@ -340,7 +365,8 @@ export function drawLedger(body: HTMLElement, money: Money, hooks: Hooks, who: {
         el("thead", null, [
           el("tr", null, [
             el("th", { scope: "col", text: "Date" }),
-            el("th", { scope: "col", text: "What" }),
+            el("th", { scope: "col", class: "xp-to", text: "Supporter" }),
+            el("th", { scope: "col", text: "Why" }),
             el("th", { scope: "col", class: "num", text: "Amount" }),
             el("th", { scope: "col", class: "num xp-bal", text: "Kept" }),
           ]),
@@ -355,19 +381,12 @@ export function drawLedger(body: HTMLElement, money: Money, hooks: Hooks, who: {
   focusLater(focus, section);
 }
 
-// the margin bar's fill (set through .style: the page's rules don't allow style attributes)
-function meterFill(margin: number) {
-  const fill = el("i");
-  fill.style.width = Math.max(0, Math.min(100, margin)) + "%";
-  return fill;
-}
 // Everyone (or several candidates found): each candidate's paid in, spent and kept, the general costs, then every
 // expense.
 export function drawByCandidate(body: HTMLElement, money: Money, hooks: Hooks, general: number, searching: boolean) {
   if (money.byCandidate.length || general) {
     const rows = money.byCandidate.map(function (c) {
       const kept = c.paid - c.spent;
-      const margin = c.paid ? Math.round((kept / c.paid) * 100) : 0;
       const open = function () {
         hooks.pick(c.email, c.name);
       };
@@ -379,10 +398,6 @@ export function drawByCandidate(body: HTMLElement, money: Money, hooks: Hooks, g
           el("td", { class: "num xp-c", text: rupees(c.paid) }),
           el("td", { class: "num xp-c xp-o", text: c.spent ? "−" + rupees(c.spent) : "—" }),
           el("td", { class: "num" }, [el("b", { text: rupees(kept) })]),
-          el("td", { class: "xp-mcell" }, [
-            c.paid ? el("span", { class: "xp-meter" + (margin < 40 ? " low" : ""), "aria-hidden": "true" }, [meterFill(margin)]) : null,
-            el("span", { class: "xp-m", text: c.paid ? margin + "%" : "" }),
-          ]),
         ],
       );
     });
@@ -393,7 +408,6 @@ export function drawByCandidate(body: HTMLElement, money: Money, hooks: Hooks, g
           el("td", { class: "num xp-c", text: "—" }),
           el("td", { class: "num xp-c xp-o", text: "−" + rupees(general) }),
           el("td", { class: "num" }, [el("b", { text: rupees(-general) })]),
-          el("td"),
         ]),
       );
     }
@@ -416,7 +430,6 @@ export function drawByCandidate(body: HTMLElement, money: Money, hooks: Hooks, g
                 el("th", { scope: "col", class: "num xp-c", text: "Paid in" }),
                 el("th", { scope: "col", class: "num xp-c", text: "Spent" }),
                 el("th", { scope: "col", class: "num", text: "Kept" }),
-                el("th", { scope: "col", text: "Margin" }),
               ]),
             ]),
             el("tbody", null, rows),
@@ -434,7 +447,7 @@ export function drawByCandidate(body: HTMLElement, money: Money, hooks: Hooks, g
       return { item: item, kept: null };
     }),
     null,
-    3,
+    4,
   );
   const section = el("section", { class: "rv-sec xp-list", id: "xpList" }, [
     el("div", { class: "rv-sh" }, [
@@ -448,7 +461,8 @@ export function drawByCandidate(body: HTMLElement, money: Money, hooks: Hooks, g
         el("thead", null, [
           el("tr", null, [
             el("th", { scope: "col", text: "Date" }),
-            el("th", { scope: "col", text: "What" }),
+            el("th", { scope: "col", class: "xp-to", text: "Supporter" }),
+            el("th", { scope: "col", text: "Why" }),
             el("th", { scope: "col", class: "num", text: "Amount" }),
           ]),
         ]),

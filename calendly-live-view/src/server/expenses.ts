@@ -1,7 +1,7 @@
 // Expenses (expenses.json), kept in the owners' Revenue tab to see where the money candidates pay goes. Each one is a
-// row the owner types in: the India day it was paid, what it was for, a category, the amount, and optionally the
+// row the owner types in: the India day it was paid, the supporter it was paid to (if any), why, a category, the amount, and optionally the
 // candidate it was spent on (by their payments' email). Owners add, change and delete them; nobody else sees them.
-import { EXPENSE_CATEGORIES, type Expense, expensesStore, paymentsStore } from "./data";
+import { EXPENSE_CATEGORIES, type Expense, expensesStore, ivStore, paymentsStore } from "./data";
 import { json, saveOrUndo } from "./http";
 import { istDate } from "./time";
 import { DATE_KEY, EMAIL_RE, type Fields, normEmail } from "./util";
@@ -16,6 +16,7 @@ function readExpense(body: Fields): Omit<Expense, "id" | "createdAt" | "by"> | s
     .trim()
     .replace(/\s+/g, " ")
     .slice(0, 120);
+  const paidTo = String(body?.paidTo ?? "").trim();
   const category = String(body?.category ?? "");
   const amountText = String(body?.amount ?? "").replace(/[,\s₹]/g, "");
   const amount = /^\d+(\.\d{1,2})?$/.test(amountText) ? Number(amountText) : NaN;
@@ -23,7 +24,10 @@ function readExpense(body: Fields): Omit<Expense, "id" | "createdAt" | "by"> | s
   if (!DATE_KEY.test(date) || Number.isNaN(Date.parse(date + "T00:00:00Z"))) return "Pick the day it was paid.";
   if (date > istDate(new Date().toISOString())) return "That day hasn't come yet.";
   if (date < "2020-01-01") return "Pick the day it was paid.";
-  if (!what) return "Say what it was for.";
+  // a supporter's name, as the list has it now (or as this expense already had it, if they've since been removed)
+  const keep = typeof body?.id === "string" ? expensesStore.data.expenses.find((e) => e.id === body.id)?.paidTo : "";
+  if (paidTo && !ivStore.data.names.includes(paidTo) && paidTo !== keep) return "Pick the supporter again.";
+  if (!what && !paidTo) return "Pick a supporter or say why it was paid.";
   if (!(EXPENSE_CATEGORIES as readonly string[]).includes(category)) return "Pick a category.";
   if (!(amount > 0) || amount > AMOUNT_MAX) return "Enter the amount paid, in rupees.";
   if (email && !EMAIL_RE.test(email)) return "Pick the candidate again.";
@@ -34,7 +38,7 @@ function readExpense(body: Fields): Omit<Expense, "id" | "createdAt" | "by"> | s
     if (!theirs.length) return "That candidate has no payments. Pick another, or leave it as a general cost.";
     name = theirs.reduce((a, b) => (b.createdAt > a.createdAt ? b : a)).name;
   }
-  return { date, what, category, amount, email, name };
+  return { date, what, paidTo, category, amount, email, name };
 }
 
 // POST /admin/api/expenses: { date, what, category, amount, email? }

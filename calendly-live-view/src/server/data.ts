@@ -225,7 +225,9 @@ export const EXPENSE_CATEGORIES = ["Supporters' pay", "Tools & subscriptions", "
 export type Expense = {
   id: string;
   date: string;
-  what: string;
+  what: string; // why it was paid
+  // the interview supporter it was paid to (a name from interviewers.json), "" or missing for anything else
+  paidTo?: string;
   category: string;
   amount: number; // in rupees
   email: string;

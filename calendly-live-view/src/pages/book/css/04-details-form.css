@@ -43,6 +43,18 @@ input[aria-invalid="true"] {
   color: var(--ink2);
   margin-top: 6px;
 }
+/* the notice under "How will you attend?" once Remote is picked */
+.fnote {
+  margin-top: 8px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--blue) 10%, transparent);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.fnote[hidden] {
+  display: none;
+}
 .ferr {
   font-size: 13px;
   color: var(--red);
