@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac, randomBytes } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -22,24 +22,61 @@ const booking = {
 };
 const manageToken = (id: string) => createHmac("sha256", KEY).update("manage:" + id).digest("hex").slice(0, 32);
 
-type Srv = { url: string; dir: string; proc: ReturnType<typeof Bun.spawn> };
+type Srv = { url: string; dir: string; proc: ReturnType<typeof Bun.spawn>; cookie: string; log: () => string };
+// ADMIN_OPEN no longer makes the caller an owner. Servers that used to rely on that get a real owner session instead.
+function seedOwner(dir: string, email: string) {
+  const token = randomBytes(32).toString("hex");
+  const session = { id: createHash("sha256").update(token).digest("hex"), email, created: new Date().toISOString(), seen: new Date().toISOString(), device: "test" };
+  const path = join(dir, "sessions.json");
+  let sessions: unknown[] = [];
+  if (existsSync(path)) {
+    try {
+      sessions = JSON.parse(readFileSync(path, "utf8")).sessions ?? [];
+    } catch {}
+  }
+  sessions.push(session);
+  writeFileSync(path, JSON.stringify({ sessions }));
+  return "bf_admin=" + token;
+}
 async function start(port: number, env: Record<string, string>, existing?: string): Promise<Srv> {
   const dir = existing ?? mkdtempSync(join(tmpdir(), "booking-form-"));
   if (!existing) seed(dir);
+  const childEnv: Record<string, string> = { ADMIN_OPEN: "1", ...env };
+  let cookie = "";
+  if (childEnv.ADMIN_OPEN === "1" && !childEnv.ADMIN_EMAILS) {
+    childEnv.ADMIN_OPEN = "";
+    childEnv.ADMIN_EMAILS = "owner@example.com";
+    cookie = seedOwner(dir, "owner@example.com");
+  }
+  let log = "";
   const proc = Bun.spawn(["bun", "run", join(ROOT, "src/server.ts")], {
-    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", MONTHLY_REPORT: "off", ADMIN_OPEN: "1", ...env },
-    stdout: "ignore",
+    env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", MONTHLY_REPORT: "off", ...childEnv },
+    stdout: "pipe",
     stderr: "inherit",
   });
+  void (async () => {
+    const reader = proc.stdout.getReader();
+    const dec = new TextDecoder();
+    try {
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        log += dec.decode(value, { stream: true });
+      }
+    } catch {}
+  })();
   const url = "http://127.0.0.1:" + port;
   for (let i = 0; i < 100; i++) {
     try {
-      if ((await fetch(url + "/healthz")).ok) return { url, dir, proc };
+      const res = await fetch(url + "/healthz");
+      if (res.status === 200 || res.status === 503) return { url, dir, proc, cookie, log: () => log };
     } catch {}
     await Bun.sleep(50);
   }
+  proc.kill();
   throw new Error("server did not start");
 }
+const withCookie = (s: Srv, headers: Record<string, string> = {}) => (s.cookie && !headers.cookie ? { ...headers, cookie: s.cookie } : headers);
 // A payment from this email through /payment, confirmed (or discarded, or left waiting with null) by an owner
 async function paidFor(srv: Srv, email: string, ip: string, decision: "confirm" | "discard" | null = "confirm") {
   const d = new FormData();
@@ -72,7 +109,7 @@ const mails: any[] = [];
 const mailServer = Bun.serve({ port: 4315, fetch: async (req) => (mails.push(await req.json()), Response.json({ id: "x" })) });
 const lockedEnv = { ADMIN_EMAILS: OWNER + ", boss@example.com chief@example.com", RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4315/emails" };
 const postJson = (s: Srv, path: string, body: unknown, headers: Record<string, string> = {}) =>
-  fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/json", ...headers }, body: JSON.stringify(body) });
+  fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/json", ...withCookie(s, headers) }, body: JSON.stringify(body) });
 // A booking from the booking page: a multipart form with the interview invite (unless one is given, a small PDF that
 // shows the HR's email, as every invite must).
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
@@ -107,7 +144,19 @@ afterAll(() => {
   mailServer.stop(true);
 });
 
-const get = (s: Srv, path: string, headers: Record<string, string> = {}) => fetch(s.url + path, { headers, decompress: false } as RequestInit);
+const get = (s: Srv, path: string, headers: Record<string, string> = {}) =>
+  fetch(s.url + path, { headers: withCookie(s, headers), decompress: false } as RequestInit);
+async function deleteOwned(s: Srv, id: string) {
+  const asked = await postJson(s, "/admin/api/onboarding/delete-code", { id });
+  const body = await asked.json();
+  if (!body.needed) return postJson(s, "/admin/api/onboarding/delete", { id });
+  let code = "";
+  for (let i = 0; i < 40 && !code; i++) {
+    code = [...s.log().matchAll(/delete code for [^:]+: (\d{6})/g)].at(-1)?.[1] ?? "";
+    if (!code) await Bun.sleep(25);
+  }
+  return postJson(s, "/admin/api/onboarding/delete", { id, code });
+}
 const assetsIn = (html: string) => [...html.matchAll(/(?:href|src)="(\/assets\/[^"]+)"/g)].map((m) => m[1]);
 const boot = (html: string) => JSON.parse(html.match(/<script type="application\/json" id="boot">(.*?)<\/script>/)![1]);
 
@@ -227,13 +276,14 @@ describe("booking flow", () => {
     expect(day.slots).toEqual(slots);
     const post = (path: string, body: unknown) => fetch(open.url + path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
     const made = await (await bookForm(open, { name: "Test Person", email: "test@example.com", company: "Acme", round: "HR", duration: 30, startMs: slots[0] })).json();
-    expect(made.booking.manage).toMatch(/\/b\/[0-9a-f-]{36}\?t=[0-9a-f]{32}$/);
+    expect(made.booking.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(JSON.stringify(made)).not.toContain(manageToken(made.booking.id));
     const noCompany = await bookForm(open, { name: "Other", email: "o@example.com", company: "  ", duration: 30, startMs: slots[2] });
     expect(noCompany.status).toBe(400);
     expect((await noCompany.json()).field).toBe("company");
     const clash = await bookForm(open, { name: "Other", email: "o@example.com", company: "Beta", duration: 30, startMs: slots[0] });
     expect(clash.status).toBe(409);
-    const t = made.booking.manage.split("t=")[1];
+    const t = manageToken(made.booking.id);
     const moved = await (await post("/api/manage/reschedule", { id: made.booking.id, t, startMs: slots[1], duration: 30 })).json();
     expect(moved.booking.start).toBe(new Date(slots[1]).toISOString());
     expect((await post("/api/manage/cancel", { id: made.booking.id, t, reason: "test" })).status).toBe(200);
@@ -285,16 +335,17 @@ describe("booking flow", () => {
     const admin = await postJson(open, "/admin/api/book", { ...next, name: "Hemanth", round: "2nd round", duration: 30 });
     expect(admin.status).toBe(409);
     expect((await admin.json()).error).toContain("Invite Test's bookings");
-    // a demo can use any email, and doesn't stop the email's own person booking with it
+    // a demo does not skip the one-email-one-person check, and it does not take the slot
     const demo = await postJson(open, "/admin/api/book", { ...next, name: "Hemanth", round: "Demo", duration: 30 });
-    expect(demo.status).toBe(200);
-    const demoId = (await demo.json()).booking.id;
-    expect((await postJson(open, "/admin/api/cancel", { id: demoId, reason: "test" })).status).toBe(200);
-    const t = made.booking.manage.split("t=")[1];
+    expect(demo.status).toBe(409);
+    const same = await postJson(open, "/admin/api/book", { ...next, name: "Invite Test", round: "Demo", duration: 30 });
+    expect(same.status).toBe(200);
+    expect((await postJson(open, "/admin/api/cancel", { id: (await same.json()).booking.id, reason: "test" })).status).toBe(200);
+    const t = manageToken(made.booking.id);
     expect((await postJson(open, "/api/manage/cancel", { id, t, reason: "test" })).status).toBe(200);
   });
 
-  test("anyone books a demo with any email, two per email; a demo has no interview invite", async () => {
+  test("a demo is only the round Demo, two per email, and it has no interview invite", async () => {
     const days = await (await get(open, "/api/days?duration=30")).json();
     const day = days.days.filter((d: any) => d.open).at(-1);
     const slots = (await (await get(open, `/api/slots?date=${day.key}&duration=30`)).json()).slots;
@@ -304,12 +355,21 @@ describe("booking flow", () => {
     const mine = await postJson(open, "/api/book", { ...body, email: "anyone@example.net", startMs: slots.at(-3) }, ip);
     expect(mine.status).toBe(200);
     const mineId = (await mine.json()).booking.id;
-    // two demos per email, however the round is written; a cancelled one doesn't count
-    const second = await postJson(open, "/api/book", { ...body, email: "Anyone@example.net", round: "demo session", startMs: slots.at(-4) }, ip);
+    // "demo session" is a real round: it needs an invite and it is not one of the two demos
+    const notDemo = await postJson(
+      open,
+      "/api/book",
+      { ...body, email: "Anyone@example.net", company: "Acme", round: "demo session", startMs: slots.at(-4) },
+      ip,
+    );
+    expect(notDemo.status).toBe(400);
+    expect((await notDemo.json()).field).toBe("invite");
+    // two demos per email, whatever the capitalisation; a cancelled one doesn't count
+    const second = await postJson(open, "/api/book", { ...body, email: "Anyone@example.net", round: "demo", startMs: slots.at(-4) }, ip);
     expect(second.status).toBe(200);
     const secondId = (await second.json()).booking.id;
     for (const r of [
-      await postJson(open, "/api/book", { ...body, email: "Anyone@example.net", round: "demo session" }, ip),
+      await postJson(open, "/api/book", { ...body, email: "Anyone@example.net", round: "DEMO" }, ip),
       await bookForm(open, { ...body, email: "anyone@example.net" }, ip),
     ]) {
       expect(r.status).toBe(409);
@@ -329,6 +389,7 @@ describe("booking flow", () => {
     expect(saved).toMatchObject({ round: "Demo", source: "admin", invite: null });
     // a demo's name isn't tied to the email: the booking page doesn't fill it in for that email later
     expect(await (await get(open, "/api/lookup?email=demo@example.com")).json()).toEqual({ name: "" });
+    expect(await (await get(open, "/api/lookup?email=priya@example.com")).json()).toEqual({ name: "" });
     expect((await postJson(open, "/admin/api/cancel", { id: made.booking.id, reason: "test" })).status).toBe(200);
   });
 
@@ -401,7 +462,7 @@ describe("booking flow", () => {
     const refused = await bookForm(open, { name: "Ravi", email: "ravi@example.com", company: "Acme", duration: 30, startMs: freeBefore[2] });
     expect(refused.status).toBe(409);
     const made = await (await bookForm(open, { name: "Ravi", email: "ravi@example.com", company: "Acme", duration: 30, startMs: near.at(-1) })).json();
-    const t = made.booking.manage.split("t=")[1];
+    const t = manageToken(made.booking.id);
     expect((await postJson(open, "/api/manage/reschedule", { id: made.booking.id, t, startMs: freeBefore[3], duration: 30 })).status).toBe(409);
     // admins still see and can book those times
     const adminSlots = (await (await get(open, `/admin/api/slots?date=${key}&duration=30`)).json()).slots;
@@ -598,7 +659,7 @@ describe("onboarding", () => {
     const forms = all.slice(0, 2);
     expect(forms.map((x: any) => x.name)).toEqual(["Arjun Reddy", "Lakshmi Devi"]);
     expect(forms[0]).toMatchObject({ name: "Arjun Reddy", genuine: "no", linkedin: "https://www.linkedin.com/in/arjun-reddy" });
-    expect((await postJson(srv, "/admin/api/onboarding/delete", { id: forms[0].id })).status).toBe(200);
+    expect((await deleteOwned(srv, forms[0].id)).status).toBe(200);
     const v = forms[1];
     expect(v).toMatchObject({ genuine: "yes", linkedin: "https://www.linkedin.com/in/lakshmi-devi" });
     expect(v).toMatchObject({ name: "Lakshmi Devi", email: "lakshmi@example.com", phone: "98765 43210", tech: "Python", experience: "2 years" });
@@ -619,7 +680,7 @@ describe("onboarding", () => {
     const backup = await (await get(srv, "/admin/backup.json")).json();
     expect(Object.keys(backup.uploads)).toEqual(expect.arrayContaining(["id-cards/" + v.id + "-aadhaar.jpg", "id-cards/" + v.id + "-pan.pdf"]));
     expect(backup.files["onboarding.json"].forms.length).toBe(all.length - 1);
-    expect((await postJson(srv, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(200);
+    expect((await deleteOwned(srv, v.id)).status).toBe(200);
     expect((await (await get(srv, "/admin/api/onboarding")).json()).forms.length).toBe(all.length - 2);
     expect(existsSync(join(srv.dir, "id-cards", v.id + "-aadhaar.jpg"))).toBe(false);
     expect((await postJson(srv, "/admin/api/onboarding/delete", { id: v.id })).status).toBe(404);
@@ -634,6 +695,7 @@ describe("onboarding", () => {
       const body = { name: "New Person", email, company: "Acme", duration: 30, startMs: slots[i] };
       return path === "/api/book" ? bookForm(srv, body, { "x-real-ip": "10.3.0.1" }) : postJson(srv, path, body, { "x-real-ip": "10.3.0.1" });
     };
+    await paidFor(srv, "Brand-New@example.com", "10.3.0.3");
     expect((await postJson(srv, "/admin/api/allowlist", { action: "add", text: "listed@example.com" })).status).toBe(200);
     expect((await postJson(srv, "/admin/api/allowlist", { action: "enable", on: true })).status).toBe(200);
     try {
@@ -642,11 +704,10 @@ describe("onboarding", () => {
       expect(await refused.json()).toEqual({ error: "This email isn't registered yet. Please fill in the onboarding form with this email first, then book your slot.", field: "email", onboarding: true });
       // an admin can book anyone
       expect((await book("admin-booked@example.com", 1, "/admin/api/book")).status).toBe(200);
-      // so can anyone booking a demo
+      // a demo does not skip the list
       const demo = await postJson(srv, "/api/book", { name: "Demo Person", email: "demo-new@example.com", round: "Demo", duration: 30, startMs: slots[3] }, { "x-real-ip": "10.3.0.4" });
-      expect(demo.status).toBe(200);
+      expect(demo.status).toBe(403);
       // a confirmed payment alone doesn't let them book; the onboarding form after it does (any capitals)
-      await paidFor(srv, "Brand-New@example.com", "10.3.0.3");
       expect((await book("brand-new@example.com", 0)).status).toBe(403);
       const f = new FormData();
       for (const [k, v] of Object.entries({ name: "New Person", email: "Brand-New@example.com", phone: "9876543210", tech: "Java", experience: "1 year", genuine: "yes", linkedin: "linkedin.com/in/new" })) f.set(k, v);
@@ -884,7 +945,7 @@ describe("payments: the amount on the receipt", () => {
 });
 
 describe("payments and the invite list", () => {
-  test("payments are open to any email; confirming one doesn't add the email to the Candidates list", async () => {
+  test("with the Candidates list on, only those emails can pay; confirming one doesn't add the email", async () => {
     const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 9]);
     const f = (email: string) => {
       const d = new FormData();
@@ -899,15 +960,19 @@ describe("payments and the invite list", () => {
     expect((await postJson(open, "/admin/api/allowlist", { action: "add", text: "listed@example.com" })).status).toBe(200);
     expect((await postJson(open, "/admin/api/allowlist", { action: "enable", on: true })).status).toBe(200);
     try {
-      // anyone can send a payment, listed or not
-      expect((await send("Stranger@Example.com")).status).toBe(200);
+      const stranger = await send("Stranger@Example.com");
+      expect(stranger.status).toBe(403);
+      expect(await stranger.json()).toMatchObject({ field: "email", onboarding: true });
+      expect((await send("listed@example.com")).status).toBe(200);
       // confirming it leaves the list alone: the onboarding form adds the email
       const allow = async () => (await (await get(open, "/admin/api/allowlist")).json()).state.emails;
       const { payments } = await (await get(open, "/admin/api/payments")).json();
-      const id = payments.find((p: any) => p.email === "stranger@example.com").id;
+      const id = payments.find((p: any) => p.email === "listed@example.com").id;
       expect(await (await postJson(open, "/admin/api/payments/decide", { id, decision: "confirm" })).json()).not.toHaveProperty("allowed");
       expect(await allow()).not.toContain("stranger@example.com");
+      expect(await allow()).toContain("listed@example.com");
       // one email can't pile up payments waiting for a decision
+      expect((await postJson(open, "/admin/api/allowlist", { action: "add", text: "pile@example.com" })).status).toBe(200);
       for (const ip of ["10.1.9.3", "10.1.9.4", "10.1.9.5"])
         expect((await fetch(open.url + "/api/payment", { method: "POST", body: f("pile@example.com"), headers: { "x-real-ip": ip } })).status).toBe(200);
       const fourth = await fetch(open.url + "/api/payment", { method: "POST", body: f("pile@example.com"), headers: { "x-real-ip": "10.1.9.6" } });
@@ -1165,7 +1230,11 @@ describe("admin", () => {
       let state = await (await get(srv, "/admin/api/state")).json();
       expect(state.events.find((e: any) => e.id === done.id).missed).toBe("noshow");
       // no support can be recorded for it, and the download says what happened
-      const iv = await fetch(srv.url + "/admin/api/interviewers", { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ set: { [done.id]: "Praneeth" } }) });
+      const iv = await fetch(srv.url + "/admin/api/interviewers", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", cookie: srv.cookie },
+        body: JSON.stringify({ set: { [done.id]: "Praneeth" } }),
+      });
       expect(iv.status).toBe(409);
       expect(await (await get(srv, "/admin/export.csv")).text()).toContain("No-show");
       expect((await mark(done.id, "other")).status).toBe(200);
@@ -1459,6 +1528,18 @@ describe("backups", () => {
     writeFileSync(join(dir, "enquiries.json"), JSON.stringify({ enquiries: [{ ...ENQ, createdAt: new Date().toISOString() }], seen: {} }));
     mkdirSync(join(dir, "resumes"));
     writeFileSync(join(dir, "resumes", ENQ.resume.file), RESUME);
+    const cardId = "50000000-0000-0000-0000-0000000000c1";
+    const jpeg = new Uint8Array([0xff, 0xd8, 0xff, 0xe0, 1, 2]);
+    const card = (kind: string) => ({ file: cardId + "-" + kind + ".jpg", name: kind + ".jpg", type: "image/jpeg", size: jpeg.length });
+    writeFileSync(
+      join(dir, "onboarding.json"),
+      JSON.stringify({
+        forms: [{ id: cardId, name: "Asha", email: "asha@example.com", phone: "9876543210", tech: "Java", experience: "1 year", createdAt: new Date().toISOString(), aadhaar: card("aadhaar"), pan: card("pan") }],
+      }),
+    );
+    mkdirSync(join(dir, "id-cards"));
+    writeFileSync(join(dir, "id-cards", cardId + "-aadhaar.jpg"), jpeg);
+    writeFileSync(join(dir, "id-cards", cardId + "-pan.jpg"), jpeg);
     srv = await start(4313, env, dir);
     // the server records the day in backup-state.json just after the email goes out; wait for both, or a quick
     // restart in the next tests could land in between and send the backup a second time
@@ -1480,9 +1561,9 @@ describe("backups", () => {
     expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
     const data = JSON.parse(files["backup-" + istDay() + ".json"]);
     expect(data.app).toBe("booking-form");
-    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "expenses.json", "interviewers.json", "onboarding.json", "payments.json", "results.json", "secret.json", "unavailable.json"]);
+    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "expenses.json", "interviewers.json", "onboarding.json", "payments.json", "results.json", "unavailable.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
-    expect(data.files["secret.json"].key).toBe(KEY);
+    expect(data.files["secret.json"]).toBeUndefined();
     expect(Object.keys(data.uploads)).toEqual(["resumes/" + ENQ.resume.file]);
     expect(Buffer.from(data.uploads["resumes/" + ENQ.resume.file], "base64").equals(Buffer.from(RESUME))).toBe(true);
   });
@@ -1490,6 +1571,7 @@ describe("backups", () => {
   test("a full snapshot (with push keys) is kept on the volume and the day is recorded", () => {
     const snap = JSON.parse(readFileSync(join(srv.dir, "backups", istDay() + ".json"), "utf8"));
     expect(Object.keys(snap.files)).toContain("push.json");
+    expect(snap.files["secret.json"].key).toBe(KEY);
     expect(JSON.parse(readFileSync(join(srv.dir, "backup-state.json"), "utf8"))).toEqual({ saved: istDay(), emailed: istDay() });
   });
 
@@ -1541,7 +1623,10 @@ describe("backups", () => {
     expect(data.files["bookings.json"].bookings.length).toBe(61);
     expect(data.files["push.json"]).toBeUndefined();
     expect(data.files["unavailable.json"]).toEqual({ blocks: [] });
-    expect(Object.keys(data.uploads)).toEqual(["resumes/" + ENQ.resume.file]);
+    expect(data.files["secret.json"].key).toBe(KEY);
+    expect(Object.keys(data.uploads).sort()).toEqual(
+      ["id-cards/50000000-0000-0000-0000-0000000000c1-aadhaar.jpg", "id-cards/50000000-0000-0000-0000-0000000000c1-pan.jpg", "resumes/" + ENQ.resume.file].sort(),
+    );
   });
 
   test("the owner restores a backup from the admin page: the data, then each resume", async () => {
@@ -1791,14 +1876,12 @@ describe("data safety", () => {
   });
   afterAll(() => s?.proc.kill());
 
-  test("a store whose file and backup don't read is never overwritten", async () => {
-    const r = await fetch(s.url + "/admin/api/interviewer-names", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ list: [{ to: "Asha" }] }),
-    });
-    expect(r.status).toBe(200);
+  test("a store whose file and backup don't read is never overwritten, and health stays down", async () => {
+    expect((await fetch(s.url + "/healthz")).status).toBe(503);
+    const r = await postJson(s, "/admin/api/interviewer-names", { list: [{ to: "Asha" }] });
+    expect(r.status).toBe(503);
     expect(readFileSync(join(s.dir, "interviewers.json"), "utf8")).toBe(GARBAGE);
+    expect(readFileSync(join(s.dir, "interviewers.json.bak"), "utf8")).toBe(GARBAGE);
   });
 
   test("adding more emails than fit changes nothing, not even in memory", async () => {
@@ -1813,7 +1896,7 @@ describe("data safety", () => {
   test("JSON bodies that aren't objects are refused cleanly, not crashed on", async () => {
     for (const body of ["null", "[]", '"text"', "42"]) {
       const send = (path: string) =>
-        fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/json", "x-real-ip": "10.7.1.1" }, body });
+        fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/json", "x-real-ip": "10.7.1.1", cookie: s.cookie }, body });
       expect((await send("/api/book")).status).toBe(400);
       expect((await send("/api/manage/cancel")).status).toBe(403);
       expect((await send("/admin/api/allowlist")).status).toBe(400);
@@ -1879,6 +1962,139 @@ describe("deleting an onboarding form", () => {
       expect((await send("/admin/api/onboarding/delete", { id: formId, code })).status).toBe(404);
     } finally {
       s.proc.kill();
+    }
+  });
+});
+
+describe("durability, links and demos", () => {
+  test("two bookings of the same start cannot both succeed", async () => {
+    const days = await (await get(open, "/api/days?duration=30")).json();
+    const day = days.days.find((d: any) => d.slots?.length > 2);
+    const startMs = day.slots[1];
+    const body = (email: string) => ({ name: "Race Person", email, company: "Acme", round: "HR", duration: 30, startMs });
+    const [a, b] = await Promise.all([
+      bookForm(open, body("race-a@example.com"), { "x-real-ip": "10.8.0.1" }),
+      bookForm(open, body("race-b@example.com"), { "x-real-ip": "10.8.0.2" }),
+    ]);
+    const codes = [a.status, b.status].sort();
+    expect(codes).toEqual([200, 409]);
+  });
+
+  test("a demo does not take the slot a real interview needs", async () => {
+    const days = await (await get(open, "/api/days?duration=30")).json();
+    const day = days.days.filter((d: any) => d.slots?.length > 3).at(-1);
+    const startMs = day.slots.at(-1);
+    const demo = await postJson(open, "/api/book", { name: "Demo Slot", email: "slot-demo@example.com", round: "Demo", duration: 30, startMs }, { "x-real-ip": "10.8.1.1" });
+    expect(demo.status).toBe(200);
+    expect((await (await get(open, `/api/slots?date=${day.key}&duration=30`)).json()).slots).toContain(startMs);
+    const real = await bookForm(open, { name: "Real Slot", email: "slot-real@example.com", company: "Acme", round: "HR", duration: 30, startMs }, { "x-real-ip": "10.8.1.2" });
+    expect(real.status).toBe(200);
+  });
+
+  test("a corrupt bookings file is not copied onto its backup, and new bookings are refused", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-bak-"));
+    seed(dir);
+    const good = readFileSync(join(dir, "bookings.json"));
+    writeFileSync(join(dir, "bookings.json.bak"), good);
+    writeFileSync(join(dir, "bookings.json"), "{ not json");
+    const s = await start(4371, {}, dir);
+    try {
+      expect((await fetch(s.url + "/healthz")).status).toBe(503);
+      const days = await (await get(s, "/api/days?duration=30")).json();
+      const startMs = days.days.find((d: any) => d.slots?.length).slots[0];
+      const booked = await bookForm(s, { name: "No Save", email: "nosave@example.com", company: "Acme", round: "HR", duration: 30, startMs });
+      expect(booked.status).toBe(503);
+      expect(readFileSync(join(dir, "bookings.json"), "utf8")).toBe("{ not json");
+      expect(readFileSync(join(dir, "bookings.json.bak"))).toEqual(good);
+    } finally {
+      s.proc.kill();
+    }
+  });
+
+  test("SIGTERM lets the process finish and leave the last booking on disk", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-term-"));
+    seed(dir);
+    const s = await start(4372, {}, dir);
+    const days = await (await get(s, "/api/days?duration=30")).json();
+    const startMs = days.days.find((d: any) => d.slots?.length).slots[0];
+    const booked = await bookForm(s, { name: "Kept", email: "kept@example.com", company: "Acme", round: "HR", duration: 30, startMs });
+    expect(booked.status).toBe(200);
+    const id = (await booked.json()).booking.id;
+    s.proc.kill();
+    await s.proc.exited;
+    const saved = JSON.parse(readFileSync(join(dir, "bookings.json"), "utf8")).bookings;
+    expect(saved.some((b: any) => b.id === id)).toBe(true);
+  });
+
+  test("production will not start without PUBLIC_URL, and ADMIN_OPEN will not start on a public URL", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-boot-"));
+    seed(dir);
+    const run = (env: Record<string, string>) => {
+      const proc = Bun.spawn(["bun", "run", join(ROOT, "src/server.ts")], {
+        env: { ...process.env, PORT: "4373", DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", MONTHLY_REPORT: "off", ADMIN_OPEN: "", PUBLIC_URL: "", NODE_ENV: "", RAILWAY_ENVIRONMENT: "", RAILWAY_PROJECT_ID: "", RAILWAY_SERVICE_ID: "", ...env },
+        stdout: "pipe",
+        stderr: "pipe",
+      });
+      return proc;
+    };
+    const prod = run({ NODE_ENV: "production" });
+    expect(await prod.exited).not.toBe(0);
+    expect(await new Response(prod.stderr).text()).toContain("PUBLIC_URL");
+    const openPublic = run({ ADMIN_OPEN: "1", PUBLIC_URL: "https://hi-techie.dev" });
+    expect(await openPublic.exited).not.toBe(0);
+    expect(await new Response(openPublic.stderr).text()).toContain("ADMIN_OPEN");
+  });
+
+  test("ADMIN_OPEN on localhost does not make the caller an owner", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-open-"));
+    seed(dir);
+    const proc = Bun.spawn(["bun", "run", join(ROOT, "src/server.ts")], {
+      env: { ...process.env, PORT: "4374", DATA_DIR: dir, RESEND_API_KEY: "", BACKUP_HOUR: "23", MONTHLY_REPORT: "off", ADMIN_OPEN: "1", ADMIN_EMAILS: "", PUBLIC_URL: "" },
+      stdout: "ignore",
+      stderr: "inherit",
+    });
+    const url = "http://127.0.0.1:4374";
+    try {
+      let up = false;
+      for (let i = 0; i < 100 && !up; i++) {
+        try {
+          up = (await fetch(url + "/healthz")).ok;
+        } catch {}
+        await Bun.sleep(50);
+      }
+      expect(up).toBe(true);
+      expect((await fetch(url + "/admin/api/state")).status).toBe(200);
+      expect((await fetch(url + "/admin/api/payments")).status).toBe(403);
+    } finally {
+      proc.kill();
+    }
+  });
+
+  test("email links ignore a forwarded host and use PUBLIC_URL", async () => {
+    const got: any[] = [];
+    const mail = Bun.serve({ port: 4376, fetch: async (req) => (got.push(await req.json()), Response.json({ id: "x" })) });
+    const s = await start(4375, { PUBLIC_URL: "https://hi-techie.dev", RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4376/emails" });
+    try {
+      const days = await (await get(s, "/api/days?duration=30")).json();
+      const startMs = days.days.find((d: any) => d.slots?.length).slots[0];
+      const booked = await bookForm(
+        s,
+        { name: "Link Test", email: "link@example.com", company: "Acme", round: "HR", duration: 30, startMs },
+        { "x-forwarded-host": "evil.example", "x-real-ip": "10.8.2.1" },
+      );
+      expect(booked.status).toBe(200);
+      const body = await booked.json();
+      expect(body.booking.manage).toBeUndefined();
+      let text = "";
+      for (let i = 0; i < 50 && !text; i++) {
+        text = got.find((m) => m.to?.[0] === "link@example.com")?.text ?? "";
+        if (!text) await Bun.sleep(20);
+      }
+      expect(text).toContain("https://hi-techie.dev/b/" + body.booking.id);
+      expect(text).not.toContain("evil.example");
+    } finally {
+      s.proc.kill();
+      mail.stop(true);
     }
   });
 });

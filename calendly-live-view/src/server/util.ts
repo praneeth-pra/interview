@@ -1,9 +1,10 @@
 // Small helpers shared by the server modules.
 import { createHash, timingSafeEqual } from "node:crypto";
 
-// A demo isn't a company's interview: anyone can book one with any email, it carries no interview invite, and its
-// name isn't remembered for the email it was booked with.
-export const isDemo = (round: string) => /\bdemo\b/i.test(round);
+// A demo isn't a company's interview. Only this round is one: text that merely contains "demo" is a normal interview,
+// so it still needs the Candidates list and it still takes a real slot.
+export const DEMO_ROUND = "Demo";
+export const isDemo = (round: string) => round.trim().toLowerCase() === DEMO_ROUND.toLowerCase();
 
 export const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export const normEmail = (s: unknown) =>

@@ -2,10 +2,11 @@
 import { DAYS_AHEAD, DAY_END_MIN, DAY_START_MIN, SLOT_STEP_MIN } from "./config";
 import { activeBookings, blocksStore } from "./data";
 import { istParts, istToUtcMs } from "./time";
-import { pad } from "./util";
+import { isDemo, pad } from "./util";
 
+// Demos do not take a real interview's time: a demo booked on a slot still leaves that slot free.
 export function overlapsExisting(startMs: number, endMs: number, ignoreId = "") {
-  return activeBookings().some((b) => b.id !== ignoreId && Date.parse(b.start) < endMs && Date.parse(b.end) > startMs);
+  return activeBookings().some((b) => b.id !== ignoreId && !isDemo(b.round) && Date.parse(b.start) < endMs && Date.parse(b.end) > startMs);
 }
 // Inside a time an admin marked unavailable (⋯ menu → Unavailable). Only candidates are kept out; admins can still book.
 export function isBlocked(startMs: number, endMs: number) {

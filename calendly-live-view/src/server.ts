@@ -1,15 +1,24 @@
 // The booking site's server: the public pages (landing, booking, enquiry), the admin app and their APIs.
 // The code lives in src/server/: routes/ for the URLs, one module per feature, data.ts for what is stored.
+// One process only. Bookings live in memory and in JSON files on this machine; a second replica would overwrite them.
+// On SIGTERM the process stops listening, then waits for queued saves before it exits.
 import { assetList, compressed } from "./assets";
 import { startBackups } from "./server/backup";
 import { startReports } from "./server/report";
 import { removeListedBookings } from "./server/bookings";
 import { dropDemoInvites } from "./server/invites";
-import { ADMIN_OPEN, LOGIN_ON, OWNER_EMAILS, PORT, PUBLIC_URL, RESEND_API_KEY, EMAIL_FROM, MAX_BODY } from "./server/config";
+import { ADMIN_OPEN, LOGIN_ON, OWNER_EMAILS, PORT, PUBLIC_URL, RESEND_API_KEY, EMAIL_FROM, MAX_BODY, bootError } from "./server/config";
 import { adminsStore, allowStore, bookingsStore, loadStores, pushStore, resultsStore } from "./server/data";
 import { ensureSecret } from "./server/links";
 import { ensurePushKeys } from "./server/push";
 import { route } from "./server/routes";
+import { drainStores } from "./server/store";
+
+const unsafe = bootError();
+if (unsafe) {
+  console.error(unsafe);
+  process.exit(1);
+}
 
 for (const a of assetList()) console.log("asset " + a.url + " (" + a.raw + " bytes, " + a.br + " compressed)");
 await loadStores();
@@ -18,9 +27,9 @@ await ensureSecret();
 await removeListedBookings();
 await dropDemoInvites();
 console.log(RESEND_API_KEY ? "email: on, sending as " + EMAIL_FROM : "email: off (set RESEND_API_KEY to send invites)");
-// Without PUBLIC_URL, links in emails (candidates' manage links, with their token) are built from the request's
-// X-Forwarded-Host or Host header, which a visitor can set.
-if (!PUBLIC_URL) console.log("PUBLIC_URL is not set: links in emails use the request's host name (set PUBLIC_URL=https://hi-techie.dev)");
+// Manage links are only emailed. Without PUBLIC_URL a local Host of localhost is used; a public boot refuses to start.
+if (!PUBLIC_URL)
+  console.log("PUBLIC_URL is not set: email links use localhost when the request host is local, otherwise https://hi-techie.dev");
 console.log("allowlist: " + (allowStore.data.enabled ? "on" : "off") + ", " + allowStore.data.emails.length + " emails");
 console.log(
   !LOGIN_ON
@@ -48,3 +57,27 @@ const server = Bun.serve({
 await startBackups();
 await startReports();
 console.log("booking-form listening on " + server.port + (bookingsStore.ok ? "" : " (no persistent storage attached)"));
+console.log("single process: do not run a second replica against this data directory");
+
+let stopping = false;
+async function shutdown(signal: string) {
+  if (stopping) return;
+  stopping = true;
+  console.log(signal + ": draining saves");
+  const force = setTimeout(() => process.exit(0), 2500);
+  force.unref();
+  try {
+    await server.stop(false);
+  } catch (e) {
+    console.log("stop: " + String(e));
+  }
+  try {
+    await drainStores();
+  } catch (e) {
+    console.log("drain: " + String(e));
+  }
+  clearTimeout(force);
+  process.exit(0);
+}
+process.on("SIGTERM", () => void shutdown("SIGTERM"));
+process.on("SIGINT", () => void shutdown("SIGINT"));

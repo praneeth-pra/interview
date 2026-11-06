@@ -1,6 +1,6 @@
 // Response helpers, security headers and request limits.
 import { encode, respond } from "../assets";
-import { type FileStore, saveStore } from "./store";
+import { StoreUnavailable, type FileStore, saveStore } from "./store";
 import { type Fields, asFields } from "./util";
 
 export const BASE_HEADERS = {
@@ -75,9 +75,9 @@ export async function saveOrUndo<T>(s: FileStore<T>, undo: () => void): Promise<
   try {
     await saveStore(s);
     return null;
-  } catch {
+  } catch (e) {
     undo();
-    return json({ error: "Couldn't save the change. Try again." }, 500);
+    return json({ error: "Couldn't save the change. Try again." }, e instanceof StoreUnavailable ? 503 : 500);
   }
 }
 // A resume or receipt from the volume. It opens in the browser; with download it saves as "<person> <what>.<ext>"

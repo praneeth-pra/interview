@@ -1,17 +1,18 @@
 // Payments from the public /payment page, with their receipts.
 import { RECEIPT_MAX } from "./config";
-import { INSTALLMENTS, INSTALLMENT_NAMES, type Installment, type Payment, paymentsStore, pushStore } from "./data";
+import { INSTALLMENTS, INSTALLMENT_NAMES, type Installment, type Payment, emailAllowed, paymentsStore, pushStore } from "./data";
 import { type Srv, json, saveOrUndo, storedFile } from "./http";
 import { broadcastState } from "./live";
 import { pushAll } from "./push";
 import { checkReceipt } from "./receipt-check";
 import { saveStore } from "./store";
 import { PHOTO_OR_PDF, kindOf, lastDay, mb, readForm, receipts, uploadedName } from "./uploads";
+import { ONBOARDING_FIRST } from "./bookings";
 import { EMAIL_RE, normEmail } from "./util";
 
 // the form doesn't mention this limit; a bigger file gets RECEIPT_TOO_BIG, in the browser and here
 const RECEIPT_TOO_BIG = "Your receipt is larger than " + mb(RECEIPT_MAX) + " MB. Please upload a smaller file.";
-// payments are open to any email, so one email can't pile up payments waiting for a decision
+// one email can't pile up payments waiting for a decision, whether or not it is on the Candidates list
 const PENDING_PER_EMAIL = 3;
 const rupees = (n: number) => "\u20B9" + n.toLocaleString("en-IN", { maximumFractionDigits: 2 });
 const AMOUNT_MAX = 10000000;
@@ -36,6 +37,7 @@ export async function receivePayment(req: Request, srv: Srv): Promise<Response> 
   const amountText = text("amount", 20).replace(/[,\s₹]/g, "");
   const amount = /^\d+(\.\d{1,2})?$/.test(amountText) ? Number(amountText) : NaN;
   if (!EMAIL_RE.test(email)) return json({ error: "Enter a valid email address." }, 400);
+  if (!emailAllowed(email)) return json({ error: ONBOARDING_FIRST, field: "email", onboarding: true }, 403);
   if (name.length < 2) return json({ error: "Enter your full name." }, 400);
   if (!Object.hasOwn(INSTALLMENTS, installment)) return json({ error: "Choose which installment this is.", field: "installment" }, 400);
   if (!(amount > 0) || amount > AMOUNT_MAX) return json({ error: "Enter the amount you paid, in rupees." }, 400);

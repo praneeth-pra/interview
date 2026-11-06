@@ -46,10 +46,29 @@ export const OWNER_EMAILS = [
   ),
 ];
 // Sign-in is always required, even when ADMIN_EMAILS is missing (then only admins added earlier can sign in), so a
-// deleted or mistyped variable locks the admin page instead of opening it. ADMIN_OPEN=1 turns sign-in off, for local
-// testing only, and only while ADMIN_EMAILS is empty.
+// deleted or mistyped variable locks the admin page instead of opening it. ADMIN_OPEN=1 turns sign-in off, for a local
+// server only, and only while ADMIN_EMAILS is empty. It does not make the caller an owner.
 export const ADMIN_OPEN = (Bun.env.ADMIN_OPEN ?? "").trim() === "1";
 export const LOGIN_ON = OWNER_EMAILS.length > 0 || !ADMIN_OPEN;
+const productionBoot = () =>
+  (Bun.env.NODE_ENV ?? "").trim() === "production" ||
+  !!(Bun.env.RAILWAY_ENVIRONMENT || Bun.env.RAILWAY_PROJECT_ID || Bun.env.RAILWAY_SERVICE_ID);
+function publicUrlIsLocal(url: string) {
+  if (!url) return true;
+  try {
+    const host = new URL(url).hostname;
+    return host === "localhost" || host === "127.0.0.1" || host === "::1";
+  } catch {
+    return false;
+  }
+}
+// Empty when the process may serve. Otherwise the message to print before exiting.
+export function bootError(): string {
+  if (productionBoot() && !PUBLIC_URL) return "PUBLIC_URL is required in production. Set PUBLIC_URL=https://hi-techie.dev";
+  if (ADMIN_OPEN && (productionBoot() || !publicUrlIsLocal(PUBLIC_URL)))
+    return "ADMIN_OPEN is only for a local server. Unset it when PUBLIC_URL is a public address or the process is in production.";
+  return "";
+}
 // The largest payment receipt (/payment), in MB (default 1). The form doesn't show it; a bigger file gets a clear error.
 export const RECEIPT_MAX = Math.round(Math.min(20, Math.max(0.1, Number(Bun.env.RECEIPT_MAX_MB) || 1)) * 1024 * 1024);
 // An Aadhaar or PAN card on the onboarding page, at most (the page shrinks big photos to fit first).

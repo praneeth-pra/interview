@@ -2,6 +2,8 @@
 // Run: NODE_PATH=$(npm root -g) node tests/browser-smoke.cjs   (needs the playwright package)
 const { chromium } = require("playwright");
 const { spawn } = require("node:child_process");
+const { createHash } = require("node:crypto");
+const http = require("node:http");
 const { mkdtempSync, writeFileSync } = require("node:fs");
 const { tmpdir } = require("node:os");
 const { join } = require("node:path");
@@ -21,17 +23,59 @@ async function openDays(p) {
 const dir = mkdtempSync(join(tmpdir(), "booking-form-smoke-"));
 const start = new Date(Date.now() + 2 * 86400000);
 start.setUTCHours(5, 0, 0, 0);
+const OWNER = "owner@example.com";
+const TOKEN = "cd".repeat(32);
 writeFileSync(join(dir, "bookings.json"), JSON.stringify({ bookings: [{ id: "00000000-0000-0000-0000-000000000001", name: "Priya Sharma", email: "priya@example.com", company: "Google", round: "1st round", start: start.toISOString(), end: new Date(+start + 1800000).toISOString(), duration: 30, createdAt: new Date().toISOString(), cancelled: false, cancelledAt: "" }] }));
-const server = spawn("bun", ["run", join(__dirname, "../src/server.ts")], { env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RESEND_API_KEY: "", ADMIN_OPEN: "1" }, stdio: "ignore" });
-// A second server with admin sign-in on. Email is off there, so it prints sign-in codes to its output.
+writeFileSync(join(dir, "sessions.json"), JSON.stringify({ sessions: [{ id: createHash("sha256").update(TOKEN).digest("hex"), email: OWNER, created: new Date().toISOString(), seen: new Date().toISOString(), device: "smoke" }] }));
+const mails = [];
+const mailServer = http.createServer((req, res) => {
+  const chunks = [];
+  req.on("data", (c) => chunks.push(c));
+  req.on("end", () => {
+    try {
+      mails.push(JSON.parse(Buffer.concat(chunks).toString() || "{}"));
+    } catch {}
+    res.writeHead(200, { "content-type": "application/json" });
+    res.end('{"id":"x"}');
+  });
+});
+mailServer.listen(4399, "127.0.0.1");
+async function adminJson(p, path, body) {
+  return p.evaluate(
+    async ({ path, body }) => {
+      const res = await fetch(path, body == null ? undefined : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+      return res.json();
+    },
+    { path, body: body ?? null },
+  );
+}
+async function waitMail(pred) {
+  for (let i = 0; i < 80; i++) {
+    const found = mails.find(pred);
+    if (found) return found;
+    await new Promise((r) => setTimeout(r, 50));
+  }
+  throw new Error("email did not arrive");
+}
+const ownerCookie = { name: "bf_admin", value: TOKEN, domain: "127.0.0.1", path: "/admin", httpOnly: true, secure: true, sameSite: "Lax" };
+const server = spawn("bun", ["run", join(__dirname, "../src/server.ts")], {
+  env: { ...process.env, PORT: String(PORT), DATA_DIR: dir, RESEND_API_KEY: "test", RESEND_API_URL: "http://127.0.0.1:4399/emails", ADMIN_EMAILS: OWNER, ADMIN_OPEN: "" },
+  stdio: "ignore",
+});
+// A second server with admin sign-in on. Its codes go to the same mail catcher as the booking server.
 const LOCKED = "http://127.0.0.1:" + (PORT + 1);
 const lockedDir = mkdtempSync(join(tmpdir(), "booking-form-smoke-locked-"));
 const locked = spawn("bun", ["run", join(__dirname, "../src/server.ts")], {
-  env: { ...process.env, PORT: String(PORT + 1), DATA_DIR: lockedDir, RESEND_API_KEY: "", ADMIN_EMAILS: "owner@example.com" },
-  stdio: ["ignore", "pipe", "ignore"],
+  env: {
+    ...process.env,
+    PORT: String(PORT + 1),
+    DATA_DIR: lockedDir,
+    RESEND_API_KEY: "test",
+    RESEND_API_URL: "http://127.0.0.1:4399/emails",
+    ADMIN_EMAILS: "owner@example.com",
+  },
+  stdio: "ignore",
 });
-let lockedLog = "";
-locked.stdout.on("data", (d) => (lockedLog += d));
 
 const checks = [
   ["booking page", async (p) => {
@@ -74,7 +118,8 @@ const checks = [
     await p.locator("#finv").waitFor({ state: "detached" });
     await p.selectOption("#fattend", "remote");
     await p.click("#submitb");
-    await p.locator('a[href*="/b/"]').first().waitFor();
+    await p.getByRole("heading", { name: "You are scheduled" }).waitFor();
+    if (await p.locator('a[href*="/b/"]').count()) throw new Error("the manage link was shown on the page");
     await toDetails(BASE);
     await p.locator('#fround option[value="Demo"]').waitFor({ state: "attached" });
     await p.fill("#femail", "demo-smoke@example.com");
@@ -83,7 +128,8 @@ const checks = [
     await p.locator("#finv").waitFor({ state: "detached" });
     await p.selectOption("#fattend", "remote");
     await p.click("#submitb");
-    await p.locator('a[href*="/b/"]').first().waitFor();
+    await p.getByRole("heading", { name: "You are scheduled" }).waitFor();
+    if (await p.locator('a[href*="/b/"]').count()) throw new Error("the manage link was shown on the page");
   }],
   ["booking page: the onboarding notice a new email got goes away when the round becomes Demo", async (p) => {
     const ONBOARDING = "This email isn't registered yet. Please fill in the onboarding form with this email first, then book your slot.";
@@ -108,15 +154,18 @@ const checks = [
       await p.click("#submitb");
       await p.locator("#femaile", { hasText: "onboarding form" }).waitFor();
       await p.unroute("**/api/book");
-      if (pick === "select") await p.selectOption("#fround", "Demo");
-      else {
+      if (pick === "select") {
+        await p.selectOption("#fround", "Demo");
+        await p.locator("#finv").waitFor({ state: "detached" });
+      } else {
         await p.selectOption("#fround", "__other");
         await p.fill("#fround-other", "Demo session");
+        await p.locator("#finv").waitFor();
       }
-      await p.locator("#femaile").waitFor({ state: "detached" });
-      if (await p.getByText("onboarding form").count()) throw new Error(pick + ": the onboarding notice should be gone for a demo");
+      // neither Demo nor the words "demo session" clear the Candidates-list notice on their own
+      await p.locator("#femaile", { hasText: "onboarding form" }).waitFor();
       await p.click("#submitb");
-      await p.locator('a[href*="/b/"]').first().waitFor();
+      await p.getByRole("heading", { name: "You are scheduled" }).waitFor();
     }
   }],
   ["booking page: book, book another, reschedule and cancel", async (p) => {
@@ -147,8 +196,10 @@ const checks = [
     await p.locator("#fattende").waitFor();
     await p.selectOption("#fattend", "in-person");
     await p.click("#submitb");
-    await p.locator('a[href*="/b/"]').first().waitFor();
-    const manage = await p.locator('a[href*="/b/"]').first().getAttribute("href");
+    await p.getByRole("heading", { name: "You are scheduled" }).waitFor();
+    if (await p.locator('a[href*="/b/"]').count()) throw new Error("the manage link was shown on the page");
+    const sent = await waitMail((m) => (m.to || []).includes("smoke@example.com") && /\/b\//.test(m.text || ""));
+    const manage = sent.text.match(/https?:\/\/\S+\/b\/[0-9a-f-]+\?t=[0-9a-f]+/)[0];
     // booking another starts over, without the time just taken (or the day is now full)
     await p.locator("button.pill").last().click();
     await p.locator("button.day").first().waitFor();
@@ -171,6 +222,7 @@ const checks = [
   }],
   ["admin phone: pulling down from the top refreshes the tab in place; short, sideways and sheet drags don't", async (p) => {
     const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await ctx.addCookies([ownerCookie]);
     try {
       const m = await ctx.newPage();
       const errors = [];
@@ -221,6 +273,7 @@ const checks = [
   }],
   ["admin phone: swiping the agenda moves the day, not the week strip, and never leaves it stuck", async (p) => {
     const ctx = await p.context().browser().newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
+    await ctx.addCookies([ownerCookie]);
     try {
       const m = await ctx.newPage();
       const errors = [];
@@ -321,8 +374,8 @@ const checks = [
     await p.fill("#em", "owner@example.com");
     await p.click("#go");
     await p.locator("#code").waitFor();
-    for (let i = 0; i < 40 && !/sign-in code for owner@example.com: \d{6}/.test(lockedLog); i++) await p.waitForTimeout(50);
-    const code = lockedLog.match(/sign-in code for owner@example.com: (\d{6})/)[1];
+    const mailed = await waitMail((m) => (m.to || []).includes("owner@example.com") && /^Sign-in code: \d{6}$/.test(m.subject || ""));
+    const code = mailed.subject.slice(-6);
     await p.fill("#code", code); // signs in once all six digits are in
     await p.locator("#status").waitFor({ state: "attached" });
     await p.locator("#dlBtn").click();
@@ -331,6 +384,8 @@ const checks = [
     await p.fill(".admadd input", "helper@example.com");
     await p.click(".admadd button");
     await p.locator(".admrow", { hasText: "helper@example.com" }).waitFor();
+    // Sign-in sets bf_admin for every port on 127.0.0.1. Put the booking server's session back.
+    await p.context().addCookies([ownerCookie]);
   }],
   ["enquiry page, and its response in the admin", async (p) => {
     await p.goto(BASE + "/enquiry");
@@ -366,7 +421,7 @@ const checks = [
     await p.click("#go");
     await p.locator("#done:not([hidden])").waitFor();
     // the alert opens the new payment, pending, with Confirm and Discard
-    const id = (await (await p.request.get(BASE + "/admin/api/payments")).json()).payments[0].id;
+    const id = (await adminJson(p, "/admin/api/payments")).payments[0].id;
     await p.goto(BASE + "/admin?view=payments&pay=" + id);
     await p.locator("#tabPay .pbadge:not([hidden])").waitFor({ state: "attached" });
     const card = p.locator("#viewPay .enq.hl", { hasText: "Kiran Kumar" });
@@ -432,14 +487,14 @@ const checks = [
     const receipt = { name: "r.png", mimeType: "image/png", buffer: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 7]) };
     const paid = await p.request.post(BASE + "/api/payment", { multipart: { email: "lakshmi@example.com", name: "Lakshmi Devi", installment: "advance", amount: "500", receipt } });
     if (!paid.ok()) throw new Error("payment not sent: " + paid.status());
-    const pay = (await (await p.request.get(BASE + "/admin/api/payments")).json()).payments.find((x) => x.email === "lakshmi@example.com");
-    await p.request.post(BASE + "/admin/api/payments/decide", { data: { id: pay.id, decision: "confirm" } });
+    const pay = (await adminJson(p, "/admin/api/payments")).payments.find((x) => x.email === "lakshmi@example.com");
+    await adminJson(p, "/admin/api/payments/decide", { id: pay.id, decision: "confirm" });
     await p.click("#go");
     await p.locator("#done:not([hidden])").waitFor();
     await p.locator('#done a.next[href="/booking"]').waitFor();
-    const listed = (await (await p.request.get(BASE + "/admin/api/allowlist")).json()).state.emails;
+    const listed = (await adminJson(p, "/admin/api/allowlist")).state.emails;
     if (!listed.includes("lakshmi@example.com")) throw new Error("onboarded email not added to Candidates");
-    const form = (await (await p.request.get(BASE + "/admin/api/onboarding")).json()).forms[0];
+    const form = (await adminJson(p, "/admin/api/onboarding")).forms[0];
     if (form.aadhaar.type !== "image/jpeg" || form.aadhaar.size > 1536 * 1024) throw new Error("photo not shrunk: " + JSON.stringify(form.aadhaar));
     // an onboarding alert opens the forms in the panel
     await p.goto(BASE + "/admin?view=onboarding");
@@ -451,6 +506,10 @@ const checks = [
     if (saved.suggestedFilename() !== "Lakshmi Devi PAN card.pdf") throw new Error("PAN saved as " + saved.suggestedFilename());
     p.once("dialog", (d) => d.accept());
     await card.locator("button.rm").click();
+    await p.locator(".onbcode input").waitFor();
+    const deleted = await waitMail((m) => /^Delete code: \d{6}$/.test(m.subject || ""));
+    await p.locator(".onbcode input").fill(deleted.subject.slice(-6));
+    await p.locator(".onbcode button.danger").click();
     await p.locator("#pbody .sub", { hasText: "No onboarding forms yet" }).waitFor();
   }],
   ["admin download menu", async (p) => {
@@ -583,9 +642,11 @@ const checks = [
     await new Promise((r) => setTimeout(r, 50));
   }
   const browser = await chromium.launch();
+  const context = await browser.newContext();
+  await context.addCookies([ownerCookie]);
   let failed = 0;
   for (const [name, run] of checks) {
-    const page = await browser.newPage();
+    const page = await context.newPage();
     const problems = [];
     page.on("pageerror", (e) => problems.push("script error: " + e.message));
     // a check that expects the server to refuse something sets page.refusals to how many 403s it expects
@@ -603,5 +664,6 @@ const checks = [
   await browser.close();
   server.kill();
   locked.kill();
+  mailServer.close();
   process.exit(failed ? 1 : 0);
 })();
