@@ -152,7 +152,7 @@
   width: 100%;
   min-width: 260px;
 }
-/* the chart's title, with the Cumulative / Monthly switch beside it */
+/* a section's title, with its switches beside it */
 .rv-sh {
   display: flex;
   flex-wrap: wrap;
@@ -198,5 +198,230 @@
     transform: rotate(180deg);
     height: 34px;
     text-align: left;
+  }
+}
+
+/* ---- money in and out, and the expenses (expenses.ts) ---- */
+.rv-add {
+  flex: none;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 18px;
+  font-size: 14px;
+}
+.rv-tile.xp-good .rv-v {
+  color: var(--green-ink);
+}
+.rv-tile.xp-bad .rv-v {
+  color: var(--red);
+}
+/* received and spent side by side in each month: received a pale tint, spent the accent */
+.rv-bar.xp-pair {
+  justify-content: center;
+  gap: 3px;
+}
+.rv-bar.xp-pair i {
+  flex: 1;
+  width: auto;
+  max-width: 18px;
+  margin: 0;
+}
+.rv-bar i.xp-in,
+.xp-key i.xp-in {
+  background: color-mix(in srgb, var(--blue) 28%, transparent);
+}
+.rv-bar i.xp-out,
+.xp-key i.xp-out {
+  background: var(--blue);
+}
+.xp-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+}
+.xp-key i {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: -1px;
+}
+.rv-sh + .xp-tbl {
+  margin-top: 12px;
+}
+.xp-tbl table {
+  width: 100%;
+}
+.xp-tbl td small {
+  display: block;
+  color: var(--ink2);
+  font-size: 12px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+}
+.xp-tbl tr.tap {
+  cursor: pointer;
+}
+.xp-tbl tr.tap:hover td {
+  background: var(--sub);
+}
+.xp-o {
+  color: var(--red);
+}
+.xp-i {
+  color: var(--green-ink);
+}
+.xp-bal {
+  color: var(--ink2);
+}
+.xp-tbl td.num {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.xp-tag {
+  display: inline-block;
+  margin-right: 6px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  vertical-align: 1px;
+}
+.xp-tag.in {
+  background: color-mix(in srgb, var(--green) 14%, transparent);
+  color: var(--green-ink);
+}
+.xp-tag.out {
+  background: var(--tint);
+  color: var(--link);
+}
+.xp-mcell {
+  white-space: nowrap;
+}
+.xp-meter {
+  display: inline-block;
+  width: 80px;
+  height: 8px;
+  border-radius: 5px;
+  background: var(--line);
+  overflow: hidden;
+  vertical-align: middle;
+}
+.xp-meter i {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: var(--green);
+}
+.xp-meter.low i {
+  background: var(--blue);
+}
+.xp-m {
+  margin-left: 8px;
+  font-size: 13px;
+  color: var(--ink2);
+  font-variant-numeric: tabular-nums;
+}
+.xp-gen td {
+  border-top: 1px dashed var(--line);
+  color: var(--ink2);
+}
+/* a row open for typing: a new expense, or one being changed */
+.xp-edit td {
+  background: var(--tint);
+  vertical-align: top;
+}
+.xp-edit input,
+.xp-edit select {
+  width: 100%;
+  min-width: 0;
+  height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--field);
+  border-radius: 8px;
+  background: var(--card);
+  color: var(--ink);
+  font: inherit;
+  font-size: 14px;
+}
+.xp-edit td.num input {
+  text-align: right;
+}
+.xp-pick {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+.xp-acts td {
+  padding-top: 0;
+}
+.xp-btns {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+}
+.xp-btns .msg {
+  flex: 1 1 200px;
+  margin: 0;
+}
+.xp-btns .msg:empty {
+  display: none;
+}
+.xp-tbl td small.xp-keptm {
+  display: none;
+}
+.xp-del {
+  color: var(--red);
+}
+.xp-none {
+  margin: 10px 0 0;
+}
+.xp-addrow {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 11px;
+  border: 1.5px dashed var(--line);
+  border-radius: 12px;
+  background: none;
+  color: var(--link);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.xp-addrow:hover {
+  background: var(--tint);
+}
+@media (max-width: 760px) {
+  /* phones: kept and margin per candidate; paid in and spent are in the candidate's ledger */
+  .xp-cands .xp-c {
+    display: none;
+  }
+  .xp-meter {
+    width: 40px;
+  }
+  .xp-pick {
+    flex-direction: column;
+  }
+  /* a candidate's ledger: what's kept goes under the amount */
+  .xp-tbl .xp-bal {
+    display: none;
+  }
+  .xp-tbl td small.xp-keptm {
+    display: block;
+  }
+  .xp-edit td.xp-what {
+    min-width: 130px;
+  }
+  .xp-edit td.dt input {
+    width: 96px;
+    padding: 0 6px;
+    font-size: 13px;
+  }
+  .rv-bar.xp-pair {
+    gap: 1px;
   }
 }

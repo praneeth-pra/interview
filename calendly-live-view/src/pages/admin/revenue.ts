@@ -1,18 +1,12 @@
-// The Revenue tab (owners only): confirmed payments added up month by month (Cumulative, the default) or month by month
-// (Monthly), from /admin/api/revenue. The search box suggests candidates as you type; picking one, or just typing,
+// The Revenue tab (owners only): money in (confirmed payments) and out (expenses) month by month, from
+// /admin/api/revenue, then each candidate's paid in, spent and kept and the expenses themselves (expenses.ts). The search box suggests candidates as you type; picking one, or just typing,
 // narrows every figure to the candidates whose name or email contains it, like the Payments tab's search. Months are
 // India months; the chart is plain bars in the one accent colour.
 import { request } from "./api";
 import { byId, el } from "./dom";
+import { type Money, drawByCandidate, drawLedger, openNewExpense, rupees } from "./expenses";
 import { plural, titleCase } from "./labels";
 import { sharesFiles } from "./share";
-import { TIME_ZONE } from "./time";
-
-// Cumulative ("total") unless this device last picked Monthly
-let revenueMode = "total";
-try {
-  revenueMode = localStorage.getItem("revMode") === "month" ? "month" : "total";
-} catch (e) {}
 
 type Candidate = { name: string; email: string; total: number };
 type Summary = {
@@ -28,16 +22,17 @@ type Summary = {
     paidByMonth: number[];
     lastToDate: number; // confirmed in last month up to the same day and time as now
   };
+  spent: { total: number; count: number; byMonth: number[]; general: number; linked: number };
   candidates: Candidate[]; // everyone with a payment, for the suggestions
   found: { name: string; email: string }[]; // who the search found (empty without a search)
-};
+} & Money;
 
 const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-function rupees(amount: number) {
-  return "\u20B9" + amount.toLocaleString("en-IN", { maximumFractionDigits: 2 });
-}
-// ₹1.2L, ₹45k: short enough to sit above a bar
-function shortRupees(amount: number) {
+// ₹1.2L, ₹45k, −₹2k: short enough to sit above a bar
+function shortRupees(amount: number): string {
+  if (amount < 0) {
+    return "\u2212" + shortRupees(-amount);
+  }
   if (amount >= 100000) {
     return "\u20B9" + (amount / 100000).toFixed(amount >= 1000000 ? 0 : 1).replace(/\.0$/, "") + "L";
   } else if (amount >= 1000) {
@@ -50,124 +45,108 @@ function monthName(key: string, withYear?: boolean) {
   return withYear ? name + " " + key.slice(0, 4) : name;
 }
 
-function tile(label: string, value: string, note: string) {
-  return el("div", { class: "rv-tile" }, [
+function tile(label: string, value: string, note: string, extra?: string) {
+  return el("div", { class: "rv-tile" + (extra ? " " + extra : "") }, [
     el("div", { class: "rv-k", text: label }),
     el("div", { class: "rv-v", text: value }),
     el("div", { class: "rv-n", text: note }),
   ]);
 }
-// twelve columns, one per month; the label above each bar is its value
-function monthBars(months: string[], values: number[], label: (v: number) => string, describe: (v: number) => string, money?: boolean) {
-  const top = Math.max.apply(null, values.concat([0]));
-  const chart = el("div", { class: money ? "rv-bars money" : "rv-bars", role: "list" });
+// twelve columns, one per month: received and spent side by side, and what was kept above them
+function monthBars(months: string[], received: number[], spent: number[]) {
+  const top = Math.max.apply(null, received.concat(spent, [0]));
+  const chart = el("div", { class: "rv-bars money", role: "list" });
+  const height = function (v: number) {
+    return top ? Math.max(v ? 3 : 0, (v / top) * 100) + "%" : "0";
+  };
   months.forEach(function (key, i) {
-    const v = values[i];
-    const bar = el("i", { class: v ? "" : "zero" });
-    bar.style.height = top ? Math.max(v ? 3 : 0, (v / top) * 100) + "%" : "0";
+    const got = el("i", { class: "xp-in" + (received[i] ? "" : " zero") });
+    const out = el("i", { class: "xp-out" + (spent[i] ? "" : " zero") });
+    got.style.height = height(received[i]);
+    out.style.height = height(spent[i]);
+    const kept = received[i] - spent[i];
+    const said = monthName(key, true) + ": " + rupees(received[i]) + " received, " + rupees(spent[i]) + " spent, " + rupees(kept) + " kept";
     chart.appendChild(
-      el(
-        "div",
-        {
-          class: "rv-col",
-          role: "listitem",
-          "aria-label": monthName(key, true) + ": " + describe(v),
-          title: monthName(key, true) + ": " + describe(v),
-        },
-        [
-          el("span", { class: "rv-val", text: v ? label(v) : "" }),
-          el("div", { class: "rv-bar" }, [bar]),
-          el("span", { class: "rv-mo", text: monthName(key) }),
-        ],
-      ),
+      el("div", { class: "rv-col", role: "listitem", "aria-label": said, title: said }, [
+        el("span", { class: "rv-val", text: received[i] || spent[i] ? shortRupees(kept) : "" }),
+        el("div", { class: "rv-bar xp-pair" }, [got, out]),
+        el("span", { class: "rv-mo", text: monthName(key) }),
+      ]),
     );
   });
   return chart;
 }
 function draw(body: HTMLElement, data: Summary) {
   const rev = data.revenue;
+  const spent = data.spent;
   const months = data.months;
-  const thisMonth = rev.byMonth[months.length - 1];
-  const lastMonth = rev.lastToDate;
-  const lastName = monthName(months[months.length - 2]);
-  // the days of last month it is compared with: 1 up to today's date (Sep 1–30 on Oct 31)
-  const [ly, lm] = months[months.length - 2].split("-").map(Number);
-  const day = Math.min(
-    Number(new Date().toLocaleString("en-US", { timeZone: TIME_ZONE, day: "numeric" })),
-    new Date(Date.UTC(ly, lm, 0)).getUTCDate(),
-  );
-  const lastDays = lastName + (day > 1 ? " 1–" + day : " 1");
-  const change = lastMonth ? Math.round(((thisMonth - lastMonth) / lastMonth) * 100) : 0;
-
-  body.appendChild(
-    el("div", { class: "rv-tiles" }, [
-      tile("Revenue", rupees(rev.total), plural(rev.count, "confirmed payment")),
-      tile(
-        "This month",
-        rupees(thisMonth),
-        lastMonth ? (change >= 0 ? "+" : "−") + Math.abs(change) + "% on " + lastDays : "Nothing on " + lastDays,
-      ),
-      tile("Pending", rupees(rev.pending), rev.pendingCount ? plural(rev.pendingCount, "payment") + " to confirm" : "Nothing to confirm"),
-      tile(
-        "Paying candidates",
-        String(rev.payers),
-        rev.payers ? rupees(Math.round(rev.total / rev.payers)) + " each on average" : "No confirmed payments yet",
-      ),
-    ]),
-  );
-
-  // Cumulative: everything confirmed up to the end of each month. Monthly: what came in that month.
-  const cumulative = rev.byMonth.slice();
-  let sum = rev.before;
-  cumulative.forEach(function (v, i) {
-    sum += v;
-    cumulative[i] = sum;
-  });
-  const running = revenueMode === "total";
-  function modeButton(mode: string, label: string) {
-    return el("button", {
-      type: "button",
-      "aria-pressed": String(revenueMode === mode),
-      text: label,
-      onclick: function () {
-        if (revenueMode !== mode) {
-          revenueMode = mode;
-          try {
-            localStorage.setItem("revMode", mode);
-          } catch (e) {}
-          showRevenue();
-        }
-      },
-    });
+  const last = months.length - 1;
+  const one = data.found.length === 1 ? data.found[0] : null;
+  const kept = rev.total - spent.total;
+  const pendingNote = rev.pendingCount ? " \u00B7 " + rupees(rev.pending) + " pending" : "";
+  if (one) {
+    const first = titleCase(one.name).split(" ")[0];
+    body.appendChild(
+      el("div", { class: "rv-tiles" }, [
+        tile("Paid in", rupees(rev.total), plural(rev.count, "confirmed payment") + pendingNote),
+        tile("Spent on " + first, rupees(spent.total), plural(spent.count, "expense")),
+        tile("Kept", rupees(kept), "Paid in minus spent", kept >= 0 ? "xp-good" : "xp-bad"),
+        tile(
+          "Margin",
+          rev.total ? Math.round((kept / rev.total) * 100) + "%" : "\u2014",
+          rev.total ? "Of what they paid, kept" : "No confirmed payments yet",
+        ),
+      ]),
+    );
+  } else {
+    const inNow = rev.byMonth[last];
+    const outNow = spent.byMonth[last];
+    body.appendChild(
+      el("div", { class: "rv-tiles" }, [
+        tile("Received", rupees(rev.total), plural(rev.count, "confirmed payment") + pendingNote),
+        tile(
+          "Spent",
+          rupees(spent.total),
+          plural(spent.count, "expense") + (spent.linked ? " \u00B7 " + spent.linked + " tied to a candidate" : ""),
+        ),
+        tile("Kept", rupees(kept), "Received minus spent", kept >= 0 ? "xp-good" : "xp-bad"),
+        tile("This month", rupees(inNow - outNow) + " kept", rupees(inNow) + " in \u00B7 " + rupees(outNow) + " out"),
+      ]),
+    );
   }
   body.appendChild(
     el("section", { class: "rv-sec" }, [
       el("div", { class: "rv-sh" }, [
         el("div", null, [
-          el("h3", { text: running ? "Revenue to date" : "Revenue by month" }),
-          el("p", {
-            class: "sub",
-            text: running ? "All confirmed payments up to the end of each month." : "Confirmed payments, by the month they were sent.",
-          }),
-        ]),
-        el("div", { class: "paysw", role: "group", "aria-label": "Show revenue" }, [
-          modeButton("total", "Cumulative"),
-          modeButton("month", "Monthly"),
+          el("h3", { text: one ? titleCase(one.name).split(" ")[0] + "\u2019s money in and out" : "Money in and out" }),
+          el("p", { class: "sub xp-key" }, [
+            el("span", null, [el("i", { class: "xp-in" }), "Received"]),
+            el("span", null, [el("i", { class: "xp-out" }), "Spent"]),
+            el("span", { text: "On top: kept" }),
+          ]),
         ]),
       ]),
-      monthBars(
-        months,
-        running ? cumulative : rev.byMonth,
-        shortRupees,
-        function (v) {
-          return rupees(v);
-        },
-        true,
-      ),
+      monthBars(months, rev.byMonth, spent.byMonth),
     ]),
   );
+  const hooks = {
+    refresh: showRevenue,
+    pick: function (email: string, name: string) {
+      const box = document.querySelector<HTMLInputElement>("#revBody .paysearch");
+      if (box) {
+        box.value = titleCase(name);
+      }
+      revenueQuery = email;
+      showRevenue();
+      byId("revBody").scrollIntoView({ block: "start" });
+    },
+  };
+  if (one) {
+    drawLedger(body, data, hooks, one);
+  } else {
+    drawByCandidate(body, data, hooks, spent.general, !!data.found.length);
+  }
 }
-
 // what's typed in the search box: part of a candidate's name or email (or a picked suggestion's email)
 let revenueQuery = "";
 let loading = 0;
@@ -338,6 +317,11 @@ function showRevenue() {
   if (!figures) {
     // built once, so typing never loses the box's focus; only the figures below it redraw
     setupSearch(body);
+    // the Add expense button beside the PDF report: opens the blank row in the expenses list
+    byId("revAdd").onclick = function () {
+      openNewExpense();
+      showRevenue();
+    };
     figures = el("div", { id: "revFigures" }, [el("p", { class: "sub", text: "Loading\u2026" })]);
     body.appendChild(figures);
   }
