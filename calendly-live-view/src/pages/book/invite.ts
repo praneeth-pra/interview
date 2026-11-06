@@ -8,7 +8,7 @@ import { isImage, isPdf, sentName, shrink, sizeText } from "../shared/upload";
 const MAX_BYTES: number = boot.inviteMax;
 const MAX_TEXT = Math.round((MAX_BYTES / 1048576) * 10) / 10 + " MB";
 export const INVITE_NEEDED = "Add a screenshot or PDF of your interview invite.";
-export const HR_NOTE = "Make sure the HR's contact details (name, email or phone number) are visible in your invite.";
+export const HR_NOTE = "Make sure the HR's contact details (name, email or phone number) are visible in it.";
 // What is wrong with the chosen file before it is sent ("" when nothing). Big photos are fine: they are shrunk.
 export function inviteProblem(file: File | null | undefined) {
   if (!file) {
@@ -27,9 +27,10 @@ export function inviteField() {
   const file = state.invite || null;
   const error = state.fieldErr.invite;
   const name = el("b", { text: file ? file.name : "Upload a screenshot of your invite" });
+  // the hint is a reminder rather than a tick box: the server reads the HR's email from the invite and refuses one without it
   const hint = el("small", {
     id: "finvh",
-    text: file ? sizeText(file.size) + " · tap to change" : "The company's email or message, with the HR's details in it",
+    text: file ? sizeText(file.size) + " · tap to change" : HR_NOTE,
   });
   const box = el("label", { class: "inv" + (error ? " bad" : file ? " has" : ""), for: "finv" }, [
     el("span", {
@@ -79,8 +80,6 @@ export function inviteField() {
     el("label", { for: "finv" }, ["Interview invite *"]),
     box,
     error ? el("div", { class: "ferr", id: "finve", text: error }) : null,
-    // a reminder rather than a tick box: the server reads the HR's email from the invite and refuses one without it
-    el("div", { class: "fnote", id: "finvn" }, [HR_NOTE]),
   ]);
 }
 // The booking as a multipart form: the fields, and the invite (shrunk when it is a big photo).
