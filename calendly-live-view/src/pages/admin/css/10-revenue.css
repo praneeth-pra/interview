@@ -296,33 +296,6 @@
   background: var(--tint);
   color: var(--link);
 }
-.xp-mcell {
-  white-space: nowrap;
-}
-.xp-meter {
-  display: inline-block;
-  width: 80px;
-  height: 8px;
-  border-radius: 5px;
-  background: var(--line);
-  overflow: hidden;
-  vertical-align: middle;
-}
-.xp-meter i {
-  display: block;
-  height: 100%;
-  border-radius: 5px;
-  background: var(--green);
-}
-.xp-meter.low i {
-  background: var(--blue);
-}
-.xp-m {
-  margin-left: 8px;
-  font-size: 13px;
-  color: var(--ink2);
-  font-variant-numeric: tabular-nums;
-}
 .xp-gen td {
   border-top: 1px dashed var(--line);
   color: var(--ink2);
@@ -345,13 +318,26 @@
   font: inherit;
   font-size: 14px;
 }
-.xp-edit td.num input {
-  text-align: right;
+/* the dropdowns draw their own arrow, centred and inset from the edge like the text, instead of the browser's */
+.xp-edit select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 30px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12' fill='none' stroke='%238a8f98' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2.5 4.5 6 8l3.5-3.5'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 12px 12px;
+  text-overflow: ellipsis;
 }
+/* category and candidate: on the line below, under the supporter and why */
 .xp-pick {
+  grid-column: 2 / 4;
   display: flex;
-  gap: 6px;
-  margin-top: 6px;
+  gap: 8px;
+}
+.xp-pick select {
+  flex: 1 1 0;
+  min-height: 36px;
 }
 .xp-acts td {
   padding-top: 0;
@@ -369,6 +355,25 @@
 }
 .xp-btns .msg:empty {
   display: none;
+}
+.xp-tbl .xp-to {
+  white-space: nowrap;
+}
+/* the row open for typing: date, supporter, why, amount, roughly under their columns */
+.xp-form {
+  display: grid;
+  grid-template-columns: 20% 18% 1fr 20%;
+  gap: 8px;
+  align-items: start;
+}
+.xp-form.xp-ledger {
+  grid-template-columns: 18% 16% 1fr 18% 12%;
+}
+.xp-tom {
+  display: none;
+}
+.xp-f-amt input {
+  text-align: right;
 }
 .xp-tbl td small.xp-keptm {
   display: none;
@@ -396,15 +401,30 @@
   background: var(--tint);
 }
 @media (max-width: 760px) {
-  /* phones: kept and margin per candidate; paid in and spent are in the candidate's ledger */
-  .xp-cands .xp-c {
-    display: none;
-  }
-  .xp-meter {
-    width: 40px;
-  }
   .xp-pick {
     flex-direction: column;
+  }
+  /* the supporter is in the line under why instead of its own column */
+  .xp-tbl .xp-to {
+    display: none;
+  }
+  .xp-tom {
+    display: inline;
+  }
+  .xp-form,
+  .xp-form.xp-ledger {
+    grid-template-columns: 1fr 1fr;
+  }
+  .xp-f-why {
+    grid-column: 1 / -1;
+    order: 3;
+  }
+  .xp-f-amt {
+    order: 2;
+  }
+  .xp-pick {
+    grid-column: 1 / -1;
+    order: 4;
   }
   /* a candidate's ledger: what's kept goes under the amount */
   .xp-tbl .xp-bal {
@@ -412,14 +432,6 @@
   }
   .xp-tbl td small.xp-keptm {
     display: block;
-  }
-  .xp-edit td.xp-what {
-    min-width: 130px;
-  }
-  .xp-edit td.dt input {
-    width: 96px;
-    padding: 0 6px;
-    font-size: 13px;
   }
   .rv-bar.xp-pair {
     gap: 1px;

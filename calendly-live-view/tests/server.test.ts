@@ -797,11 +797,13 @@ describe("payments", () => {
     for (const [change, error] of [
       [{ date: "2026-13-40" }, "Pick the day"],
       [{ date: "2999-01-01" }, "hasn't come yet"],
-      [{ what: "  " }, "what it was for"],
+      [{ what: "  " }, "say why it was paid"],
       [{ category: "Snacks" }, "Pick a category"],
       [{ amount: "0" }, "amount paid"],
       [{ amount: "12abc" }, "amount paid"],
       [{ email: "nobody@example.com" }, "has no payments"],
+      [{ paidTo: "Nobody" }, "Pick the supporter again"],
+      [{ what: "", paidTo: "" }, "Pick a supporter or say why"],
     ] as const) {
       const r = await add({ ...ok, ...change });
       expect(r.status).toBe(400);
@@ -810,6 +812,11 @@ describe("payments", () => {
     const tied = await (await add({ ...ok, email: "KIRAN@example.com" })).json();
     expect(tied.ok).toBe(true);
     expect((await add({ ...ok, what: "Calendly", category: "Tools & subscriptions", amount: "800" })).status).toBe(200);
+    // a supporter is enough without a why; the list offers the interview supporters
+    const shiva = await (await add({ ...ok, what: "", paidTo: "Shiva", amount: "500" })).json();
+    expect(shiva.ok).toBe(true);
+    expect((await (await get(open, "/admin/api/revenue")).json()).supporters).toContain("Shiva");
+    expect((await postJson(open, "/admin/api/expenses/delete", { id: shiva.id })).status).toBe(200);
     const v = await (await get(open, "/admin/api/revenue")).json();
     expect(v.categories).toContain("Ads");
     expect(v.spent).toMatchObject({ total: 3300, count: 2, general: 800, linked: 1 });

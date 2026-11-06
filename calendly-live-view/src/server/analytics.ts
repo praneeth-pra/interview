@@ -7,7 +7,7 @@
 // out; with one candidate found, their confirmed payments and expenses make up their ledger.
 import { BASE_HEADERS } from "./http";
 import { csvCell } from "./bookings";
-import { EXPENSE_CATEGORIES, INSTALLMENT_NAMES, expensesStore, paymentsStore } from "./data";
+import { EXPENSE_CATEGORIES, INSTALLMENT_NAMES, expensesStore, ivStore, paymentsStore } from "./data";
 import { istDate, istParts, istToUtcMs } from "./time";
 import { normEmail, pad } from "./util";
 
@@ -137,6 +137,7 @@ export function analyticsView(query = "", now = Date.now()) {
     expenses: expenses.slice(0, 500),
     paidIn,
     categories: EXPENSE_CATEGORIES,
+    supporters: ivStore.data.names,
     candidates,
     found: query.trim() ? candidates.filter(mine).map((p) => ({ name: p.name, email: p.email })) : [],
   };

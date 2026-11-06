@@ -100,7 +100,6 @@ const checks = [
       await p.fill("#fcompany", "Acme");
       await p.keyboard.press("Escape");
       await p.setInputFiles("#finv", join(__dirname, "invites/infosys-invite.png"));
-      await p.check("#finvhr");
       // the server's answer to an email that isn't on the Candidates list
       await p.route("**/api/book", (r) =>
         r.fulfill({ status: 403, contentType: "application/json", body: JSON.stringify({ error: ONBOARDING, field: "email", onboarding: true }) }),
@@ -143,7 +142,6 @@ const checks = [
     }
     await p.keyboard.press("Escape");
     await p.setInputFiles("#finv", join(__dirname, "invites/infosys-invite.png"));
-    await p.check("#finvhr");
     // the attendance choice is required: submitting without it shows the error and books nothing
     await p.click("#submitb");
     await p.locator("#fattende").waitFor();
