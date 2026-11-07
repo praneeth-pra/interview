@@ -161,15 +161,29 @@ async function openStats(p, s) {
   await p.locator("#tabStats:visible, .bnav [data-go=stats]:visible").first().click();
   await wait(p, 2200);
 }
-async function openAgendaPanel(p, s, index = 0) {
-  await p.goto(s.main + "/admin");
+// Laptops (1100px and wider) have no Agenda tab: 15-desktop.css hides it, and an agenda link shows the week.
+// Phones keep the Agenda tab and its day list. Both layouts already exist on origin/main.
+function laptop(p) {
+  return p.viewportSize().width >= 1100;
+}
+async function openAgenda(p, s) {
+  await p.goto(s.main + "/admin?view=agenda");
   await wait(p, 1200);
+  if (laptop(p)) {
+    await p.locator("#week .grid").waitFor();
+    return;
+  }
   await p.locator("#tabAg:visible, #vAg:visible, .bnav [data-go=ag]:visible").first().click();
   await wait(p, 400);
-  // The agenda shows today; on days when today has one interview, open that one.
-  const items = p.locator("#agenda .ag-i");
-  await items.nth(Math.min(index, Math.max(0, (await items.count()) - 1))).click();
-  await wait(p, 1500);
+}
+async function openAgendaPanel(p, s, index = 0) {
+  await openAgenda(p, s);
+  // A booking opens from the week on a laptop and from the day's list on a phone.
+  const items = laptop(p) ? p.locator("#week .ev") : p.locator("#agenda .ag-i");
+  await items.first().waitFor();
+  await items.nth(Math.min(index, (await items.count()) - 1)).click();
+  await p.locator("#panel:not([hidden])").waitFor();
+  await wait(p, 800);
 }
 const CASES = [
   [
@@ -324,9 +338,7 @@ const CASES = [
   [
     "admin-agenda",
     async (p, s) => {
-      await p.goto(s.main + "/admin");
-      await wait(p, 1200);
-      await p.locator("#tabAg:visible, #vAg:visible, .bnav [data-go=ag]:visible").first().click();
+      await openAgenda(p, s);
       await wait(p, 600);
     },
   ],

@@ -1377,8 +1377,46 @@ test("iPhone launch screens: admin and sign-in link every size, and the images a
   expect(html).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="default">');
   expect(html).not.toContain("black-translucent");
   const links = [...html.matchAll(/<link rel="apple-touch-startup-image" href="([^"]+)" media="([^"]+)">/g)];
-  // 14 iPhone screens, portrait and landscape, light and dark. 12 and 13 mini are 360×780.
-  expect(links.length).toBe(56);
+  // One row per iPhone screen. 414×896 is listed twice on purpose: @3 is 11 Pro Max / XS Max, @2 is 11 / XR.
+  // Distinct CSS point sizes are 13 because of that shared 414×896; the link count is rows × portrait/landscape × light/dark.
+  const screens: [number, number, number][] = [
+    [440, 956, 3],
+    [430, 932, 3],
+    [428, 926, 3],
+    [420, 912, 3],
+    [414, 896, 3],
+    [414, 896, 2],
+    [402, 874, 3],
+    [393, 852, 3],
+    [390, 844, 3],
+    [375, 812, 3],
+    [360, 780, 3], // 12 mini, 13 mini
+    [414, 736, 3],
+    [375, 667, 2],
+    [320, 568, 2],
+  ];
+  expect(screens).toHaveLength(14);
+  expect(new Set(screens.map(([w, h]) => w + "x" + h)).size).toBe(13);
+  expect(links.length).toBe(screens.length * 4);
+  for (const [w, h, r] of screens)
+    for (const orientation of ["portrait", "landscape"] as const) {
+      const dw = orientation === "portrait" ? w : h;
+      const dh = orientation === "portrait" ? h : w;
+      for (const scheme of ["light", "dark"]) {
+        const href = `/splash/${dw * r}x${dh * r}-${scheme}.png`;
+        expect(
+          links.some(
+            ([, found, media]) =>
+              found === href &&
+              media.includes(`(device-width: ${dw}px)`) &&
+              media.includes(`(device-height: ${dh}px)`) &&
+              media.includes(`(-webkit-device-pixel-ratio: ${r})`) &&
+              media.includes(`orientation: ${orientation}`) &&
+              media.includes(`prefers-color-scheme: ${scheme}`),
+          ),
+        ).toBe(true);
+      }
+    }
   expect(links.filter(([, , media]) => media.includes("orientation: landscape")).length).toBe(28);
   expect(links.some(([, , media]) => media.includes("(device-width: 430px)") && media.includes("orientation: portrait") && media.includes("prefers-color-scheme: dark"))).toBe(true);
   expect(links.some(([, , media]) => media.includes("(device-width: 360px)") && media.includes("(device-height: 780px)") && media.includes("orientation: portrait"))).toBe(true);
