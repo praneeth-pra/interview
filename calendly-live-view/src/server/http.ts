@@ -21,6 +21,9 @@ const CSP_BASE =
   "default-src 'none'; script-src 'self'; style-src 'self'; font-src 'self'; img-src 'self' data:; connect-src 'self'; base-uri 'none'; form-action 'self'";
 export const CSP = {
   page: CSP_BASE + "; frame-ancestors 'none'",
+  // The sign-in document links the manifest, so iOS can install from it. That one same-origin fetch is the only
+  // addition; public pages keep the policy above, and scripts and styles stay as they are.
+  login: CSP_BASE + "; manifest-src 'self'; frame-ancestors 'none'",
   admin: CSP_BASE + "; manifest-src 'self'; worker-src 'self'; frame-src 'self'; frame-ancestors 'none'",
   frame: CSP_BASE + "; frame-ancestors 'self'",
 };

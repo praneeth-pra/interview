@@ -9,10 +9,10 @@ import { DURATIONS, LOGIN_ON, MAX_BODY } from "../config";
 import { bookingsStore, isOwner, onboardingStore } from "../data";
 import { addExpense, deleteExpense, updateExpense } from "../expenses";
 import { deleteEnquiry, enquiriesList, enquiriesSeen, resumeFile } from "../enquiries";
-import { BASE_HEADERS, CSP, type Srv, json, readJson, sendShell } from "../http";
+import { BASE_HEADERS, type Srv, json, readJson, sendShell } from "../http";
 import { assignInterviewers, renameInterviewers } from "../interviewers";
 import { adminState, openStream, pub } from "../live";
-import { ANALYTICS, LOGIN, adminShell, sheetPage } from "../pages";
+import { ANALYTICS, LOGIN, LOGIN_FRAME, adminShell, sheetPage } from "../pages";
 import { MY_SUPPORTER, mySheet } from "../my-interviews";
 import { deleteOnboarding, idCardFile, onboardingList } from "../onboarding";
 import { dropInvites, inviteFile } from "../invites";
@@ -60,8 +60,7 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     if (!owner) return new Response("Only the owner can open this page.", { status: 403, headers: BASE_HEADERS });
     return sheetPage(req, MY_SUPPORTER, mySheet());
   }
-  if (path === "/admin/analytics" && method === "GET")
-    return sendShell(req, authed ? ANALYTICS : { ...LOGIN, csp: CSP.frame, framed: true });
+  if (path === "/admin/analytics" && method === "GET") return sendShell(req, authed ? ANALYTICS : LOGIN_FRAME);
   // the booking page asks this to send a signed-in admin's demo to the admin API (the sign-in cookie is only sent under /admin)
   if (path === "/admin/api/me" && method === "GET") return json({ admin: authed });
   if (!authed) return json({ error: "Sign in again." }, 401);

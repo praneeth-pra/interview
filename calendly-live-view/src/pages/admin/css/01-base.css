@@ -53,6 +53,11 @@
 * {
   box-sizing: border-box;
 }
+/* Paint the page colour on the root as well as the body, so the first styled frame matches the iPhone startup
+   image. The startup image is the OS surface before this stylesheet arrives; this does not colour that surface. */
+html {
+  background: var(--bg);
+}
 body {
   margin: 0;
   background: var(--bg);
