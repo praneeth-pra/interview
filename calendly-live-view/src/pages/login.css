@@ -26,6 +26,7 @@
   box-sizing: border-box;
 }
 html {
+  background: var(--bg);
   -webkit-tap-highlight-color: transparent;
 }
 body {

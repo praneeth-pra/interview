@@ -40,8 +40,10 @@ const og = (title: string, text: string, path: string) =>
     .join("") + '<meta name="twitter:card" content="summary_large_image">';
 const BOOK_TPL = template("book");
 const ADMIN_TPL = template("admin");
-// iPhone home-screen apps show a launch image while the page loads, white when there is none. These are plain images in
-// the app's background colour, one per iPhone screen size, light and dark, drawn on first request.
+// iPhone home-screen apps show a launch image while the page loads, and a white screen when none matches the device,
+// orientation and appearance. These are flat images in the app's background colour: every iPhone size below (including
+// 12 and 13 mini), portrait and landscape, light and dark, drawn on first request. iPad sizes are not included.
+// device-width and device-height swap with orientation; the image pixels are that pair times the scale.
 const SPLASH_SIZES: [number, number, number][] = [
   [440, 956, 3],
   [430, 932, 3],
@@ -53,16 +55,21 @@ const SPLASH_SIZES: [number, number, number][] = [
   [393, 852, 3],
   [390, 844, 3],
   [375, 812, 3],
+  [360, 780, 3],
   [414, 736, 3],
   [375, 667, 2],
   [320, 568, 2],
 ];
 const SPLASH_BG = { light: [0xf3, 0xf0, 0xe8], dark: [0x16, 0x14, 0x10] } as const;
 const SPLASH_LINKS = SPLASH_SIZES.flatMap(([w, h, r]) =>
-  (["light", "dark"] as const).map(
-    (s) =>
-      `<link rel="apple-touch-startup-image" href="/splash/${w * r}x${h * r}-${s}.png" media="(device-width: ${w}px) and (device-height: ${h}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: portrait) and (prefers-color-scheme: ${s})">`,
-  ),
+  (["portrait", "landscape"] as const).flatMap((orientation) => {
+    const dw = orientation === "portrait" ? w : h;
+    const dh = orientation === "portrait" ? h : w;
+    return (["light", "dark"] as const).map(
+      (scheme) =>
+        `<link rel="apple-touch-startup-image" href="/splash/${dw * r}x${dh * r}-${scheme}.png" media="(device-width: ${dw}px) and (device-height: ${dh}px) and (-webkit-device-pixel-ratio: ${r}) and (orientation: ${orientation}) and (prefers-color-scheme: ${scheme})">`,
+    );
+  }),
 ).join("");
 const splashCache = new Map<string, ReturnType<typeof encode>>();
 function splashPng(width: number, height: number, [r, g, b]: readonly number[]) {
@@ -90,9 +97,18 @@ function splashPng(width: number, height: number, [r, g, b]: readonly number[]) 
 }
 export function splash(name: string) {
   const m = name.match(/^(\d+)x(\d+)-(light|dark)\.png$/);
-  if (!m || !SPLASH_SIZES.some(([w, h, r]) => w * r === +m[1] && h * r === +m[2])) return null;
+  if (!m) return null;
+  const width = +m[1];
+  const height = +m[2];
+  // Portrait is width x height as listed; landscape is the same screen turned, so the pixels are swapped.
+  const known = SPLASH_SIZES.some(([w, h, r]) => {
+    const pw = w * r;
+    const ph = h * r;
+    return (width === pw && height === ph) || (width === ph && height === pw);
+  });
+  if (!known) return null;
   let body = splashCache.get(name);
-  if (!body) splashCache.set(name, (body = encode(splashPng(+m[1], +m[2], SPLASH_BG[m[3] as "light" | "dark"]), "image/png")));
+  if (!body) splashCache.set(name, (body = encode(splashPng(width, height, SPLASH_BG[m[3] as "light" | "dark"]), "image/png")));
   return body;
 }
 // Changes with every deploy that changes a page. The admin app compares it with the live state and reloads itself when a
@@ -179,7 +195,15 @@ export const HOME = {
   ...shell(fill(template("home"), { HOST: HOST_HTML, OG: og(HOST_NAME + " · Job assistance", HOME_TEXT, "/") }), CSP.page),
   index: true,
 };
-export const LOGIN = shell(fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS }), CSP.page);
+// The sign-in page is what /admin returns before a session, so it carries the same install tags as the admin shell.
+// iOS reads them from the document that was added to the Home Screen. The status bar style stays "default" on both:
+// that is the mode in which theme-color paints the bar (omitting the tag is the same mode). black-translucent is not
+// used; on current iOS it draws a system scrim and ignores theme-color.
+const LOGIN_HTML = fill(template("login"), { HOST: HOST_HTML, SPLASH: SPLASH_LINKS });
+export const LOGIN = shell(LOGIN_HTML, CSP.login);
+// The contacts frame shows this page when signed out. Drop the manifest link: the frame policy does not fetch it,
+// and an iframe is not an install document. Startup images stay; nothing requests them from inside the frame.
+export const LOGIN_FRAME = shell(LOGIN_HTML.replace('<link rel="manifest" href="/manifest.webmanifest">', ""), CSP.frame, true);
 export const ANALYTICS = shell(template("analytics"), CSP.frame, true, true);
 // The owner's interview sheet carries candidates' names, so it is built per request and never cached.
 const SHEET_TPL = template("sheet");

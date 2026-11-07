@@ -1369,18 +1369,61 @@ describe("admin", () => {
   });
 });
 
-test("iPhone launch screens: the admin page links light and dark ones, and they are real PNGs of the linked size", async () => {
+test("iPhone launch screens: admin and sign-in link every size, and the images are real PNGs", async () => {
   const html = await (await get(open, "/admin")).text();
   expect(html).toContain('<meta name="color-scheme" content="light dark">');
+  expect(html).toContain('<meta name="apple-mobile-web-app-capable" content="yes">');
+  expect(html).toContain('<meta name="apple-mobile-web-app-title" content="Hi&lt;Techie&gt;">');
+  expect(html).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="default">');
+  expect(html).not.toContain("black-translucent");
   const links = [...html.matchAll(/<link rel="apple-touch-startup-image" href="([^"]+)" media="([^"]+)">/g)];
-  expect(links.length).toBe(26);
-  expect(links.some(([, , media]) => media.includes("(device-width: 430px)") && media.includes("prefers-color-scheme: dark"))).toBe(true);
-  const r = await get(open, "/splash/1290x2796-dark.png");
-  expect(r.headers.get("content-type")).toBe("image/png");
-  const png = Buffer.from(await r.arrayBuffer());
-  expect(png.subarray(1, 4).toString()).toBe("PNG");
-  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual([1290, 2796]);
+  // 14 iPhone screens, portrait and landscape, light and dark. 12 and 13 mini are 360×780.
+  expect(links.length).toBe(56);
+  expect(links.filter(([, , media]) => media.includes("orientation: landscape")).length).toBe(28);
+  expect(links.some(([, , media]) => media.includes("(device-width: 430px)") && media.includes("orientation: portrait") && media.includes("prefers-color-scheme: dark"))).toBe(true);
+  expect(links.some(([, , media]) => media.includes("(device-width: 360px)") && media.includes("(device-height: 780px)") && media.includes("orientation: portrait"))).toBe(true);
+  expect(links.some(([, href, media]) => href === "/splash/2532x1170-dark.png" && media.includes("(device-width: 844px)") && media.includes("(device-height: 390px)") && media.includes("orientation: landscape"))).toBe(true);
+  const pngSize = async (path: string) => {
+    const r = await get(open, path);
+    expect(r.headers.get("content-type")).toBe("image/png");
+    const png = Buffer.from(await r.arrayBuffer());
+    expect(png.subarray(1, 4).toString()).toBe("PNG");
+    return [png.readUInt32BE(16), png.readUInt32BE(20)];
+  };
+  expect(await pngSize("/splash/1290x2796-dark.png")).toEqual([1290, 2796]);
+  expect(await pngSize("/splash/1080x2340-light.png")).toEqual([1080, 2340]);
+  expect(await pngSize("/splash/2532x1170-dark.png")).toEqual([2532, 1170]);
   expect((await get(open, "/splash/999x999-dark.png")).status).toBe(404);
+  // The booking page is not an install document.
+  expect(await (await get(open, "/booking")).text()).not.toContain("apple-touch-startup-image");
+  expect((await get(open, "/booking")).headers.get("content-security-policy")).not.toContain("manifest-src");
+
+  const signedOut = await get(locked, "/admin");
+  const signIn = await signedOut.text();
+  expect(signIn).toContain('id="em"');
+  expect(signIn).toContain('<meta name="apple-mobile-web-app-capable" content="yes">');
+  expect(signIn).toContain('<meta name="mobile-web-app-capable" content="yes">');
+  expect(signIn).toMatch(/<meta name="apple-mobile-web-app-title" content="[^"]+">/);
+  expect(signIn).not.toContain("__HOST__");
+  expect(signIn).toContain('<meta name="apple-mobile-web-app-status-bar-style" content="default">');
+  expect(signIn).toContain('<link rel="manifest" href="/manifest.webmanifest">');
+  expect(signIn).toContain('<link rel="apple-touch-icon" href="/icon.png?v=8">');
+  expect(signIn).toContain("apple-touch-startup-image");
+  expect(signIn).not.toContain("black-translucent");
+  const policy = signedOut.headers.get("content-security-policy")!;
+  expect(policy).toContain("manifest-src 'self'");
+  expect(policy).not.toContain("worker-src");
+  expect(policy).not.toContain("frame-src");
+  expect(policy).not.toContain("unsafe-inline");
+  // The contacts frame is the same form, without a manifest fetch the frame policy would refuse.
+  const frame = await get(locked, "/admin/analytics");
+  const frameHtml = await frame.text();
+  expect(frameHtml).toContain('id="em"');
+  expect(frameHtml).not.toContain('rel="manifest"');
+  expect(frameHtml).toContain("apple-mobile-web-app-capable");
+  expect(frame.headers.get("content-security-policy")).toContain("frame-ancestors 'self'");
+  expect(frame.headers.get("content-security-policy")).not.toContain("manifest-src");
+  expect(frame.headers.get("x-frame-options")).toBe("SAMEORIGIN");
 });
 
 test("the icon is served from public/icon.png and revalidates", async () => {
