@@ -76,6 +76,12 @@ NODE_PATH=$(npm root -g) node tests/a11y.cjs             # accessibility: WCAG 2
 - `/praneeth` sends owners to `/admin/praneeth` (under `/admin`, where the sign-in cookie goes; other admins get a 403): Praneeth's interviews laid out like the spreadsheet kept before the app, one row per candidate and company (newest first), one column per round with its date and time (`src/server/my-interviews.ts`, `src/pages/sheet.html|ts|css`). A cell is green when the round's status is Cleared, orange On hold, pale red Rejected. Only rounds recorded with Praneeth as the interview supporter are listed.
 - Onboarding is the way in: a form is accepted only from an email with a confirmed payment (`paymentStatus()` in `src/server/data.ts`; a pending payment or none gets a 403 naming which, on the email field), and accepting it adds the email to the Candidates list. With the list on, an email that isn't on it gets a 403 with `onboarding: true` on the booking page, which links "the onboarding form". Admins can book anyone.
 
+## AI connector (MCP)
+
+`/mcp` is an MCP server, so admins can add the app to Claude (Settings → Connectors → Add custom connector, URL `https://hi-techie.dev/mcp`), Claude Code (`claude mcp add --transport http hi-techie https://hi-techie.dev/mcp`) or another MCP app and ask about interviews in plain words. Every tool only reads: `get_overview`, `list_interviews`, `get_interview`, `find_free_slots`, `list_unavailable`, `search_candidates`, `get_candidate`, and for owners also `list_payments`, `list_enquiries`, `list_onboarding`, `get_revenue` and `list_expenses` (`src/server/mcp.ts`). Files (resumes, receipts, Aadhaar and PAN cards, invites) are never sent. It uses MCP's Streamable HTTP transport as plain JSON: one JSON-RPC message per POST, one answer, no sessions.
+
+Sign-in is OAuth 2.1 with PKCE and dynamic client registration (`src/server/oauth.ts`, `src/server/routes/mcp.ts`): the app reads `/.well-known/oauth-protected-resource` and `/.well-known/oauth-authorization-server`, registers at `/oauth/register`, and sends the admin to `/admin/oauth/authorize`, where they sign in with the usual emailed code and press Allow (`src/pages/connect.html`). Codes then go back only to Claude (claude.ai, claude.com), apps on the admin's computer (localhost) and hosts in `MCP_REDIRECT_HOSTS`. Access tokens last an hour and refresh tokens 60 days (each works once); a token stops working as soon as its admin leaves the admin list. Tokens are kept as hashes in `oauth.json`, which backups leave out, like `sessions.json`.
+
 ## Security
 
 - Admin pages and APIs need a signed-in admin. Sign-in never switches itself off: if `ADMIN_EMAILS` goes missing, the admin page locks instead of opening.
@@ -99,6 +105,7 @@ NODE_PATH=$(npm root -g) node tests/a11y.cjs             # accessibility: WCAG 2
 | `BACKUP_EMAIL` | Where the weekly backup email goes (comma separated; falls back to `HOST_EMAIL`) |
 | `BACKUP_HOUR` | Hour (IST) after which the daily snapshot and the weekly email run, default `2` |
 | `REPORT_HOUR` | Hour (IST) on the 1st after which the monthly revenue report goes out, default `9` |
+| `MCP_REDIRECT_HOSTS` | Extra hosts AI connectors may return to after Allow, comma separated (e.g. `chatgpt.com`). Claude and localhost are always allowed |
 | `MONTHLY_REPORT` | `off` turns the monthly revenue report off (the test servers do) |
 
 ## Backups
