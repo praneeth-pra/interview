@@ -131,6 +131,26 @@ export const sessionsStore = fileStore<{ sessions: Session[] }>(
       : [],
   }),
 );
+// AI connectors (MCP at /mcp): the apps registered to sign in (OAuth dynamic client registration) and the tokens given
+// to them. Like sessions.json, only hashes of tokens are kept, and backups never carry this file.
+export type OAuthClient = { id: string; name: string; redirects: string[]; created: string };
+// grant: one connection (an admin allowing one app); a refresh hands out a new pair under the same grant
+export type OAuthToken = { id: string; kind: "access" | "refresh"; email: string; client: string; grant: string; exp: number };
+export const oauthStore = fileStore<{ clients: OAuthClient[]; tokens: OAuthToken[] }>(
+  "oauth.json",
+  () => ({ clients: [], tokens: [] }),
+  (x) => ({
+    clients: Array.isArray(x?.clients)
+      ? x.clients.filter((v: unknown) => typeof asFields(v).id === "string" && Array.isArray(asFields(v).redirects))
+      : [],
+    tokens: Array.isArray(x?.tokens)
+      ? x.tokens.filter((v: unknown) => {
+          const t = asFields(v);
+          return typeof t.id === "string" && typeof t.email === "string" && typeof t.exp === "number";
+        })
+      : [],
+  }),
+);
 export const isAdmin = (email: string) => OWNER_EMAILS.includes(email) || adminsStore.data.emails.includes(email);
 // Enquiries and payments are for the owners (ADMIN_EMAILS) only, not for the admins they add. With sign-in off (local
 // testing) everyone is an owner.
@@ -329,6 +349,7 @@ export async function loadStores() {
     expensesStore,
     onboardingStore,
     sessionsStore,
+    oauthStore,
     blocksStore,
   ];
   for (const s of all) await loadStore(s);

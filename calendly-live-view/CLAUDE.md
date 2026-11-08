@@ -19,6 +19,7 @@ Read README.md first for layout, commands and deploy.
 - Admin sign-in fails closed: without `ADMIN_EMAILS` the admin page is locked. Local servers and test harnesses set `ADMIN_OPEN=1` to open it; never set that on Railway.
 - Per-network limits use `clientIp()` (Railway's `X-Real-IP`); tests that need a different network send `x-real-ip`.
 - Backups (`runBackup` in `src/server/backup.ts`) email candidate data weekly, with the resumes and receipts. Keep `push.json` and `sessions.json` (admin sign-in sessions) out of anything that leaves the volume; restoring (⋯ menu → Backup) never replaces them.
+- The AI connector (`/mcp`, see README) is read-only and follows the admin page's owner split; keep it that way, and never send files (ID cards, resumes, receipts, invites) through it. `oauth.json` holds token hashes and stays out of backups like `sessions.json`.
 - Admin sign-in (`ADMIN_EMAILS`, `admins.json`): codes are emailed (printed in the log only when email is off). Never log or return a session token, and give the same answers whether or not an email is an admin.
 
 ## Before pushing

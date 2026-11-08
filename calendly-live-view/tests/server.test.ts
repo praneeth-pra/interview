@@ -1,5 +1,5 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { createHmac } from "node:crypto";
+import { createHash, createHmac } from "node:crypto";
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -1958,6 +1958,148 @@ describe("deleting an onboarding form", () => {
       expect(saved.find((b: any) => b.id === other.id).invite).toEqual(other.invite);
       // a used code doesn't work twice
       expect((await send("/admin/api/onboarding/delete", { id: formId, code })).status).toBe(404);
+    } finally {
+      s.proc.kill();
+    }
+  });
+});
+
+describe("AI connector (MCP)", () => {
+  const CALLBACK = "https://claude.ai/api/mcp/auth_callback";
+  const VERIFIER = "v".repeat(20) + "-verifier_" + "x".repeat(20);
+  const CHALLENGE = createHash("sha256").update(VERIFIER).digest("base64url");
+  const form = (s: Srv, path: string, body: Record<string, string>, headers: Record<string, string> = {}) =>
+    fetch(s.url + path, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded", ...headers }, body: new URLSearchParams(body), redirect: "manual" });
+  const register = async (s: Srv, name = "Claude", redirect_uris = [CALLBACK]) => postJson(s, "/oauth/register", { client_name: name, redirect_uris });
+  const askFor = (client: string) => ({ response_type: "code", client_id: client, redirect_uri: CALLBACK, state: "st8", code_challenge: CHALLENGE, code_challenge_method: "S256" });
+  // signs the admin in, allows the app and swaps the code: the tokens an app ends up with
+  async function connect(s: Srv, cookie: string) {
+    const { client_id } = await (await register(s)).json();
+    const page = await (await get(s, "/admin/oauth/authorize?" + new URLSearchParams(askFor(client_id)), { cookie })).text();
+    const key = page.match(/name="key" value="([a-f0-9]{64})"/)![1];
+    const allowed = await form(s, "/admin/oauth/authorize", { ...askFor(client_id), key, choice: "allow" }, { cookie });
+    const code = new URL(allowed.headers.get("location")!).searchParams.get("code")!;
+    const r = await form(s, "/oauth/token", { grant_type: "authorization_code", code, client_id, code_verifier: VERIFIER, redirect_uri: CALLBACK });
+    return { client_id, ...(await r.json()) };
+  }
+  let id = 0;
+  const rpc = (s: Srv, token: string, method: string, params?: unknown) =>
+    fetch(s.url + "/mcp", { method: "POST", headers: { "Content-Type": "application/json", Authorization: "Bearer " + token }, body: JSON.stringify({ jsonrpc: "2.0", id: ++id, method, params }) });
+  const call = async (s: Srv, token: string, name: string, args: unknown = {}) => {
+    const r = await (await rpc(s, token, "tools/call", { name, arguments: args })).json();
+    return r.error ? r : JSON.parse(r.result.content[0].text);
+  };
+
+  test("signs an admin in with the emailed code, and answers MCP tools by role", async () => {
+    const s = await start(4360, lockedEnv);
+    try {
+      // what an app reads first
+      const meta = await (await get(s, "/.well-known/oauth-protected-resource/mcp")).json();
+      expect(meta.resource).toBe(s.url + "/mcp");
+      const as = await (await get(s, "/.well-known/oauth-authorization-server")).json();
+      expect(as).toMatchObject({ authorization_endpoint: s.url + "/admin/oauth/authorize", code_challenge_methods_supported: ["S256"] });
+      const no = await fetch(s.url + "/mcp", { method: "POST", body: "{}" });
+      expect(no.status).toBe(401);
+      expect(no.headers.get("www-authenticate")).toContain('resource_metadata="' + s.url + "/.well-known/oauth-protected-resource/mcp");
+
+      // only Claude, apps on the admin's own computer and listed hosts may get a code
+      expect((await register(s, "Bad", ["https://evil.example/cb"])).status).toBe(400);
+      expect((await register(s, "Bad", ["http://evil.example/cb"])).status).toBe(400);
+      expect((await register(s, "Local", ["http://localhost:8123/callback"])).status).toBe(201);
+      const reg = await register(s, '<b>Claude</b>');
+      expect(reg.status).toBe(201);
+      const { client_id } = await reg.json();
+
+      // signed out, the authorize page is the sign-in page; signed in, it asks to allow the app
+      const q = "/admin/oauth/authorize?" + new URLSearchParams(askFor(client_id));
+      expect(await (await get(s, q)).text()).toContain('id="em"');
+      const cookie = await signIn(s, OWNER);
+      const page = await get(s, q, { cookie });
+      const html = await page.text();
+      expect(html).toContain("Connect &lt;b&gt;Claude&lt;/b&gt;?");
+      expect(html).not.toContain("<b>Claude");
+      expect(html).toContain("owner-only payments");
+      expect(page.headers.get("content-security-policy")).toContain("form-action 'self' https://claude.ai;");
+      expect(page.headers.get("cache-control")).toBe("no-store");
+      const key = html.match(/name="key" value="([a-f0-9]{64})"/)![1];
+      // an unknown app or a changed redirect never reaches the app
+      expect((await get(s, q.replace(client_id, "0".repeat(32)), { cookie })).status).toBe(400);
+      expect((await get(s, q.replace(encodeURIComponent(CALLBACK), encodeURIComponent("https://claude.ai/other")), { cookie })).status).toBe(400);
+      // without PKCE the app gets an error back
+      const noPkce = await fetch(s.url + q.replace("code_challenge_method=S256", "code_challenge_method=plain"), { headers: { cookie }, redirect: "manual" });
+      expect(noPkce.status).toBe(302);
+      expect(noPkce.headers.get("location")).toContain("error=invalid_request");
+      // the form needs the admin's session and its key
+      expect((await form(s, "/admin/oauth/authorize", { ...askFor(client_id), key, choice: "allow" })).status).toBe(401);
+      expect((await form(s, "/admin/oauth/authorize", { ...askFor(client_id), key: "0".repeat(64), choice: "allow" }, { cookie })).status).toBe(403);
+      const denied = await form(s, "/admin/oauth/authorize", { ...askFor(client_id), key, choice: "deny" }, { cookie });
+      expect(denied.headers.get("location")).toBe(CALLBACK + "?error=access_denied&state=st8");
+      const allowed = await form(s, "/admin/oauth/authorize", { ...askFor(client_id), key, choice: "allow" }, { cookie });
+      const back = new URL(allowed.headers.get("location")!);
+      expect(back.origin + back.pathname).toBe(CALLBACK);
+      expect(back.searchParams.get("state")).toBe("st8");
+      const code = back.searchParams.get("code")!;
+      const swap = (extra: Record<string, string>) =>
+        form(s, "/oauth/token", { grant_type: "authorization_code", code, client_id, redirect_uri: CALLBACK, ...extra });
+      expect((await swap({ code_verifier: "w".repeat(50) })).status).toBe(400);
+      // a wrong verifier used the code up
+      expect((await swap({ code_verifier: VERIFIER })).status).toBe(400);
+
+      const owner = await connect(s, cookie);
+      expect(owner).toMatchObject({ token_type: "Bearer", expires_in: 3600 });
+      expect(owner.access_token).toMatch(/^[a-f0-9]{64}$/);
+      // the volume keeps only hashes, and backups leave the file out
+      const saved = readFileSync(join(s.dir, "oauth.json"), "utf8");
+      expect(saved).not.toContain(owner.access_token);
+      expect(saved).not.toContain(owner.refresh_token);
+
+      const init = await (await rpc(s, owner.access_token, "initialize", { protocolVersion: "2025-06-18", capabilities: {}, clientInfo: { name: "t", version: "1" } })).json();
+      expect(init.result).toMatchObject({ protocolVersion: "2025-06-18", capabilities: { tools: {} }, serverInfo: { name: "hi-techie" } });
+      const note = await fetch(s.url + "/mcp", { method: "POST", headers: { Authorization: "Bearer " + owner.access_token }, body: JSON.stringify({ jsonrpc: "2.0", method: "notifications/initialized" }) });
+      expect(note.status).toBe(202);
+      expect((await get(s, "/mcp", { authorization: "Bearer " + owner.access_token })).status).toBe(405);
+      const tools = (await (await rpc(s, owner.access_token, "tools/list")).json()).result.tools;
+      expect(tools.map((t: any) => t.name)).toContain("list_payments");
+      expect(tools.every((t: any) => t.annotations.readOnlyHint === true)).toBe(true);
+
+      const week = await call(s, owner.access_token, "list_interviews");
+      expect(week.interviews).toEqual([expect.objectContaining({ id: booking.id, candidate: "Priya Sharma", company: "Google", status: "Upcoming" })]);
+      expect((await call(s, owner.access_token, "list_interviews", { query: "priya", include_cancelled: true })).count).toBe(61);
+      const priya = await call(s, owner.access_token, "get_candidate", { email: "PRIYA@example.com" });
+      expect(priya).toMatchObject({ name: "Priya Sharma", interviews: 1, payments: [], onboarding: null });
+      expect((await call(s, owner.access_token, "get_interview", { id: booking.id })).invite).toBe("none");
+      const day = new Date(FUTURE + 330 * 60000).toISOString().slice(0, 10);
+      const free = await call(s, owner.access_token, "find_free_slots", { date: day });
+      expect(free.free.some((v: any) => v.start === booking.start)).toBe(false);
+      expect(free.free.length).toBeGreaterThan(10);
+      expect((await call(s, owner.access_token, "get_revenue")).revenue.total).toBe(0);
+      expect((await call(s, owner.access_token, "list_payments")).count).toBe(0);
+      expect((await call(s, owner.access_token, "get_overview")).paymentsWaitingForDecision).toBe(0);
+      expect((await call(s, owner.access_token, "nope")).error.code).toBe(-32602);
+
+      // a refresh token works once and replaces the pair
+      const refresh = () => form(s, "/oauth/token", { grant_type: "refresh_token", refresh_token: owner.refresh_token, client_id: owner.client_id });
+      const next = await (await refresh()).json();
+      expect(next.access_token).toMatch(/^[a-f0-9]{64}$/);
+      expect((await refresh()).status).toBe(400);
+      expect((await rpc(s, owner.access_token, "ping")).status).toBe(401);
+      expect((await (await rpc(s, next.access_token, "ping")).json()).result).toEqual({});
+
+      // an admin who isn't an owner gets no owner-only tools, and loses the connector when taken off the list
+      await postJson(s, "/admin/api/admins", { emails: ["aide@example.com"] }, { cookie });
+      const aide = await connect(s, await signIn(s, "aide@example.com"));
+      const aideTools = (await (await rpc(s, aide.access_token, "tools/list")).json()).result.tools.map((t: any) => t.name);
+      expect(aideTools).toContain("list_interviews");
+      expect(aideTools).not.toContain("list_payments");
+      expect(aideTools).not.toContain("get_revenue");
+      expect((await call(s, aide.access_token, "list_payments")).error.code).toBe(-32602);
+      expect(await call(s, aide.access_token, "get_candidate", { email: "priya@example.com" })).not.toHaveProperty("payments");
+      await postJson(s, "/admin/api/admins", { emails: [] }, { cookie });
+      expect((await rpc(s, aide.access_token, "ping")).status).toBe(401);
+
+      // disconnecting ends the connection
+      expect((await form(s, "/oauth/revoke", { token: next.refresh_token })).status).toBe(200);
+      expect((await rpc(s, next.access_token, "ping")).status).toBe(401);
     } finally {
       s.proc.kill();
     }

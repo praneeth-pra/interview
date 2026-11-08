@@ -219,3 +219,34 @@ export const sheetPage = (req: Request, who: string, data: unknown) =>
 // A manage link carries the candidate's booking, so that page is built per request and never cached.
 export const bookPage = (req: Request, manage: unknown) =>
   sendShell(req, { body: encode(bookHtml(manage, ""), "text/html; charset=utf-8", true), csp: CSP.page }, "no-store");
+// The page where an admin lets an AI app (an MCP connector) in: built per request, never cached. fields: the authorize
+// request's values, carried as hidden inputs to the POST.
+const CONNECT_TPL = template("connect");
+export const connectPage = (
+  req: Request,
+  csp: string,
+  v: { client: string; target: string; email: string; owner: boolean; fields: Record<string, string> },
+) =>
+  sendShell(
+    req,
+    {
+      body: encode(
+        fill(CONNECT_TPL, {
+          HOST: HOST_HTML,
+          CLIENT: Bun.escapeHTML(v.client),
+          TARGET: Bun.escapeHTML(v.target),
+          EMAIL: Bun.escapeHTML(v.email || "you"),
+          OWNER: v.owner
+            ? ", and the owner-only payments, enquiries, onboarding forms, revenue and expenses (never ID cards, resumes or receipts)"
+            : "",
+          FIELDS: Object.entries(v.fields)
+            .map(([k, val]) => `<input type="hidden" name="${k}" value="${Bun.escapeHTML(val)}">`)
+            .join(""),
+        }),
+        "text/html; charset=utf-8",
+        true,
+      ),
+      csp,
+    },
+    "no-store",
+  );
