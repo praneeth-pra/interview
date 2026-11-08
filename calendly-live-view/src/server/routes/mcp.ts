@@ -12,6 +12,7 @@ import {
   consentCsp,
   issueCode,
   readAuthAsk,
+  redirectLabel,
   registerClient,
   resourceMetadata,
   revokeToken,
@@ -104,7 +105,7 @@ export async function mcpRoute(req: Request, url: URL, srv: Srv): Promise<Respon
     if (method === "GET")
       return connectPage(req, consentCsp(ask.redirect), {
         client: ask.client.name,
-        target: new URL(ask.redirect).host,
+        target: redirectLabel(ask.redirect),
         email,
         owner: isOwner(email),
         fields: {
@@ -119,7 +120,7 @@ export async function mcpRoute(req: Request, url: URL, srv: Srv): Promise<Respon
       });
     if (!safeEq(params.get("key") ?? "", key)) return plain("This page is out of date. Go back to the app and connect again.", 403);
     if (params.get("choice") !== "allow") return backTo(ask.redirect, { error: "access_denied", state: ask.state });
-    console.log("ai connector allowed: " + (email || "(sign-in off)") + " → " + ask.client.name + " (" + new URL(ask.redirect).host + ")");
+    console.log("ai connector allowed: " + (email || "(sign-in off)") + " → " + ask.client.name + " (" + redirectLabel(ask.redirect) + ")");
     return backTo(ask.redirect, { code: issueCode(ask, email), state: ask.state, iss: base });
   }
 

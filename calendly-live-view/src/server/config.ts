@@ -48,18 +48,6 @@ export const OWNER_EMAILS = [
 // Sign-in is always required, even when ADMIN_EMAILS is missing (then only admins added earlier can sign in), so a
 // deleted or mistyped variable locks the admin page instead of opening it. ADMIN_OPEN=1 turns sign-in off, for local
 // testing only, and only while ADMIN_EMAILS is empty.
-// Extra hosts AI connectors may send the admin back to after Allow (comma separated, e.g. chatgpt.com); Claude and apps on
-// the admin's own computer are always allowed (src/server/oauth.ts).
-export const MCP_REDIRECT_HOSTS = (Bun.env.MCP_REDIRECT_HOSTS ?? "")
-  .split(/[,;\s]+/)
-  .map((h) =>
-    h
-      .trim()
-      .toLowerCase()
-      .replace(/^https?:\/\//, "")
-      .replace(/\/.*$/, ""),
-  )
-  .filter((h) => /^[a-z0-9.-]+\.[a-z]{2,}$/.test(h));
 export const ADMIN_OPEN = (Bun.env.ADMIN_OPEN ?? "").trim() === "1";
 export const LOGIN_ON = OWNER_EMAILS.length > 0 || !ADMIN_OPEN;
 // The largest payment receipt (/payment), in MB (default 1). The form doesn't show it; a bigger file gets a clear error.

@@ -3,7 +3,6 @@
 // /admin/oauth/authorize (under /admin, where the sign-in cookie goes), the admin signs in with the usual emailed code
 // and presses Allow, and the app swaps the code it gets for an access token (1 hour) and a refresh token (60 days).
 // A token works only while its admin is still on the admin list; owners' tokens also reach the owner-only tools.
-import { MCP_REDIRECT_HOSTS } from "./config";
 import { type OAuthClient, type OAuthToken, isAdmin, oauthStore } from "./data";
 import { BASE_HEADERS, CSP, json } from "./http";
 import { saveStore } from "./store";
@@ -36,10 +35,11 @@ export const serverMetadata = (base: string) => ({
   scopes_supported: ["read"],
 });
 
-// Where an app may send the admin back to: Claude (claude.ai, claude.com), apps on the admin's own computer (Claude
-// Code, Claude Desktop) and any host listed in MCP_REDIRECT_HOSTS. Anything else is refused at registration, so a
-// stranger's app can't collect a code even if an admin is tricked into pressing Allow.
-const DEFAULT_HOSTS = ["claude.ai", "claude.com"];
+// Where an app may send the admin back to: any https address (Claude, Cursor, Grok, ChatGPT...), apps on the admin's
+// own computer (http://localhost, 127.0.0.1) and desktop apps' own schemes (cursor://, vscode://...). Plain http to
+// another host, and javascript:, data: or file: addresses, are refused. The Allow page names the address's host, so
+// the admin sees where the sign-in goes before pressing Allow.
+const BLOCKED_SCHEMES = new Set(["javascript:", "data:", "file:", "blob:", "about:", "vbscript:", "ftp:", "ws:", "wss:"]);
 export function redirectOk(uri: string) {
   let u: URL;
   try {
@@ -49,12 +49,17 @@ export function redirectOk(uri: string) {
   }
   if (u.hash || u.username || u.password) return false;
   if (u.protocol === "http:") return u.hostname === "localhost" || u.hostname === "127.0.0.1" || u.hostname === "[::1]";
-  if (u.protocol !== "https:") return false;
-  const host = u.hostname.toLowerCase();
-  return [...DEFAULT_HOSTS, ...MCP_REDIRECT_HOSTS].some((h) => host === h || host.endsWith("." + h));
+  if (u.protocol === "https:") return !!u.hostname;
+  // an app's own scheme, like cursor://anysphere.cursor-mcp/oauth/callback
+  return /^[a-z][a-z0-9+.-]*:$/.test(u.protocol) && !BLOCKED_SCHEMES.has(u.protocol);
 }
+// What the Allow page names as the destination: the host, or the app's scheme for a desktop app.
+export const redirectLabel = (redirect: string) => {
+  const u = new URL(redirect);
+  return u.protocol === "https:" || u.protocol === "http:" ? u.host : u.protocol.slice(0, -1) + " app";
+};
 
-// POST /oauth/register (RFC 7591): any app may register, with redirect addresses from the list above.
+// POST /oauth/register (RFC 7591): any app may register, with redirect addresses allowed above.
 export async function registerClient(body: Fields): Promise<Response> {
   const uris = Array.isArray(body.redirect_uris) ? body.redirect_uris.filter((u): u is string => typeof u === "string") : [];
   if (!uris.length || uris.length > 10 || uris.some((u) => u.length > 500))
@@ -111,7 +116,11 @@ export const backTo = (redirect: string, params: Record<string, string>) => {
   return new Response(null, { status: 302, headers: { ...BASE_HEADERS, Location: u.toString() } });
 };
 // The consent page may post its form only here and to the app's own address (the answer redirects there).
-export const consentCsp = (redirect: string) => CSP.page.replace("form-action 'self'", "form-action 'self' " + new URL(redirect).origin);
+export const consentCsp = (redirect: string) => {
+  const u = new URL(redirect);
+  const source = u.protocol === "https:" || u.protocol === "http:" ? u.origin : u.protocol;
+  return CSP.page.replace("form-action 'self'", "form-action 'self' " + source);
+};
 
 // Codes live in memory for 5 minutes and work once.
 const codes = new Map<string, { client: string; redirect: string; challenge: string; email: string; exp: number }>();
