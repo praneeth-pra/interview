@@ -2002,10 +2002,15 @@ describe("AI connector (MCP)", () => {
       expect(no.status).toBe(401);
       expect(no.headers.get("www-authenticate")).toContain('resource_metadata="' + s.url + "/.well-known/oauth-protected-resource/mcp");
 
-      // only Claude, apps on the admin's own computer and listed hosts may get a code
-      expect((await register(s, "Bad", ["https://evil.example/cb"])).status).toBe(400);
-      expect((await register(s, "Bad", ["http://evil.example/cb"])).status).toBe(400);
-      expect((await register(s, "Local", ["http://localhost:8123/callback"])).status).toBe(201);
+      // any https app (Cursor, Grok...), apps on the admin's own computer and desktop app schemes may connect;
+      // plain http elsewhere and script or file addresses may not
+      for (const bad of ["http://evil.example/cb", "javascript:alert(1)", "data:text/html,x", "file:///etc/passwd", "https://claude.ai/cb#x", "not a url"])
+        expect((await register(s, "Bad", [bad])).status).toBe(400);
+      for (const ok of ["https://www.cursor.com/agents/mcp/oauth/callback", "http://localhost:8123/callback", "cursor://anysphere.cursor-mcp/oauth/callback"])
+        expect((await register(s, "App", [ok])).status).toBe(201);
+      // the Allow page names where the sign-in goes, and its form may post only there
+      const cursorApp = await (await register(s, "Cursor", ["https://www.cursor.com/agents/mcp/oauth/callback"])).json();
+      const desktop = await (await register(s, "Desk", ["cursor://anysphere.cursor-mcp/oauth/callback"])).json();
       const reg = await register(s, '<b>Claude</b>');
       expect(reg.status).toBe(201);
       const { client_id } = await reg.json();
@@ -2014,6 +2019,12 @@ describe("AI connector (MCP)", () => {
       const q = "/admin/oauth/authorize?" + new URLSearchParams(askFor(client_id));
       expect(await (await get(s, q)).text()).toContain('id="em"');
       const cookie = await signIn(s, OWNER);
+      const viaCursor = await get(s, "/admin/oauth/authorize?" + new URLSearchParams({ ...askFor(cursorApp.client_id), redirect_uri: cursorApp.redirect_uris[0] }), { cookie });
+      expect(await viaCursor.text()).toContain("Cursor (at www.cursor.com)");
+      expect(viaCursor.headers.get("content-security-policy")).toContain("form-action 'self' https://www.cursor.com;");
+      const viaDesktop = await get(s, "/admin/oauth/authorize?" + new URLSearchParams({ ...askFor(desktop.client_id), redirect_uri: desktop.redirect_uris[0] }), { cookie });
+      expect(await viaDesktop.text()).toContain("Desk (at cursor app)");
+      expect(viaDesktop.headers.get("content-security-policy")).toContain("form-action 'self' cursor:;");
       const page = await get(s, q, { cookie });
       const html = await page.text();
       expect(html).toContain("Connect &lt;b&gt;Claude&lt;/b&gt;?");
