@@ -16,9 +16,10 @@ Read README.md first for layout, commands and deploy.
 - Logic without DOM (dates, labels, `admin/layout.ts`, `analytics/api.ts`, `same-company.ts`) has unit tests in `tests/page-units.test.ts`; keep such logic in modules that don't touch `document` at import, so it stays testable.
 - **CSS class names are global per page and short** (`.ev`, `.t`, `.go`...). Before adding a class, grep the page's CSS for it, and grep the page's scripts before deleting one: some are built at runtime (`"c" + n`, `"st-" + status`, `"sk-w" + n`).
 - The server is split by feature under `src/server/` (see README); `src/server.ts` only starts it. `bun run typecheck` checks the server in strict mode, so run `bun install` once for the dev tools.
+- In `createBooking`, nothing may `await` between the last free-time check and adding the booking to the list: an `await` there lets two people book the same time (a test sends six at once).
 - Admin sign-in fails closed: without `ADMIN_EMAILS` the admin page is locked. Local servers and test harnesses set `ADMIN_OPEN=1` to open it; never set that on Railway.
 - Per-network limits use `clientIp()` (Railway's `X-Real-IP`); tests that need a different network send `x-real-ip`.
-- Backups (`runBackup` in `src/server/backup.ts`) email candidate data weekly, with the resumes and receipts. Keep `push.json` and `sessions.json` (admin sign-in sessions) out of anything that leaves the volume; restoring (⋯ menu → Backup) never replaces them.
+- Backups (`runBackup` in `src/server/backup.ts`) email candidate data weekly, with the resumes, receipts and invites, but never the Aadhaar and PAN cards or `secret.json` (those are only in the owner's own download). Keep `push.json` and `sessions.json` (admin sign-in sessions) out of anything that leaves the volume; restoring (⋯ menu → Backup) never replaces them.
 - The AI connector (`/mcp`, see README) is read-only and follows the admin page's owner split; keep it that way, and never send files (ID cards, resumes, receipts, invites) through it. `oauth.json` holds token hashes and stays out of backups like `sessions.json`.
 - Admin sign-in (`ADMIN_EMAILS`, `admins.json`): codes are emailed (printed in the log only when email is off). Never log or return a session token, and give the same answers whether or not an email is an admin.
 

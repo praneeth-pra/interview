@@ -1561,9 +1561,11 @@ describe("backups", () => {
     expect(files["bookings-" + istDay() + ".csv"]).toContain("Priya Sharma,priya@example.com,Google,1st round");
     const data = JSON.parse(files["backup-" + istDay() + ".json"]);
     expect(data.app).toBe("booking-form");
-    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "expenses.json", "interviewers.json", "onboarding.json", "payments.json", "results.json", "secret.json", "unavailable.json"]);
+    expect(Object.keys(data.files).sort()).toEqual(["admins.json", "allowlist.json", "bookings.json", "enquiries.json", "expenses.json", "interviewers.json", "onboarding.json", "payments.json", "unavailable.json"]);
     expect(data.files["bookings.json"].bookings.length).toBe(61);
-    expect(data.files["secret.json"].key).toBe(KEY);
+    // the key that signs manage links stays out of the inbox, like the Aadhaar and PAN cards
+    expect(JSON.stringify(data)).not.toContain(KEY);
+    expect(Object.keys(data.uploads).some((path) => path.startsWith("id-cards/"))).toBe(false);
     expect(Object.keys(data.uploads)).toEqual(["resumes/" + ENQ.resume.file]);
     expect(Buffer.from(data.uploads["resumes/" + ENQ.resume.file], "base64").equals(Buffer.from(RESUME))).toBe(true);
   });
@@ -2108,11 +2110,110 @@ describe("AI connector (MCP)", () => {
       await postJson(s, "/admin/api/admins", { emails: [] }, { cookie });
       expect((await rpc(s, aide.access_token, "ping")).status).toBe(401);
 
+      // allowing an app emails the admin, and the Admins panel lists it with a way to disconnect it
+      const mine = await connect(s, cookie);
+      await Bun.sleep(200);
+      expect(mails.some((m) => m.to[0] === OWNER && m.subject === "AI app connected: Claude")).toBe(true);
+      const listed = (await (await get(s, "/admin/api/connections", { cookie })).json()).connections;
+      expect(listed.filter((c: any) => c.app === "Claude" && c.email === OWNER && c.mine && c.since).length).toBeGreaterThan(0);
+      expect((await get(s, "/admin/api/connections")).status).toBe(401);
+      const grant = listed[0].id;
+      expect((await rpc(s, mine.access_token, "ping")).status).toBe(200);
+      const after = await postJson(s, "/admin/api/connections/delete", { id: grant }, { cookie });
+      expect(after.status).toBe(200);
+      expect((await after.json()).connections.some((c: any) => c.id === grant)).toBe(false);
+      expect((await rpc(s, mine.access_token, "ping")).status).toBe(401);
+      expect((await form(s, "/oauth/token", { grant_type: "refresh_token", refresh_token: mine.refresh_token, client_id: mine.client_id })).status).toBe(400);
+      expect((await postJson(s, "/admin/api/connections/delete", { id: grant }, { cookie })).status).toBe(404);
+
       // disconnecting ends the connection
       expect((await form(s, "/oauth/revoke", { token: next.refresh_token })).status).toBe(200);
       expect((await rpc(s, next.access_token, "ping")).status).toBe(401);
     } finally {
       s.proc.kill();
+    }
+  });
+});
+
+describe("review fixes", () => {
+  test("bookings sent at the same moment for one time: only one gets it", async () => {
+    const s = await start(4371, {});
+    try {
+      const startMs = FUTURE + 2 * HOUR;
+      const answers = await Promise.all(
+        [0, 1, 2, 3, 4, 5].map((i) =>
+          bookForm(s, { name: "Racer " + "abcdef"[i], email: "racer" + i + "@example.com", company: "Acme", round: "1st round", duration: 30, startMs }, { "x-real-ip": "10.9.0." + i }),
+        ),
+      );
+      expect(answers.map((r) => r.status).sort()).toEqual([200, 409, 409, 409, 409, 409]);
+      const { events } = await (await get(s, "/admin/api/state")).json();
+      expect(events.filter((e: any) => Date.parse(e.start) === startMs).length).toBe(1);
+      // the ones turned away left no invite file behind
+      expect(readdirSync(join(s.dir, "invites")).length).toBe(1);
+    } finally {
+      s.proc.kill();
+    }
+  });
+
+  test("the booking page takes ten demos a day from everyone together; admins can still book one", async () => {
+    const s = await start(4372, {});
+    try {
+      const demo = (i: number) => ({ name: "Visitor " + "abcdefghijkl"[i], email: "visitor" + i + "@example.org", round: "Demo", duration: 30, startMs: FUTURE + (2 + i) * 30 * 60000 });
+      for (let i = 0; i < 10; i++) expect((await postJson(s, "/api/book", demo(i), { "x-real-ip": "10.8.0." + i })).status).toBe(200);
+      const over = await postJson(s, "/api/book", demo(10), { "x-real-ip": "10.8.0.99" });
+      expect(over.status).toBe(429);
+      expect((await over.json()).error).toContain("demo bookings are taken");
+      expect((await postJson(s, "/admin/api/book", demo(10))).status).toBe(200);
+    } finally {
+      s.proc.kill();
+    }
+  });
+
+  test("someone else asking for codes with an admin's email neither cancels the admin's code nor uses up their asks", async () => {
+    const s = await start(4373, lockedEnv);
+    try {
+      const ask = (ip: string) => postJson(s, "/admin/login/code", { email: OWNER }, { "x-real-ip": ip });
+      expect((await ask("10.7.0.1")).status).toBe(200);
+      const mine = lastCode(OWNER);
+      // strangers on five other networks ask too
+      for (let i = 0; i < 5; i++) expect((await ask("10.7.1." + i)).status).toBe(200);
+      expect(lastCode(OWNER)).not.toBe(mine);
+      // the same network still waits 30 seconds between its own asks
+      expect((await ask("10.7.0.1")).status).toBe(429);
+      const r = await postJson(s, "/admin/login", { email: OWNER, code: mine }, { "x-real-ip": "10.7.0.1" });
+      expect(r.status).toBe(200);
+      // a used code is gone, and so are the others sent for that email
+      expect((await postJson(s, "/admin/login", { email: OWNER, code: mine }, { "x-real-ip": "10.7.0.1" })).status).toBe(401);
+    } finally {
+      s.proc.kill();
+    }
+  });
+
+  test("/healthz fails on Railway when the data folder isn't the volume, so that deploy never goes live", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "booking-form-novolume-"));
+    const run = (port: number, env: Record<string, string>) =>
+      Bun.spawn(["bun", "run", join(ROOT, "src/server.ts")], {
+        env: { ...process.env, PORT: String(port), DATA_DIR: dir, RESEND_API_KEY: "", MONTHLY_REPORT: "off", ADMIN_OPEN: "1", RAILWAY_ENVIRONMENT_NAME: "production", ...env },
+        stdout: "ignore",
+        stderr: "inherit",
+      });
+    const status = async (port: number) => {
+      for (let i = 0; i < 100; i++) {
+        try {
+          return (await fetch("http://127.0.0.1:" + port + "/healthz")).status;
+        } catch {}
+        await Bun.sleep(50);
+      }
+      return 0;
+    };
+    const without = run(4374, { RAILWAY_VOLUME_MOUNT_PATH: "" });
+    const withIt = run(4375, { RAILWAY_VOLUME_MOUNT_PATH: dir });
+    try {
+      expect(await status(4374)).toBe(503);
+      expect(await status(4375)).toBe(200);
+    } finally {
+      without.kill();
+      withIt.kill();
     }
   });
 });

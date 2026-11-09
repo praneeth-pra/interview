@@ -1,5 +1,5 @@
 // Everything the app keeps: the types and the file store for each kind of data.
-import { DEFAULT_INTERVIEWERS, LOGIN_ON, OWNER_EMAILS } from "./config";
+import { DATA_DIR, DEFAULT_INTERVIEWERS, LOGIN_ON, OWNER_EMAILS } from "./config";
 import { fileStore, loadStore, type FileStore } from "./store";
 import { DAY_MS, EMAIL_RE, type Fields, asFields, normEmail } from "./util";
 
@@ -68,37 +68,6 @@ export const ivStore = fileStore<{ names: string[]; assign: Record<string, strin
     return { names, assign };
   },
 );
-// Results the admin marks per candidate and company in Analytics ("Update results"), keyed by a normalised candidate name.
-type PersonResults = { results: Record<string, string>; updated: string };
-const RESULT_VALUES = new Set(["cleared", "notcleared", "hold", "offer", "withdrew"]);
-function normResults(v: unknown): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [c, r] of Object.entries(asFields(v))) if (c && c.length <= 120 && typeof r === "string" && RESULT_VALUES.has(r)) out[c] = r;
-  return out;
-}
-// Company names an admin said are the same company (analytics "Same company as…"): lower-cased name → name it joins.
-function normJoins(v: unknown): Record<string, string> {
-  const out: Record<string, string> = {};
-  for (const [from, to] of Object.entries(asFields(v))) {
-    const f = from.trim().toLowerCase();
-    const t = typeof to === "string" ? to.trim().toLowerCase() : "";
-    if (f && t && f !== t && f.length <= 120 && t.length <= 120) out[f] = t;
-  }
-  return out;
-}
-export const resultsStore = fileStore<{ people: Record<string, PersonResults>; joins: Record<string, string> }>(
-  "results.json",
-  () => ({ people: {}, joins: {} }),
-  (x) => {
-    const people: Record<string, PersonResults> = {};
-    for (const [k, v] of Object.entries(x?.people ?? {})) {
-      if (!k || k.length > 200) continue;
-      const results = normResults(asFields(v).results);
-      if (Object.keys(results).length) people[k] = { results, updated: String(asFields(v).updated ?? "") };
-    }
-    return { people, joins: normJoins(x?.joins) };
-  },
-);
 export const allowStore = fileStore<{ enabled: boolean; emails: string[] }>(
   "allowlist.json",
   () => ({ enabled: false, emails: [] }),
@@ -135,7 +104,16 @@ export const sessionsStore = fileStore<{ sessions: Session[] }>(
 // to them. Like sessions.json, only hashes of tokens are kept, and backups never carry this file.
 export type OAuthClient = { id: string; name: string; redirects: string[]; created: string };
 // grant: one connection (an admin allowing one app); a refresh hands out a new pair under the same grant
-export type OAuthToken = { id: string; kind: "access" | "refresh"; email: string; client: string; grant: string; exp: number };
+// since: when the admin allowed the app (missing on tokens from before it was recorded)
+export type OAuthToken = {
+  id: string;
+  kind: "access" | "refresh";
+  email: string;
+  client: string;
+  grant: string;
+  exp: number;
+  since?: number;
+};
 export const oauthStore = fileStore<{ clients: OAuthClient[]; tokens: OAuthToken[] }>(
   "oauth.json",
   () => ({ clients: [], tokens: [] }),
@@ -335,22 +313,30 @@ export const reportStateStore = fileStore<{ sent: string }>(
   (x) => ({ sent: typeof x?.sent === "string" ? x.sent : "" }),
 );
 // Loads every store except backup-state.json and report-state.json, which their jobs load once the server is listening.
+const ALL_STORES = (): FileStore<unknown>[] => [
+  bookingsStore,
+  ivStore,
+  allowStore,
+  secretStore,
+  pushStore,
+  adminsStore,
+  enquiriesStore,
+  paymentsStore,
+  expensesStore,
+  onboardingStore,
+  sessionsStore,
+  oauthStore,
+  blocksStore,
+];
 export async function loadStores() {
-  const all: FileStore<unknown>[] = [
-    bookingsStore,
-    ivStore,
-    allowStore,
-    secretStore,
-    pushStore,
-    resultsStore,
-    adminsStore,
-    enquiriesStore,
-    paymentsStore,
-    expensesStore,
-    onboardingStore,
-    sessionsStore,
-    oauthStore,
-    blocksStore,
-  ];
-  for (const s of all) await loadStore(s);
+  for (const s of ALL_STORES()) await loadStore(s);
 }
+// Whether bookings will still be there after a restart: the bookings file read (or there was none yet) and the data
+// folder takes writes, and on Railway the folder really is the volume (without one, DATA_DIR would be a folder inside
+// the container that every deploy empties). Without a data folder (local runs) there is nothing to lose. /healthz answers
+// with this, so a deploy that can't keep bookings never replaces the one that can. Another store that doesn't read
+// keeps the site up and is only held in memory (see loadStore).
+const onRailway = !!Bun.env.RAILWAY_ENVIRONMENT_NAME || !!Bun.env.RAILWAY_ENVIRONMENT;
+const volume = (Bun.env.RAILWAY_VOLUME_MOUNT_PATH ?? "").trim().replace(/\/+$/, "");
+const volumeMissing = !!DATA_DIR && onRailway && !(volume && (DATA_DIR === volume || DATA_DIR.startsWith(volume + "/")));
+export const storageOk = () => !DATA_DIR || (bookingsStore.ok && !volumeMissing);

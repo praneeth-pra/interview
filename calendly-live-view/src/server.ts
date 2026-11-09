@@ -6,7 +6,7 @@ import { startReports } from "./server/report";
 import { removeListedBookings } from "./server/bookings";
 import { dropDemoInvites } from "./server/invites";
 import { ADMIN_OPEN, LOGIN_ON, OWNER_EMAILS, PORT, PUBLIC_URL, RESEND_API_KEY, EMAIL_FROM, MAX_BODY } from "./server/config";
-import { adminsStore, allowStore, bookingsStore, loadStores, pushStore, resultsStore } from "./server/data";
+import { adminsStore, allowStore, bookingsStore, loadStores, pushStore } from "./server/data";
 import { ensureSecret } from "./server/links";
 import { ensurePushKeys } from "./server/push";
 import { route } from "./server/routes";
@@ -33,7 +33,6 @@ if (ADMIN_OPEN && LOGIN_ON) console.log("ADMIN_OPEN is ignored because ADMIN_EMA
 if (Bun.env.ADMIN_PASSWORD || Bun.env.ADMIN_LOGIN)
   console.log("ADMIN_PASSWORD and ADMIN_LOGIN are no longer used: admins sign in with an emailed code (ADMIN_EMAILS)");
 console.log("browser alerts: " + pushStore.data.subs.length + " device(s)");
-console.log("analytics results: " + Object.keys(resultsStore.data.people).length + " candidate(s)");
 
 const server = Bun.serve({
   port: PORT,

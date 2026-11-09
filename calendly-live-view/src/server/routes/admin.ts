@@ -14,6 +14,7 @@ import { assignInterviewers, renameInterviewers } from "../interviewers";
 import { adminState, openStream, pub } from "../live";
 import { ANALYTICS, LOGIN, LOGIN_FRAME, adminShell, sheetPage } from "../pages";
 import { MY_SUPPORTER, mySheet } from "../my-interviews";
+import { connections, disconnect } from "../oauth";
 import { deleteOnboarding, idCardFile, onboardingList } from "../onboarding";
 import { dropInvites, inviteFile } from "../invites";
 import { checkDeleteCode, sendDeleteCode } from "../delete-code";
@@ -110,6 +111,11 @@ export async function adminRoute(req: Request, url: URL, srv: Srv): Promise<Resp
     if (!me) return json({ error: "Admin sign-in is off, so there is no admin list." }, 409);
     return withBody(10000, (b) => setAdmins(b?.emails, me.email));
   }
+
+  // ---- AI apps connected through /mcp: an admin's own, and for owners everyone's
+  if (path === "/admin/api/connections" && method === "GET") return json({ connections: connections(email, owner) });
+  if (path === "/admin/api/connections/delete" && method === "POST")
+    return withBody(1000, (b) => disconnect(String(b?.id ?? ""), email, owner));
 
   // ---- live state and browser alerts
   if (path === "/admin/api/state" && method === "GET") return json(adminState(owner));

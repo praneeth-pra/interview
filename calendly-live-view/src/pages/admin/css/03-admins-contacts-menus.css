@@ -15,6 +15,9 @@
   overflow-wrap: anywhere;
   font-weight: 600;
 }
+.admapps:not(:empty) {
+  margin-top: 22px;
+}
 .admlist {
   margin: 8px 0 14px;
 }

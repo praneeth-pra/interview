@@ -1,7 +1,7 @@
 // AI connectors: the MCP endpoint (/mcp), its OAuth sign-in (/oauth/*, and /admin/oauth/authorize where the admin's
 // sign-in cookie is sent) and the metadata documents apps read first (/.well-known/*).
 import { sessionOf } from "../auth";
-import { LOGIN_ON } from "../config";
+import { HOST_NAME, LOGIN_ON } from "../config";
 import { isOwner } from "../data";
 import { BASE_HEADERS, type Srv, clientIp, json, sendShell, underLimit } from "../http";
 import { baseUrl } from "../links";
@@ -19,6 +19,7 @@ import {
   serverMetadata,
   tokenRequest,
 } from "../oauth";
+import { emailBody, sendEmail } from "../email";
 import { LOGIN, connectPage } from "../pages";
 import { asFields, safeEq, sha256 } from "../util";
 
@@ -121,6 +122,20 @@ export async function mcpRoute(req: Request, url: URL, srv: Srv): Promise<Respon
     if (!safeEq(params.get("key") ?? "", key)) return plain("This page is out of date. Go back to the app and connect again.", 403);
     if (params.get("choice") !== "allow") return backTo(ask.redirect, { error: "access_denied", state: ask.state });
     console.log("ai connector allowed: " + (email || "(sign-in off)") + " → " + ask.client.name + " (" + redirectLabel(ask.redirect) + ")");
+    // the admin hears about every new connection, so one they didn't mean to allow doesn't go unnoticed
+    if (email) {
+      const mail = emailBody({
+        heading: "An AI app was connected",
+        intro: "You allowed an app to read the " + HOST_NAME + " admin data. If this wasn't you, disconnect it now.",
+        rows: [
+          ["App", ask.client.name],
+          ["Sign-in sent to", redirectLabel(ask.redirect)],
+        ],
+        buttons: [{ label: "See connected apps", href: base + "/admin", primary: true }],
+        note: "Connected apps are listed in the admin page's ⋯ menu → Admins, where you can disconnect them.",
+      });
+      void sendEmail({ to: [email], subject: "AI app connected: " + ask.client.name, ...mail });
+    }
     return backTo(ask.redirect, { code: issueCode(ask, email), state: ask.state, iss: base });
   }
 

@@ -2,6 +2,7 @@
 import { EMAIL_FROM, EVENT_LOCATION, EVENT_NAME, HOST_EMAILS, HOST_NAME, MEETING_LINK, RESEND_API_KEY, RESEND_URL } from "./config";
 import { ATTEND_LABEL, type Booking } from "./data";
 import { manageUrl } from "./links";
+import { pushAll } from "./push";
 import { dayShort, whenText } from "./time";
 import { EMAIL_RE } from "./util";
 
@@ -85,29 +86,53 @@ export async function sendEmail(m: Mail): Promise<boolean> {
       : []),
     ...(m.files ?? []),
   ];
-  try {
-    const r = await fetch(RESEND_URL, {
-      method: "POST",
-      headers: { Authorization: "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: EMAIL_FROM,
-        to,
-        subject: m.subject,
-        html: m.html,
-        text: m.text,
-        ...(m.replyTo?.length ? { reply_to: m.replyTo } : {}),
-        ...(attachments.length ? { attachments } : {}),
-      }),
-      signal: AbortSignal.timeout(15000),
-    });
-    if (r.ok) console.log("email sent: " + m.subject.split(":")[0] + " (" + to.length + " recipient" + (to.length === 1 ? "" : "s") + ")");
-    else console.log("email failed (" + r.status + "): " + (await r.text()).slice(0, 300));
-    return r.ok;
-  } catch (e) {
-    console.log("email failed: " + String(e));
-    return false;
+  const body = JSON.stringify({
+    from: EMAIL_FROM,
+    to,
+    subject: m.subject,
+    html: m.html,
+    text: m.text,
+    ...(m.replyTo?.length ? { reply_to: m.replyTo } : {}),
+    ...(attachments.length ? { attachments } : {}),
+  });
+  // the part before the colon: what kind of email it is, without a name or a sign-in code
+  const kind = m.subject.split(":")[0];
+  // A send that fails for a passing reason (the network, a busy or failing mail service) is tried again; one the mail
+  // service refuses (a bad address) is not.
+  for (let attempt = 0; ; attempt++) {
+    let again = true;
+    try {
+      const r = await fetch(RESEND_URL, {
+        method: "POST",
+        headers: { Authorization: "Bearer " + RESEND_API_KEY, "Content-Type": "application/json" },
+        body,
+        signal: AbortSignal.timeout(15000),
+      });
+      if (r.ok) {
+        console.log("email sent: " + kind + " (" + to.length + " recipient" + (to.length === 1 ? "" : "s") + ")");
+        return true;
+      }
+      console.log("email failed (" + r.status + "): " + (await r.text()).slice(0, 300));
+      again = r.status === 429 || r.status >= 500;
+    } catch (e) {
+      console.log("email failed: " + String(e));
+    }
+    if (!again || attempt >= RETRY_AFTER_MS.length) break;
+    await Bun.sleep(RETRY_AFTER_MS[attempt]!);
   }
+  // nobody watches the log: the owners' devices hear about an email that never went out
+  void pushAll(
+    {
+      title: "Email not sent",
+      body: "“" + kind + "” couldn't be emailed. Check the address, or tell them yourself.",
+      tag: "email-failed",
+      url: "/admin",
+    },
+    true,
+  );
+  return false;
 }
+const RETRY_AFTER_MS = [2000, 8000];
 export function emailBody(o: {
   heading: string;
   intro: string;

@@ -19,6 +19,10 @@ import { EMAIL_RE, type Fields, isDemo, normEmail } from "./util";
 
 // how many demos (not cancelled) one email can book from the booking page
 const DEMOS_PER_EMAIL = 2;
+// Demos are open to any email, so the booking page takes only this many in any 24 hours from everyone together (cancelled
+// ones count too): a script with made-up emails can't fill the calendar or send invites to strangers all day. Admins can
+// always book more.
+const PUBLIC_DEMOS_PER_DAY = 10;
 
 export function managedBooking(body: Fields): Booking | Response {
   const id = String(body?.id ?? "");
@@ -107,6 +111,13 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
       { error: `This email already has ${DEMOS_PER_EMAIL} demos booked. Each email gets ${DEMOS_PER_EMAIL} demos.`, field: "email" },
       409,
     );
+  if (
+    !source &&
+    demo &&
+    bookingsStore.data.bookings.filter((x) => !x.source && isDemo(x.round) && Date.parse(x.createdAt) > Date.now() - 86400000).length >=
+      PUBLIC_DEMOS_PER_DAY
+  )
+    return json({ error: "All of today's demo bookings are taken. Please try again tomorrow." }, 429);
   if (attendText && !attend) return json({ error: "Choose in person or remote.", field: "attend" }, 400);
   if (!DURATIONS.includes(duration) || !Number.isFinite(startMs)) return json({ error: "Bad request." }, 400);
   // one email is one person: an email already booked under someone else's name is refused (a cancelled booking
@@ -136,12 +147,12 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     if (!read.emails.length) return json({ error: INVITE_NO_HR, field: "invite" }, 400);
   }
   const endMs = startMs + duration * 60000;
-  if (
+  const taken = () =>
     !slotOk(startMs, duration) ||
     overlapsExisting(startMs, endMs) ||
-    (!source && (startMs >= bookingLimitMs() || isBlocked(startMs, endMs)))
-  )
-    return json({ error: "That time is no longer available. Pick another time.", retry: true }, 409);
+    (!source && (startMs >= bookingLimitMs() || isBlocked(startMs, endMs)));
+  const TAKEN = { error: "That time is no longer available. Pick another time.", retry: true };
+  if (taken()) return json(TAKEN, 409);
   const id = crypto.randomUUID();
   const booking: Booking = {
     id,
@@ -164,6 +175,12 @@ export async function createBooking(body: Fields, req: Request, source?: "admin"
     if (booking.invite) await invites.save(booking.invite.file, invite!.bytes);
   } catch {
     return json({ error: "Couldn't save the booking. Try again." }, 500);
+  }
+  // Saving the invite took a moment, and someone else may have booked this time meanwhile. From this check to the push
+  // below nothing waits, so two bookings can never both pass it.
+  if (taken()) {
+    if (booking.invite) await invites.remove(booking.invite.file).catch(() => {});
+    return json(TAKEN, 409);
   }
   bookingsStore.data.bookings.push(booking);
   const cleared = clearEarlierRound(booking);
