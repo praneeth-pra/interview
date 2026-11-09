@@ -7,7 +7,49 @@ type ReceiptCheck = { status: "verified" } | { status: "mismatch"; read: number[
 
 const READ_TIMEOUT_MS = 20000;
 
+// At most READERS reads run at once and the rest wait their turn: each is a process that uses a whole core, and the
+// forms are public. A read that would wait behind MAX_WAITING others isn't started; its file counts as unread.
+const READERS = 2;
+const MAX_WAITING = 20;
+let reading = 0;
+const waiting: (() => void)[] = [];
+async function turn(): Promise<boolean> {
+  if (reading < READERS) return (reading++, true);
+  if (waiting.length >= MAX_WAITING) return false;
+  await new Promise<void>((go) => waiting.push(go));
+  return true;
+}
+function done() {
+  const next = waiting.shift();
+  if (next) next();
+  else reading--;
+}
+// The readers parse files strangers upload, so when the server runs as root (the Docker image does, for the volume)
+// they run as "nobody" instead, with no access to the data folder. Checked once: if this machine can't switch user,
+// they run as the server does, as before.
+const NOBODY = ["setpriv", "--reuid=65534", "--regid=65534", "--clear-groups"];
+let lowered: Promise<string[]> | null = null;
+function asNobody(): Promise<string[]> {
+  return (lowered ??= (async () => {
+    if (process.getuid?.() !== 0 || !Bun.which("setpriv")) return [];
+    try {
+      const ok = (await Bun.spawn([...NOBODY, "true"], { stdout: "ignore", stderr: "ignore" }).exited) === 0;
+      if (!ok) console.log("receipt reader: can't switch to an unprivileged user here, reading as the server's user");
+      return ok ? NOBODY : [];
+    } catch {
+      return [];
+    }
+  })());
+}
 async function run(cmd: string[], input: Uint8Array): Promise<string> {
+  if (!(await turn())) return "";
+  try {
+    return await read([...(await asNobody()), ...cmd], input);
+  } finally {
+    done();
+  }
+}
+async function read(cmd: string[], input: Uint8Array): Promise<string> {
   try {
     // one thread each: tesseract's default of a thread per core stalls for minutes when a few uploads are read at once
     const env = { ...process.env, OMP_THREAD_LIMIT: "1" };

@@ -13,6 +13,8 @@ const ACCESS_SECONDS = 3600;
 const REFRESH_DAYS = 60;
 const CODE_MS = 5 * 60000;
 const MAX_CLIENTS = 200;
+// A connection renews itself each time its app refreshes; after this long the admin signs in and allows it again.
+const GRANT_DAYS = 180;
 
 // Metadata documents (RFC 9728 and RFC 8414): where an app finds out how to sign in.
 export const resourceMetadata = (base: string) => ({
@@ -134,15 +136,15 @@ export function issueCode(ask: AuthAsk, email: string) {
 
 const b64url = (buf: Buffer) => buf.toString("base64").replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
 const tokenError = (error: string, description: string, status = 400) => json({ error, error_description: description }, status);
-async function issueTokens(email: string, client: string, grant: string) {
+async function issueTokens(email: string, client: string, grant: string, since = Date.now()) {
   const access = randomBytes(32).toString("hex");
   const refresh = randomBytes(32).toString("hex");
   const now = Date.now();
   const s = oauthStore.data;
   s.tokens = s.tokens.filter((t) => t.exp > now);
   s.tokens.push(
-    { id: sha256(access), kind: "access", email, client, grant, exp: now + ACCESS_SECONDS * 1000 },
-    { id: sha256(refresh), kind: "refresh", email, client, grant, exp: now + REFRESH_DAYS * DAY_MS },
+    { id: sha256(access), kind: "access", email, client, grant, exp: now + ACCESS_SECONDS * 1000, since },
+    { id: sha256(refresh), kind: "refresh", email, client, grant, exp: now + REFRESH_DAYS * DAY_MS, since },
   );
   try {
     await saveStore(oauthStore);
@@ -174,11 +176,14 @@ export async function tokenRequest(p: URLSearchParams, loginOn: boolean): Promis
     if (!t || t.exp < Date.now() || t.client !== clientId) return tokenError("invalid_grant", "Sign in again.");
     // the old pair stops working, whatever happens next
     s.tokens = s.tokens.filter((x) => x.grant !== t.grant);
-    if (loginOn && !isAdmin(t.email)) {
+    // a connection from before its start was recorded counts from its first refresh after
+    const since = t.since ?? Date.now();
+    const ended = Date.now() - since > GRANT_DAYS * DAY_MS;
+    if (ended || (loginOn && !isAdmin(t.email))) {
       await saveStore(oauthStore).catch(() => {});
-      return tokenError("invalid_grant", "This email isn't on the admin list any more.");
+      return tokenError("invalid_grant", ended ? "Sign in again." : "This email isn't on the admin list any more.");
     }
-    return issueTokens(t.email, t.client, t.grant);
+    return issueTokens(t.email, t.client, t.grant, since);
   }
   return tokenError("unsupported_grant_type", "Use authorization_code or refresh_token.");
 }
@@ -202,4 +207,35 @@ export function bearerOf(req: Request, loginOn: boolean): OAuthToken | null {
   if (loginOn && !isAdmin(t.email)) return null;
   if (!oauthStore.data.clients.some((c) => c.id === t.client)) return null;
   return t;
+}
+
+// The AI apps connected now (Admins panel): one row per connection. An admin sees their own; owners see everyone's.
+export function connections(email: string, owner: boolean) {
+  const now = Date.now();
+  const s = oauthStore.data;
+  return s.tokens
+    .filter((t) => t.kind === "refresh" && t.exp > now && (owner || t.email === email))
+    .map((t) => ({
+      id: t.grant,
+      app: s.clients.find((c) => c.id === t.client)?.name ?? "An AI app",
+      email: t.email,
+      since: t.since ? new Date(t.since).toISOString() : "",
+      mine: t.email === email,
+    }))
+    .sort((a, b) => b.since.localeCompare(a.since));
+}
+// POST /admin/api/connections/delete { id }: ends one connection, both its tokens, at once.
+export async function disconnect(grant: string, email: string, owner: boolean): Promise<Response> {
+  const s = oauthStore.data;
+  const before = s.tokens;
+  const theirs = before.filter((t) => t.grant === grant && (owner || t.email === email));
+  if (!grant || !theirs.length) return json({ error: "That app was already disconnected." }, 404);
+  s.tokens = before.filter((t) => !theirs.includes(t));
+  try {
+    await saveStore(oauthStore);
+  } catch {
+    s.tokens = before;
+    return json({ error: "Couldn't save the change. Try again." }, 500);
+  }
+  return json({ connections: connections(email, owner) });
 }

@@ -19,7 +19,6 @@ import {
   onboardingStore,
   paymentsStore,
   pushStore,
-  resultsStore,
   secretStore,
 } from "./data";
 import { emailBody, sendEmail } from "./email";
@@ -42,7 +41,6 @@ const STORES: Record<string, FileStore<any>> = {
   "payments.json": paymentsStore,
   "expenses.json": expensesStore,
   "onboarding.json": onboardingStore,
-  "results.json": resultsStore,
   "unavailable.json": blocksStore,
   "secret.json": secretStore,
 };
@@ -67,7 +65,10 @@ export function backupData(withPush: boolean) {
 }
 // The backup with every resume and receipt (base64), split into parts of at most max bytes of files, newest files first.
 // Part 1 has the data and the first files; the other parts have only files. Restoring takes all the parts together.
-export async function backupParts(max = Infinity) {
+// forEmail: the weekly email's copy leaves out what shouldn't sit in an inbox: the Aadhaar and PAN cards, and secret.json
+// (the key that signs candidates' manage links). The owner's own download (⋯ menu → Backup) carries everything.
+const EMAIL_LEAVES_OUT = ["secret.json"];
+export async function backupParts(max = Infinity, forEmail = false) {
   const wanted = [
     ...enquiriesStore.data.enquiries.map((v) => ({
       at: v.createdAt,
@@ -79,7 +80,7 @@ export async function backupParts(max = Infinity) {
       path: "receipts/" + v.receipt.file,
       read: () => receipts.read(v.receipt.file),
     })),
-    ...onboardingStore.data.forms.flatMap((v) =>
+    ...(forEmail ? [] : onboardingStore.data.forms).flatMap((v) =>
       [v.aadhaar, v.pan].map((c) => ({ at: v.createdAt, path: "id-cards/" + c.file, read: () => idCards.read(c.file) })),
     ),
     ...bookingsStore.data.bookings.flatMap((b) =>
@@ -104,6 +105,7 @@ export async function backupParts(max = Infinity) {
     chunks.at(-1)![w.path] = Buffer.from(bytes).toString("base64");
   }
   const data = backupData(false);
+  if (forEmail) for (const name of EMAIL_LEAVES_OUT) delete (data.files as Record<string, unknown>)[name];
   const parts = chunks.map((uploads, i) => ({
     ...(i ? { app: data.app, version: data.version, createdAt: data.createdAt } : data),
     part: i + 1,
@@ -126,7 +128,7 @@ async function saveSnapshot(day: string) {
 async function emailBackup(day: string) {
   const all = bookingsStore.data.bookings;
   const upcoming = all.filter((b) => !b.cancelled && Date.parse(b.start) > Date.now()).length;
-  const { parts, count } = await backupParts(EMAIL_FILES_MAX);
+  const { parts, count } = await backupParts(EMAIL_FILES_MAX, true);
   const n = parts.length;
   const name = (i: number) => "backup-" + day + (n > 1 ? "-part" + (i + 1) : "") + ".json";
   const subject = "Backup: " + HOST_NAME + " bookings \u2013 " + day;
@@ -156,7 +158,7 @@ async function emailBackup(day: string) {
       (n > 1 ? "The backup-…-part files together are" : "backup.json is") +
       " the full data, with the resumes and receipts, for restoring: choose " +
       (n > 1 ? "all of them" : "it") +
-      " at once. It contains candidate details: don't forward it.",
+      " at once. It contains candidate details: don't forward it. Aadhaar and PAN cards are not in this email; to keep a copy of those, download the full backup from the admin page (⋯ menu → Backup).",
   });
   const sent = await sendEmail({
     to: BACKUP_RECIPIENTS,
@@ -225,11 +227,13 @@ export async function restoreData(b: Fields): Promise<Response> {
   const names = Object.keys(STORES).filter((name) => name in files);
   if (!names.includes("bookings.json")) return json({ error: "That backup has no bookings in it." }, 400);
   try {
+    // every file is read before any is replaced, so a backup with a broken file changes nothing
+    const next = new Map(names.map((name) => [name, STORES[name]!.norm(asFields(files[name]))]));
     for (const name of names) {
       const s = STORES[name]!;
       const path = DATA_DIR + "/" + name;
       if (DATA_DIR && (await Bun.file(path).exists())) await copyFile(path, path + ".pre-restore");
-      s.data = s.norm(asFields(files[name]));
+      s.data = next.get(name);
       // a store whose file didn't read is written too: the backup is what the owner asked for
       s.ok = true;
       await saveStore(s);

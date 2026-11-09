@@ -3,7 +3,7 @@ import { el, setMessage, toast } from "./dom";
 import { request } from "./api";
 import { boot } from "./state";
 import { openPanel, panel } from "./panel";
-import type { AdminsView } from "./types";
+import type { AdminsView, Connection, ConnectionsView } from "./types";
 
 // Who can sign in. Owners come from the server's ADMIN_EMAILS and can't be removed here; everyone else can be added or
 // removed, and removing someone signs them out on all their devices.
@@ -117,6 +117,7 @@ export function showAdmins() {
     body.appendChild(el("div", { class: "admadd" }, [input, addButton]));
   }
   body.appendChild(msg);
+  body.appendChild(connectedApps());
   request<AdminsView>("/admin/api/admins")
     .then(function (result) {
       view = result;
@@ -126,4 +127,54 @@ export function showAdmins() {
       me.textContent = "";
       setMessage(msg, error.message, true);
     });
+}
+
+// AI apps (Claude, Cursor...) that an admin allowed to read the admin data through the connector, each with a
+// Disconnect button that ends its access at once. Owners see everyone's; the list stays out of the way when it's empty.
+function connectedApps() {
+  const box = el("div", { class: "admapps" });
+  const rows = el("div", { class: "admlist" });
+  const note = el("p", { class: "msg", role: "status" });
+  const since = function (iso: string) {
+    return iso ? "since " + new Date(iso).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }) : "";
+  };
+  function draw(list: Connection[]) {
+    box.textContent = "";
+    rows.textContent = "";
+    if (!list.length) return;
+    list.forEach(function (c) {
+      const detail = [c.mine ? "" : c.email, since(c.since)].filter(Boolean).join(" · ");
+      rows.appendChild(
+        el("div", { class: "admrow" }, [
+          el("span", { class: "admail", text: c.app + (detail ? " · " + detail : "") }),
+          el("button", {
+            type: "button",
+            class: "rm",
+            text: "Disconnect",
+            "aria-label": "Disconnect " + c.app,
+            onclick: function () {
+              if (!confirm("Disconnect " + c.app + "? It stops reading the admin data straight away.")) return;
+              request<ConnectionsView>("/admin/api/connections/delete", { id: c.id })
+                .then(function (result) {
+                  draw(result.connections);
+                  toast("App disconnected");
+                })
+                .catch(function (error) {
+                  setMessage(note, error.message, true);
+                });
+            },
+          }),
+        ]),
+      );
+    });
+    box.appendChild(el("p", { class: "sub", text: "AI apps connected to this admin. Disconnect any you don't recognise." }));
+    box.appendChild(rows);
+    box.appendChild(note);
+  }
+  request<ConnectionsView>("/admin/api/connections")
+    .then(function (result) {
+      draw(result.connections);
+    })
+    .catch(function () {});
+  return box;
 }

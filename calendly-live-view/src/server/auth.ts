@@ -57,21 +57,31 @@ export function deviceName(req: Request) {
   return app ? os + " · " + app : os;
 }
 // Emailed codes (signing in, deleting an onboarding form) live in memory for 10 minutes; five wrong tries end a code.
-// Asking for a sign-in code is limited per email (one code every 30 seconds, five an hour) and per network address,
+// Asking for a sign-in code is limited per email and network (one code every 30 seconds, five an hour), per email
+// from everywhere (30 an hour) and per network address,
 // the same whether or not the email is an admin.
 export const CODE_MINUTES = 10;
-const pendingCodes = new Map<string, { hash: string; exp: number; tries: number }>();
+// Asking for another code leaves the ones already sent working (the newest LIVE_CODES of them), so someone else asking
+// for codes with an admin's email can't cancel the one the admin is about to type.
+const LIVE_CODES = 10;
+const pendingCodes = new Map<string, { codes: { hash: string; exp: number }[]; tries: number }>();
 const codeAsks = new Map<string, number[]>();
+// every network together, per email: enough for a real admin on a few devices, and a cap on the emails a stranger can cause
+const ASKS_PER_EMAIL = 30;
 const codeHash = (key: string, code: string) => sha256(key + ":" + code);
 // A new 6-digit code for key (an email, or what it unlocks), replacing any earlier one.
 export function newCode(key: string) {
   const code = String(randomInt(0, 1000000)).padStart(6, "0");
-  pendingCodes.set(key, { hash: codeHash(key, code), exp: Date.now() + CODE_MINUTES * 60000, tries: 0 });
+  const now = Date.now();
+  const live = (pendingCodes.get(key)?.codes ?? []).filter((c) => c.exp > now);
+  live.push({ hash: codeHash(key, code), exp: now + CODE_MINUTES * 60000 });
+  pendingCodes.set(key, { codes: live.slice(-LIVE_CODES), tries: 0 });
   return code;
 }
 export function checkCode(key: string, code: string): "ok" | "wrong" | "expired" | "tries" {
   const p = pendingCodes.get(key);
-  if (!p || p.exp < Date.now()) {
+  const live = (p?.codes ?? []).filter((c) => c.exp > Date.now());
+  if (!p || !live.length) {
     pendingCodes.delete(key);
     return "expired";
   }
@@ -79,20 +89,28 @@ export function checkCode(key: string, code: string): "ok" | "wrong" | "expired"
     pendingCodes.delete(key);
     return "tries";
   }
-  if (!safeEq(codeHash(key, code), p.hash)) {
+  const hash = codeHash(key, code);
+  if (!live.some((c) => safeEq(hash, c.hash))) {
     p.tries++;
     return "wrong";
   }
   pendingCodes.delete(key);
   return "ok";
 }
-export async function sendSignInCode(email: string): Promise<"ok" | "wait" | "limit" | "failed"> {
+// The 30 seconds and five an hour are counted per email and network, so only the network that asked waits; a stranger
+// asking with an admin's email from elsewhere doesn't use up the admin's own asks.
+export async function sendSignInCode(email: string, ip = ""): Promise<"ok" | "wait" | "limit" | "failed"> {
   const now = Date.now();
-  const asks = (codeAsks.get(email) ?? []).filter((t) => t > now - 3600000);
+  if (codeAsks.size > 5000) for (const [k, v] of codeAsks) if (!v.some((t) => t > now - 3600000)) codeAsks.delete(k);
+  const recent = (key: string) => (codeAsks.get(key) ?? []).filter((t) => t > now - 3600000);
+  const asks = recent(email + "|" + ip);
+  const everyone = recent(email);
   if (asks.length && now - asks[asks.length - 1] < 30000) return "wait";
-  if (asks.length >= 5) return "limit";
+  if (asks.length >= 5 || everyone.length >= ASKS_PER_EMAIL) return "limit";
   asks.push(now);
-  codeAsks.set(email, asks);
+  everyone.push(now);
+  codeAsks.set(email + "|" + ip, asks);
+  codeAsks.set(email, everyone);
   if (!isAdmin(email)) return "ok";
   const code = newCode(email);
   if (!RESEND_API_KEY) {

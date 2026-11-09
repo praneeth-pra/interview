@@ -2,6 +2,7 @@
 // came, and keeping the files in a folder of DATA_DIR (in memory when there is no data folder).
 import { DATA_DIR } from "./config";
 import { type Srv, clientIp, json, underLimit } from "./http";
+import { pushAll } from "./push";
 import { mkdir, rm } from "node:fs/promises";
 
 export type Kind = { ext: string; type: string; at: number; magic: number[] };
@@ -60,7 +61,10 @@ export async function readForm(
   if (length > o.maxBytes + 64 * 1024) return json({ error: o.tooBig }, 413);
   if (!underLimit(o.key + ":" + clientIp(req, srv), 5, 3600000)) return json({ error: o.tooMany }, 429);
   // at most 100 saved in any 24 hours from everyone together, so a flood of fake ones can't fill the disk
-  if (o.sentToday >= 100) return json({ error: o.busy }, 429);
+  if (o.sentToday >= 100) {
+    capReached(o.key);
+    return json({ error: o.busy }, 429);
+  }
   let form: FormData;
   try {
     form = await req.formData();
@@ -73,6 +77,23 @@ export async function readForm(
       .trim()
       .slice(0, max);
   return text("website", 200) ? null : { form, text };
+}
+// A form that reached its 100 a day turns people away until tomorrow, which may be a flood of fake ones: the owners'
+// devices are told, at most once a day per form.
+const capTold = new Map<string, number>();
+export function capReached(form: string) {
+  if ((capTold.get(form) ?? 0) > Date.now() - 86400000) return;
+  capTold.set(form, Date.now());
+  console.log("daily limit reached: " + form);
+  void pushAll(
+    {
+      title: "Daily limit reached",
+      body: "The " + form + " form took 100 in a day and is turning people away until tomorrow.",
+      tag: "cap:" + form,
+      url: "/admin",
+    },
+    true,
+  );
 }
 export const lastDay = (items: { createdAt: string }[]) => items.filter((v) => Date.parse(v.createdAt) > Date.now() - 86400000).length;
 // The file's name as uploaded, without control characters, quotes or slashes, or fallback.

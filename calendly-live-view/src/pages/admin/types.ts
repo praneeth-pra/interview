@@ -59,6 +59,9 @@ export type AllowAnswer = { state: Allowlist; added?: number; existing?: number;
 export type AllowAdded = AllowAnswer & { added: number; existing: number; invalid: string[] };
 // Who can sign in (/admin/api/admins): the owners from ADMIN_EMAILS, the admins they added, and who is asking.
 export type AdminsView = { owners: string[]; emails: string[]; me: string };
+// An AI app connected through /mcp (/admin/api/connections); since is "" for one connected before it was recorded.
+export type Connection = { id: string; app: string; email: string; since: string; mine: boolean };
+export type ConnectionsView = { connections: Connection[] };
 // Browser alerts (/admin/api/push): the server's key, every device's endpoint, and this admin's own devices.
 export type PushInfo = { key: string; endpoints: string[]; yours?: string[]; devices?: number };
 // A payment as /admin/api/payments sends it (paymentView() in src/server/payments.ts); "" where not set.

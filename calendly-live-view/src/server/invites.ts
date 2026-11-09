@@ -5,7 +5,7 @@ import { ID_CARD_MAX } from "./config";
 import { type Booking, type IdCard, bookingsStore, onboardingStore } from "./data";
 import { json, storedFile } from "./http";
 import { broadcastState } from "./live";
-import { PHOTO_OR_PDF, invites, kindOf, lastDay, mb, uploadedName } from "./uploads";
+import { PHOTO_OR_PDF, capReached, invites, kindOf, lastDay, mb, uploadedName } from "./uploads";
 import { inviteContacts, inviteText } from "./invite-read";
 import { saveStore } from "./store";
 import { type Fields, isDemo, normEmail } from "./util";
@@ -19,8 +19,10 @@ export async function bookingForm(req: Request): Promise<{ fields: Fields; invit
   if (!(length > 0)) return json({ error: "Bad request." }, 411);
   if (length > ID_CARD_MAX + 64 * 1024) return json({ error: tooBig(), field: "invite" }, 413);
   // at most 100 invites saved in any 24 hours from everyone together, like the other upload forms
-  if (lastDay(bookingsStore.data.bookings.filter((b) => b.invite)) >= 100)
+  if (lastDay(bookingsStore.data.bookings.filter((b) => b.invite)) >= 100) {
+    capReached("booking");
     return json({ error: "We're getting a lot of bookings right now. Try again tomorrow." }, 429);
+  }
   let form: FormData;
   try {
     form = await req.formData();

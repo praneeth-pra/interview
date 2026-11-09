@@ -3,7 +3,7 @@ import { asset, respond } from "../../assets";
 import { cancelBooking, createBooking, managedBooking, moveBooking } from "../bookings";
 import { companySuggestions, knownName } from "../companies";
 import { DURATIONS, HOST_NAME } from "../config";
-import { bookingsStore, emailAllowed } from "../data";
+import { bookingsStore, emailAllowed, storageOk } from "../data";
 import { receiveEnquiry } from "../enquiries";
 import { bookingForm } from "../invites";
 import { receiveOnboarding } from "../onboarding";
@@ -19,7 +19,10 @@ export async function publicRoute(req: Request, url: URL, srv: Srv): Promise<Res
   // HEAD is answered like GET (respond() drops the body): link-preview fetchers check pages and pictures with it
   const method = req.method === "HEAD" ? "GET" : req.method;
 
-  if (path === "/healthz") return new Response("ok", { headers: BASE_HEADERS });
+  if (path === "/healthz")
+    return storageOk()
+      ? new Response("ok", { headers: BASE_HEADERS })
+      : new Response("storage unavailable", { status: 503, headers: BASE_HEADERS });
   if (path === "/sw.js")
     return new Response(SW_JS, {
       headers: { ...BASE_HEADERS, "Content-Type": "text/javascript; charset=utf-8", "Cache-Control": "no-cache" },

@@ -21,7 +21,7 @@ export async function authRoute(req: Request, url: URL, srv: Srv): Promise<Respo
     if (path === "/admin/login/code") {
       if (!underLimit("code:" + ip, 20, 3600000))
         return json({ error: "Too many codes asked for from this network. Try again in an hour." }, 429);
-      const r = await sendSignInCode(email);
+      const r = await sendSignInCode(email, ip);
       if (r === "wait") return json({ error: "A code was just sent. Wait 30 seconds before asking for another." }, 429);
       if (r === "limit") return json({ error: "Too many codes asked for this email. Try again in an hour." }, 429);
       if (r === "failed") return json({ error: "Couldn't send the email. Try again in a minute." }, 502);
